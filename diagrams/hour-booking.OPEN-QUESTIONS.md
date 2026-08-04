@@ -4,36 +4,56 @@ Model: [hour-booking.drawio](hour-booking.drawio). Render it and look before doi
 `node tools/drawio.mjs render diagrams/hour-booking.drawio`. It is ~7760px wide and ~2340px tall,
 so inspect it in windows with `node tools/crop.mjs <file> <x0> <x1> <out>`.
 
-**All six phases are done. The model validates clean.**
+**Phases 0–6 are done and the model validates clean. Step 7 — swimlanes / team boundaries — is
+next, and is NOT done.**
 
 `node tools/model.mjs validate diagrams/hour-booking.drawio` →
-**0 errors, 0 warnings, 43 notes**, across **19 slices / 48 elements / 55 GWTs**.
+**0 errors, 0 warnings, 44 notes**, across **19 slices / 49 elements / 55 GWTs**.
 Grammar 0, completeness 0, slices 0, GWTs 0.
+
+## Next session starts here
+
+**Step 7 — Define Swimlanes.** The skill's six phases compress Dilger's eight steps, and step 7 is
+the one genuinely skipped. It is not lane cosmetics: it is *system and team boundaries*.
+
+> *"Ideally, each Slice should be owned by a single team… What if the UI and backend are owned by
+> different teams? … An Event Model often exposes organizational challenges — this is Conway's Law
+> in action."* — Understanding EventSourcing, ch. 43
+
+This matters now because front-end team agents and skills are about to be added to the kit.
+Nothing in the model currently says which slices are UI work, which are backend, or where one is
+split across both. The scaffolding already exists — the slice cell carries `pattern=` and
+`status=`, so an `owner=` / `swimlane=` attribute is a small addition with a real check behind it:
+a slice owned by two teams should have to say so out loud rather than being discovered during
+implementation.
+
+Also queued for discussion, before any code generation:
+
+- **Figma MCP** and what is realistically doable design-wise for the UI. The screens are named
+  boxes on purpose (the method says a named box is enough), but `displays=` / `inputs=` are exactly
+  the seam a design tool or a front-end agent would attach to.
+- **Codegen is explicitly NOT started.** When it does start, the blocker named in CLAUDE.md
+  arrives: Wolverine/Marten/Alba move faster than model knowledge, and the local `llms.txt` mirror
+  is still unbuilt.
+
+Sequencing suggestion: do step 7 *before* the front-end agents arrive. Team ownership decided on a
+model that already exists is a conversation; discovered during implementation it is a rewrite.
 
 Phases 0–2 and every business rule are the domain expert's words — those cells carry
 `source="<verbatim quote>"`. **Phases 3–4 (screens, fields) were delegated to Claude**; every
 invented cell carries `proposed=`. The expert's framing: *"the entire point here is just building
 the tooling, not an actual timesheet product"* — this model is a POC and is throwaway.
 
-## Still wants the expert, before anyone implements
+## Slice status
 
-**Seven invented failure cases.** 48 of the 55 GWTs quote the expert. Seven do not, and are marked
-`proposed=` on the cell. Five are the todo-list tick-off on the three automations
-(`MonthAlreadyStarted`, `AlreadyFilled`, `AlreadyNotified`), two are not-found guards
-(`BookingNotFound` on remove-booking, `ClosureAlreadySubmitted`, `NoClosureSubmitted`). All are
-idempotence cases the model implies but nobody stated. Find them with:
+`book-hours` is **`status="ready"`** — 10 GWTs, no findings of its own, the pilot for the per-slice
+gate. Every other slice is `in-design`. One promoted rather than eleven, so `ready` still means
+something.
 
-```
-grep -o 'rule="[^"]*"[^>]*proposed=' diagrams/hour-booking.drawio
-```
-
-**Every slice is still `status="in-design"`.** Moving one to `ready` is a claim about your process,
-not about the model, so nothing was promoted automatically. `book-hours` is the obvious first
-candidate: 10 GWTs, no findings of its own, and the per-slice gate would now let it through.
-
-**The 43 notes are all deliberate**, and each is a claim worth disagreeing with rather than noise:
-17 `external-terminal` (an upstream contract nobody has read), 12 `clock-filled`, 8
-`derived-attribute`, 6 `terminal-context`.
+**The 44 notes are all deliberate**, and each is a claim worth disagreeing with rather than noise:
+`external-terminal` (genesis-seeded data), `clock-filled`, `derived-attribute`, `terminal-context`.
+A note is the tool saying *"the handler is expected to supply this"* — which is exactly the sort of
+claim a reader should be able to reject.
 
 ## Decisions taken, and why
 
@@ -91,10 +111,11 @@ the fix on the real model and not only on the fixture.
    its same-labelled twin supplied every attribute. Found by reading, not by the tool.
 2. **Union-of-sources is not per-event completeness.** `supplyFor()` unions all upstream events and
    asks only "does some source have this name". Where an attribute comes from event A but the row
-   is created by event B, you get a null at runtime and a black arrow on the canvas. **Live:**
-   `rm-my-timesheet.projectName` and `rm-admin-employee-month.employeeName` come only from
-   `EmployeeAssignedToProject`, while rows are created by `HoursBooked`. Each needs a join, or an
-   explicit statement of which event creates the row.
+   is created by event B, you get a null at runtime and a black arrow on the canvas. Both live
+   cases are now fixed — `projectName` was deleted from `MyTimesheet` (the screens read
+   `MyProjects` instead) and `employeeName` was moved onto `BookingMonthStarted`, the event that
+   creates the row. **The blind spot itself remains**: the tool still cannot tell you which event
+   creates a view's rows, so the next one will be just as invisible.
 3. **Unsourced-ness does not propagate.** A screen is checked against what its View *declares*, not
    what the View can actually supply.
 4. **Edge semantics.** `evt-employee-removed -> rm-my-projects` means *delete the row*; the other
