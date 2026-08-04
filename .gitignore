@@ -5,3 +5,11 @@ diagrams/*.png
 
 # verifier scratch
 diagrams/.verify-tmp.drawio
+
+# derived IR — regenerate with tools/model.mjs compile
+build/
+
+# .NET build output. The generated *.cs files ARE committed: their diff is how a model
+# change gets reviewed.
+generated/**/bin/
+generated/**/obj/

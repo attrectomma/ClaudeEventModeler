@@ -13,15 +13,19 @@
         <mxCell id="lane-evt" value="Event Stream" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#777777;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="40" y="400" width="1320" height="180" as="geometry" />
         </mxCell>
-        <mxCell id="ui-checkout" value="Checkout Page" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="100" y="90" width="180" height="90" as="geometry" />
-        </mxCell>
+        <object id="ui-checkout" label="Checkout Page" em="wireframe" slice="place-order">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="90" width="180" height="90" as="geometry" />
+          </mxCell>
+        </object>
         <mxCell id="ui-confirm" value="Order Confirmation" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="1060" y="90" width="180" height="90" as="geometry" />
         </mxCell>
-        <mxCell id="cmd-place-order" value="PlaceOrder" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="100" y="290" width="180" height="60" as="geometry" />
-        </mxCell>
+        <object id="cmd-place-order" label="PlaceOrder" em="command" slice="place-order" aggregate="Order" fields="orderId:Guid, customerId:Guid, totalAmount:decimal, currency:string" rejects="EmptyOrder: totalAmount &lt;= 0" examples="EmptyOrder: totalAmount=0">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="290" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
         <mxCell id="auto-payment" value="PaymentProcessor" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="420" y="290" width="180" height="60" as="geometry" />
         </mxCell>
@@ -31,9 +35,11 @@
         <mxCell id="rm-order-summary" value="OrderSummary" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="1060" y="290" width="180" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="evt-order-placed" value="OrderPlaced" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="100" y="470" width="180" height="60" as="geometry" />
-        </mxCell>
+        <object id="evt-order-placed" label="OrderPlaced" em="event" slice="place-order" aggregate="Order" fields="orderId:Guid, customerId:Guid, totalAmount:decimal, currency:string, placedAt:DateTimeOffset">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="470" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
         <mxCell id="evt-payment-captured" value="PaymentCaptured" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="420" y="470" width="180" height="60" as="geometry" />
         </mxCell>
