@@ -4,6 +4,28 @@ Event Modeling diagrams in draw.io, edited by both a human (visually, in VS Code
 (as XML). The `.drawio` file is the single source of truth — there is no database and no
 export step to keep in sync.
 
+## Enforced tech stack
+
+Generated code and any reference implementation target exactly this. Not a default to be
+argued with per slice — it is the stack.
+
+- .NET 10
+- Postgres
+- Wolverine (messaging, command handling)
+- Marten (event store, projections)
+- Alba (in-process HTTP integration testing)
+- Testcontainers (real Postgres in tests)
+- Docker
+- Aspire — optional, only after an explicit feasibility check
+
+Wolverine, Marten and Alba each need continuously updated, LLM-friendly documentation
+available locally. Their APIs move faster than model knowledge, so anything generated against
+remembered API shapes will be subtly wrong.
+
+Marten and Wolverine both publish `llms.txt` (`https://martendb.io/llms.txt`,
+`https://wolverinefx.net/llms.txt`) — a markdown index whose every entry is also served as raw
+`.md`, so the whole doc set can be mirrored locally and refreshed. Not yet built.
+
 ## How the bilateral link works
 
 Two independent paths reach the same file. Prefer the first.

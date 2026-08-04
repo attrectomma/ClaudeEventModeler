@@ -1,5 +1,11 @@
 node_modules/
 
+# Purchased books — reference material, never committed. Includes text extracted
+# from them by tools/pdf-text.mjs.
+*.pdf
+*.epub
+reference/
+
 # Rendered previews are build output — regenerate with tools/drawio.mjs render
 diagrams/*.png
 
