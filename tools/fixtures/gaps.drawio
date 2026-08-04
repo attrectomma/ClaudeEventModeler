@@ -24,6 +24,26 @@
         <mxCell id="lane-gwt" value="Given / When / Then" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#999999;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="40" y="620" width="1320" height="440" as="geometry" />
         </mxCell>
+        <object id="slice-add-item" label="add-item&#10;command · in-design" em="group" slice="add-item" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="80" y="0" width="220" height="600" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-cart-items" label="cart-items&#10;view · in-design" em="group" slice="cart-items" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="400" y="0" width="220" height="600" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-remove-item" label="remove-item&#10;command · in-design" em="group" slice="remove-item" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="720" y="0" width="220" height="600" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-clear-cart" label="clear-cart&#10;command · in-design" em="group" slice="clear-cart" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="0" width="220" height="600" as="geometry" />
+          </mxCell>
+        </object>
 
         <object id="ui-catalog" label="Catalog Page" em="screen" slice="add-item" inputs="itemId:Guid, name:string">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">

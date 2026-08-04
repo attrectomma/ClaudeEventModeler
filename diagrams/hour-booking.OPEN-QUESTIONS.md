@@ -8,7 +8,7 @@ windows with `node tools/crop.mjs <file> <x0> <x1> <out>`.
 decision — there are no open domain questions.** Phase 6 (GWTs) has not started.
 
 `node tools/model.mjs validate diagrams/hour-booking.drawio` →
-**11 errors, 11 warnings, 27 notes**, across **18 slices / 48 elements**.
+**11 errors, 11 warnings, 27 notes**, across **19 slices / 48 elements**.
 Grammar is clean: **0 violations**, all four patterns legal.
 
 Phases 0–2 are the domain expert's words — those cells carry `source="<verbatim quote>"`.
@@ -92,14 +92,19 @@ checker currently *rewards* the dishonest treatment and *punishes* the honest on
   *new* id. Same name, opposite meaning. `cmd-correct-hours`/`cmd-remove-booking` are correct:
   they take it from `inputs=` (the user picked a row). Same class as ruling B.
 
-## Fix before Phase 6
+## Fixed: the Phase 6 blocker
 
-**Duplicate labels break the GWT checker.** Two cells are labelled `MonthClosed`
-(`evt-month-closed`, `evt-month-closed-direct`). `gwtRules()` builds `byLabel` with
-last-write-wins in document order, so the first GWT written with `then="MonthClosed"` in the
-`complete-closure` slice will get a spurious `gwt-then-not-emitted`. Key by `(slice, label)`, or
-give the cells distinguishable labels. Three screens also share `Timesheet` and two share
-`AdminMonthReview` — harmless today, latent.
+**Duplicate labels no longer break the GWT checker.**  used a label -> element map,
+last write wins, so // silently resolved to whichever same-named cell sat
+later in the file. The three fields now resolve at their own scopes —  slice-only, slice-first-then-global,  global. Scoping  to the slice, which was the obvious fix,
+would have broken every honest GWT, since a given= almost always names an event from an earlier
+slice. Regression-tested against the real shape: two cells sharing a label, the duplicate later in
+the file.
+
+**Slices are now first-class.** Each has a slice cell ( +  +  +
+) drawn as a contiguous band. The columns were reordered so every slice is contiguous —
+,  and  previously had gaps in the middle of them. See
+CLAUDE.md for the vocabulary and the per-slice gate.
 
 ## What the deterministic checker cannot see — do not trust a green run alone
 

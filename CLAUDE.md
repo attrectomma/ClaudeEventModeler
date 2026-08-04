@@ -145,11 +145,73 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `mappings` | any | `targetField=sourceField`, for legitimate name mismatches |
 | `given` / `when` / `then` | `gwt` | prior events / the command / expected events. `then="error: RuleName"` for an expected rejection |
 | `rule` | `gwt` | the business rule this GWT names |
+| `pattern` | slice cell | which of the four patterns this slice is — checked against what it's made of |
+| `status` | slice cell | where the slice sits in the implementation workflow |
 
 `displays` is what makes the check two-directional. Without it a read model can be missing every
 attribute and nothing notices, because nothing states what the screen needed.
 
 Type suffix `?` means nullable. Generators read the compiled IR, never this XML.
+
+## The slice cell: a vertical slice is a thing, not a string
+
+A slice used to have no identity — it was a `slice=` string repeated across the cells that
+happened to belong to it. So membership was invisible on the canvas (drag a cell into another
+column and nothing noticed), the pattern was inferred and never declared, and there was nowhere
+to record a fact about the slice itself.
+
+A **slice cell** is that identity: one `em="group"` rectangle drawn around the slice's columns.
+
+```xml
+<object id="slice-book-hours" label="book-hours&#10;command · in-design"
+        em="group" slice="book-hours" pattern="command" status="in-design">
+  <mxCell style="fillColor=none;strokeColor=#b85450;dashed=1;..." vertex="1" parent="1">
+    <mxGeometry x="1260" y="0" width="220" height="645" as="geometry" />
+  </mxCell>
+</object>
+```
+
+Use a **plain rectangle, never a draw.io container.** A container reparents its children and makes
+their `mxGeometry` relative to the parent, which breaks every absolute-x reader — `geometryOf`,
+marker placement, `tools/crop.mjs`.
+
+`pattern` is one of `command`, `view`, `automation`, `translation` (the cheat sheet's four), plus
+`upstream` for a column that is only external events landing in our stream. It is **checked
+against what the slice actually contains** — declaring `automation` on a slice with no View is an
+error. Declared and derived disagreeing is a bug worth catching.
+
+A slice must be **one contiguous band**. If a slice's columns aren't adjacent, that's a layout bug:
+reorder the columns. A vertical slice that isn't vertical isn't a slice.
+
+Every element geometrically inside a band must declare that `slice=`, and every element declaring
+it must be drawn inside. That is what stops the drawing and the data drifting apart.
+
+### `status` turns the gate from global into per-slice
+
+`in-design` → `ready` → `in-progress` → `in-review` → `closed`.
+
+A slice cannot leave `in-design` while its own cells still carry errors, or while a State Change
+slice has no GWT. This is the book's gate applied per slice rather than to the whole model, which
+is what makes thin-slice-first delivery possible — one unresolved attribute in a far corner no
+longer blocks work that is genuinely ready.
+
+**`in-progress` is advisory, not a lock.** A `.drawio` in git provides no mutual exclusion: two
+agents on two branches can both set it, both succeed, both merge. Real exclusion comes from the one
+atomic operation git has — creating a ref. **One branch per slice.**
+
+### Labels are not unique, and nothing may assume they are
+
+One event type reachable from two slices is drawn as two cells with the same label; screens repeat
+across every slice that triggers from them. A `label -> element` map keeps only the last of each.
+The three GWT fields therefore resolve at different scopes:
+
+| Field | Scope |
+| --- | --- |
+| `when` | this slice only — it must be this slice's Command |
+| `then` | this slice first, then anywhere — the event this slice's Command emits |
+| `given` | anywhere — prior events almost always come from *earlier* slices |
+
+Scoping `given` to the slice would break every honest GWT.
 
 ## The information completeness check
 

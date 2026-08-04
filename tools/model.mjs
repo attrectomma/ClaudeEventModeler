@@ -6,10 +6,13 @@
 //   node tools/model.mjs mark     <file.drawio>              draw red markers on failures, in place
 //   node tools/model.mjs clear    <file.drawio>              remove every marker
 //
-// Two rule families:
+// Four rule families:
 //
 //   grammar      — does every connection belong to one of the four Event Modeling patterns
 //   completeness — does every attribute of every element have a source in a connected element
+//   gwt          — do the business rules name a Command and Events that actually exist
+//   slice        — is each vertical slice a real, contiguous band whose declared pattern matches
+//                  what it is made of, and is its status= honest about the findings inside it
 //
 // Completeness is RECALL ONLY. It reports every attribute with no upstream name-match. Some of
 // those are legitimately derivable (the book's totalPrice from itemPrice) and want a mappings=
@@ -100,6 +103,10 @@ function parseCells(body) {
       kind: a.em || FILL_KIND[fill] || "unknown",
       annotated: Boolean(a.em),
       slice: a.slice ?? null,
+      // Only meaningful on a slice cell: which of the four patterns this slice is, and where it
+      // sits in the implementation workflow.
+      pattern: a.pattern ?? null,
+      status: a.status ?? null,
       aggregate: a.aggregate ?? null,
       fields: parseFields(a.fields),
       // On a screen: what it shows (the book marks these green on the wireframe) and what the
@@ -148,13 +155,26 @@ function buildIr(file) {
     e.downstream = live.filter((x) => x.source === e.id).map((x) => x.target).filter((t) => byId.has(t));
   }
 
-  const sliceNames = [...new Set(elements.map((e) => e.slice).filter(Boolean))].sort();
+  // A slice cell is the slice's identity on the canvas: a labelled rectangle drawn around the
+  // slice's columns, carrying pattern= and status=. Deliberately a plain rectangle and NOT a
+  // draw.io container — a container reparents its children and makes their mxGeometry relative,
+  // which would break every absolute-x reader here and in tools/crop.mjs.
+  const sliceCells = nodes.filter((n) => n.kind === "group" && n.slice && !isMarker(n.id));
+
+  const sliceNames = [...new Set([
+    ...elements.map((e) => e.slice).filter(Boolean),
+    ...sliceCells.map((c) => c.slice),
+  ])].sort();
   const slices = sliceNames.map((sname) => {
     const members = elements.filter((e) => e.slice === sname);
     const pick = (k) => members.filter((m) => m.kind === k);
     const commands = pick("command");
+    const cells = sliceCells.filter((c) => c.slice === sname);
     return {
       name: sname,
+      cells: cells.map((c) => c.id),
+      pattern: cells.find((c) => c.pattern)?.pattern ?? null,
+      status: cells.find((c) => c.status)?.status ?? null,
       kind: commands.length ? "state-change" : pick("readmodel").length ? "state-view" : "unknown",
       aggregate: members.find((m) => m.aggregate)?.aggregate ?? null,
       screens: pick("screen").map((x) => x.id),
@@ -171,6 +191,7 @@ function buildIr(file) {
     page: name,
     lanes: lanes.map(({ id, label }) => ({ id, label })),
     slices,
+    sliceCells,
     elements,
     edges: live,
   };
@@ -422,8 +443,24 @@ function completeness(ir) {
 function gwtRules(ir) {
   const d = [];
   const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  // Labels are NOT unique and must not be treated as if they were. One event type reachable from
+  // two slices is drawn as two cells with the same label — MonthClosed via review and via the
+  // admin shortcut — and screens repeat across every slice that triggers from them. A
+  // label -> element map keeps only the last of each, so a GWT naming that label silently
+  // resolved to whichever cell happened to sit later in the file.
+  //
+  // The three GWT fields have genuinely different scopes, so each resolves differently:
+  //   when=   this slice only     — it must be this slice's Command
+  //   then=   this slice first    — the event this slice's Command emits, else anywhere
+  //   given=  anywhere            — prior events almost always come from EARLIER slices, so
+  //                                 scoping given= to the slice would break every honest GWT
   const byLabel = new Map();
-  for (const e of ir.elements) if (e.label) byLabel.set(e.label, e);
+  for (const e of ir.elements) {
+    if (!e.label) continue;
+    if (!byLabel.has(e.label)) byLabel.set(e.label, []);
+    byLabel.get(e.label).push(e);
+  }
+  const all = (label) => byLabel.get(label) ?? [];
   const names = (spec) => (spec ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const isEvent = (el) => el && (el.kind === "event" || el.kind === "external");
   const push = (severity, rule, message, at) => d.push({ family: "gwt", severity, rule, message, at });
@@ -441,7 +478,12 @@ function gwtRules(ir) {
     }
 
     for (const g of s.gwts) {
-      const cmd = g.when ? byLabel.get(g.when) : null;
+      // Prefer this slice's own Command, so a repeated label cannot resolve to a stranger.
+      // Falling back keeps the two diagnostics below honest: "not a Command" vs "other slice".
+      const cmd = !g.when ? null
+        : all(g.when).find((e) => e.kind === "command" && s.commands.includes(e.id))
+          ?? all(g.when).find((e) => e.kind === "command")
+          ?? all(g.when)[0] ?? null;
 
       if (s.commands.length) {
         if (!g.when) {
@@ -454,7 +496,9 @@ function gwtRules(ir) {
       }
 
       for (const n of names(g.given)) {
-        if (!isEvent(byLabel.get(n))) {
+        // Global on purpose: a given= names a prior fact, wherever it was produced. Where a label
+        // is shared by two cells of the same event type, either answers "did this happen".
+        if (!all(n).some(isEvent)) {
           push("error", "gwt-unknown-event", `GWT "${g.rule || g.id}" has given="${n}", which is not an Event in this model.`, g.id);
         }
       }
@@ -465,7 +509,11 @@ function gwtRules(ir) {
       }
       for (const n of thens) {
         if (/^error\b/i.test(n)) continue; // an expected rejection, not an event
-        const el = byLabel.get(n);
+        // Resolve against what this slice's Command actually emits before falling back, so a
+        // label shared with another slice cannot make a correct GWT look like a contradiction.
+        const cands = all(n);
+        const el = (cmd?.kind === "command" && cands.find((c) => cmd.downstream.includes(c.id)))
+          || cands.find(isEvent) || cands[0] || null;
         // On a State View slice the outcome is the View's contents, not an event.
         if (!s.commands.length && el?.kind === "readmodel") continue;
         if (!isEvent(el)) {
@@ -481,6 +529,128 @@ function gwtRules(ir) {
     }
   }
 
+  return d;
+}
+
+// --- slices: the vertical slice as a first-class thing ------------------------
+//
+// A slice used to have no identity here. It was a string repeated across the cells that happened
+// to belong to it, reconstructed by grouping. That made three things impossible: slice membership
+// was invisible on the canvas (drag a cell into another column and nothing noticed), the pattern
+// was inferred and never declared (so a wrong shape could not be caught), and there was nowhere
+// to hang a fact about the slice itself.
+//
+// A slice cell — em="group", slice=, pattern=, status= — is that identity.
+
+const PATTERNS = {
+  // the four from the Event Modeling cheat sheet, plus the one shape that is none of them
+  command:     { commands: 1, views: false, automations: false, events: true },
+  view:        { commands: 0, views: true,  automations: false, events: false },
+  automation:  { commands: 1, views: true,  automations: true,  events: true },
+  translation: { commands: 1, views: true,  automations: true,  events: true },
+  // external events landing in our stream, authored elsewhere. Not a pattern; still a column.
+  upstream:    { commands: 0, views: false, automations: false, events: true },
+};
+const STATUSES = ["in-design", "ready", "in-progress", "in-review", "closed"];
+
+function sliceRules(ir, priorFindings) {
+  const d = [];
+  const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  const push = (severity, rule, message, at) => d.push({ family: "slice", severity, rule, message, at });
+  const centre = (g) => (g ? { x: g.x + g.w / 2, y: g.y + g.h / 2 } : null);
+  const inside = (c, g) => {
+    const p = centre(g);
+    return p && c.geometry &&
+      p.x >= c.geometry.x && p.x <= c.geometry.x + c.geometry.w &&
+      p.y >= c.geometry.y && p.y <= c.geometry.y + c.geometry.h;
+  };
+
+  for (const s of ir.slices) {
+    if (!s.cells.length) {
+      push("error", "slice-needs-cell",
+        `slice "${s.name}" has no slice cell, so it has no identity on the canvas and can carry no pattern= or status=.`,
+        s.commands[0] ?? s.readModels[0] ?? s.events[0]);
+      continue;
+    }
+    if (s.cells.length > 1) {
+      push("error", "slice-cell-duplicated",
+        `slice "${s.name}" has ${s.cells.length} slice cells. A vertical slice is one contiguous band — exactly one cell.`,
+        s.cells[1]);
+    }
+    const cell = ir.sliceCells.find((c) => c.id === s.cells[0]);
+
+    // --- pattern: declared vs what the cells actually form
+    if (!s.pattern) {
+      push("warn", "slice-needs-pattern",
+        `slice "${s.name}" declares no pattern=. One of: ${Object.keys(PATTERNS).join(", ")}.`, cell.id);
+    } else if (!PATTERNS[s.pattern]) {
+      push("error", "slice-unknown-pattern",
+        `slice "${s.name}" declares pattern="${s.pattern}", which is not one of: ${Object.keys(PATTERNS).join(", ")}.`, cell.id);
+    } else {
+      const want = PATTERNS[s.pattern];
+      const has = {
+        commands: s.commands.length, views: s.readModels.length > 0,
+        automations: s.automations.length > 0, events: s.events.length > 0,
+      };
+      const wrong = [];
+      if (has.commands !== want.commands) wrong.push(`${has.commands} command(s), expected ${want.commands}`);
+      if (want.views && !has.views) wrong.push("no View");
+      if (!want.views && has.views) wrong.push("has a View");
+      if (want.automations && !has.automations) wrong.push("no Automation");
+      if (!want.automations && has.automations) wrong.push("has an Automation");
+      if (want.events && !has.events) wrong.push("no Event");
+      if (wrong.length) {
+        push("error", "slice-pattern-mismatch",
+          `slice "${s.name}" declares pattern="${s.pattern}" but ${wrong.join("; ")}. The declaration and the diagram disagree.`,
+          cell.id);
+      }
+    }
+
+    // --- geometry: the drawn band and the declared membership must agree
+    if (cell?.geometry) {
+      for (const e of ir.elements) {
+        if (e.kind === "gwt") continue;                      // GWTs live below the band
+        const within = inside(cell, e.geometry);
+        if (within && e.slice !== s.name) {
+          push("error", "slice-membership-mismatch",
+            `${e.label || e.id} is drawn inside slice "${s.name}" but declares slice="${e.slice ?? "(none)"}".`, e.id);
+        } else if (!within && e.slice === s.name) {
+          push("error", "slice-member-outside",
+            `${e.label || e.id} declares slice="${s.name}" but is drawn outside that slice's band.`, e.id);
+        }
+      }
+    }
+
+    // --- status: the gate, per slice rather than for the whole model
+    if (!s.status) {
+      push("warn", "slice-needs-status", `slice "${s.name}" declares no status=. One of: ${STATUSES.join(", ")}.`, cell.id);
+    } else if (!STATUSES.includes(s.status)) {
+      push("error", "slice-unknown-status",
+        `slice "${s.name}" declares status="${s.status}", which is not one of: ${STATUSES.join(", ")}.`, cell.id);
+    } else if (s.status !== "in-design") {
+      // "The implementation cannot begin until this check is passed" — but per slice, so one
+      // unresolved attribute elsewhere no longer blocks work that is genuinely ready.
+      const mine = new Set([...s.screens, ...s.commands, ...s.events, ...s.readModels, ...s.automations,
+        ...s.gwts.map((g) => g.id)]);
+      const own = priorFindings.filter((f) => f.severity === "error" && f.at && mine.has(f.at));
+      if (own.length) {
+        push("error", "slice-not-ready",
+          `slice "${s.name}" is status="${s.status}" but still has ${own.length} unresolved error(s): ${
+            [...new Set(own.map((f) => f.rule))].join(", ")}. It cannot leave in-design.`, cell.id);
+      }
+      if (!s.gwts.length && s.kind === "state-change") {
+        push("error", "slice-not-ready",
+          `slice "${s.name}" is status="${s.status}" but has no GWT, so none of its business rules can be tested.`, cell.id);
+      }
+    }
+  }
+
+  // A slice cell naming a slice no element belongs to is an empty band.
+  for (const c of ir.sliceCells) {
+    if (!ir.elements.some((e) => e.slice === c.slice)) {
+      push("warn", "slice-empty", `slice cell "${c.slice}" contains no elements.`, c.id);
+    }
+  }
   return d;
 }
 
@@ -557,7 +727,10 @@ if (cmd === "clear") {
 }
 
 const ir = buildIr(file);
-const findings = [...grammar(ir), ...completeness(ir), ...gwtRules(ir)];
+// sliceRules runs last and reads the others: a slice cannot claim to be past in-design while its
+// own cells still carry errors.
+const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir)];
+const findings = [...core, ...sliceRules(ir, core)];
 const errors = findings.filter((f) => f.severity === "error");
 
 if (cmd === "compile") {

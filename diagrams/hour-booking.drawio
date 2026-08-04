@@ -1,139 +1,114 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="Event Model" id="event-model">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="7760" pageHeight="1300" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="7440" pageHeight="1300" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="lane-ui" value="UI / Wireframes" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="40" width="7660" height="180" as="geometry" />
+          <mxGeometry x="40" y="40" width="7340" height="180" as="geometry" />
         </mxCell>
         <mxCell id="lane-cmd" value="Commands / Views / Automation" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="220" width="7660" height="180" as="geometry" />
+          <mxGeometry x="40" y="220" width="7340" height="180" as="geometry" />
         </mxCell>
         <mxCell id="lane-evt" value="Event Stream" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="460" width="7660" height="180" as="geometry" />
+          <mxGeometry x="40" y="460" width="7340" height="180" as="geometry" />
         </mxCell>
         <mxCell id="lane-gwt" value="Given / When / Then — one cell per business rule, stacked under its slice" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="820" width="7660" height="440" as="geometry" />
+          <mxGeometry x="40" y="820" width="7340" height="440" as="geometry" />
         </mxCell>
-        <object id="grp-0" label="upstream · membership" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="100" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-upstream-membership" label="upstream-membership&#10;upstream · in-design" em="group" slice="upstream-membership" pattern="upstream" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="80" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-1" label="upstream · genesis" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="420" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-my-projects" label="my-projects&#10;view · in-design" em="group" slice="my-projects" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="400" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-2" label="view · MyProjects" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="740" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-start-month" label="start-month&#10;automation · in-design" em="group" slice="start-month" pattern="automation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="720" y="0" width="540" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-3" label="view · MonthStartTodo" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-book-hours" label="book-hours&#10;command · in-design" em="group" slice="book-hours" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="1360" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-4" label="start-month · AUTOMATION" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-my-timesheet" label="my-timesheet&#10;view · in-design" em="group" slice="my-timesheet" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="1680" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-5" label="book-hours" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-correct-hours" label="correct-hours&#10;command · in-design" em="group" slice="correct-hours" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="2000" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-6" label="view · MyTimesheet" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-remove-booking" label="remove-booking&#10;command · in-design" em="group" slice="remove-booking" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="2320" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-7" label="correct-hours" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-upstream-left-project" label="upstream-left-project&#10;upstream · in-design" em="group" slice="upstream-left-project" pattern="upstream" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="2640" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-8" label="remove-booking" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-working-days" label="working-days&#10;view · in-design" em="group" slice="working-days" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="2960" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-9" label="upstream · left a project" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2980" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-design" em="group" slice="fill-zero-hours" pattern="automation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="3280" y="0" width="540" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-10" label="view · ZeroFillTodo" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="3300" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-my-month-status" label="my-month-status&#10;view · in-design" em="group" slice="my-month-status" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="3920" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-11" label="view · WorkingDays" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="3620" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-submit-closure" label="submit-closure&#10;command · in-design" em="group" slice="submit-closure" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="4240" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-12" label="fill-zero-hours · AUTOMATION" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="3940" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-admins" label="admins&#10;view · in-design" em="group" slice="admins" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="4560" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-13" label="view · MyMonthStatus" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="4260" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-notify-admins" label="notify-admins&#10;automation · in-design" em="group" slice="notify-admins" pattern="automation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="4880" y="0" width="540" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-14" label="submit-closure" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="4580" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-admin-month-review" label="admin-month-review&#10;view · in-design" em="group" slice="admin-month-review" pattern="view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="5520" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-15" label="view · Admins" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="4900" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-complete-closure" label="complete-closure&#10;command · in-design" em="group" slice="complete-closure" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="5840" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-16" label="view · NotifyTodo" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="5220" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-reject-closure" label="reject-closure&#10;command · in-design" em="group" slice="reject-closure" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="6160" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-17" label="notify-admins · AUTOMATION" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="5540" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-close-month-directly" label="close-month-directly&#10;command · in-design" em="group" slice="close-month-directly" pattern="command" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="6480" y="0" width="220" height="645" as="geometry" />
           </mxCell>
         </object>
-        <object id="grp-18" label="view · AdminEmployeeMonth" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="5860" y="4" width="180" height="26" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="grp-19" label="complete-closure" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="6180" y="4" width="180" height="26" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="grp-20" label="reject-closure" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="6500" y="4" width="180" height="26" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="grp-21" label="close-month-directly" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="6820" y="4" width="180" height="26" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="grp-22" label="view · OpenMonths" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="7140" y="4" width="180" height="26" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="grp-23" label="send-closing-reminder · AUTOMATION" em="group">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="7460" y="4" width="180" height="26" as="geometry" />
+        <object id="slice-send-closing-reminder" label="send-closing-reminder&#10;automation · in-design" em="group" slice="send-closing-reminder" pattern="automation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="6800" y="0" width="540" height="645" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-project-created" label="ProjectCreated" em="external" slice="upstream-membership" aggregate="Project" fields="projectId:Guid, projectName:string" source="&quot;their origin belongs on another model&quot;">
@@ -146,58 +121,38 @@
             <mxGeometry x="100" y="570" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="evt-employee-removed" label="EmployeeRemovedFromProject" em="external" slice="upstream-membership" aggregate="Membership" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly, removedAt:DateTimeOffset" source="&quot;their origin belongs on another model&quot;">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2980" y="520" width="180" height="60" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="evt-admin-seeded" label="AdminSeeded" em="external" slice="admins" aggregate="Admin" fields="adminId:Guid, adminName:string, seededAt:DateTimeOffset" source="&quot;Admins: seed with a genesis event AdminSeeded&quot;" note="genesis/seed event. em=external because it is authored at deployment, outside any slice of this model, and is therefore terminal.">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="420" y="500" width="180" height="60" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="evt-working-day-published" label="WorkingDayPublished" em="external" slice="working-days" aggregate="Calendar" fields="date:DateOnly, month:string" source="&quot;We could integrate with e.g.: google calendar. We fill only for working days.&quot;" note="one event per working day, from the Hungarian Google calendar — carries public holidays and working Saturdays.">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="420" y="570" width="180" height="60" as="geometry" />
-          </mxCell>
-        </object>
-        <object id="rm-admins" label="Admins" em="readmodel" slice="admins" fields="adminId:Guid, adminName:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the recipient list. &quot;All admins can see everything&quot; is authorization — a GWT, not a data-supply edge.">
+        <object id="rm-my-projects" label="MyProjects" em="readmodel" slice="my-projects" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="4900" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <mxCell id="e-evt-admin-seeded--rm-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-admin-seeded" target="rm-admins">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="402" /><mxPoint x="4990" y="402" /></Array></mxGeometry>
+        <mxCell id="e-evt-employee-assigned--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-my-projects">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="405" /><mxPoint x="510" y="405" /></Array></mxGeometry>
         </mxCell>
-        <object id="rm-working-days" label="WorkingDays" em="readmodel" slice="working-days" fields="date:DateOnly, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="3620" y="280" width="180" height="60" as="geometry" />
-          </mxCell>
-        </object>
-        <mxCell id="e-evt-working-day-published--rm-working-days" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-working-day-published" target="rm-working-days">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="403" /><mxPoint x="3710" y="403" /></Array></mxGeometry>
+        <mxCell id="e-evt-project-created--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-project-created" target="rm-my-projects">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="405" /><mxPoint x="510" y="405" /></Array></mxGeometry>
         </mxCell>
         <object id="rm-month-start-todo" label="MonthStartTodo" em="readmodel" slice="start-month" fields="employeeId:Guid, employeeName:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: project members whose next booking month has not been started yet.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-evt-employee-assigned--rm-month-start-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-month-start-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="404" /><mxPoint x="1150" y="404" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="404" /><mxPoint x="830" y="404" /></Array></mxGeometry>
         </mxCell>
         <object id="auto-start-month" label="MonthStarter" em="automation" slice="start-month" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="250" width="180" height="60" as="geometry" />
+            <mxGeometry x="1060" y="250" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-start-booking-month" label="StartBookingMonth" em="command" slice="start-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="320" width="180" height="60" as="geometry" />
+            <mxGeometry x="1060" y="320" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-booking-month-started" label="BookingMonthStarted" em="event" slice="start-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string, startedAt:DateTimeOffset" source="&quot;an automation that starts each new month for each employee with a BookingMonthStarted event&quot;" note="gives the month its own event. Without it, month had to be derived from a booking date, so an employee who booked nothing had no month at all — could not be reminded and could not submit a closure.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="1060" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-month-start-todo--auto-start-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-month-start-todo" target="auto-start-month">
@@ -210,42 +165,28 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-evt-booking-month-started--rm-month-start-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-month-start-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="655" /><mxPoint x="1150" y="655" /></Array></mxGeometry>
-        </mxCell>
-        <object id="rm-my-projects" label="MyProjects" em="readmodel" slice="my-projects" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="740" y="280" width="180" height="60" as="geometry" />
-          </mxCell>
-        </object>
-        <mxCell id="e-evt-employee-assigned--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-my-projects">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="405" /><mxPoint x="830" y="405" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-project-created--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-project-created" target="rm-my-projects">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="405" /><mxPoint x="830" y="405" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-employee-removed--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-removed" target="rm-my-projects">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3070" y="762" /><mxPoint x="830" y="762" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1150" y="655" /><mxPoint x="830" y="655" /></Array></mxGeometry>
         </mxCell>
         <object id="ui-timesheet-book" label="Timesheet" em="screen" slice="book-hours" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="date, projectId, hours, note" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="1380" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-book-hours" label="BookHours" em="command" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="1380" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-hours-booked" label="HoursBooked" em="event" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, bookedAt:DateTimeOffset" source="&quot;the first time you book hours for a day is HoursBooked&quot;" note="ANY date in the open month — future (&quot;employees may prefill&quot;) and past (&quot;book all days of the week on Friday&quot;). Whole or half hours, never 0.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="1380" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-my-projects--ui-timesheet-book" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-projects" target="ui-timesheet-book">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="195" /><mxPoint x="1660" y="195" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="195" /><mxPoint x="1340" y="195" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-timesheet--ui-timesheet-book" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-timesheet" target="ui-timesheet-book">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1980" y="295" /><mxPoint x="1980" y="195" /><mxPoint x="1900" y="195" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1660" y="295" /><mxPoint x="1660" y="210" /><mxPoint x="1580" y="210" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-timesheet-book--cmd-book-hours" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-timesheet-book" target="cmd-book-hours">
           <mxGeometry relative="1" as="geometry" />
@@ -255,22 +196,22 @@
         </mxCell>
         <object id="rm-my-timesheet" label="MyTimesheet" em="readmodel" slice="my-timesheet" fields="employeeId:Guid, month:string, monthStatus:string, bookingId:Guid, projectId:Guid, projectName:string, date:DateOnly, hours:decimal, note:string?, dayTotal:decimal" mappings="dayTotal=hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="1700" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ui-timesheet-correct" label="Timesheet" em="screen" slice="correct-hours" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="bookingId, hours, note" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="2020" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-correct-hours" label="CorrectHours" em="command" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="2020" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-hours-corrected" label="HoursCorrected" em="event" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?, correctedAt:DateTimeOffset" source="&quot;This should be a HoursCorrected event carrying the 8 hours, not the 2 difference&quot;" note="carries the ABSOLUTE value, not a delta. Truth for a day+project = last HoursCorrected, else HoursBooked.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="2020" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-my-timesheet--ui-timesheet-correct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-timesheet" target="ui-timesheet-correct">
@@ -284,21 +225,21 @@
         </mxCell>
         <object id="ui-timesheet-remove" label="Timesheet" em="screen" slice="remove-booking" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="bookingId" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="2340" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-remove-booking" label="RemoveBooking" em="command" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="2340" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-booking-removed" label="BookingRemoved" em="event" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, removedAt:DateTimeOffset" source="&quot;changed or removed ... by the employees&quot;" note="distinct from HoursCorrected: you cannot correct to 0, so removal is the only way to take a line back.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="2340" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-my-timesheet--ui-timesheet-remove" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-timesheet" target="ui-timesheet-remove">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2270" y="210" /><mxPoint x="2620" y="210" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1950" y="210" /><mxPoint x="2300" y="210" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-timesheet-remove--cmd-remove-booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-timesheet-remove" target="cmd-remove-booking">
           <mxGeometry relative="1" as="geometry" />
@@ -306,34 +247,55 @@
         <mxCell id="e-cmd-remove-booking--evt-booking-removed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-remove-booking" target="evt-booking-removed">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <object id="rm-zero-fill-todo" label="ZeroFillTodo" em="readmodel" slice="fill-zero-hours" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, project, remaining day) still to be zero-filled. hours is always 0.">
+        <object id="evt-employee-removed" label="EmployeeRemovedFromProject" em="external" slice="upstream-left-project" aggregate="Membership" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly, removedAt:DateTimeOffset" source="&quot;their origin belongs on another model&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="520" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-employee-removed--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-removed" target="rm-my-projects">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="762" /><mxPoint x="510" y="762" /></Array></mxGeometry>
+        </mxCell>
+        <object id="evt-working-day-published" label="WorkingDayPublished" em="external" slice="working-days" aggregate="Calendar" fields="date:DateOnly, month:string" source="&quot;We could integrate with e.g.: google calendar. We fill only for working days.&quot;" note="one event per working day, from the Hungarian Google calendar — carries public holidays and working Saturdays.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="2980" y="520" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-working-days" label="WorkingDays" em="readmodel" slice="working-days" fields="date:DateOnly, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="2980" y="280" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-working-day-published--rm-working-days" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-working-day-published" target="rm-working-days">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="rm-zero-fill-todo" label="ZeroFillTodo" em="readmodel" slice="fill-zero-hours" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, project) still to be zero-filled to month end.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="3300" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-evt-employee-removed--rm-zero-fill-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-removed" target="rm-zero-fill-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3070" y="undefined" /><mxPoint x="3390" y="undefined" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="undefined" /><mxPoint x="3390" y="undefined" /></Array></mxGeometry>
         </mxCell>
         <object id="auto-fill-zero" label="ZeroFillProcessor" em="automation" slice="fill-zero-hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="3940" y="250" width="180" height="60" as="geometry" />
+            <mxGeometry x="3620" y="250" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-fill-zero-hours" label="FillZeroHours" em="command" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="3940" y="320" width="180" height="60" as="geometry" />
+            <mxGeometry x="3620" y="320" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-zero-hours-filled" label="ZeroHoursFilled" em="event" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, filledAt:DateTimeOffset" source="&quot;we fill out the remainder of the month with 0 hours booked per day&quot;" note="one event PER DAY. The only way a zero enters the system.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="3940" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="3620" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <mxCell id="e-rm-working-days--auto-fill-zero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-working-days" target="auto-fill-zero">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="e-rm-working-days--auto-fill-zero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-working-days" target="auto-fill-zero">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3070" y="205" /><mxPoint x="3710" y="205" /></Array></mxGeometry>
         </mxCell>
-        <mxCell id="e-rm-zero-fill-todo--auto-fill-zero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-zero-fill-todo" target="auto-fill-zero">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3390" y="205" /><mxPoint x="4030" y="205" /></Array></mxGeometry>
+        <mxCell id="e-rm-zero-fill-todo--auto-fill-zero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-zero-fill-todo" target="auto-fill-zero">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-auto-fill-zero--cmd-fill-zero-hours" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auto-fill-zero" target="cmd-fill-zero-hours">
           <mxGeometry relative="1" as="geometry" />
@@ -342,26 +304,26 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-evt-zero-hours-filled--rm-zero-fill-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-zero-fill-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4030" y="655" /><mxPoint x="3390" y="655" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3710" y="655" /><mxPoint x="3390" y="655" /></Array></mxGeometry>
         </mxCell>
         <object id="rm-my-month-status" label="MyMonthStatus" em="readmodel" slice="my-month-status" fields="employeeId:Guid, month:string, monthStatus:string, dayTotal:decimal, projectTotals:decimal, missingDays:int, rejectionComment:string?" mappings="dayTotal=hours, projectTotals=hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="4260" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="3940" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ui-month-closing" label="MonthClosing" em="screen" slice="submit-closure" displays="employeeId, month, monthStatus, dayTotal, projectTotals, missingDays, rejectionComment" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="4580" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="4260" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-submit-month-closure" label="SubmitMonthClosure" em="command" slice="submit-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="4580" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="4260" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closure-submitted" label="MonthClosureSubmitted" em="event" slice="submit-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" source="&quot;if an employee closes a month&quot;" note="a SUBMISSION, not a closure. Scope is (employee, month), never per project.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="4580" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="4260" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-my-month-status--ui-month-closing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-month-status" target="ui-month-closing">
@@ -373,31 +335,44 @@
         <mxCell id="e-cmd-submit-month-closure--evt-month-closure-submitted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-submit-month-closure" target="evt-month-closure-submitted">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <object id="rm-notify-todo" label="ClosureNotificationTodo" em="readmodel" slice="notify-admins" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per submitted closure not yet announced to the admins.">
-          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="5220" y="280" width="180" height="60" as="geometry" />
+        <object id="evt-admin-seeded" label="AdminSeeded" em="external" slice="admins" aggregate="Admin" fields="adminId:Guid, adminName:string, seededAt:DateTimeOffset" source="&quot;Admins: seed with a genesis event AdminSeeded&quot;" note="genesis/seed event. em=external because it is authored at deployment, outside any slice of this model, and is therefore terminal.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="4580" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <mxCell id="e-evt-month-closure-submitted--rm-notify-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-notify-todo">
+        <object id="rm-admins" label="Admins" em="readmodel" slice="admins" fields="adminId:Guid, adminName:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the recipient list. &quot;All admins can see everything&quot; is authorization — a GWT, not a data-supply edge.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="4580" y="280" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-admin-seeded--rm-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-admin-seeded" target="rm-admins">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="rm-notify-todo" label="ClosureNotificationTodo" em="readmodel" slice="notify-admins" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per submitted closure not yet announced to the admins.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="4900" y="280" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-month-closure-submitted--rm-notify-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-notify-todo">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4350" y="440" /><mxPoint x="4990" y="440" /></Array></mxGeometry>
         </mxCell>
         <object id="auto-notify-admins" label="AdminNotifier" em="automation" slice="notify-admins" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="5540" y="250" width="180" height="60" as="geometry" />
+            <mxGeometry x="5220" y="250" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-notify-admins" label="NotifyAdmins" em="command" slice="notify-admins" aggregate="MonthClosure" fields="employeeId:Guid, month:string, adminId:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="5540" y="320" width="180" height="60" as="geometry" />
+            <mxGeometry x="5220" y="320" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-admins-notified" label="AdminsNotified" em="event" slice="notify-admins" aggregate="MonthClosure" fields="employeeId:Guid, month:string, adminId:Guid, notifiedAt:DateTimeOffset" source="&quot;I want to record this as a fact&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="5540" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="5220" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-admins--auto-notify-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admins" target="auto-notify-admins">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4990" y="205" /><mxPoint x="5630" y="205" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4670" y="205" /><mxPoint x="5310" y="205" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-notify-todo--auto-notify-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-notify-todo" target="auto-notify-admins">
           <mxGeometry relative="1" as="geometry" />
@@ -409,26 +384,26 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-evt-admins-notified--rm-notify-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-admins-notified" target="rm-notify-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5630" y="655" /><mxPoint x="5310" y="655" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5310" y="655" /><mxPoint x="4990" y="655" /></Array></mxGeometry>
         </mxCell>
         <object id="rm-admin-employee-month" label="AdminEmployeeMonth" em="readmodel" slice="admin-month-review" fields="employeeId:Guid, employeeName:string, month:string, monthStatus:string, submittedAt:DateTimeOffset?, projectTotals:decimal, dayTotals:decimal" mappings="projectTotals=hours, dayTotals=hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the admin's queue AND detail in one view, for the POC.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="5860" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="5540" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ui-admin-complete" label="AdminMonthReview" em="screen" slice="complete-closure" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="closingNote" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="6180" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="5860" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-complete-closure" label="CompleteMonthClosure" em="command" slice="complete-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="6180" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="5860" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closed" label="MonthClosed" em="event" slice="complete-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?, closedAt:DateTimeOffset" source="&quot;Any admin can complete the closing&quot;" note="scope is (employee, month). NOT per project. Closed is closed.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="6180" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="5860" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-admin-employee-month--ui-admin-complete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admin-employee-month" target="ui-admin-complete">
@@ -442,21 +417,21 @@
         </mxCell>
         <object id="ui-admin-reject" label="AdminMonthReview" em="screen" slice="reject-closure" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="rejectionComment" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="6500" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="6180" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-reject-closure" label="RejectMonthClosure" em="command" slice="reject-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="6500" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="6180" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closure-rejected" label="MonthClosureRejected" em="event" slice="reject-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid, rejectedAt:DateTimeOffset" source="&quot;or reject it with a comment&quot;" note="employee must see on the UI that their closing attempt was rejected. Sends them back to editing.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="6500" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="6180" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-admin-employee-month--ui-admin-reject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admin-employee-month" target="ui-admin-reject">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6110" y="200" /><mxPoint x="6460" y="200" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5790" y="200" /><mxPoint x="6140" y="200" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-admin-reject--cmd-reject-closure" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-admin-reject" target="cmd-reject-closure">
           <mxGeometry relative="1" as="geometry" />
@@ -466,21 +441,21 @@
         </mxCell>
         <object id="ui-admin-direct" label="AdminEmployeeMonths" em="screen" slice="close-month-directly" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="closingNote" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="6820" y="80" width="180" height="90" as="geometry" />
+            <mxGeometry x="6500" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-close-month-directly" label="CloseMonthDirectly" em="command" slice="close-month-directly" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="6820" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="6500" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closed-direct" label="MonthClosed" em="event" slice="close-month-directly" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?, closedAt:DateTimeOffset" source="&quot;Admins shortcut this and just simply close with an optional note&quot;" note="SAME fact as the other MonthClosed cell. Two slices, one event type — the shortcut never passes through submission or notification.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="6820" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="6500" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-admin-employee-month--ui-admin-direct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admin-employee-month" target="ui-admin-direct">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6110" y="215" /><mxPoint x="6780" y="215" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5790" y="215" /><mxPoint x="6460" y="215" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-admin-direct--cmd-close-month-directly" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-admin-direct" target="cmd-close-month-directly">
           <mxGeometry relative="1" as="geometry" />
@@ -490,28 +465,28 @@
         </mxCell>
         <object id="rm-open-months" label="OpenMonths" em="readmodel" slice="send-closing-reminder" fields="employeeId:Guid, month:string, closingDate:DateOnly, lastRemindedAt:DateTimeOffset?" mappings="lastRemindedAt=sentAt" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, month) past the closing date and still not closed. lastRemindedAt is what makes 'every 3 days' implementable.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="7140" y="280" width="180" height="60" as="geometry" />
+            <mxGeometry x="6820" y="280" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <mxCell id="e-evt-month-closed--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-open-months">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="448" /><mxPoint x="7230" y="448" /></Array></mxGeometry>
-        </mxCell>
         <mxCell id="e-evt-booking-month-started--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-open-months">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="448" /><mxPoint x="7230" y="448" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1150" y="448" /><mxPoint x="6910" y="448" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closed--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-open-months">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5950" y="448" /><mxPoint x="6910" y="448" /></Array></mxGeometry>
         </mxCell>
         <object id="auto-send-reminder" label="ClosingReminder" em="automation" slice="send-closing-reminder" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="7460" y="250" width="180" height="60" as="geometry" />
+            <mxGeometry x="7140" y="250" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-send-closing-reminder" label="SendClosingReminder" em="command" slice="send-closing-reminder" aggregate="MonthClosure" fields="employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="7460" y="320" width="180" height="60" as="geometry" />
+            <mxGeometry x="7140" y="320" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-closing-reminder-sent" label="ClosingReminderSent" em="event" slice="send-closing-reminder" aggregate="MonthClosure" fields="employeeId:Guid, month:string, sentAt:DateTimeOffset" source="&quot;we send a reminder 3 days after the closing date&quot;" note="closing date = last day of each month. REPEATS every 3 days while the month stays open.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="7460" y="520" width="180" height="60" as="geometry" />
+            <mxGeometry x="7140" y="520" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-rm-open-months--auto-send-reminder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-open-months" target="auto-send-reminder">
@@ -524,100 +499,100 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-evt-closing-reminder-sent--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-closing-reminder-sent" target="rm-open-months">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="7550" y="655" /><mxPoint x="7230" y="655" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="7230" y="655" /><mxPoint x="6910" y="655" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-hours-corrected--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-corrected" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-booking-removed--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-removed" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-zero-hours-filled--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3710" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-employee-assigned--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="408" /><mxPoint x="1790" y="408" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closure-submitted--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4350" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closure-rejected--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-rejected" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closed--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5950" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closed-direct--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="672" /><mxPoint x="1790" y="672" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-booking-month-started--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-my-timesheet">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1150" y="408" /><mxPoint x="1790" y="408" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-booked--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-booked" target="rm-my-timesheet">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="e-evt-hours-corrected--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-corrected" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-booking-removed--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-removed" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-zero-hours-filled--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4030" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-employee-assigned--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="408" /><mxPoint x="2110" y="408" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-month-closure-submitted--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4670" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-month-closure-rejected--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-rejected" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-month-closed--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
-        </mxCell>
         <mxCell id="e-evt-hours-booked--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-booked" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1790" y="420" /><mxPoint x="4350" y="420" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="420" /><mxPoint x="4030" y="420" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-corrected--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-corrected" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="420" /><mxPoint x="4350" y="420" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="420" /><mxPoint x="4030" y="420" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-removed--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-removed" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="420" /><mxPoint x="4350" y="420" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="420" /><mxPoint x="4030" y="420" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-zero-hours-filled--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4030" y="420" /><mxPoint x="4350" y="420" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3710" y="420" /><mxPoint x="4030" y="420" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-submitted--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4670" y="702" /><mxPoint x="4350" y="702" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4350" y="702" /><mxPoint x="4030" y="702" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-rejected--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-rejected" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="702" /><mxPoint x="4350" y="702" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="702" /><mxPoint x="4030" y="702" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="702" /><mxPoint x="4350" y="702" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-month-closed-direct--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6910" y="672" /><mxPoint x="2110" y="672" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5950" y="702" /><mxPoint x="4030" y="702" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed-direct--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6910" y="702" /><mxPoint x="4350" y="702" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-month-closed-direct--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6910" y="732" /><mxPoint x="5950" y="732" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-month-closed-direct--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-open-months">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6910" y="448" /><mxPoint x="7230" y="448" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-booking-month-started--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="408" /><mxPoint x="2110" y="408" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="702" /><mxPoint x="4030" y="702" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-month-started--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="420" /><mxPoint x="4350" y="420" /></Array></mxGeometry>
-        </mxCell>
-        <mxCell id="e-evt-booking-month-started--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1150" y="420" /><mxPoint x="4030" y="420" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-working-day-published--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-working-day-published" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="420" /><mxPoint x="4350" y="420" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3070" y="420" /><mxPoint x="4030" y="420" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-employee-assigned--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-booked--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-booked" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1790" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-corrected--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-corrected" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-removed--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-removed" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-zero-hours-filled--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4030" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3710" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-submitted--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4670" y="434" /><mxPoint x="5950" y="434" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="4350" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-rejected--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-rejected" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="732" /><mxPoint x="5950" y="732" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="732" /><mxPoint x="5630" y="732" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6270" y="732" /><mxPoint x="5950" y="732" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5950" y="732" /><mxPoint x="5630" y="732" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closed-direct--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-admin-employee-month">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="732" /><mxPoint x="5630" y="732" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-booking-month-started--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-admin-employee-month">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1150" y="434" /><mxPoint x="5630" y="434" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closed-direct--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-open-months">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="448" /><mxPoint x="6910" y="448" /></Array></mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
