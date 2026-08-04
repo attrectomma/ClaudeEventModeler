@@ -94,17 +94,21 @@ checker currently *rewards* the dishonest treatment and *punishes* the honest on
 
 ## Fixed: the Phase 6 blocker
 
-**Duplicate labels no longer break the GWT checker.**  used a label -> element map,
-last write wins, so // silently resolved to whichever same-named cell sat
-later in the file. The three fields now resolve at their own scopes —  slice-only, slice-first-then-global,  global. Scoping  to the slice, which was the obvious fix,
-would have broken every honest GWT, since a given= almost always names an event from an earlier
-slice. Regression-tested against the real shape: two cells sharing a label, the duplicate later in
-the file.
+**Duplicate labels no longer break the GWT checker.** `gwtRules()` used a `label -> element` map,
+last write wins, so `then=` / `given=` / `when=` silently resolved to whichever same-named cell sat
+later in the file. The three fields now resolve at their own scopes — `when` slice-only, `then`
+slice-first-then-global, `given` global. Scoping `given` to the slice, which was the obvious fix,
+would have broken every honest GWT, since a `given=` almost always names an event produced by an
+*earlier* slice. Regression-tested against the real shape: two cells sharing a label, with the
+duplicate later in the file. The old checker emits the spurious `gwt-then-not-emitted`; the new
+one is clean.
 
-**Slices are now first-class.** Each has a slice cell ( +  +  +
-) drawn as a contiguous band. The columns were reordered so every slice is contiguous —
-,  and  previously had gaps in the middle of them. See
-CLAUDE.md for the vocabulary and the per-slice gate.
+**Slices are now first-class.** Each has a slice cell (`em="group"` + `slice=` + `pattern=` +
+`status=`) drawn as a contiguous band, with `pattern=` checked against what the slice actually
+contains and membership checked geometrically in both directions. The columns were reordered so
+every slice is contiguous — `fill-zero-hours`, `admins` and `working-days` each previously had
+another slice sitting in the middle of them. See CLAUDE.md for the vocabulary and the per-slice
+gate.
 
 ## What the deterministic checker cannot see — do not trust a green run alone
 
