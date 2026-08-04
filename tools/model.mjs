@@ -102,6 +102,9 @@ function parseCells(body) {
       slice: a.slice ?? null,
       aggregate: a.aggregate ?? null,
       fields: parseFields(a.fields),
+      // On a screen: what it shows (the book marks these green on the wireframe) and what the
+      // user types into it. `displays` must be sourced from a View; `inputs` is a terminal source.
+      displays: parseFields(a.displays),
       inputs: parseFields(a.inputs),
       mappings: parseMappings(a.mappings),
       gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null },
@@ -261,41 +264,67 @@ function completeness(ir) {
   const kindOf = (id) => byId.get(id)?.kind ?? "unknown";
   const labelOf = (id) => byId.get(id)?.label || id;
 
-  // Which upstream elements may legitimately supply this element's attributes.
-  const sourcesFor = (e) => {
-    if (e.kind === "readmodel") {
-      return e.upstream.filter((u) => kindOf(u) === "event" || kindOf(u) === "external");
-    }
-    if (e.kind === "event" || e.kind === "external") {
-      return e.upstream.filter((u) => kindOf(u) === "command");
-    }
-    if (e.kind === "command") {
-      // A Trigger supplies from the View it displays, plus anything typed on it (inputs=).
-      const out = [];
-      for (const t of e.upstream.filter((u) => TRIGGERS.has(kindOf(u)))) {
-        out.push(t);
-        out.push(...(byId.get(t)?.upstream ?? []).filter((u) => kindOf(u) === "readmodel"));
+  // The full chain, each link checked:
+  //   screen.displays  <- Views feeding the screen        (screen.inputs is terminal: the user)
+  //   command.fields   <- the triggering screen's displays + inputs, or an automation's todo View
+  //   event.fields     <- the Command that triggers it
+  //   readmodel.fields <- the Events feeding it
+  const supplyFor = (e) => {
+    const sources = [];
+    const supply = new Map(); // attribute name -> [source labels]
+    const offer = (src, fields) => {
+      for (const f of fields) {
+        if (!supply.has(f.name)) supply.set(f.name, []);
+        supply.get(f.name).push(src.label || src.id);
       }
-      return out;
+    };
+    const take = (id, fields) => {
+      const s = byId.get(id);
+      if (!s) return;
+      sources.push(id);
+      offer(s, fields ?? s.fields);
+    };
+
+    if (e.kind === "readmodel") {
+      for (const u of e.upstream.filter((u) => kindOf(u) === "event" || kindOf(u) === "external")) take(u);
+    } else if (e.kind === "event" || e.kind === "external") {
+      for (const u of e.upstream.filter((u) => kindOf(u) === "command")) take(u);
+    } else if (e.kind === "screen") {
+      for (const u of e.upstream.filter((u) => kindOf(u) === "readmodel")) take(u);
+    } else if (e.kind === "command") {
+      for (const t of e.upstream.filter((u) => TRIGGERS.has(kindOf(u)))) {
+        const trig = byId.get(t);
+        if (!trig) continue;
+        if (trig.kind === "screen") {
+          if (trig.displays.length) {
+            // Strict: a screen can only pass on what it shows or what is typed into it.
+            take(t, [...trig.displays, ...trig.inputs]);
+          } else {
+            // The screen has not declared its displayed data, so fall back to its Views to keep
+            // the model checkable. screen-declares-nothing warns that this hole is open.
+            take(t, trig.inputs);
+            for (const u of trig.upstream.filter((x) => kindOf(x) === "readmodel")) take(u);
+          }
+        } else if (trig.kind === "automation") {
+          // An automation types nothing: everything comes from the todo-list View it watches.
+          for (const u of trig.upstream.filter((x) => kindOf(x) === "readmodel")) take(u);
+        } else {
+          take(t, [...trig.fields, ...trig.inputs]);
+        }
+      }
     }
-    return [];
+    return { sources, supply };
   };
 
   for (const e of ir.elements) {
-    if (e.kind === "gwt" || !e.fields.length) continue;
+    if (e.kind === "gwt") continue;
+    // A screen is judged on what it displays; everything else on its own attributes.
+    const attributes = e.kind === "screen" ? e.displays : e.fields;
+    if (!attributes.length) continue;
 
-    const sources = sourcesFor(e);
-    const supply = new Map(); // attribute name -> [source labels]
-    for (const sid of sources) {
-      const s = byId.get(sid);
-      if (!s) continue;
-      for (const f of [...s.fields, ...s.inputs]) {
-        if (!supply.has(f.name)) supply.set(f.name, []);
-        supply.get(f.name).push(s.label || s.id);
-      }
-    }
+    const { sources, supply } = supplyFor(e);
 
-    for (const f of e.fields) {
+    for (const f of attributes) {
       const wanted = e.mappings[f.name] ?? f.name;
       if (supply.has(wanted)) continue;
 
@@ -307,11 +336,18 @@ function completeness(ir) {
         continue;
       }
 
+      const dead = !sources.length;
       d.push({
-        family: "completeness", severity: "error", rule: "unsourced-attribute",
-        message: sources.length
-          ? `${e.label}.${f.name} is supplied by none of its sources (${sources.map(labelOf).join(", ")}). Walk backwards: where does this data really come from?`
-          : `${e.label}.${f.name} has no incoming source at all.`,
+        family: "completeness", severity: "error",
+        rule: e.kind === "screen" ? "undisplayable-data" : "unsourced-attribute",
+        message:
+          e.kind === "screen" && dead
+            ? `${e.label} displays ${f.name} but no View feeds it. The screen cannot know this — it needs a read model.`
+            : e.kind === "screen"
+              ? `${e.label} displays ${f.name}, which none of its Views supply (${sources.map(labelOf).join(", ")}).`
+              : dead
+                ? `${e.label}.${f.name} has no incoming source at all.`
+                : `${e.label}.${f.name} is supplied by none of its sources (${sources.map(labelOf).join(", ")}). Walk backwards: where does this data really come from?`,
         at: e.id, attribute: f.name,
         // The connection to mark red: whichever source should have carried it.
         connections: sources.map((sid) => ({ from: sid, to: e.id })),
@@ -319,13 +355,28 @@ function completeness(ir) {
     }
 
     for (const [target, source] of Object.entries(e.mappings)) {
-      if (!e.fields.some((f) => f.name === target)) {
+      if (!attributes.some((f) => f.name === target)) {
         d.push({ family: "completeness", severity: "warn", rule: "mapping-unknown-target",
           message: `${e.label} maps "${target}" but has no such attribute.`, at: e.id, attribute: target });
       } else if (!supply.has(source)) {
         d.push({ family: "completeness", severity: "error", rule: "mapping-unknown-source",
           message: `${e.label}.${target} is mapped from "${source}", which no source supplies.`, at: e.id, attribute: target });
       }
+    }
+  }
+
+  // A screen that issues a command but never says what it shows is the hole this check exists to
+  // close: its read model could be missing every attribute and nothing would notice.
+  for (const e of ir.elements) {
+    if (e.kind !== "screen") continue;
+    // Only a screen that is fed a View has undeclared displayed data. A screen whose command
+    // data is entirely typed (inputs=) has no hole, so warning about it would be noise.
+    const issues = e.downstream.some((dn) => kindOf(dn) === "command");
+    const fed = e.upstream.some((u) => kindOf(u) === "readmodel");
+    if (issues && fed && !e.displays.length) {
+      d.push({ family: "completeness", severity: "warn", rule: "screen-declares-nothing",
+        message: `${e.label} triggers a command but declares no displays=. Until it does, nothing verifies that its View actually supplies what the screen shows.`,
+        at: e.id });
     }
   }
 
@@ -339,6 +390,77 @@ function completeness(ir) {
         message: `${e.id} has no em= and an unrecognised fill, so it cannot be classified.`, at: e.id });
     }
   }
+  return d;
+}
+
+// --- GWTs: do the business rules name things that actually exist? ------------
+//
+// "GIVEN a set of Events, WHEN a Command, THEN a new set of Events." A GWT naming an event that
+// isn't in the model is a rule nobody can implement or test, and it reads as correct on the
+// canvas. THEN may also be an error outcome: then="error: TooManyAddresses".
+
+function gwtRules(ir) {
+  const d = [];
+  const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  const byLabel = new Map();
+  for (const e of ir.elements) if (e.label) byLabel.set(e.label, e);
+  const names = (spec) => (spec ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const isEvent = (el) => el && (el.kind === "event" || el.kind === "external");
+  const push = (severity, rule, message, at) => d.push({ family: "gwt", severity, rule, message, at });
+
+  for (const s of ir.slices) {
+    // Required on State Change slices, where the business rules live. Optional on State View
+    // slices, where a GWT is really "GIVEN events THEN this view shows".
+    if (!s.gwts.length) {
+      if (s.kind === "state-change") {
+        push("warn", "slice-needs-gwt",
+          `slice "${s.name}" has no GWT. Business rules are invisible without one, and the book is explicit: "Don't save on GWTs."`,
+          s.commands[0]);
+      }
+      continue;
+    }
+
+    for (const g of s.gwts) {
+      const cmd = g.when ? byLabel.get(g.when) : null;
+
+      if (s.commands.length) {
+        if (!g.when) {
+          push("error", "gwt-needs-when", `GWT "${g.rule || g.label || g.id}" has no when=, so it names no Command.`, g.id);
+        } else if (!cmd || cmd.kind !== "command") {
+          push("error", "gwt-unknown-command", `GWT "${g.rule || g.id}" names when="${g.when}", which is not a Command in this model.`, g.id);
+        } else if (!s.commands.includes(cmd.id)) {
+          push("error", "gwt-command-other-slice", `GWT "${g.rule || g.id}" names when="${g.when}", which belongs to a different slice.`, g.id);
+        }
+      }
+
+      for (const n of names(g.given)) {
+        if (!isEvent(byLabel.get(n))) {
+          push("error", "gwt-unknown-event", `GWT "${g.rule || g.id}" has given="${n}", which is not an Event in this model.`, g.id);
+        }
+      }
+
+      const thens = names(g.then);
+      if (!thens.length) {
+        push("error", "gwt-needs-then", `GWT "${g.rule || g.label || g.id}" has no then=, so it asserts nothing.`, g.id);
+      }
+      for (const n of thens) {
+        if (/^error\b/i.test(n)) continue; // an expected rejection, not an event
+        const el = byLabel.get(n);
+        // On a State View slice the outcome is the View's contents, not an event.
+        if (!s.commands.length && el?.kind === "readmodel") continue;
+        if (!isEvent(el)) {
+          push("error", "gwt-unknown-event", `GWT "${g.rule || g.id}" has then="${n}", which is neither an Event in this model nor an "error: ..." outcome.`, g.id);
+          continue;
+        }
+        if (cmd && cmd.kind === "command" && !cmd.downstream.includes(el.id)) {
+          push("error", "gwt-then-not-emitted",
+            `GWT "${g.rule || g.id}" expects ${n} from ${g.when}, but ${g.when} has no connection to it. The GWT and the diagram disagree.`,
+            g.id);
+        }
+      }
+    }
+  }
+
   return d;
 }
 
@@ -415,7 +537,7 @@ if (cmd === "clear") {
 }
 
 const ir = buildIr(file);
-const findings = [...grammar(ir), ...completeness(ir)];
+const findings = [...grammar(ir), ...completeness(ir), ...gwtRules(ir)];
 const errors = findings.filter((f) => f.severity === "error");
 
 if (cmd === "compile") {

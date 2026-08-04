@@ -46,7 +46,18 @@ places:
 | --- | --- |
 | Read model attribute | an Event pointing at it |
 | Event attribute | the Command that triggers it |
-| Command attribute | the View its Trigger displays, or `inputs=` typed on that Trigger |
+| Screen's `displays` | a View feeding that screen |
+| Command attribute | the triggering screen's `displays` + `inputs` |
+
+Two rule families beyond `unsourced-attribute` deserve specific handling:
+
+- **`undisplayable-data`** — the screen shows something no View supplies. This is the richest
+  finding in the whole check, because it is where a missing read model becomes visible.
+- **`screen-declares-nothing`** (warning) — a screen is fed a View but never says what it displays,
+  so nothing verifies the View is sufficient. Always report this; it is an open hole, not noise.
+- **`gwt/*`** — a GWT naming an event or command that does not exist, or expecting an event its
+  command has no connection to. The diagram and the stated business rule disagree, and the GWT
+  reads as correct on the canvas. Say which one you think is wrong, and why.
 
 When you hit a dead end, follow the book's worked example rather than inventing a source:
 

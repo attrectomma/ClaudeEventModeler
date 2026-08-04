@@ -134,10 +134,14 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `slice` | every element | the slice it belongs to; unassigned elements generate nothing |
 | `fields` | command, event, readmodel | `name:Type` list. The book's "attributes" |
 | `aggregate` | command, event | which aggregate owns the stream |
-| `inputs` | screen | data the user types here — a source of information that is not a View |
+| `displays` | screen | data the screen shows — the elements the book marks green on the wireframe. Must be supplied by a View |
+| `inputs` | screen | data the user types here. A terminal source: information entering the system |
 | `mappings` | any | `targetField=sourceField`, for legitimate name mismatches |
-| `given` / `when` / `then` | `gwt` | event list / command / expected event list |
+| `given` / `when` / `then` | `gwt` | prior events / the command / expected events. `then="error: RuleName"` for an expected rejection |
 | `rule` | `gwt` | the business rule this GWT names |
+
+`displays` is what makes the check two-directional. Without it a read model can be missing every
+attribute and nothing notices, because nothing states what the screen needed.
 
 Type suffix `?` means nullable. Generators read the compiled IR, never this XML.
 
@@ -155,8 +159,13 @@ It applies to every element, not just read models:
 | --- | --- |
 | Read model | the Events pointing at it |
 | Event | the Command that triggers it — *"Commands generally have to provide all data necessary to persist an event"* |
-| Command | the View its Trigger displays, or `inputs=` declared on that Trigger |
+| Screen (`displays`) | a View feeding the screen. No View means the screen cannot know it |
+| Command | the triggering screen's `displays` + `inputs` |
 | Automation's command | the todo-list View the automation watches — an automation types nothing |
+
+GWTs are checked for referential integrity too: `when` must name a Command in the same slice, and
+`given`/`then` must name Events that exist. A GWT naming an event that isn't in the model is a
+rule nobody can implement, and it reads as perfectly correct on the canvas.
 
 Failures are marked **on the connection**, in red: *"If any data is missing, the connection is
 automatically highlighted in red… you can quickly confirm that all the arrows are black."* We also
@@ -208,9 +217,10 @@ Lanes start at x=40. Columns are 320 apart — x=100, 420, 740, 1060, … — wi
 events and commands 60 tall, screens 90. Keep y=350..470 clear for edge routing; long horizontal
 edges get explicit waypoints in it.
 
-GWT cells are 300 wide (they hold sentences) and 100 tall, left-aligned to their slice's column,
-stacked downward from y=620 with a 20px gap. 300 + 20 fits the 320 column pitch exactly, so a
-slice's GWTs never collide with the next slice's.
+GWT cells are 300 wide (they hold sentences) and 100 tall, left-aligned to their slice's column.
+The first row starts at **y=650**, not 620 — the band's own label occupies its top edge, and a row
+at 620 renders over it. Subsequent rows every 120px: 650, 770, 890, … 300 + 20 fits the 320 column
+pitch exactly, so a slice's GWTs never collide with the next slice's.
 
 Add a column by widening the page and every lane, rather than stacking a second row into the
 routing band. Page width = `40 + laneWidth + 60`.

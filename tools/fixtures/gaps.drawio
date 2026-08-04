@@ -1,8 +1,13 @@
-﻿<!-- TEST FIXTURE, not a domain model. The resolution of unsourced.drawio, per Fig. 12.14:
-     the itemId's real source is the earlier "Item Added" event, reached through a read model that
-     the Cart Page displays. Expected: zero errors. If this ever reports one, the checker is wrong. -->
+﻿<!-- TEST FIXTURE, not a domain model. resolved.drawio with one planted defect per newer rule.
+     Expected findings, exactly:
+       ERROR completeness/undisplayable-data   Cart Page displays discount, no View supplies it
+       ERROR gwt/gwt-needs-when                gwt-add-item names no command
+       ERROR gwt/gwt-unknown-event             gwt-remove-added-item given="NeverHappened"
+       ERROR gwt/gwt-then-not-emitted          gwt-remove-absent-item expects ItemAdded from RemoveItem
+       WARN  completeness/screen-declares-nothing   Summary Page is fed a View but declares no displays
+       INFO  completeness/clock-filled          CartCleared.clearedAt -->
 <mxfile host="Electron" agent="Claude" type="device">
-  <diagram name="Fixture - resolved" id="fixture-resolved">
+  <diagram name="Fixture - gaps" id="fixture-gaps">
     <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1420" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
@@ -15,6 +20,9 @@
         </mxCell>
         <mxCell id="lane-evt" value="Event Stream" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#777777;fontSize=13;" vertex="1" parent="1">
           <mxGeometry x="40" y="400" width="1320" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-gwt" value="Given / When / Then" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#999999;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="620" width="1320" height="440" as="geometry" />
         </mxCell>
 
         <object id="ui-catalog" label="Catalog Page" em="screen" slice="add-item" inputs="itemId:Guid, name:string">
@@ -38,7 +46,7 @@
             <mxGeometry x="420" y="290" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-cart" label="Cart Page" em="screen" slice="cart-items" displays="itemId:Guid, name:string">
+        <object id="ui-cart" label="Cart Page" em="screen" slice="cart-items" displays="itemId:Guid, discount:decimal">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="420" y="90" width="180" height="90" as="geometry" />
           </mxCell>
@@ -55,24 +63,43 @@
           </mxCell>
         </object>
 
-        <mxCell id="lane-gwt" value="Given / When / Then" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#999999;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="620" width="1320" height="440" as="geometry" />
-        </mxCell>
-        <object id="gwt-add-item" label="GIVEN nothing&#10;WHEN AddItem&#10;THEN ItemAdded" em="gwt" slice="add-item" rule="an item can be added to an empty cart" when="AddItem" then="ItemAdded">
+        <object id="ui-summary" label="Summary Page" em="screen" slice="clear-cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="90" width="180" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-clear-cart" label="ClearCart" em="command" slice="clear-cart" aggregate="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="290" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-cart-cleared" label="CartCleared" em="event" slice="clear-cart" aggregate="Cart" fields="clearedAt:DateTimeOffset">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="470" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+
+        <object id="gwt-add-item" label="WHEN ?&#10;THEN ItemAdded" em="gwt" slice="add-item" rule="an item can be added" then="ItemAdded">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=12;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="100" y="650" width="300" height="100" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-remove-added-item" label="GIVEN ItemAdded&#10;WHEN RemoveItem&#10;THEN ItemRemoved" em="gwt" slice="remove-item" rule="an item already in the cart can be removed" given="ItemAdded" when="RemoveItem" then="ItemRemoved">
+        <object id="gwt-remove-added-item" label="GIVEN NeverHappened&#10;WHEN RemoveItem&#10;THEN ItemRemoved" em="gwt" slice="remove-item" rule="an item already in the cart can be removed" given="NeverHappened" when="RemoveItem" then="ItemRemoved">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=12;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="740" y="650" width="300" height="100" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-remove-absent-item" label="GIVEN nothing&#10;WHEN RemoveItem&#10;THEN error: ItemNotInCart" em="gwt" slice="remove-item" rule="removing an item that is not in the cart is rejected" when="RemoveItem" then="error: ItemNotInCart">
+        <object id="gwt-remove-absent-item" label="WHEN RemoveItem&#10;THEN ItemAdded" em="gwt" slice="remove-item" rule="removing an absent item" when="RemoveItem" then="ItemAdded">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=12;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="740" y="770" width="300" height="100" as="geometry" />
           </mxCell>
         </object>
+        <object id="gwt-clear-cart" label="WHEN ClearCart&#10;THEN CartCleared" em="gwt" slice="clear-cart" rule="a cart can be cleared" when="ClearCart" then="CartCleared">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=12;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="650" width="300" height="100" as="geometry" />
+          </mxCell>
+        </object>
+
         <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="ui-catalog" target="cmd-add-item">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
@@ -89,6 +116,19 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="cmd-remove-item" target="evt-item-removed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-cart-items" target="ui-summary">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="640" y="135" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="ui-summary" target="cmd-clear-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="cmd-clear-cart" target="evt-cart-cleared">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>

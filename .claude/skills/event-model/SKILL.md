@@ -84,9 +84,13 @@ For each screen ask two things, which map onto the book's two highlight colours:
 - **What data is displayed?** (the book marks these green) → becomes a read model
 - **What action is in focus?** (the book marks the button blue) → becomes a command
 
-Draw screens as white cells in the UI lane, one column per step.
+Draw screens as white cells in the UI lane, one column per step. Record the displayed data as
+`displays=` and anything typed as `inputs=`.
 
-**Gate:** confirm each screen's displayed data and its action before deriving anything.
+**Gate:** every screen that triggers a command has `displays=` set. This is not bookkeeping — it is
+the only thing that lets the checker verify a read model actually supplies what the screen needs.
+Skip it and the completeness check is one-directional and will pass a read model that is missing
+every attribute.
 
 ## Phase 4 — derive data backwards
 
@@ -164,10 +168,16 @@ cell each, in the band below the slice it describes.
 Ask for the rules; do not derive them from field names. For each slice: what must be true for
 this to be allowed? what happens when it isn't? what are the limits?
 
+Set `given=`, `when=` and `then=` as well as a readable label, so the rule is machine-checkable
+rather than just prose. An expected rejection is `then="error: RuleName"` — the book's own example
+is *"GIVEN three addresses were already added, WHEN the user tries to add another address, THEN the
+system should raise an error."*
+
 Ten or more per slice is normal — *"Don't save on GWTs; they are a perfect…"* If the user gives
 you one GWT for a slice, ask for the failure cases.
 
-**Gate:** each slice has at least one GWT and its rejection cases.
+**Gate:** `validate` reports no `gwt/` findings — `when` naming a real command in the same slice,
+`given`/`then` naming real events — and each State Change slice has its rejection cases.
 
 ## Drawing mechanics
 
