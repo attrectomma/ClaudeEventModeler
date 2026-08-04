@@ -79,8 +79,14 @@ project was being set up.
 node tools/drawio.mjs check   <file>   # is this readable as plain XML, or compressed?
 node tools/drawio.mjs inflate <file>   # decompress in place, making it plain-Read-able
 node tools/drawio.mjs render  <file>   # export a PNG beside the file
+node tools/crop.mjs <file> <x0> <x1> <out>   # an x-window of a wide model, so it renders legibly
 node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to end
 ```
+
+A real model runs thousands of pixels wide, and a whole-model PNG downscaled to fit a screen is
+too mushy to spot layout defects in — which defeats the point of rendering. `crop` writes a
+throwaway window to look at. It drops edges whose other endpoint fell outside the window, so the
+output is never a valid model: look at it, then edit the source.
 
 ## Event Modeling conventions
 
