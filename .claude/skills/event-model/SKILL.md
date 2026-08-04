@@ -1,6 +1,12 @@
 ---
 name: event-model
-description: Facilitate an Event Modeling session and draw the model in draw.io while the user talks. Use when the user wants to model a system, domain, feature or use case as an event model — "let's model X", "model the ordering flow", "start an event modeling session", or when they invoke /event-model. Claude asks the questions and does all the drawing; the user supplies the domain knowledge. Follows Martin Dilger's method: brainstorm events, order them into a storyboard, sketch screens, derive data backwards, close the information completeness check, then write GWTs.
+description: >-
+  Facilitate an Event Modeling session and draw the model in draw.io while the user talks. Use
+  when the user wants to model a system, domain, feature or use case as an event model, says
+  "let's model X" or "start an event modeling session", or invokes /event-model. Claude asks the
+  questions and does all the drawing; the user supplies the domain knowledge. Follows Martin
+  Dilger's method — brainstorm events, order them into a storyboard, sketch screens, derive data
+  backwards, close the information completeness check, then write GWTs.
 ---
 
 # Event modeling session
