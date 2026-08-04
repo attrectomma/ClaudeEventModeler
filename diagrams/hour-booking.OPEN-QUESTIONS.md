@@ -1,82 +1,105 @@
 # hour-booking — where the session stopped
 
 Model: [hour-booking.drawio](hour-booking.drawio). Render it and look before doing anything:
-`node tools/drawio.mjs render diagrams/hour-booking.drawio`. It is ~6160px wide, so use
-`node tools/crop.mjs` to inspect it in windows.
+`node tools/drawio.mjs render diagrams/hour-booking.drawio`. It is ~7760px wide, so inspect it in
+windows with `node tools/crop.mjs <file> <x0> <x1> <out>`.
 
-**Phases 0–4 are done and confirmed by the domain expert. Phase 5 FAILS. Phase 6 (GWTs) has not
-started — the model contains zero `gwt` cells.**
+**Phases 0–4 are done and confirmed. Phase 5 still FAILS, but every remaining error is a tooling
+decision — there are no open domain questions.** Phase 6 (GWTs) has not started.
 
-`node tools/model.mjs validate diagrams/hour-booking.drawio` → **9 errors, 10 warnings, 21 notes**.
-Grammar is clean: 0 violations, all four patterns legal.
+`node tools/model.mjs validate diagrams/hour-booking.drawio` →
+**11 errors, 11 warnings, 27 notes**, across **18 slices / 48 elements**.
+Grammar is clean: **0 violations**, all four patterns legal.
 
-Phases 0–2 (events, storyboard) are entirely the expert's words — every such cell carries
-`source="<verbatim quote>"`. **Phases 3–4 (screens, fields) were delegated to Claude** and every
-invented cell carries `proposed="claude — invented layout/UI/fields, NOT stated by the domain
-expert"`. The expert's stated reason: this is a POC proving the kit works, and is throwaway.
-Judge `proposed=` cells harder — an invented attribute with no source may not belong at all.
+Phases 0–2 are the domain expert's words — those cells carry `source="<verbatim quote>"`.
+**Phases 3–4 (screens, fields) were delegated to Claude**; every invented cell carries
+`proposed="claude — invented layout/UI/fields, NOT stated by the domain expert"`. The expert's
+stated framing: *"the entire point here is just building the tooling, not an actual timesheet
+product"* — this model is a POC and is throwaway. Judge `proposed=` cells harder.
 
-## Blocking the gate — needs the domain expert, nobody else
+## Domain questions — all four answered, all four applied
 
-1. **Where does the set of admins come from?** The expert said *"Any admin can complete the
-   closing"*. There is no `AdminAppointed` event, no admin roster view, nothing. Three slices
-   (`complete-closure`, `reject-closure`, `close-month-directly`) and the `notify-admins`
-   automation have no implementable authorization, and "notify the admins" has no recipient list.
-2. **Who should get a closing reminder?** `rm-open-months` can only get a row from `HoursBooked`,
-   so an employee who booked *nothing* never gets reminded — precisely the person the reminder
-   exists for. Is the set "everyone assigned to a project during that month"?
-3. **Is there a working calendar?** Two dead ends need one: `rm-my-month-status.missingDays`, and
-   the day expansion behind *"fill the remainder of the month with 0 hours per day"*. Does
-   zero-fill write every calendar day, or only working days (weekends, holidays, part-time)?
-   Nothing in the model supplies working days — adding a field only moves the red arrow to a
-   system nobody asked. `missingDays` may simply be invented; it carries `proposed=`.
-4. **Does the upstream `EmployeeAssignedToProject` really carry `employeeName` and
-   `projectName`?** Both were added here because `MyProjects` and `AdminEmployeeMonth` needed
-   them — a contract reverse-engineered from our own wishes. Has anyone read the real schema?
+1. **Admins** → seeded with a genesis event. `AdminSeeded` (`em="external"`, because it is
+   authored at deployment, outside any slice) feeds an `Admins` view, which the `AdminNotifier`
+   automation reads as a second view. `NotifyAdmins`/`AdminsNotified` now carry `adminId`, so
+   "notify the admins" finally has a recipient list. *"All admins can see everything"* is
+   authorization — that belongs in a GWT, not a data-supply edge, and is Phase 6 work.
+2. **Who gets reminded** → a new `start-month` automation. `MonthStartTodo` (from
+   `EmployeeAssignedToProject`) → `MonthStarter` → `StartBookingMonth` → **`BookingMonthStarted`**.
+   This fixed three things at once, not just the reminder:
+   - `OpenMonths` rows now come from the month starting, not from booking activity, so an
+     employee who booked **nothing** is still reminded — precisely the person the reminder is for.
+   - `month` is no longer derived from a booking's `date`, so the `month=date` mapping is gone.
+     That was a real bug: an employee with zero bookings could not submit a closure at all.
+   - `monthStatus` no longer needs an *absence* to mean "Open" — Open now has an event behind it.
+     It is still a fold, but every state in the fold is now reachable from a real event.
+3. **Working calendar** → `WorkingDayPublished` (`em="external"`, one event per working day, from
+   a Hungarian Google calendar carrying public holidays and working Saturdays) feeds a
+   `WorkingDays` view. `ZeroFillProcessor` reads it as a second view, which resolves the day
+   expansion **and** breaks the circular sourcing — `FillZeroHours.date` now comes from the
+   calendar rather than from the zero-fill's own output.
+4. **Upstream contract** → the expert confirmed a real `EmployeeAssignedToProject` would likely
+   carry only `employeeId` and `projectId`, and that **simplifying freely is fine for a POC**.
+   `employeeName`/`projectName` stay, and `completeness/external-terminal` notes keep the
+   simplification visible rather than silent.
 
-## Tooling gaps found — decisions, not bugs to blind-fix
+## The only thing still blocking the gate: two tooling rulings
 
-- ~~**External events can never pass completeness.**~~ **RESOLVED.** The domain expert ruled that
-  an external event is terminal by definition — *"that's the point of external, we have no control
-  nor knowledge"*. `completeness()` now branches `external` off ahead of the event case and emits
-  `completeness/external-terminal` at severity info. This removed 9 errors. The note still fires
-  per attribute, deliberately: the field list is an integration contract, and these names are the
-  ones *our* views happen to need, which is no evidence the upstream system publishes them — see
-  open question 4.
-- ~~**`assignedAt` / `removedAt` wrongly excused as `clock-filled`.**~~ **RESOLVED** by the same
-  change, since the external branch is checked *before* the clock-filled one. They are stamped by
-  the *upstream* clock and arrive as payload; the old note invited `UtcNow` at ingest, which would
-  have silently rewritten a foreign fact.
-- **`mappings=` is a rename and is being used as a silencer.** `dayTotal=hours` is a SUM;
-  `month=date` is a type-crossing truncation. A generator reading the IR emits an assignment
-  where a fold belongs. Wants a separate `derived=` vocabulary, checkable the way GWTs are
-  (every event named must exist and must be an upstream source).
-  Consequence that is a real bug, not style: `month` reaches `cmd-submit-month-closure` via
-  `rm-my-timesheet`, so **an employee with zero bookings cannot submit a closure at all** — for
-  exactly the month the reminder is nagging them about.
-- **`monthStatus`** (3 views) is a fold over event *presence*; its "Open" value is the *absence*
-  of any closure event, so no rename can ever reach it. Needs `derived=`, not `mappings=`.
-- **`closedBy` / `rejectedBy`** (3 commands) are the authenticated principal — ambient, like the
-  clock. Wants an `actor=` terminal marker rather than name-based magic. Note `employeeId` is the
-  same kind of fact but is laundered through `displays=` on the Timesheet screens, so the checker
-  currently *rewards* the dishonest treatment and *punishes* the honest one. Decide both together.
-- **Duplicate labels break the GWT checker.** Two cells are labelled `MonthClosed`
-  (`evt-month-closed`, `evt-month-closed-direct`). `gwtRules()` builds `byLabel` with
-  last-write-wins in document order, so the first GWT written with `then="MonthClosed"` in the
-  `complete-closure` slice will get a spurious `gwt-then-not-emitted`. Fix before Phase 6: key by
-  `(slice, label)`, or give the cells distinguishable labels.
+No domain input needed. All 11 errors are here.
+
+**A. `derived=` — a fold/aggregate vocabulary distinct from `mappings=` (5 errors)**
+
+`mappings=` is a **rename**: the checker substitutes one name for another and looks it up
+(`const wanted = e.mappings[f.name] ?? f.name`). It is currently being used as a silencer for
+things that are not renames, and a generator reading the IR would emit an assignment where a
+computation belongs:
+
+| Still red | What it actually is |
+| --- | --- |
+| `MyTimesheet.monthStatus`, `MyMonthStatus.monthStatus`, `AdminEmployeeMonth.monthStatus` | a fold over which closure events occurred |
+| `MyMonthStatus.missingDays` | a count: working days minus booked days |
+| `OpenMonths.closingDate` | a calendar fact — last day of `month` |
+
+| Currently passing, but the same lie | |
+| --- | --- |
+| `MyTimesheet.dayTotal=hours`, `MyMonthStatus.dayTotal=hours`, `projectTotals=hours`, `AdminEmployeeMonth.projectTotals=hours`, `dayTotals=hours` | SUMs, not renames |
+| `OpenMonths.lastRemindedAt=sentAt` | **a genuine rename. Keep as `mappings=`.** |
+
+Proposed: `derived="monthStatus=fold(BookingMonthStarted->Open, MonthClosureSubmitted->Submitted,
+MonthClosureRejected->Open, MonthClosed->Closed)"`, checkable the way GWTs are — every event named
+must exist and must be an upstream source of that view. That is referential integrity, not a
+silencer. Cheap partial win available today: warn when a mapping crosses declared types
+(`missingDays:int <- date:DateOnly` would have fired).
+
+**B. `actor=` / generated-terminal (6 errors)**
+
+| Still red | What it actually is |
+| --- | --- |
+| `CompleteMonthClosure.closedBy`, `CloseMonthDirectly.closedBy`, `RejectMonthClosure.rejectedBy` | the authenticated principal — ambient, like the clock |
+| `FillZeroHours.bookingId` | generated per zero-fill |
+| `FillZeroHours.hours` | the constant `0` |
+| `StartBookingMonth.month` | the clock, at month rollover |
+
+Proposed: an `actor=` marker treated as terminal the way `inputs=` is, rather than a name-based
+`*By` exemption, which would misfire. **Decide `employeeId` at the same time**: it is exactly the
+same kind of ambient fact but is laundered through `displays=` on the Timesheet screens, so the
+checker currently *rewards* the dishonest treatment and *punishes* the honest one.
 
 ## Known-unsound, left standing deliberately
 
-- `cmd-book-hours.bookingId` **passes for the wrong reason.** It is sourced from the Timesheet's
+- `cmd-book-hours.bookingId` **passes for the wrong reason.** Sourced from the Timesheet's
   `displays=`, where `bookingId` means *the row I am looking at* — but booking new hours needs a
-  *new* id. Same name, opposite meaning. `cmd-correct-hours` / `cmd-remove-booking` are correct:
-  they take `bookingId` from `inputs=` (the user picked a row).
-- `FillZeroHours.bookingId` and `.hours` are red on purpose. `bookingId` is generated per
-  zero-fill; `hours` is the constant 0. Both are the same terminal class as `closedBy`.
-- `rm-open-months.closingDate` is red on purpose — it is a calendar fact derived from `month`,
-  and the previous `closingDate=date` mapping asserted "the closing date is the date of some
-  booking", which is false.
+  *new* id. Same name, opposite meaning. `cmd-correct-hours`/`cmd-remove-booking` are correct:
+  they take it from `inputs=` (the user picked a row). Same class as ruling B.
+
+## Fix before Phase 6
+
+**Duplicate labels break the GWT checker.** Two cells are labelled `MonthClosed`
+(`evt-month-closed`, `evt-month-closed-direct`). `gwtRules()` builds `byLabel` with
+last-write-wins in document order, so the first GWT written with `then="MonthClosed"` in the
+`complete-closure` slice will get a spurious `gwt-then-not-emitted`. Key by `(slice, label)`, or
+give the cells distinguishable labels. Three screens also share `Timesheet` and two share
+`AdminMonthReview` — harmless today, latent.
 
 ## What the deterministic checker cannot see — do not trust a green run alone
 
@@ -95,16 +118,18 @@ Judge `proposed=` cells harder — an invented attribute with no source may not 
 4. **Edge semantics.** `evt-employee-removed -> rm-my-projects` means *delete the row*; the other
    edges into that view mean *upsert*. The checker reads both as supply. A delete supplies nothing.
 5. **The todo-list tick-off edge is counted as supply.** That is how `ZeroFillTodo` came to be
-   sourced from its own output.
+   sourced from its own output (now fixed by giving the automation the `WorkingDays` view).
 6. **Nullability against slice context.** `submittedAt` is well-formed and correctly sourced, and
    always absent on the one slice that displays it. Now `DateTimeOffset?`.
-7. **Roles and authorization** have no representation in the grammar at all — see question 1.
+7. **Roles and authorization** have no representation in the grammar — `AdminSeeded` supplies the
+   *data*, but nothing enforces *"any admin can"*. That is Phase 6.
 
 ## Phase 6 has not started
 
-Zero `gwt` cells across 15 slices. Every rule the expert actually stated currently lives in
-`note=` / `source=` prose, where nothing can test it — whole/half hours never 0, any date in the
-*open* month, corrections carry the absolute value, "you cannot correct to 0", "closed is closed",
-rejection sends them back to editing, the reminder repeats every 3 days. Each implies a rejection
-(`then="error: ..."`) and not one exists. Against CLAUDE.md's *"Ten or more per slice is normal"*,
-an actual count of zero is the largest single distance between this model and implementable.
+Zero `gwt` cells across 18 slices. Every rule the expert stated lives in `note=`/`source=` prose,
+where nothing can test it — whole/half hours never 0, any date in the *open* month, corrections
+carry the absolute value, "you cannot correct to 0", "closed is closed", rejection sends them back
+to editing, the reminder repeats every 3 days, zero-fill covers working days only, all admins see
+everything. Each implies a rejection (`then="error: ..."`) and not one exists. Against CLAUDE.md's
+*"Ten or more per slice is normal"*, an actual count of zero is the largest single distance
+between this model and implementable.
