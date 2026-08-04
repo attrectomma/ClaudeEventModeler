@@ -7,7 +7,7 @@ node_modules/
 reference/
 
 # Rendered previews are build output — regenerate with tools/drawio.mjs render
-diagrams/*.png
+*.png
 
 # verifier scratch
 diagrams/.verify-tmp.drawio

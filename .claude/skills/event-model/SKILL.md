@@ -114,6 +114,19 @@ problem, not the model's.
 
 ## Phase 5 — close the completeness check
 
+**Delegate this one.** Run the `completeness-checker` agent on the model rather than checking your
+own drawing — you have a stake in it being right, and it doesn't. The tool it wraps
+(`node tools/model.mjs validate <file> --json`) is the authority on what has no source; the agent
+supplies the judgement and the backwards walk; you relay its findings and drive the fix with the
+user.
+
+Then mark the model yourself: `node tools/model.mjs mark <file>`, render, and look. The agent
+never writes to the diagram, so there is exactly one writer. `node tools/model.mjs clear <file>`
+strips every marker and restores the file byte-exactly, so mark freely.
+
+Do **not** delegate phases 0–3. An agent brainstorming events or naming attributes is the
+"never invent a domain fact" rule broken by proxy.
+
 This is discovery, not validation. When an attribute has no source, **walk backwards until you
 find where it really comes from.**
 

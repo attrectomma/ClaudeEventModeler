@@ -1,0 +1,79 @@
+<!-- TEST FIXTURE, not a domain model. The resolution of unsourced.drawio, per Fig. 12.14:
+     the itemId's real source is the earlier "Item Added" event, reached through a read model that
+     the Cart Page displays. Expected: zero errors. If this ever reports one, the checker is wrong. -->
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="Fixture - resolved" id="fixture-resolved">
+    <mxGraphModel dx="1420" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1420" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="lane-ui" value="UI / Wireframes" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#777777;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="1320" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-cmd" value="Commands / Views / Automation" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#777777;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="220" width="1320" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-evt" value="Event Stream" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#777777;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="400" width="1320" height="180" as="geometry" />
+        </mxCell>
+
+        <object id="ui-catalog" label="Catalog Page" em="screen" slice="add-item" inputs="itemId:Guid, name:string">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="90" width="180" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-add-item" label="AddItem" em="command" slice="add-item" aggregate="Cart" fields="itemId:Guid, name:string">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="290" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-item-added" label="ItemAdded" em="event" slice="add-item" aggregate="Cart" fields="itemId:Guid, name:string">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="470" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+
+        <object id="rm-cart-items" label="CartItems" em="readmodel" slice="cart-items" fields="itemId:Guid, name:string">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="420" y="290" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ui-cart" label="Cart Page" em="screen" slice="cart-items">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="420" y="90" width="180" height="90" as="geometry" />
+          </mxCell>
+        </object>
+
+        <object id="cmd-remove-item" label="RemoveItem" em="command" slice="remove-item" aggregate="Cart" fields="itemId:Guid">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="740" y="290" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-item-removed" label="ItemRemoved" em="event" slice="remove-item" aggregate="Cart" fields="itemId:Guid">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="740" y="470" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="ui-catalog" target="cmd-add-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="cmd-add-item" target="evt-item-added">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-item-added" target="rm-cart-items">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="rm-cart-items" target="ui-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;exitX=0.75;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-cart" target="cmd-remove-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#666666;" edge="1" parent="1" source="cmd-remove-item" target="evt-item-removed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
