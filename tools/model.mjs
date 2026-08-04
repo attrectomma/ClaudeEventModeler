@@ -80,10 +80,34 @@ const parseFields = (spec) =>
   });
 
 // "total=totalAmount, qty=quantity" -> { total: "totalAmount" }
+// A RENAME, and only a rename: the checker substitutes the name and looks it up. A sum, a fold or
+// a truncation is not a rename — see derived=.
 const parseMappings = (spec) =>
   !spec ? {} : Object.fromEntries(
     spec.split(",").map((s) => s.split("=").map((x) => x.trim())).filter((p) => p.length === 2)
   );
+
+// "dayTotal=hours, monthStatus=MonthClosed+MonthClosureSubmitted"
+//   -> { dayTotal: ["hours"], monthStatus: ["MonthClosed", "MonthClosureSubmitted"] }
+// Computed, not carried: a sum, a count, a fold over which events occurred. Same comma-separated
+// shape as mappings= so there is nothing new to learn; `+` lists the inputs. Each input must be
+// either an attribute an upstream source supplies, or the label of an upstream source itself —
+// so this records what a generator needs AND stays referentially checkable. It is not a silencer.
+const parseDerived = (spec) =>
+  !spec ? {} : Object.fromEntries(
+    spec.split(",").map((s) => s.split("=").map((x) => x.trim())).filter((p) => p.length === 2)
+      .map(([target, srcs]) => [target, srcs.split("+").map((x) => x.trim()).filter(Boolean)])
+  );
+
+// "closedBy:actor, bookingId:generated" — attributes that enter from ambient context rather than
+// from the data flow, the way a screen's inputs= and a clock-filled timestamp already do.
+// Deliberately the same "name:kind" shape as fields=, so it reuses parseFields outright.
+const TERMINAL_KINDS = new Set([
+  "actor",     // the authenticated principal — never in the request body
+  "generated", // an id the handler mints
+  "clock",     // time, at handling
+  "const",     // a literal
+]);
 
 function parseCells(body) {
   const nodes = [];
@@ -114,6 +138,8 @@ function parseCells(body) {
       displays: parseFields(a.displays),
       inputs: parseFields(a.inputs),
       mappings: parseMappings(a.mappings),
+      derived: parseDerived(a.derived),
+      terminal: parseFields(a.terminal),
       gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null },
       geometry: geometryOf(chunk),
     });
@@ -293,10 +319,12 @@ function completeness(ir) {
   const supplyFor = (e) => {
     const sources = [];
     const supply = new Map(); // attribute name -> [source labels]
+    const types = new Map();  // attribute name -> the type the source declares
     const offer = (src, fields) => {
       for (const f of fields) {
         if (!supply.has(f.name)) supply.set(f.name, []);
         supply.get(f.name).push(src.label || src.id);
+        if (!types.has(f.name)) types.set(f.name, f.type);
       }
     };
     const take = (id, fields) => {
@@ -334,7 +362,7 @@ function completeness(ir) {
         }
       }
     }
-    return { sources, supply };
+    return { sources, supply, types };
   };
 
   for (const e of ir.elements) {
@@ -343,7 +371,7 @@ function completeness(ir) {
     const attributes = e.kind === "screen" ? e.displays : e.fields;
     if (!attributes.length) continue;
 
-    const { sources, supply } = supplyFor(e);
+    const { sources, supply, types } = supplyFor(e);
 
     for (const f of attributes) {
       const wanted = e.mappings[f.name] ?? f.name;
@@ -366,6 +394,38 @@ function completeness(ir) {
         d.push({ family: "completeness", severity: "info", rule: "external-terminal",
           message: `${e.label}.${f.name} enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.`,
           at: e.id, attribute: f.name });
+        continue;
+      }
+
+      // Declared as arriving from ambient context. Reported, never silent, so a reader can see
+      // what the handler is expected to supply and disagree with it.
+      const term = e.terminal.find((t) => t.name === f.name);
+      if (term) {
+        if (!TERMINAL_KINDS.has(term.type)) {
+          d.push({ family: "completeness", severity: "error", rule: "terminal-unknown-kind",
+            message: `${e.label}.${f.name} is declared terminal="${term.type}", which is not one of: ${[...TERMINAL_KINDS].join(", ")}.`,
+            at: e.id, attribute: f.name });
+        } else {
+          d.push({ family: "completeness", severity: "info", rule: "terminal-context",
+            message: `${e.label}.${f.name} comes from ${term.type}, not from the data flow. Confirm the handler supplies it.`,
+            at: e.id, attribute: f.name });
+        }
+        continue;
+      }
+
+      // Computed from upstream rather than carried. Every named input still has to exist.
+      if (e.derived[f.name]) {
+        const srcLabels = new Set(sources.map(labelOf));
+        const unknown = e.derived[f.name].filter((src) => !supply.has(src) && !srcLabels.has(src));
+        if (unknown.length) {
+          d.push({ family: "completeness", severity: "error", rule: "derived-unknown-source",
+            message: `${e.label}.${f.name} is derived from ${unknown.join(", ")}, which no connected source supplies or names. A derivation cannot invent its inputs.`,
+            at: e.id, attribute: f.name, connections: sources.map((sid) => ({ from: sid, to: e.id })) });
+        } else {
+          d.push({ family: "completeness", severity: "info", rule: "derived-attribute",
+            message: `${e.label}.${f.name} is computed from ${e.derived[f.name].join(" + ")}, not carried.`,
+            at: e.id, attribute: f.name });
+        }
         continue;
       }
 
@@ -402,6 +462,30 @@ function completeness(ir) {
       } else if (!supply.has(source)) {
         d.push({ family: "completeness", severity: "error", rule: "mapping-unknown-source",
           message: `${e.label}.${target} is mapped from "${source}", which no source supplies.`, at: e.id, attribute: target });
+      } else {
+        // A rename cannot change the type. int <- DateOnly is a count; string <- DateOnly is a
+        // truncation. Both are computations wearing a rename's clothes, and a generator reading
+        // the IR would emit an assignment where a fold belongs.
+        const want = attributes.find((f) => f.name === target)?.type;
+        const got = types.get(source);
+        if (want && got && want !== got) {
+          d.push({ family: "completeness", severity: "warn", rule: "mapping-crosses-types",
+            message: `${e.label}.${target}:${want} is mapped from "${source}":${got}. A mapping is a rename and cannot change the type — this looks like a computation, so it belongs in derived=.`,
+            at: e.id, attribute: target });
+        }
+      }
+    }
+
+    for (const t of e.terminal) {
+      if (!attributes.some((f) => f.name === t.name)) {
+        d.push({ family: "completeness", severity: "warn", rule: "terminal-unknown-target",
+          message: `${e.label} declares terminal="${t.name}" but has no such attribute.`, at: e.id, attribute: t.name });
+      }
+    }
+    for (const target of Object.keys(e.derived)) {
+      if (!attributes.some((f) => f.name === target)) {
+        d.push({ family: "completeness", severity: "warn", rule: "derived-unknown-target",
+          message: `${e.label} derives "${target}" but has no such attribute.`, at: e.id, attribute: target });
       }
     }
   }

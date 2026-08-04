@@ -145,7 +145,7 @@
             <mxGeometry x="1060" y="250" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-start-booking-month" label="StartBookingMonth" em="command" slice="start-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-start-booking-month" label="StartBookingMonth" em="command" slice="start-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string" terminal="month:clock" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="1060" y="320" width="180" height="60" as="geometry" />
           </mxCell>
@@ -172,7 +172,7 @@
             <mxGeometry x="1380" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-book-hours" label="BookHours" em="command" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-book-hours" label="BookHours" em="command" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?" terminal="bookingId:generated" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="1380" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -194,7 +194,7 @@
         <mxCell id="e-cmd-book-hours--evt-hours-booked" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-book-hours" target="evt-hours-booked">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <object id="rm-my-timesheet" label="MyTimesheet" em="readmodel" slice="my-timesheet" fields="employeeId:Guid, month:string, monthStatus:string, bookingId:Guid, projectId:Guid, projectName:string, date:DateOnly, hours:decimal, note:string?, dayTotal:decimal" mappings="dayTotal=hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="rm-my-timesheet" label="MyTimesheet" em="readmodel" slice="my-timesheet" fields="employeeId:Guid, month:string, monthStatus:string, bookingId:Guid, projectId:Guid, projectName:string, date:DateOnly, hours:decimal, note:string?, dayTotal:decimal" derived="dayTotal=hours, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="1700" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -281,7 +281,7 @@
             <mxGeometry x="3620" y="250" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-fill-zero-hours" label="FillZeroHours" em="command" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-fill-zero-hours" label="FillZeroHours" em="command" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal" terminal="bookingId:generated, hours:const" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="3620" y="320" width="180" height="60" as="geometry" />
           </mxCell>
@@ -306,7 +306,7 @@
         <mxCell id="e-evt-zero-hours-filled--rm-zero-fill-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-zero-fill-todo">
           <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="3710" y="655" /><mxPoint x="3390" y="655" /></Array></mxGeometry>
         </mxCell>
-        <object id="rm-my-month-status" label="MyMonthStatus" em="readmodel" slice="my-month-status" fields="employeeId:Guid, month:string, monthStatus:string, dayTotal:decimal, projectTotals:decimal, missingDays:int, rejectionComment:string?" mappings="dayTotal=hours, projectTotals=hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="rm-my-month-status" label="MyMonthStatus" em="readmodel" slice="my-month-status" fields="employeeId:Guid, month:string, monthStatus:string, dayTotal:decimal, projectTotals:decimal, missingDays:int, rejectionComment:string?" derived="dayTotal=hours, projectTotals=hours, missingDays=WorkingDayPublished+HoursBooked, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="3940" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -386,7 +386,7 @@
         <mxCell id="e-evt-admins-notified--rm-notify-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-admins-notified" target="rm-notify-todo">
           <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="5310" y="655" /><mxPoint x="4990" y="655" /></Array></mxGeometry>
         </mxCell>
-        <object id="rm-admin-employee-month" label="AdminEmployeeMonth" em="readmodel" slice="admin-month-review" fields="employeeId:Guid, employeeName:string, month:string, monthStatus:string, submittedAt:DateTimeOffset?, projectTotals:decimal, dayTotals:decimal" mappings="projectTotals=hours, dayTotals=hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the admin's queue AND detail in one view, for the POC.">
+        <object id="rm-admin-employee-month" label="AdminEmployeeMonth" em="readmodel" slice="admin-month-review" fields="employeeId:Guid, employeeName:string, month:string, monthStatus:string, submittedAt:DateTimeOffset?, projectTotals:decimal, dayTotals:decimal" derived="projectTotals=hours, dayTotals=hours, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the admin's queue AND detail in one view, for the POC.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="5540" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -396,7 +396,7 @@
             <mxGeometry x="5860" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-complete-closure" label="CompleteMonthClosure" em="command" slice="complete-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-complete-closure" label="CompleteMonthClosure" em="command" slice="complete-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" terminal="closedBy:actor" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="5860" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -420,7 +420,7 @@
             <mxGeometry x="6180" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-reject-closure" label="RejectMonthClosure" em="command" slice="reject-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-reject-closure" label="RejectMonthClosure" em="command" slice="reject-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid" terminal="rejectedBy:actor" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="6180" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -444,7 +444,7 @@
             <mxGeometry x="6500" y="80" width="180" height="90" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-close-month-directly" label="CloseMonthDirectly" em="command" slice="close-month-directly" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-close-month-directly" label="CloseMonthDirectly" em="command" slice="close-month-directly" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" terminal="closedBy:actor" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="6500" y="280" width="180" height="60" as="geometry" />
           </mxCell>
@@ -463,7 +463,7 @@
         <mxCell id="e-cmd-close-month-directly--evt-month-closed-direct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-close-month-directly" target="evt-month-closed-direct">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <object id="rm-open-months" label="OpenMonths" em="readmodel" slice="send-closing-reminder" fields="employeeId:Guid, month:string, closingDate:DateOnly, lastRemindedAt:DateTimeOffset?" mappings="lastRemindedAt=sentAt" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, month) past the closing date and still not closed. lastRemindedAt is what makes 'every 3 days' implementable.">
+        <object id="rm-open-months" label="OpenMonths" em="readmodel" slice="send-closing-reminder" fields="employeeId:Guid, month:string, closingDate:DateOnly, lastRemindedAt:DateTimeOffset?" mappings="lastRemindedAt=sentAt" derived="closingDate=month" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, month) past the closing date and still not closed. lastRemindedAt is what makes 'every 3 days' implementable.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="6820" y="280" width="180" height="60" as="geometry" />
           </mxCell>

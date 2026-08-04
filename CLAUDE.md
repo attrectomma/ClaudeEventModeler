@@ -142,7 +142,9 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `aggregate` | command, event | which aggregate owns the stream |
 | `displays` | screen | data the screen shows — the elements the book marks green on the wireframe. Must be supplied by a View |
 | `inputs` | screen | data the user types here. A terminal source: information entering the system |
-| `mappings` | any | `targetField=sourceField`, for legitimate name mismatches |
+| `mappings` | any | `targetField=sourceField`, for legitimate name mismatches. A **rename only** |
+| `derived` | any | `target=a+b`, for a value that is *computed* from upstream rather than carried |
+| `terminal` | command, event | `name:kind`, for a value that enters from context, not from the data flow |
 | `given` / `when` / `then` | `gwt` | prior events / the command / expected events. `then="error: RuleName"` for an expected rejection |
 | `rule` | `gwt` | the business rule this GWT names |
 | `pattern` | slice cell | which of the four patterns this slice is — checked against what it's made of |
@@ -152,6 +154,36 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 attribute and nothing notices, because nothing states what the screen needed.
 
 Type suffix `?` means nullable. Generators read the compiled IR, never this XML.
+
+### Three ways an attribute gets its value, and they are not interchangeable
+
+An attribute that no upstream source supplies by name is red. There are exactly three honest ways
+to answer that, and picking the wrong one produces code that compiles and is wrong.
+
+| | Means | Generator emits |
+| --- | --- | --- |
+| `mappings="total=totalAmount"` | the **same value** under another name | an assignment |
+| `derived="dayTotal=hours"` | **computed** from upstream — a sum, a count, a fold | a fold |
+| `terminal="closedBy:actor"` | arrives from **context**, not the data flow | a handler lookup |
+
+**A rename cannot change the type.** `mappings="dayTotal=hours"` claims dayTotal *is* hours; it is
+really their sum. `mappings="month=date"` claims a `string` *is* a `DateOnly`. Both pass a
+name-match and both are lies a generator will act on, so a mapping whose declared types differ is
+warned as `mapping-crosses-types`.
+
+`derived` inputs are checked: each must be an attribute an upstream source supplies, **or the
+label of an upstream source itself**. That second form is what lets a fold over event *presence*
+be stated — `monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosed`, whose "Open"
+value is the *absence* of a closure event and which no rename could ever reach. Naming an event
+that isn't connected is an error: a derivation cannot invent its inputs.
+
+`terminal` kinds are `actor` (the authenticated principal), `generated` (an id the handler mints),
+`clock`, and `const`. Same `name:kind` shape as `fields=`. These are reported as notes rather than
+silently skipped, because "the handler supplies this" is a claim worth a reader disagreeing with.
+
+Note `bookingId` on a booking command: the screen *displays* a `bookingId` — the row being looked
+at — while creating a booking needs a **new** one. Same name, opposite meaning, and a name-match
+cannot tell them apart. That is `terminal="bookingId:generated"`, not a source.
 
 ## The slice cell: a vertical slice is a thing, not a string
 
