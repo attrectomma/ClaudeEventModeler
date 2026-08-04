@@ -165,6 +165,7 @@ It applies to every element, not just read models:
 | --- | --- |
 | Read model | the Events pointing at it |
 | Event | the Command that triggers it — *"Commands generally have to provide all data necessary to persist an event"* |
+| **External event** | **nothing — it is terminal.** We have neither control over it nor knowledge of what produced it; that is what `external` means. Reported as a note, not an error, so the upstream contract still gets confirmed once |
 | Screen (`displays`) | a View feeding the screen. No View means the screen cannot know it |
 | Command | the triggering screen's `displays` + `inputs` |
 | Automation's command | the todo-list View the automation watches — an automation types nothing |

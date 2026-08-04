@@ -328,8 +328,28 @@ function completeness(ir) {
       const wanted = e.mappings[f.name] ?? f.name;
       if (supply.has(wanted)) continue;
 
+      // An external event enters from another system. We have neither control over it nor
+      // knowledge of what produced it — that is what em="external" means, and grammar() already
+      // acts on it by exempting these from event-needs-producer. Requiring a Command upstream
+      // would be unsatisfiable by construction: no legal model could ever clear the finding.
+      // So: terminal, exactly like a screen's inputs=.
+      //
+      // Reported rather than skipped, because the field list is an integration contract. These
+      // names are the ones OUR views happen to need, which is not evidence the upstream system
+      // publishes them. That wants confirming once, against their schema.
+      //
+      // Checked BEFORE clock-filled on purpose. An external timestamp was stamped by the
+      // upstream clock and arrives as payload; calling it clock-filled invites an implementer to
+      // write UtcNow at ingest and silently rewrite a foreign fact.
+      if (e.kind === "external") {
+        d.push({ family: "completeness", severity: "info", rule: "external-terminal",
+          message: `${e.label}.${f.name} enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.`,
+          at: e.id, attribute: f.name });
+        continue;
+      }
+
       // A clock-filled timestamp is generated, not carried. Everything else must be traceable.
-      if ((e.kind === "event" || e.kind === "external") && /^DateTime(Offset)?$/.test(f.type)) {
+      if (e.kind === "event" && /^DateTime(Offset)?$/.test(f.type)) {
         d.push({ family: "completeness", severity: "info", rule: "clock-filled",
           message: `${e.label}.${f.name} has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.`,
           at: e.id, attribute: f.name });

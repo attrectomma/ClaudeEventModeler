@@ -7,7 +7,7 @@ Model: [hour-booking.drawio](hour-booking.drawio). Render it and look before doi
 **Phases 0–4 are done and confirmed by the domain expert. Phase 5 FAILS. Phase 6 (GWTs) has not
 started — the model contains zero `gwt` cells.**
 
-`node tools/model.mjs validate diagrams/hour-booking.drawio` → **18 errors, 10 warnings, 12 notes**.
+`node tools/model.mjs validate diagrams/hour-booking.drawio` → **9 errors, 10 warnings, 21 notes**.
 Grammar is clean: 0 violations, all four patterns legal.
 
 Phases 0–2 (events, storyboard) are entirely the expert's words — every such cell carries
@@ -36,13 +36,17 @@ Judge `proposed=` cells harder — an invented attribute with no source may not 
 
 ## Tooling gaps found — decisions, not bugs to blind-fix
 
-- **External events can never pass completeness.** `grammar()` exempts `external` from
-  `event-needs-producer` (model.mjs ~line 198); `completeness()` lumps it in with `event` and
-  looks for an upstream Command it can never have (~line 290). 9 of the 18 errors are this. They
-  should be terminal, like screen `inputs=` and clock-filled timestamps.
-- **`assignedAt` / `removedAt` on external events are wrongly excused as `clock-filled`.** They
-  are stamped by the *upstream* clock and arrive as payload. Believing that note at
-  implementation time means `UtcNow` at ingest — silently rewriting a foreign fact.
+- ~~**External events can never pass completeness.**~~ **RESOLVED.** The domain expert ruled that
+  an external event is terminal by definition — *"that's the point of external, we have no control
+  nor knowledge"*. `completeness()` now branches `external` off ahead of the event case and emits
+  `completeness/external-terminal` at severity info. This removed 9 errors. The note still fires
+  per attribute, deliberately: the field list is an integration contract, and these names are the
+  ones *our* views happen to need, which is no evidence the upstream system publishes them — see
+  open question 4.
+- ~~**`assignedAt` / `removedAt` wrongly excused as `clock-filled`.**~~ **RESOLVED** by the same
+  change, since the external branch is checked *before* the clock-filled one. They are stamped by
+  the *upstream* clock and arrive as payload; the old note invited `UtcNow` at ingest, which would
+  have silently rewritten a foreign fact.
 - **`mappings=` is a rename and is being used as a silencer.** `dayTotal=hours` is a SUM;
   `month=date` is a type-crossing truncation. A generator reading the IR emits an assignment
   where a fold belongs. Wants a separate `derived=` vocabulary, checkable the way GWTs are
