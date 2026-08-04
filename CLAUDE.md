@@ -77,11 +77,38 @@ Three horizontal lanes, time flowing left to right. Fill/stroke pairs are preset
 Rules:
 - Events are past tense (`OrderPlaced`), commands imperative (`PlaceOrder`).
 - Events only ever enter the Event Stream lane. Nothing else goes there.
-- An event never points at another event directly — route it through an automation or read model.
+- An event never points at another event, and never at an automation. See the patterns below —
+  every connection must be part of one of the four.
 - Give every cell a stable, meaningful `id` (`evt-order-placed`, not `node7`), so edits stay
   reviewable in diffs and edges keep resolving.
 - On edges that would otherwise cut through a box, set explicit
   `exitX/exitY/entryX/entryY` hints. The free band between lanes is the place to route.
+
+## The four building blocks and the four patterns
+
+Source: the [Event Modeling Cheat Sheet](https://eventmodeling.org/posts/event-modeling-cheatsheet/).
+These are the whole grammar. A connection that is not part of one of these four patterns is a bug.
+
+Blocks: **Trigger** (a user at a screen, an external API call, *or an automated process*),
+**Command**, **Event**, **View** (a read model / report).
+
+| Pattern | Sequence |
+| --- | --- |
+| Command | `Trigger -> Command -> Event(s)` |
+| View | `Event(s) -> View` |
+| Automation | `Event(s) -> View -> Automated Trigger -> Command -> Event(s)` |
+| Translation | `Event(s) (source system) -> View -> Automated Trigger -> Command -> Event(s) (other systems)` |
+
+**An automation is a Trigger, not an event handler.** It is a peer of a user at a screen: it
+*looks at a View* and *issues a Command*. It never receives an event and never emits one.
+
+`Event -> Processor -> Event` is a classic anti-pattern. The View an automation watches is a
+**todo list**: the event puts a row on it, the automation works the row and issues a command, and
+the resulting event ticks the row off. Skip the view and you lose both the record of pending work
+and the thing that stops the processor working the same row twice.
+
+Per the same source, if there is no view and no conditional logic, it is not an automation at all
+— it is just a command that emits several events.
 
 ## Layout grid
 

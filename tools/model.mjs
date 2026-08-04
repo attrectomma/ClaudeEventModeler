@@ -236,6 +236,50 @@ function validate(ir) {
     } else if (eventLane && e.lane === eventLane) {
       push("error", "events-in-event-lane", `${e.label} (${e.kind}) is in the Event Stream lane — only events belong there.`);
     }
+    // The four canonical patterns (eventmodeling.org cheat sheet) are the whole grammar:
+    //   Trigger -> Command -> Event(s)
+    //   Event(s) -> View
+    //   Event(s) -> View -> Automated Trigger -> Command -> Event(s)
+    // An automation is a Trigger, so it reads a View and issues a Command. It never receives
+    // an event and never emits one — Event -> Processor -> Event is the classic anti-pattern.
+    const kindOf = (id) => byId.get(id)?.kind ?? "unknown";
+    const labelOf = (id) => byId.get(id)?.label ?? id;
+    const isTrigger = (k) => k === "wireframe" || k === "automation" || k === "external";
+
+    if (e.kind === "automation") {
+      for (const u of e.upstream) {
+        if (kindOf(u) === "event") {
+          push("error", "automation-reads-view", `${labelOf(u)} -> ${e.label}: an automation is a Trigger, so it must watch a todo-list View, never receive an event directly.`);
+        }
+      }
+      if (!e.upstream.some((u) => kindOf(u) === "readmodel")) {
+        push("error", "automation-needs-view", `${e.label} watches no View — without a todo list there is no record of pending work and nothing stops it working the same row twice.`);
+      }
+      for (const d of e.downstream) {
+        if (kindOf(d) === "event") {
+          push("error", "automation-issues-command", `${e.label} -> ${labelOf(d)}: an automation emits a Command, not an Event. Insert the command it issues.`);
+        }
+      }
+    }
+
+    if (e.kind === "command") {
+      for (const u of e.upstream) {
+        if (!isTrigger(kindOf(u))) {
+          push("error", "command-needs-trigger", `${labelOf(u)} (${kindOf(u)}) -> ${e.label}: a Command is only ever issued by a Trigger — a screen, an external system, or an automation.`);
+        }
+      }
+      if (!e.upstream.length) push("error", "command-needs-trigger", `${e.label} has no Trigger — nothing issues it.`);
+    }
+
+    if (e.kind === "readmodel") {
+      for (const u of e.upstream) {
+        if (kindOf(u) !== "event") {
+          push("error", "view-from-events", `${labelOf(u)} (${kindOf(u)}) -> ${e.label}: a View is built only from Events.`);
+        }
+      }
+      if (!e.upstream.length) push("error", "view-from-events", `${e.label} is built from no events, so none of its fields have a source.`);
+    }
+
     if (e.kind === "unknown") push("warn", "unclassified", `${e.id} has no em= attribute and an unrecognised fill — cannot classify it.`);
     if (!e.slice) push("info", "no-slice", `${e.label || e.id} is not assigned to a slice, so nothing will be generated from it.`);
     if (e.annotated && !e.geometry) push("warn", "no-geometry", `${e.id} has no geometry.`);
