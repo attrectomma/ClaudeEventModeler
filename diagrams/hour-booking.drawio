@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="Event Model" id="event-model">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="7440" pageHeight="1300" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="7440" pageHeight="1920" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -14,7 +14,7 @@
           <mxGeometry x="40" y="460" width="7340" height="180" as="geometry" />
         </mxCell>
         <mxCell id="lane-gwt" value="Given / When / Then — one cell per business rule, stacked under its slice" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="820" width="7340" height="440" as="geometry" />
+          <mxGeometry x="40" y="820" width="7340" height="1040" as="geometry" />
         </mxCell>
         <object id="slice-upstream-membership" label="upstream-membership&#10;upstream · in-design" em="group" slice="upstream-membership" pattern="upstream" status="in-design">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
@@ -594,6 +594,41 @@
         <mxCell id="e-evt-month-closed-direct--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-open-months">
           <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="6590" y="448" /><mxPoint x="6910" y="448" /></Array></mxGeometry>
         </mxCell>
+        <object id="gwt-book-hours-1" label="hours can be booked on a project the employee belongs to, in an open month&#10;&#10;GIVEN BookingMonthStarted, EmployeeAssignedToProject&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="hours can be booked on a project the employee belongs to, in an open month" given="BookingMonthStarted, EmployeeAssignedToProject" when="BookHours" then="HoursBooked" source="&quot;employees can book their work hours ... only to project they belong to&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-2" label="a date in the future is allowed — employees may prefill&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="a date in the future is allowed — employees may prefill" given="BookingMonthStarted" when="BookHours" then="HoursBooked" source="&quot;A booking on a future date is allowed, employees may prefill.&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-3" label="a date in the past is allowed within the open month&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="a date in the past is allowed within the open month" given="BookingMonthStarted" when="BookHours" then="HoursBooked" source="&quot;an employee prefers to book all days of the week on Friday. That is acceptable.&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-4" label="zero hours is not a booking — removal is the only way to take a line back&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="book-hours" rule="zero hours is not a booking — removal is the only way to take a line back" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours, so a HoursBooked with 0 hours would be a business rule violation&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-5" label="hours are booked in whole or half hours only&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="book-hours" rule="hours are booked in whole or half hours only" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeWholeOrHalf" source="&quot;date + project + hours spend. Full hours or 0,5 hours.&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1410" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-6" label="a closed month cannot be booked into — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN BookHours&#10;THEN error: MonthIsClosed" em="gwt" slice="book-hours" rule="a closed month cannot be booked into — closed is closed" given="MonthClosed" when="BookHours" then="error: MonthIsClosed" source="&quot;Any time until the working month isnt closed&quot; / &quot;closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1550" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-7" label="hours cannot be booked to a project the employee has left, and NOTHING is persisted&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN BookHours&#10;THEN error: NotAProjectMember" em="gwt" slice="book-hours" rule="hours cannot be booked to a project the employee has left, and NOTHING is persisted" given="EmployeeRemovedFromProject" when="BookHours" then="error: NotAProjectMember" source="&quot;it must be rejected, but we do not persist any new event&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1690" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
       </root>
     </mxGraphModel>
   </diagram>
