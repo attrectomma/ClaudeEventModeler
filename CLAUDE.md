@@ -52,6 +52,13 @@ and therefore stays invisible to plain Read.
 - **The link is save-triggered, not push-live.** Claude sees changes when the file reaches disk,
   not as the cursor moves. Push-live would need the third-party `lgazo/drawio-mcp-server`
   WebSocket bridge; deliberately not installed.
+- **An open draw.io tab is a stale snapshot, and saving it destroys Claude's work.** The extension
+  reads the whole diagram into memory on open and only writes on save — it never notices the file
+  changing underneath it. So after Claude edits, that tab still holds the *old* diagram, and on
+  close it offers to "save changes" you never made. **Answer no, then close and reopen.** The tell
+  is the editor disagreeing with a freshly rendered PNG. Recovery if it does get saved:
+  `git checkout -- <file>` — which is the real reason to commit the model at every milestone.
+  Before a hand-off, say explicitly whether the file changed on disk.
 - **MCP and memory are both cwd-scoped.** A session started outside this folder sees neither
   `.mcp.json` nor this project's memory. Durable knowledge belongs in this file.
 - **`code <folder>` hijacks an empty VS Code window.** Pass `--new-window` when the current
