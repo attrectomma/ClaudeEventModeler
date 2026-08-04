@@ -1,0 +1,40 @@
+{
+  "folders": [
+    {
+      "name": "ClaudeEventModeler",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "hediet.vscode-drawio.theme": "kennedy",
+    "hediet.vscode-drawio.appearance": "light",
+    "hediet.vscode-drawio.offline": true,
+    "hediet.vscode-drawio.presetColors": [
+      "ffffff",
+      "dae8fc",
+      "ffe6cc",
+      "d5e8d4",
+      "e1d5e7",
+      "f8cecc"
+    ],
+    "hediet.vscode-drawio.customColorSchemes": [
+      [
+        { "fill": "#ffffff", "stroke": "#666666" },
+        { "fill": "#dae8fc", "stroke": "#6c8ebf" },
+        { "fill": "#ffe6cc", "stroke": "#d79b00" },
+        { "fill": "#d5e8d4", "stroke": "#82b366" },
+        { "fill": "#e1d5e7", "stroke": "#9673a6" },
+        { "fill": "#f8cecc", "stroke": "#b85450" }
+      ]
+    ],
+    "hediet.vscode-drawio.defaultEdgeStyle": {
+      "edgeStyle": "orthogonalEdgeStyle",
+      "rounded": "0",
+      "html": "1",
+      "strokeColor": "#666666"
+    }
+  },
+  "extensions": {
+    "recommendations": ["hediet.vscode-drawio"]
+  }
+}

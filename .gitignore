@@ -1,0 +1,7 @@
+node_modules/
+
+# Rendered previews are build output — regenerate with tools/drawio.mjs render
+diagrams/*.png
+
+# verifier scratch
+diagrams/.verify-tmp.drawio

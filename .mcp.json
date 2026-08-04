@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "drawio": {
+      "command": "node",
+      "args": ["C:\\Repos\\Attrecto\\ClaudeEventModeler\\node_modules\\@drawio\\mcp\\src\\index.js"],
+      "env": {}
+    }
+  }
+}
