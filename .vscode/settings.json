@@ -3,12 +3,16 @@
   "hediet.vscode-drawio.appearance": "light",
   "hediet.vscode-drawio.offline": true,
 
+  // Order matches the palette table in CLAUDE.md: screen, command, event,
+  // external event, read model, automation, GWT, slice group.
   "hediet.vscode-drawio.presetColors": [
     "ffffff",
     "dae8fc",
     "ffe6cc",
+    "fff2cc",
     "d5e8d4",
     "e1d5e7",
+    "f0f0f0",
     "f8cecc"
   ],
 
@@ -17,8 +21,10 @@
       { "fill": "#ffffff", "stroke": "#666666" },
       { "fill": "#dae8fc", "stroke": "#6c8ebf" },
       { "fill": "#ffe6cc", "stroke": "#d79b00" },
+      { "fill": "#fff2cc", "stroke": "#d6b656" },
       { "fill": "#d5e8d4", "stroke": "#82b366" },
       { "fill": "#e1d5e7", "stroke": "#9673a6" },
+      { "fill": "#f0f0f0", "stroke": "#999999" },
       { "fill": "#f8cecc", "stroke": "#b85450" }
     ]
   ],

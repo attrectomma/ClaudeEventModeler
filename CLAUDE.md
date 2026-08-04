@@ -84,27 +84,87 @@ node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to
 
 ## Event Modeling conventions
 
-Three horizontal lanes, time flowing left to right. Fill/stroke pairs are preset in
-`.vscode/settings.json`, so the same swatches appear in the draw.io colour picker.
+Colours are the book's, not ours: *"We use sticky notes in different colors—blue, orange, green,
+and yellow"* — Commands in blue, Events in orange, Read Models green, and **external events in
+yellow** ("indicating that external data is entering the system during this process step").
+Fill/stroke pairs are preset in `.vscode/settings.json`, so the same swatches appear in the
+draw.io colour picker, in this order.
 
-| Element | Lane | Fill | Stroke |
-| --- | --- | --- | --- |
-| UI / wireframe | UI / Wireframes | `#ffffff` | `#666666` |
-| Command | Commands / Automation / Read Models | `#dae8fc` | `#6c8ebf` |
-| Automation / processor | Commands / Automation / Read Models | `#e1d5e7` | `#9673a6` |
-| Read model / view | Commands / Automation / Read Models | `#d5e8d4` | `#82b366` |
-| Event | Event Stream | `#ffe6cc` | `#d79b00` |
-| External system | any (dashed) | `#f8cecc` | `#b85450` |
+| Element | `em=` | Lane | Fill | Stroke | Source |
+| --- | --- | --- | --- | --- | --- |
+| Screen / wireframe | `screen` | UI | `#ffffff` | `#666666` | book |
+| Command | `command` | Commands / Views | `#dae8fc` | `#6c8ebf` | book (blue) |
+| Event | `event` | Event Stream | `#ffe6cc` | `#d79b00` | book (orange) |
+| External event | `external` | Event Stream | `#fff2cc` | `#d6b656` | book (yellow) |
+| Read model / View | `readmodel` | Commands / Views | `#d5e8d4` | `#82b366` | book (green) |
+| Automation / processor | `automation` | Commands / Views | `#e1d5e7` | `#9673a6` | ours |
+| Given / When / Then | `gwt` | GWT band | `#f0f0f0` | `#999999` | ours |
+| Slice group label | `group` | left of a slice | `#f8cecc` | `#b85450` | book (pink) |
 
 Rules:
 - Events are past tense (`OrderPlaced`), commands imperative (`PlaceOrder`).
 - Events only ever enter the Event Stream lane. Nothing else goes there.
-- An event never points at another event, and never at an automation. See the patterns below —
-  every connection must be part of one of the four.
+- An event never points at another event, and never at an automation. Every connection must be
+  part of one of the four patterns below.
+- One Command per State Change slice. The little book, chapter 6, on more than one command:
+  *"No."* More than one Event is allowed but *"should not be the rule."*
 - Give every cell a stable, meaningful `id` (`evt-order-placed`, not `node7`), so edits stay
   reviewable in diffs and edges keep resolving.
 - On edges that would otherwise cut through a box, set explicit
   `exitX/exitY/entryX/entryY` hints. The free band between lanes is the place to route.
+
+## Cell data: the semantics live on the cells
+
+The diagram is the single source of truth, so payloads live on it too — as custom attributes on
+`<object>` cells. draw.io exposes them to a human through *Edit Data* (Ctrl+M); Claude edits the
+same attributes as XML. Verified: adding them does not change the rendered picture.
+
+```xml
+<object id="evt-order-placed" label="OrderPlaced" em="event" slice="place-order"
+        aggregate="Order" fields="orderId:Guid, placedAt:DateTimeOffset">
+  <mxCell style="fillColor=#ffe6cc;strokeColor=#d79b00;..." vertex="1" parent="1">
+    <mxGeometry x="100" y="470" width="180" height="60" as="geometry" />
+  </mxCell>
+</object>
+```
+
+| Attribute | On | Meaning |
+| --- | --- | --- |
+| `em` | every element | which building block this is (table above) |
+| `slice` | every element | the slice it belongs to; unassigned elements generate nothing |
+| `fields` | command, event, readmodel | `name:Type` list. The book's "attributes" |
+| `aggregate` | command, event | which aggregate owns the stream |
+| `inputs` | screen | data the user types here — a source of information that is not a View |
+| `mappings` | any | `targetField=sourceField`, for legitimate name mismatches |
+| `given` / `when` / `then` | `gwt` | event list / command / expected event list |
+| `rule` | `gwt` | the business rule this GWT names |
+
+Type suffix `?` means nullable. Generators read the compiled IR, never this XML.
+
+## The information completeness check
+
+The point of the whole method, and a **gate** rather than a report: *"The implementation cannot
+begin until this check is passed."*
+
+> "For every attribute in an Element, you should always verify that the data is provided by the
+> connected sources."
+
+It applies to every element, not just read models:
+
+| Element | Its attributes must be supplied by |
+| --- | --- |
+| Read model | the Events pointing at it |
+| Event | the Command that triggers it — *"Commands generally have to provide all data necessary to persist an event"* |
+| Command | the View its Trigger displays, or `inputs=` declared on that Trigger |
+| Automation's command | the todo-list View the automation watches — an automation types nothing |
+
+Failures are marked **on the connection**, in red: *"If any data is missing, the connection is
+automatically highlighted in red… you can quickly confirm that all the arrows are black."* We also
+badge the failing element, because a red arrow alone doesn't say which attribute is unsourced.
+
+Business rules are captured as GWT, one cell each, in the band below the slice:
+`GIVEN a set of Events, WHEN a Command, THEN a new set of Events`. Ten or more per slice is
+normal — *"Don't save on GWTs."*
 
 ## The four building blocks and the four patterns
 
@@ -134,10 +194,23 @@ Per the same source, if there is no view and no conditional logic, it is not an 
 
 ## Layout grid
 
-Page 1420x700. Lanes at y=40 / y=220 / y=400, each 1320x180, x=40.
-Nodes 180 wide, columns at x=100 / 420 / 740 / 1060. Events and commands 60 tall, wireframes 90.
-Keep the y=350..470 band clear for edge routing.
+Time flows left to right. Three lanes, plus a GWT band below them because GWTs are drawn
+vertically under the pattern they describe.
 
-Columns are 320 apart, so widen the page and the lanes to add one (`1420 = 40 + 1320 + 60`)
-rather than stacking a second row into the routing band. Long horizontal edges get explicit
-waypoints inside the band — y=380 and y=440 are both in use in `order-flow` and don't collide.
+| Band | y | Height | Holds |
+| --- | --- | --- | --- |
+| UI | 40 | 180 | screens |
+| Commands / Views | 220 | 180 | commands, read models, automations |
+| Event Stream | 400 | 180 | events, external events |
+| GWT | 620 | grows down | one `gwt` cell per business rule |
+
+Lanes start at x=40. Columns are 320 apart — x=100, 420, 740, 1060, … — with elements 180 wide,
+events and commands 60 tall, screens 90. Keep y=350..470 clear for edge routing; long horizontal
+edges get explicit waypoints in it.
+
+GWT cells are 300 wide (they hold sentences) and 100 tall, left-aligned to their slice's column,
+stacked downward from y=620 with a 20px gap. 300 + 20 fits the 320 column pitch exactly, so a
+slice's GWTs never collide with the next slice's.
+
+Add a column by widening the page and every lane, rather than stacking a second row into the
+routing band. Page width = `40 + laneWidth + 60`.
