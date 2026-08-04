@@ -1,44 +1,78 @@
 # hour-booking — where the session stopped
 
 Model: [hour-booking.drawio](hour-booking.drawio). Render it and look before doing anything:
-`node tools/drawio.mjs render diagrams/hour-booking.drawio`. It is ~7760px wide, so inspect it in
-windows with `node tools/crop.mjs <file> <x0> <x1> <out>`.
+C:ReposAttrectoClaudeEventModelerdiagramshour-booking.drawio -> C:ReposAttrectoClaudeEventModelerdiagramshour-booking.png
+C:ReposAttrectoClaudeEventModelerdiagramshour-booking.png. It is ~7760px wide and ~2340px tall,
+so inspect it in windows with .
 
-**Phases 0–5 are done. The information completeness gate PASSES.** Phase 6 (GWTs) is next and has
-not started.
+**All six phases are done. The model validates clean.**
 
-`node tools/model.mjs validate diagrams/hour-booking.drawio` →
-**0 errors, 11 warnings, 43 notes**, across **19 slices / 48 elements**.
-Grammar: 0 violations. Slices: 0 violations. Every warning is `gwt/slice-needs-gwt`.
+Event Model — 19 slice(s), 103 element(s)
 
-Phases 0–2 are the domain expert's words — those cells carry `source="<verbatim quote>"`.
-**Phases 3–4 (screens, fields) were delegated to Claude**; every invented cell carries
-`proposed="claude — invented layout/UI/fields, NOT stated by the domain expert"`. The expert's
-framing: *"the entire point here is just building the tooling, not an actual timesheet product"* —
-this model is a POC and is throwaway. Judge `proposed=` cells harder.
+   INFO  [completeness/external-terminal] ProjectCreated.projectId enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] ProjectCreated.projectName enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeAssignedToProject.employeeId enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeAssignedToProject.employeeName enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeAssignedToProject.projectId enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeAssignedToProject.projectName enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeAssignedToProject.assignedAt enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/terminal-context] StartBookingMonth.month comes from clock, not from the data flow. Confirm the handler supplies it.
+   INFO  [completeness/clock-filled] BookingMonthStarted.startedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/clock-filled] HoursBooked.bookedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/derived-attribute] MyTimesheet.monthStatus is computed from BookingMonthStarted + MonthClosureSubmitted + MonthClosureRejected + MonthClosed, not carried.
+   INFO  [completeness/derived-attribute] MyTimesheet.dayTotal is computed from hours, not carried.
+   INFO  [completeness/clock-filled] HoursCorrected.correctedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/clock-filled] BookingRemoved.removedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/external-terminal] EmployeeRemovedFromProject.employeeId enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeRemovedFromProject.projectId enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeRemovedFromProject.effectiveFrom enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] EmployeeRemovedFromProject.removedAt enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] WorkingDayPublished.date enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] WorkingDayPublished.month enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/terminal-context] FillZeroHours.bookingId comes from generated, not from the data flow. Confirm the handler supplies it.
+   INFO  [completeness/terminal-context] FillZeroHours.hours comes from const, not from the data flow. Confirm the handler supplies it.
+   INFO  [completeness/clock-filled] ZeroHoursFilled.filledAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/derived-attribute] MyMonthStatus.monthStatus is computed from BookingMonthStarted + MonthClosureSubmitted + MonthClosureRejected + MonthClosed, not carried.
+   INFO  [completeness/derived-attribute] MyMonthStatus.dayTotal is computed from hours, not carried.
+   INFO  [completeness/derived-attribute] MyMonthStatus.projectTotals is computed from hours, not carried.
+   INFO  [completeness/derived-attribute] MyMonthStatus.missingDays is computed from WorkingDayPublished + HoursBooked, not carried.
+   INFO  [completeness/clock-filled] MonthClosureSubmitted.submittedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/external-terminal] AdminSeeded.adminId enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] AdminSeeded.adminName enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/external-terminal] AdminSeeded.seededAt enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.
+   INFO  [completeness/clock-filled] AdminsNotified.notifiedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/derived-attribute] AdminEmployeeMonth.monthStatus is computed from BookingMonthStarted + MonthClosureSubmitted + MonthClosureRejected + MonthClosed, not carried.
+   INFO  [completeness/derived-attribute] AdminEmployeeMonth.projectTotals is computed from hours, not carried.
+   INFO  [completeness/derived-attribute] AdminEmployeeMonth.dayTotals is computed from hours, not carried.
+   INFO  [completeness/terminal-context] CompleteMonthClosure.closedBy comes from actor, not from the data flow. Confirm the handler supplies it.
+   INFO  [completeness/clock-filled] MonthClosed.closedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/terminal-context] RejectMonthClosure.rejectedBy comes from actor, not from the data flow. Confirm the handler supplies it.
+   INFO  [completeness/clock-filled] MonthClosureRejected.rejectedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/terminal-context] CloseMonthDirectly.closedBy comes from actor, not from the data flow. Confirm the handler supplies it.
+   INFO  [completeness/clock-filled] MonthClosed.closedAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
+   INFO  [completeness/derived-attribute] OpenMonths.closingDate is computed from month, not carried.
+   INFO  [completeness/clock-filled] ClosingReminderSent.sentAt has no upstream source and is a timestamp — assumed filled by the clock. Confirm that is intended.
 
-## What is left: Phase 6
+0 error(s), 0 warning(s), 43 note(s) →
+**0 errors, 0 warnings, 43 notes**, across **19 slices / 48 elements / 55 GWTs**.
+Grammar 0, completeness 0, slices 0, GWTs 0.
 
-Zero `gwt` cells across 19 slices. Every rule the expert stated lives in `note=`/`source=` prose,
-where nothing can test it:
+Phases 0–2 and every business rule are the domain expert's words — those cells carry
+. **Phases 3–4 (screens, fields) were delegated to Claude**; every
+invented cell carries . The expert's framing: *"the entire point here is just building
+the tooling, not an actual timesheet product"* — this model is a POC and is throwaway.
 
-- whole or half hours, **never 0**
-- any date in the **open** month — future ("employees may prefill") and past
-- corrections carry the **absolute** value; truth = last `HoursCorrected`, else `HoursBooked`
-- you cannot correct to 0, so removal is the only way to take a line back
-- booking to a project you have left is **rejected and nothing is persisted**
-- "closed is closed"
-- a rejection sends the employee back to editing
-- the reminder repeats **every 3 days** while the month stays open
-- zero-fill covers **working days only**
-- all admins can see everything
+## Still wants the expert, before anyone implements
 
-Each implies a rejection (`then="error: ..."`) and not one exists. Against CLAUDE.md's *"Ten or
-more per slice is normal"*, a count of zero is the whole remaining distance to implementable.
+**Seven invented failure cases.** 48 of the 55 GWTs quote the expert. Seven do not, and are marked
+ on the cell. They are all idempotence or not-found cases that the model implies but
+nobody stated — five are the todo-list tick-off on the three automations, two are
+-style guards. Read them before trusting them:
 
-The per-slice gate means Phase 6 can start on one slice at a time: `book-hours` is not blocked by
-anything elsewhere. A slice moves off `status="in-design"` only once it has GWTs and no errors of
-its own.
+\
+**Every slice is still .** Moving one to  is a claim about your process,
+not about the model, so nothing was moved automatically.  is the obvious first
+candidate: 10 GWTs, no findings of its own, and the per-slice gate would now let it through.
 
 ## Decisions taken, and why
 

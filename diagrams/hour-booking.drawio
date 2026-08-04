@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="Event Model" id="event-model">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="7440" pageHeight="1920" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="7440" pageHeight="2340" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -14,7 +14,7 @@
           <mxGeometry x="40" y="460" width="7340" height="180" as="geometry" />
         </mxCell>
         <mxCell id="lane-gwt" value="Given / When / Then — one cell per business rule, stacked under its slice" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="820" width="7340" height="1040" as="geometry" />
+          <mxGeometry x="40" y="820" width="7340" height="1460" as="geometry" />
         </mxCell>
         <object id="slice-upstream-membership" label="upstream-membership&#10;upstream · in-design" em="group" slice="upstream-membership" pattern="upstream" status="in-design">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
@@ -627,6 +627,246 @@
         <object id="gwt-book-hours-7" label="hours cannot be booked to a project the employee has left, and NOTHING is persisted&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN BookHours&#10;THEN error: NotAProjectMember" em="gwt" slice="book-hours" rule="hours cannot be booked to a project the employee has left, and NOTHING is persisted" given="EmployeeRemovedFromProject" when="BookHours" then="error: NotAProjectMember" source="&quot;it must be rejected, but we do not persist any new event&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1380" y="1690" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-8" label="at most 18 hours can stand for one day&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: DailyCapExceeded" em="gwt" slice="book-hours" rule="at most 18 hours can stand for one day" given="BookingMonthStarted" when="BookHours" then="error: DailyCapExceeded" source="&quot;Cap is 18 hours&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1830" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-9" label="a day+project can only be BOOKED once — booking it again is a correction, not a booking&#10;&#10;GIVEN HoursBooked&#10;WHEN BookHours&#10;THEN error: AlreadyBookedUseCorrection" em="gwt" slice="book-hours" rule="a day+project can only be BOOKED once — booking it again is a correction, not a booking" given="HoursBooked" when="BookHours" then="error: AlreadyBookedUseCorrection" source="&quot;There may be only one HoursBooked ... that results in either the one HoursBooked or a Correction&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1970" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-book-hours-10" label="a submitted month is still open, so it can still be booked into until an admin closes it&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="a submitted month is still open, so it can still be booked into until an admin closes it" given="MonthClosureSubmitted" when="BookHours" then="HoursBooked" source="&quot;Can you still book into a month you have already submitted? Yes.&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="2110" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-1" label="a correction carries the new TOTAL for the day, never the difference&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN HoursCorrected" em="gwt" slice="correct-hours" rule="a correction carries the new TOTAL for the day, never the difference" given="HoursBooked" when="CorrectHours" then="HoursCorrected" source="&quot;a HoursCorrected event carrying the 8 hours, not the 2 difference!&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-2" label="the truth for a day+project is the last correction, or the booking if there was none&#10;&#10;GIVEN HoursBooked, HoursCorrected&#10;WHEN CorrectHours&#10;THEN HoursCorrected" em="gwt" slice="correct-hours" rule="the truth for a day+project is the last correction, or the booking if there was none" given="HoursBooked, HoursCorrected" when="CorrectHours" then="HoursCorrected" source="&quot;the final truth is last HoursCorrected event if any, or the HoursBooked if no corrections&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-3" label="correcting a day+project that was never booked is not a correction&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CorrectHours&#10;THEN error: BookingNotFound" em="gwt" slice="correct-hours" rule="correcting a day+project that was never booked is not a correction" given="BookingMonthStarted" when="CorrectHours" then="error: BookingNotFound" source="&quot;There may be only one HoursBooked&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-4" label="a correction cannot take the hours to zero — removal is the only way&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="correct-hours" rule="a correction cannot take the hours to zero — removal is the only way" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-5" label="corrections are in whole or half hours only&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="correct-hours" rule="corrections are in whole or half hours only" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeWholeOrHalf" source="&quot;Full hours or 0,5 hours&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1410" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-6" label="a correction cannot push the day over 18 hours&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: DailyCapExceeded" em="gwt" slice="correct-hours" rule="a correction cannot push the day over 18 hours" given="HoursBooked" when="CorrectHours" then="error: DailyCapExceeded" source="&quot;Cap is 18 hours&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1550" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-7" label="a closed month cannot be corrected — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN CorrectHours&#10;THEN error: MonthIsClosed" em="gwt" slice="correct-hours" rule="a closed month cannot be corrected — closed is closed" given="MonthClosed" when="CorrectHours" then="error: MonthIsClosed" source="&quot;Any time until the working month isnt closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1690" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-correct-hours-8" label="a submitted month is still open, so it can still be corrected&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CorrectHours&#10;THEN HoursCorrected" em="gwt" slice="correct-hours" rule="a submitted month is still open, so it can still be corrected" given="MonthClosureSubmitted" when="CorrectHours" then="HoursCorrected" source="&quot;Can you still book into a month you have already submitted? Yes.&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1830" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-remove-booking-1" label="an employee can remove their own booking while the month is open&#10;&#10;GIVEN HoursBooked&#10;WHEN RemoveBooking&#10;THEN BookingRemoved" em="gwt" slice="remove-booking" rule="an employee can remove their own booking while the month is open" given="HoursBooked" when="RemoveBooking" then="BookingRemoved" source="&quot;Can a booking be changed or removed afterwards? Yes, by the employees.&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-remove-booking-2" label="removal is the only way to take a day+project back to nothing&#10;&#10;GIVEN HoursBooked, HoursCorrected&#10;WHEN RemoveBooking&#10;THEN BookingRemoved" em="gwt" slice="remove-booking" rule="removal is the only way to take a day+project back to nothing" given="HoursBooked, HoursCorrected" when="RemoveBooking" then="BookingRemoved" source="&quot;employees may never book 0 hours&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-remove-booking-3" label="a booking already removed cannot be removed again&#10;&#10;GIVEN BookingRemoved&#10;WHEN RemoveBooking&#10;THEN error: BookingNotFound" em="gwt" slice="remove-booking" rule="a booking already removed cannot be removed again" given="BookingRemoved" when="RemoveBooking" then="error: BookingNotFound" proposed="claude — a failure case implied by the model, not stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-remove-booking-4" label="a closed month cannot be edited — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN RemoveBooking&#10;THEN error: MonthIsClosed" em="gwt" slice="remove-booking" rule="a closed month cannot be edited — closed is closed" given="MonthClosed" when="RemoveBooking" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-start-month-1" label="every project member gets a booking month opened for them&#10;&#10;GIVEN EmployeeAssignedToProject&#10;WHEN StartBookingMonth&#10;THEN BookingMonthStarted" em="gwt" slice="start-month" rule="every project member gets a booking month opened for them" given="EmployeeAssignedToProject" when="StartBookingMonth" then="BookingMonthStarted" source="&quot;an automation that starts each new month for each employee with a BookingMonthStarted event&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-start-month-2" label="a month is only started once per employee&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN StartBookingMonth&#10;THEN error: MonthAlreadyStarted" em="gwt" slice="start-month" rule="a month is only started once per employee" given="BookingMonthStarted" when="StartBookingMonth" then="error: MonthAlreadyStarted" proposed="claude — the todo-list tick-off, implied by the automation pattern, not stated">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-fill-zero-hours-1" label="leaving a project fills the rest of that month with zero hours, one event per day&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN FillZeroHours&#10;THEN ZeroHoursFilled" em="gwt" slice="fill-zero-hours" rule="leaving a project fills the rest of that month with zero hours, one event per day" given="EmployeeRemovedFromProject" when="FillZeroHours" then="ZeroHoursFilled" source="&quot;we fill out the remainder of the month with 0 hours booked per day&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-fill-zero-hours-2" label="only working days are filled — weekends and public holidays are not&#10;&#10;GIVEN EmployeeRemovedFromProject, WorkingDayPublished&#10;WHEN FillZeroHours&#10;THEN ZeroHoursFilled" em="gwt" slice="fill-zero-hours" rule="only working days are filled — weekends and public holidays are not" given="EmployeeRemovedFromProject, WorkingDayPublished" when="FillZeroHours" then="ZeroHoursFilled" source="&quot;We fill only for working days ... google can provide us a calendar that marks holidays or working saturdays&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-fill-zero-hours-3" label="the system may write a zero where an employee may not&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN FillZeroHours&#10;THEN ZeroHoursFilled" em="gwt" slice="fill-zero-hours" rule="the system may write a zero where an employee may not" given="EmployeeRemovedFromProject" when="FillZeroHours" then="ZeroHoursFilled" source="&quot;employees may never book 0 hours&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-fill-zero-hours-4" label="a day already zero-filled is not filled twice&#10;&#10;GIVEN ZeroHoursFilled&#10;WHEN FillZeroHours&#10;THEN error: AlreadyFilled" em="gwt" slice="fill-zero-hours" rule="a day already zero-filled is not filled twice" given="ZeroHoursFilled" when="FillZeroHours" then="error: AlreadyFilled" proposed="claude — the todo-list tick-off, implied by the automation pattern, not stated">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-submit-closure-1" label="an employee closes their own month, which submits it rather than closing it&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN SubmitMonthClosure&#10;THEN MonthClosureSubmitted" em="gwt" slice="submit-closure" rule="an employee closes their own month, which submits it rather than closing it" given="BookingMonthStarted" when="SubmitMonthClosure" then="MonthClosureSubmitted" source="&quot;The month can be closed by the employee or by an admin&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4260" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-submit-closure-2" label="a rejected month can be fixed and submitted again&#10;&#10;GIVEN MonthClosureRejected&#10;WHEN SubmitMonthClosure&#10;THEN MonthClosureSubmitted" em="gwt" slice="submit-closure" rule="a rejected month can be fixed and submitted again" given="MonthClosureRejected" when="SubmitMonthClosure" then="MonthClosureSubmitted" source="&quot;Any admin can complete the closing or reject it with a comment&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4260" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-submit-closure-3" label="a month already awaiting review cannot be submitted again&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN SubmitMonthClosure&#10;THEN error: ClosureAlreadySubmitted" em="gwt" slice="submit-closure" rule="a month already awaiting review cannot be submitted again" given="MonthClosureSubmitted" when="SubmitMonthClosure" then="error: ClosureAlreadySubmitted" proposed="claude — a failure case implied by the model, not stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4260" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-submit-closure-4" label="a closed month cannot be submitted — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN SubmitMonthClosure&#10;THEN error: MonthIsClosed" em="gwt" slice="submit-closure" rule="a closed month cannot be submitted — closed is closed" given="MonthClosed" when="SubmitMonthClosure" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4260" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-notify-admins-1" label="submitting a closure notifies the admins, and that is recorded as a fact&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN NotifyAdmins&#10;THEN AdminsNotified" em="gwt" slice="notify-admins" rule="submitting a closure notifies the admins, and that is recorded as a fact" given="MonthClosureSubmitted" when="NotifyAdmins" then="AdminsNotified" source="&quot;it triggers a notification to the admins&quot; / &quot;I want to record this as a fact&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4900" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-notify-admins-2" label="every seeded admin is a recipient&#10;&#10;GIVEN MonthClosureSubmitted, AdminSeeded&#10;WHEN NotifyAdmins&#10;THEN AdminsNotified" em="gwt" slice="notify-admins" rule="every seeded admin is a recipient" given="MonthClosureSubmitted, AdminSeeded" when="NotifyAdmins" then="AdminsNotified" source="&quot;All admins can see everything&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4900" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-notify-admins-3" label="a submission is announced once, not on every pass of the processor&#10;&#10;GIVEN AdminsNotified&#10;WHEN NotifyAdmins&#10;THEN error: AlreadyNotified" em="gwt" slice="notify-admins" rule="a submission is announced once, not on every pass of the processor" given="AdminsNotified" when="NotifyAdmins" then="error: AlreadyNotified" proposed="claude — the todo-list tick-off, implied by the automation pattern, not stated">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="4900" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-complete-closure-1" label="any admin can complete a submitted closure, which closes the month&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CompleteMonthClosure&#10;THEN MonthClosed" em="gwt" slice="complete-closure" rule="any admin can complete a submitted closure, which closes the month" given="MonthClosureSubmitted" when="CompleteMonthClosure" then="MonthClosed" source="&quot;Any admin can complete the closing&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="5860" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-complete-closure-2" label="only an admin may complete a closure&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CompleteMonthClosure&#10;THEN error: NotAnAdmin" em="gwt" slice="complete-closure" rule="only an admin may complete a closure" given="MonthClosureSubmitted" when="CompleteMonthClosure" then="error: NotAnAdmin" source="&quot;Any admin can complete the closing&quot; / &quot;Admins can see everything&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="5860" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-complete-closure-3" label="there is nothing to complete until the employee has submitted&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CompleteMonthClosure&#10;THEN error: NoClosureSubmitted" em="gwt" slice="complete-closure" rule="there is nothing to complete until the employee has submitted" given="BookingMonthStarted" when="CompleteMonthClosure" then="error: NoClosureSubmitted" proposed="claude — a failure case implied by the model, not stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="5860" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-complete-closure-4" label="a closed month cannot be closed again — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN CompleteMonthClosure&#10;THEN error: MonthIsClosed" em="gwt" slice="complete-closure" rule="a closed month cannot be closed again — closed is closed" given="MonthClosed" when="CompleteMonthClosure" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="5860" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reject-closure-1" label="any admin can reject a submitted closure, which sends the employee back to editing&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN MonthClosureRejected" em="gwt" slice="reject-closure" rule="any admin can reject a submitted closure, which sends the employee back to editing" given="MonthClosureSubmitted" when="RejectMonthClosure" then="MonthClosureRejected" source="&quot;or reject it with a comment&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6180" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reject-closure-2" label="a rejection must carry a comment&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN error: RejectionCommentRequired" em="gwt" slice="reject-closure" rule="a rejection must carry a comment" given="MonthClosureSubmitted" when="RejectMonthClosure" then="error: RejectionCommentRequired" source="&quot;reject it with a comment&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6180" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reject-closure-3" label="the employee must be able to see that their closing attempt was rejected&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN MonthClosureRejected" em="gwt" slice="reject-closure" rule="the employee must be able to see that their closing attempt was rejected" given="MonthClosureSubmitted" when="RejectMonthClosure" then="MonthClosureRejected" source="&quot;A closure gets rejected is an event. and employee should see on the ui that their closing attempt got rejected&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6180" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reject-closure-4" label="only an admin may reject a closure&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN error: NotAnAdmin" em="gwt" slice="reject-closure" rule="only an admin may reject a closure" given="MonthClosureSubmitted" when="RejectMonthClosure" then="error: NotAnAdmin" source="&quot;Any admin can complete the closing or reject it&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6180" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reject-closure-5" label="there is nothing to reject until the employee has submitted&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN RejectMonthClosure&#10;THEN error: NoClosureSubmitted" em="gwt" slice="reject-closure" rule="there is nothing to reject until the employee has submitted" given="BookingMonthStarted" when="RejectMonthClosure" then="error: NoClosureSubmitted" proposed="claude — a failure case implied by the model, not stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6180" y="1410" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reject-closure-6" label="a closed month cannot be rejected — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN RejectMonthClosure&#10;THEN error: MonthIsClosed" em="gwt" slice="reject-closure" rule="a closed month cannot be rejected — closed is closed" given="MonthClosed" when="RejectMonthClosure" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6180" y="1550" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-month-directly-1" label="an admin can close a month directly, without waiting for the employee to submit&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CloseMonthDirectly&#10;THEN MonthClosed" em="gwt" slice="close-month-directly" rule="an admin can close a month directly, without waiting for the employee to submit" given="BookingMonthStarted" when="CloseMonthDirectly" then="MonthClosed" source="&quot;Admins shortcut this and just simply close with an optional note&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6500" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-month-directly-2" label="the closing note is optional&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CloseMonthDirectly&#10;THEN MonthClosed" em="gwt" slice="close-month-directly" rule="the closing note is optional" given="BookingMonthStarted" when="CloseMonthDirectly" then="MonthClosed" source="&quot;just simply close with an optional note&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6500" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-month-directly-3" label="the shortcut also works on a month that was submitted&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CloseMonthDirectly&#10;THEN MonthClosed" em="gwt" slice="close-month-directly" rule="the shortcut also works on a month that was submitted" given="MonthClosureSubmitted" when="CloseMonthDirectly" then="MonthClosed" source="&quot;Admins shortcut this&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6500" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-month-directly-4" label="only an admin may close a month directly&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CloseMonthDirectly&#10;THEN error: NotAnAdmin" em="gwt" slice="close-month-directly" rule="only an admin may close a month directly" given="BookingMonthStarted" when="CloseMonthDirectly" then="error: NotAnAdmin" source="&quot;Admins can see everything&quot; / &quot;currently assigning needs admin role&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6500" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-month-directly-5" label="a closed month cannot be closed again — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN CloseMonthDirectly&#10;THEN error: MonthIsClosed" em="gwt" slice="close-month-directly" rule="a closed month cannot be closed again — closed is closed" given="MonthClosed" when="CloseMonthDirectly" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6500" y="1410" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-1" label="a month still open after its closing date earns the employee a reminder&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN SendClosingReminder&#10;THEN ClosingReminderSent" em="gwt" slice="send-closing-reminder" rule="a month still open after its closing date earns the employee a reminder" given="BookingMonthStarted" when="SendClosingReminder" then="ClosingReminderSent" source="&quot;For open month of previous month we send a reminder 3 days after the closing date&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6820" y="850" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-2" label="the reminder repeats every three days while the month stays open&#10;&#10;GIVEN ClosingReminderSent&#10;WHEN SendClosingReminder&#10;THEN ClosingReminderSent" em="gwt" slice="send-closing-reminder" rule="the reminder repeats every three days while the month stays open" given="ClosingReminderSent" when="SendClosingReminder" then="ClosingReminderSent" source="&quot;Reminder fire every 3 days&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6820" y="990" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-3" label="no reminder before the closing date, which is the last day of the month&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN SendClosingReminder&#10;THEN error: BeforeClosingDate" em="gwt" slice="send-closing-reminder" rule="no reminder before the closing date, which is the last day of the month" given="BookingMonthStarted" when="SendClosingReminder" then="error: BeforeClosingDate" source="&quot;The last day of each month is the closing date&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6820" y="1130" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-4" label="no second reminder within three days of the last one&#10;&#10;GIVEN ClosingReminderSent&#10;WHEN SendClosingReminder&#10;THEN error: TooSoonToRemind" em="gwt" slice="send-closing-reminder" rule="no second reminder within three days of the last one" given="ClosingReminderSent" when="SendClosingReminder" then="error: TooSoonToRemind" source="&quot;Reminder fire every 3 days&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6820" y="1270" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-5" label="a closed month is never reminded about&#10;&#10;GIVEN MonthClosed&#10;WHEN SendClosingReminder&#10;THEN error: MonthIsClosed" em="gwt" slice="send-closing-reminder" rule="a closed month is never reminded about" given="MonthClosed" when="SendClosingReminder" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="6820" y="1410" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
       </root>
