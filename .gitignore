@@ -19,3 +19,7 @@ build/
 # change gets reviewed.
 generated/**/bin/
 generated/**/obj/
+
+# Generated design previews — regenerate with tools/design.mjs sheet
+designs/*/index.html
+designs/*/_shots/

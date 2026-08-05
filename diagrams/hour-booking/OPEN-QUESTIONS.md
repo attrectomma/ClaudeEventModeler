@@ -39,23 +39,32 @@ Why three and not the four originally proposed, and what the tooling grew: see
 4. **The skill rewritten** as an 11-phase ordered walkthrough, and `diagrams/template.drawio`
    brought onto the current grid with a model cell and a wireframe-height UI lane.
 
+## Styling: done for one screen, on purpose
+
+`designs/hour-booking/` holds `tokens.css` and `timesheet.html`, checked green by
+`node tools/design.mjs check diagrams/hour-booking/`. **One screen and one token variant** — the
+`book-hours` slice is the one at `status="ready"`, so its screen went first, and the POC's job is to
+reach working generated code once rather than to style four screens. The other three report
+`design/design-not-drawn`, a note, and their wireframes stand in.
+
+`tokens.css` has not been through Anthropic's `frontend-design` plugin, which was not installed when
+it was written. Installing it (`/plugin`) and re-running `styling` improves the aesthetics without
+changing the contract or the checks. See [designs/README.md](../../designs/README.md).
+
 ## Next session starts here
 
-**Build the `styling` skill.** Decided: styling is its own skill, not part of `event-model`, because
-it holds no business information — and because its scope is per *system* while `event-model`'s is per
-*context*. See the three-skill table in `CLAUDE.md`.
+**Codegen.** The last unbuilt piece, and the one that proves the whole idea.
 
-1. **Tokens** → `designs/tokens.css` from the human's words, 2–3 variants to choose from.
-2. **Per-screen HTML** → `designs/<screen-slug>.html`, found by convention rather than a `design=`
-   attribute, with elements tagged `data-em="<field>"`.
-3. **The three-way check**, owned by `styling` and not by `event-model`:
-   `displays=`/`inputs=` ↔ wireframe `binds=` ↔ HTML `data-em`. All three agree on *which fields*;
-   layout and style are free to differ.
+`book-hours` is the slice to do first: `status="ready"`, 10 GWTs, a styled screen, and it crosses both
+agents so it exercises the full stack.
 
-**Then codegen.** Not started, and its blocker is unchanged — Wolverine/Marten/Alba move faster than
-model knowledge and the local `llms.txt` mirror is still unbuilt.
+The known blocker is unchanged: the enforced stack is .NET 10 / Postgres / Wolverine / Marten / Alba /
+Testcontainers, and **Wolverine, Marten and Alba all move faster than model knowledge**, so anything
+generated against remembered API shapes will be subtly wrong. Both publish `llms.txt`
+(`martendb.io/llms.txt`, `wolverinefx.net/llms.txt`) as a markdown index whose every entry is served
+as raw `.md`. Mirroring that locally is a **prerequisite**, not a nice-to-have, and is still unbuilt.
 
-Note the order is a **dependency, not a pipeline**: styling gates only *frontend* codegen.
+Note the skill order is a **dependency, not a pipeline**: styling gates only *frontend* codegen.
 [notifications](notifications.drawio) has no screens, so it is backend-only and could go to codegen
 today with no design in existence.
 

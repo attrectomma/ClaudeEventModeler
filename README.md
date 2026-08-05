@@ -234,7 +234,7 @@ bugs repeatedly, and it is the single most valuable habit in the kit.
 | Skill | Scope | Invents | Gate | Status |
 | --- | --- | --- | --- | --- |
 | `event-model` | once per context | layout only — **never a domain fact** | the completeness check | **built** |
-| `styling` | once per system, then per new screen | tokens, palette, spacing, components | the human likes it | not built |
+| `styling` | once per system, then per new screen | tokens, palette, spacing, components | zero `design/` findings, then the human likes it | **built** |
 | `codegen` | per slice | nothing — reads the compiled IR | tests pass | not built |
 
 **A dependency graph, not a pipeline.** Styling gates only *frontend* codegen. `notifications` has no
@@ -268,7 +268,7 @@ screen or stream boundary. It will ask. Anything it does have to guess is tagged
 cell so you can find it later — in the worked example, every screen and field name is tagged that
 way, because those were delegated deliberately.
 
-### `styling` — decided, not yet built
+### `styling` — built, exercised on one screen
 
 Design tokens and per-screen HTML/CSS. It will **delegate aesthetic judgement to Anthropic's official
 [`frontend-design`](https://github.com/anthropics/claude-code/blob/main/plugins/frontend-design/skills/frontend-design/SKILL.md)
@@ -309,6 +309,7 @@ Figma was evaluated and **deliberately dropped** for the POC — see the reasoni
 | `crop.mjs <file> <x0> <x1> <out>` | an x-window of a too-wide model. Needing this is a smell |
 | `wireframe.mjs scaffold <file>` | grow the UI lane and scaffold bound wireframe cells |
 | `design.mjs sheet <dir>/` | screenshot every design page; build the contact sheet and index |
+| `design.mjs check <dir>/` | the styled pages against the model — the third leg of the three-way check |
 | `verify-mcp.mjs` | re-prove the Claude ↔ draw.io link over MCP end to end |
 | `pdf-text.mjs <file.pdf>` | extract a PDF to greppable text |
 | `check-frontmatter.mjs` | verify every skill and agent has parseable frontmatter |

@@ -36,11 +36,14 @@ const flag = (name, dflt) => {
 const WIDTHS = flag("widths", "1440,390").split(",").map((n) => +n.trim()).filter(Boolean);
 const HEIGHT = +flag("height", "1200");
 
-if (!cmd || !target || !["shot", "sheet"].includes(cmd)) {
-  console.error("usage: node tools/design.mjs <shot|sheet> <file.html | designs-dir> [--widths 1440,390] [--height 1200]");
+if (!cmd || !target || !["shot", "sheet", "check"].includes(cmd)) {
+  console.error("usage:\n" +
+    "  node tools/design.mjs shot  <file.html>   [--widths 1440,390] [--height 1200]\n" +
+    "  node tools/design.mjs sheet <designs-dir> [--widths 1440,390] [--height 1200]\n" +
+    "  node tools/design.mjs check <system-dir>  [--designs designs/<system>]");
   process.exit(2);
 }
-if (!BROWSER) {
+if (!BROWSER && cmd !== "check") {
   console.error(`no Chrome or Edge found. Looked in:\n  ${BROWSERS.join("\n  ")}`);
   process.exit(1);
 }
@@ -52,6 +55,137 @@ if (!existsSync(path)) {
 
 // A name a width can be talked about by, so a finding can say WHICH viewport broke.
 const label = (w) => (w < 500 ? "mobile" : w < 900 ? "tablet" : "desktop");
+
+// --- check: the third leg of the three-way check --------------------------------------------------
+//
+//   displays= / inputs=   <->   wireframe binds=   <->   HTML data-em
+//
+// model.mjs already checks the first two against each other. This checks the styled page against
+// the model, which is the leg nothing could see before: a design that shows a field the system
+// cannot supply looks perfectly fine in a browser and is discovered during implementation.
+//
+// The unit is the SCREEN SLUG, not the screen cell, and that is the whole reason the slug exists.
+// One page serves every slice that screen appears in — the Timesheet hosts book, correct AND remove
+// — so the page is checked against the union of those slices' inputs and commands. A page missing
+// an affordance the model says the screen offers is a real finding.
+
+if (cmd === "check") {
+  const systemDir = path;
+  const designs = resolve(flag("designs", join("designs", basename(systemDir))));
+  const models = readdirSync(systemDir)
+    .filter((f) => f.endsWith(".drawio") && !f.startsWith("_"))
+    .map((f) => join(systemDir, f));
+  if (!models.length) {
+    console.error(`${target}: no models found.`);
+    process.exit(1);
+  }
+
+  // One parser for the model, and it is not this file's. Shell out to compile rather than
+  // re-implementing mxGraph parsing, which would drift.
+  const screens = new Map();   // slug -> { displays:Set, inputs:Set, commands:Set, bound:Set, cells:[] }
+  for (const m of models) {
+    const r = spawnSync(process.execPath, [new URL("model.mjs", import.meta.url).pathname.replace(/^\//, ""), "compile", m], { encoding: "utf8", maxBuffer: 1 << 26 });
+    if (r.status !== 0) {
+      console.error(`compile failed for ${basename(m)}:\n${r.stderr}`);
+      process.exit(1);
+    }
+    const ir = JSON.parse(r.stdout);
+    const byId = new Map(ir.elements.map((e) => [e.id, e]));
+    const inside = (o, g) => o.geometry && g &&
+      g.x + g.w / 2 >= o.geometry.x && g.x + g.w / 2 <= o.geometry.x + o.geometry.w &&
+      g.y + g.h / 2 >= o.geometry.y && g.y + g.h / 2 <= o.geometry.y + o.geometry.h;
+
+    for (const s of ir.elements.filter((e) => e.kind === "screen" && e.screen)) {
+      if (!screens.has(s.screen)) {
+        screens.set(s.screen, { displays: new Set(), inputs: new Set(), commands: new Set(), bound: new Set(), label: s.label });
+      }
+      const rec = screens.get(s.screen);
+      s.displays.forEach((f) => rec.displays.add(f.name));
+      s.inputs.forEach((f) => rec.inputs.add(f.name));
+      for (const d of s.downstream) if (byId.get(d)?.kind === "command") rec.commands.add(byId.get(d).label);
+      for (const p of ir.elements) {
+        if ((p.kind === "field" && p.binds) && inside(s, p.geometry)) rec.bound.add(p.binds);
+      }
+    }
+  }
+
+  const d = [];
+  const push = (severity, rule, message) => d.push({ severity, rule, message });
+  const attrsOf = (html, name) =>
+    new Set([...html.matchAll(new RegExp(`${name}="([^"]*)"`, "g"))].map((m) => m[1].trim()).filter(Boolean));
+
+  const pageFiles = existsSync(designs)
+    ? readdirSync(designs).filter((f) => f.endsWith(".html") && f !== "index.html" && !f.startsWith("_"))
+    : [];
+
+  for (const [slug, rec] of screens) {
+    const file = join(designs, `${slug}.html`);
+    if (!existsSync(file)) {
+      push("info", "design-not-drawn",
+        `screen "${slug}" has no styled page yet (expected ${relative(process.cwd(), file)}). The wireframe stands in until it does.`);
+      continue;
+    }
+    const html = readFileSync(file, "utf8");
+    const shown = attrsOf(html, "data-em");
+    const typed = attrsOf(html, "data-em-input");
+    const acted = attrsOf(html, "data-em-action");
+    const known = new Set([...rec.displays, ...rec.inputs]);
+
+    for (const n of [...shown, ...typed]) {
+      if (!known.has(n)) {
+        push("error", "design-unknown-field",
+          `${slug}.html shows "${n}", which the screen neither displays nor takes as input. The design is showing data the system cannot supply — add it to displays= and give it a View, or drop it.`);
+      }
+    }
+    for (const a of acted) {
+      if (!rec.commands.has(a)) {
+        push("error", "design-unknown-action",
+          `${slug}.html offers "${a}", but this screen triggers ${[...rec.commands].join(", ") || "no command"}. The button and the model disagree.`);
+      }
+    }
+    for (const n of rec.displays) {
+      if (!shown.has(n) && !typed.has(n)) {
+        push("warn", "design-field-missing",
+          `${slug} displays "${n}" but ${slug}.html never shows it. Either draw it, or drop it from displays= — an attribute nothing displays makes its View over-specified.`);
+      }
+    }
+    for (const n of rec.inputs) {
+      if (!typed.has(n)) {
+        push("warn", "design-input-missing",
+          `${slug} takes "${n}" as input but ${slug}.html has no data-em-input for it. A field the user must type and the page does not offer is a dead command.`);
+      }
+    }
+    // The point of the slug: one page carries every affordance of that screen.
+    for (const a of rec.commands) {
+      if (!acted.has(a)) {
+        push("warn", "design-action-missing",
+          `${slug} triggers "${a}" somewhere in the model but ${slug}.html offers no such action. One page serves every slice this screen appears in.`);
+      }
+    }
+    const unbound = [...shown, ...typed].filter((n) => known.has(n) && !rec.bound.has(n));
+    if (unbound.length) {
+      push("info", "design-ahead-of-wireframe",
+        `${slug}.html shows ${unbound.join(", ")}, which the wireframe does not draw. Not wrong — the model declares them — but the wireframe and the design disagree about what the screen is.`);
+    }
+  }
+
+  for (const f of pageFiles) {
+    const slug = basename(f, ".html");
+    if (!screens.has(slug)) {
+      push("error", "design-orphan-page",
+        `${f} matches no screen= slug in this system (${[...screens.keys()].join(", ") || "none"}). A page nothing in the model points at will never be generated from.`);
+    }
+  }
+
+  const icon = { error: "ERROR", warn: " WARN", info: " INFO" };
+  const rank = { error: 0, warn: 1, info: 2 };
+  d.sort((a, b) => rank[a.severity] - rank[b.severity] || a.rule.localeCompare(b.rule));
+  console.log(`${basename(systemDir)} — ${screens.size} screen(s), ${pageFiles.length} styled page(s) in ${relative(process.cwd(), designs)}\n`);
+  for (const f of d) console.log(`  ${icon[f.severity]}  [design/${f.rule}] ${f.message}`);
+  const errors = d.filter((f) => f.severity === "error").length;
+  console.log(`\n${errors} error(s), ${d.filter((f) => f.severity === "warn").length} warning(s), ${d.filter((f) => f.severity === "info").length} note(s)`);
+  process.exit(errors ? 1 : 0);
+}
 
 function shoot(htmlPath, outPath, width) {
   mkdirSync(dirname(outPath), { recursive: true });
