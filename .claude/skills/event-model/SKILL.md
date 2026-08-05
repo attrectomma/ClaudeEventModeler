@@ -126,6 +126,20 @@ Ask: which of these events belong to the same thing's lifecycle? Then set `aggre
 event and draw it in the matching band. **An event's y is its stream, not its column** — an event
 in no band has an undefined stream, and both that and a mismatch are errors.
 
+Then ask the second question, which is the one that gets forgotten: **what identifies ONE stream of
+this?** Not the aggregate's name — the key. One per customer? One per customer *per month*? Set it
+as `identity=` on the band, and expect to have to add a field to some events to make it true.
+
+This matters more than it looks and it is a **domain** question, not a technical one. Marten keys a
+stream, so without `identity=` nothing can append to it — and the choice decides which business rules
+are real invariants. A timesheet keyed per booking cannot enforce "at most 18 hours in a day"; keyed
+per employee-month it can. Ask which rules must always hold, then pick the key that makes them
+holdable. `band-needs-identity` reports the fields every event in the band already carries, so the
+candidates are on screen.
+
+Bands holding only imported or foreign events are exempt: we project from those streams, never
+append to them.
+
 The book puts this at step 7. It is here instead because the geometry depends on it: every event
 needs a band before the model validates, and moving events later is only cheap because you are the
 one drawing. Say this if the user asks why the order differs from the book.

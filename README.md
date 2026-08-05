@@ -302,7 +302,10 @@ Figma was evaluated and **deliberately dropped** for the POC — see the reasoni
 | `model.mjs map <dir>/` | regenerate the context map from the real publish/import edges |
 | `model.mjs mark <file>` | draw red badges and arrows on every failure, in place |
 | `model.mjs clear <file>` | strip every marker, restoring the file byte-exactly |
-| `model.mjs compile <file>` | the JSON IR a generator would read |
+| `model.mjs compile <dir>/` | the **system IR** a generator reads: shared contract + slices |
+| `model.mjs compile <file>` | the JSON IR for one model |
+| `docs.mjs sync` | mirror Marten/Wolverine/Alba docs into `reference/llms/` |
+| `docs.mjs status` | how many doc pages are mirrored, and how stale |
 | `drawio.mjs render <file>` | export a PNG beside the file |
 | `drawio.mjs check <file>` | is this plain XML, or compressed? |
 | `drawio.mjs inflate <file>` | decompress in place, making it readable |
@@ -372,6 +375,7 @@ be subtly wrong. They publish `llms.txt`; mirroring it locally is a prerequisite
 | --- | --- |
 | [CLAUDE.md](CLAUDE.md) | the same knowledge for the agent. **The authority when docs disagree** |
 | [MODEL-ORGANIZATION.md](MODEL-ORGANIZATION.md) | why many small models, and how they may reference each other |
+| [ANTI-PATTERNS.md](ANTI-PATTERNS.md) | smells met while building the kit, and **which of them nothing automatic catches** |
 | [diagrams/hour-booking/OPEN-QUESTIONS.md](diagrams/hour-booking/OPEN-QUESTIONS.md) | state of the worked example, and what the checker cannot see |
 | [.claude/skills/event-model/SKILL.md](.claude/skills/event-model/SKILL.md) | the eleven phases in full |
 | [reference/](reference/) | both books as greppable text — every rule here is traceable to them |

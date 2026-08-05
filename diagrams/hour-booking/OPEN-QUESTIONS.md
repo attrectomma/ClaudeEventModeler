@@ -51,18 +51,109 @@ reach working generated code once rather than to style four screens. The other t
 it was written. Installing it (`/plugin`) and re-running `styling` improves the aesthetics without
 changing the contract or the checks. See [designs/README.md](../../designs/README.md).
 
-## Next session starts here
+## Codegen: prerequisites done, generation not started
 
-**Codegen.** The last unbuilt piece, and the one that proves the whole idea.
+The agreed order, and where it stands:
 
-`book-hours` is the slice to do first: `status="ready"`, 10 GWTs, a styled screen, and it crosses both
-agents so it exercises the full stack.
+| | Step | State |
+| --- | --- | --- |
+| 1 | `llms.txt` mirror for Marten / Wolverine / Alba | **done** — 392 pages, `node tools/docs.mjs sync` |
+| 2 | system-level IR | **done** — `node tools/model.mjs compile diagrams/hour-booking/` |
+| 2b | stream identity — the gap step 3 hit immediately | **done**, see below |
+| 3 | contract generation: events, aggregates, projections, **and the failing Alba tests** | **done** — builds clean, 55 tests fail |
+| 4 | `book-hours` end to end, one agent, sequential, until `dotnet test` is green | next |
+| 5 | docker-compose for the human demo, strictly separate from the test infrastructure | |
+| 6 | *then* the orchestrator and parallel fan-out | deferred on purpose |
 
-The known blocker is unchanged: the enforced stack is .NET 10 / Postgres / Wolverine / Marten / Alba /
-Testcontainers, and **Wolverine, Marten and Alba all move faster than model knowledge**, so anything
-generated against remembered API shapes will be subtly wrong. Both publish `llms.txt`
-(`martendb.io/llms.txt`, `wolverinefx.net/llms.txt`) as a markdown index whose every entry is served
-as raw `.md`. Mirroring that locally is a **prerequisite**, not a nice-to-have, and is still unbuilt.
+The IR for this system: **16 events, 9 aggregates, 10 views, 4 screens, 17 of 20 slices generating**
+(the three `upstream-*` columns only land other people's events, so they generate nothing).
+
+**Generate the Alba tests in step 3, before any implementation, and let them fail.** The GWTs come
+from the model, not from the code, so tests built from them cannot be tautological — and it makes the
+GWT band's role as the unowned contract between frontend and backend literal.
+
+### Stream identity: the last thing the model was silent about
+
+Reading the Wolverine docs for `[Aggregate]` surfaced it immediately — Marten keys a stream, and
+**nothing in the model said what a `Timesheet` stream is keyed by.** Every attribute rule passed
+while that was missing, which is why it survived to the edge of codegen.
+
+Now `identity=` on the swimlane band, checked two ways: required on any band holding events we write
+(`band-needs-identity`), and every name in it must appear on every owned event
+(`identity-not-on-every-event`). Bands of imports and foreign events are exempt.
+
+**The domain decision: `Timesheet` is keyed by `employeeId, month`** — because that makes *"at most 18
+hours can stand for one day"* and *"a closed month cannot be booked into"* true aggregate invariants.
+Keyed per booking they would have been checks against an eventually-consistent projection, where two
+concurrent bookings can both pass and exceed the cap.
+
+The cost, paid: **`month:string` added to all four Timesheet events and their four commands.** The key
+has to be on every event or the event cannot say which stream it belongs to. All four owned
+aggregates now resolve to `employeeId, month`.
+
+### Generated code: where it stands
+
+```
+node tools/codegen.mjs diagrams/hour-booking     -> generated/HourBooking/  (35 files)
+cd generated/HourBooking && dotnet build          -> 0 errors, 0 warnings
+                            dotnet test           -> 55 failed, 0 passed, 55 total
+```
+
+**55 failing tests is the deliverable**, not a defect: one per GWT, generated from the model rather
+than from the implementation, so they cannot be tautological. Each throws with the outcome it expects
+and the stream key it needs. `book-hours`' 10 are the ones step 4 turns green.
+
+43 files: 16 event records, **per-slice** state types (live aggregation, nothing registered), 10 view
+types with **inline** projections, 2 validators, the Alba + Testcontainers harness, a `SeedData`
+baseline, and 55 tests.
+
+Every remaining `TODO(codegen)` is a hole a script should not fill: how each fold works, the
+arithmetic behind a derived field, the `Identity` rule for events that do not carry the system key,
+and the concrete values a given test needs.
+
+**Decided this round:**
+
+- **Live on write, inline on read.** No projection is registered for the state a slice folds; every
+  read model is `ProjectionLifecycle.Inline` so a GWT's THEN is assertable the moment the request
+  returns.
+- **No "the" aggregate.** Each state-change slice folds the stream into the shape *its* decision
+  needs, so aggregates left the shared layer entirely.
+- **No `Create` methods.** "First event in the swimlane opens the stream" covers 3 of 4 bands here,
+  but `Timesheet` is opened by `HoursBooked` **or** `ZeroHoursFilled`, so a no-arg constructor is used
+  instead — which is what Marten's docs recommend when ordering cannot be guaranteed.
+- **`IInitialData` is the example data.** Fixed ids in one `SeedData` class, re-applied by
+  `ResetAllMartenDataAsync()` before each test.
+
+**`MyProjects` is grained `(employeeId, projectId)`** — the expert's ruling, now `identity=` on the
+read model. All 10 projections register. `ProjectCreated` still has no grouping rule there, correctly:
+a project existing is not per-employee, so how it lands in a per-(employee, project) view is a
+separate decision.
+
+**Nine of ten views still declare no `identity=`.** The generator falls back to the system key and
+stamps those projections `GUESSED`, which is right for the month-scoped views and wrong for at least
+`MyTimesheet` (per booking), `Admins` (per admin), `WorkingDays` (per date) and `MonthStartTodo` (per
+employee). Declaring them is a short session with the expert.
+
+**The `Timesheet` stream has two possible opening events** and that is a modelling smell rather than a
+codegen problem — see [ANTI-PATTERNS.md](../../ANTI-PATTERNS.md) #1 for the three resolutions and why
+none of them was seamless. The recommended fix is a second automation that opens the stream with a
+creation event, which needs five invented domain facts and therefore a session with the expert.
+
+**Decided:** `enforce="periphery"` on the four `HoursMustBeNonZero` / `HoursMustBeWholeOrHalf` GWTs.
+The rest default to `aggregate`. This is declared because the derivation I proposed — "empty `given=`
+means periphery" — found **zero of four** on this model: `BookingMonthStarted` appears as context on
+almost every GWT.
+
+### Two decisions still open
+
+- **FluentValidation vs aggregate rules.** A GWT with an empty `given` is *input* validation (hours
+  must be whole or half); a GWT whose `given` names events is a *state* decision (a closed month
+  cannot be booked into) and belongs on the aggregate, where it can see the stream. Getting this
+  wrong puts business rules in validators that cannot enforce them.
+- **One Postgres, not N.** Testcontainers per agent would be one container per agent. One instance per
+  test assembly with schema isolation is the answer. Note: **Testcontainers is not in the doc mirror**
+  — zero mentions across all 392 pages — so that part is written from its own API, not from a source
+  this kit can check.
 
 Note the skill order is a **dependency, not a pipeline**: styling gates only *frontend* codegen.
 [notifications](notifications.drawio) has no screens, so it is backend-only and could go to codegen

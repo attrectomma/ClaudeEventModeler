@@ -18,13 +18,137 @@ argued with per slice — it is the stack.
 - Docker
 - Aspire — optional, only after an explicit feasibility check
 
-Wolverine, Marten and Alba each need continuously updated, LLM-friendly documentation
-available locally. Their APIs move faster than model knowledge, so anything generated against
-remembered API shapes will be subtly wrong.
+Wolverine, Marten and Alba each need continuously updated, LLM-friendly documentation available
+locally. Their APIs move faster than model knowledge, so anything generated against remembered API
+shapes will be subtly wrong — right shape, wrong method name, quietly deprecated overload. Codegen
+*multiplies* that: a fan-out of agents produces one wrong file per agent instead of one you would
+have caught.
 
-Marten and Wolverine both publish `llms.txt` (`https://martendb.io/llms.txt`,
-`https://wolverinefx.net/llms.txt`) — a markdown index whose every entry is also served as raw
-`.md`, so the whole doc set can be mirrored locally and refreshed. Not yet built.
+**All three publish `llms.txt`** — a markdown index whose every entry is also served as raw `.md`.
+Alba does too, at `jasperfx.github.io/alba/llms.txt`, which this file previously said it did not.
+
+```
+node tools/docs.mjs sync     # mirror all three into reference/llms/   (392 pages, ~4 MB)
+node tools/docs.mjs status   # how many pages, and how stale
+```
+
+**Read the mirror before writing any generated code.** Each library has
+`reference/llms/<lib>/INDEX.md`, a local table of contents grouped as upstream groups it. The mirror
+lives under `reference/`, which is **gitignored** — it is a regenerable build input like
+`node_modules`, so a fresh clone must run `sync` once. `_manifest.json` records when it last ran so
+staleness is visible rather than assumed.
+
+## Codegen: what a script owns, and what needs judgement
+
+`tools/codegen.mjs` emits everything **mechanically derivable** from the IR — the solution, both
+projects, `Program.cs`, 16 event records, 4 aggregate folds, 10 view types, the validators, the Alba
+harness, and one test per GWT. It is total and idempotent, and its diff is how a model change gets
+reviewed. It emits **no business logic**, marking every hole `TODO(codegen)` for the `codegen` skill,
+which reads `reference/llms/` and fills them.
+
+Verified rather than assumed: `dotnet build` succeeds with 0 warnings, and `dotnet test` discovers
+and runs **55 tests, 55 failing** — one per GWT, against a real Testcontainers Postgres.
+
+The stack pattern, all of it read from the mirror:
+
+```csharp
+[WolverinePost("/timesheet/{employeeId}/{month}/book"), EmptyResponse]
+public static HoursBooked Book(BookHours cmd, [Aggregate] Timesheet sheet) => ...;
+```
+
+Static methods, no controllers. `[Aggregate]` resolves the stream from route args and applies Marten's
+transactional middleware; `[EmptyResponse]` makes the returned event get *appended* rather than
+serialised. **The endpoint is the decider** — so a state type is a pure `Apply` fold with no rules in
+it. Streams are `StreamIdentity.AsString` because every key here is composite.
+
+### Live on the write side, inline on the read side
+
+| | Registered? | Why |
+| --- | --- | --- |
+| **write** — the state a slice folds to decide | **nothing** | live aggregation: `FetchForWriting` folds on demand |
+| **read** — every read model | **`ProjectionLifecycle.Inline`** | updated in the same transaction as the append, so a GWT's THEN can be asserted the moment the request returns |
+
+**There is no "the" aggregate.** Every state-change slice folds the stream into whatever shape *its*
+decision needs, so aggregates are **per slice**, not per stream — which also takes them out of the
+shared layer and makes slices more independent. Each folds *all* of its stream's events, because the
+daily cap needs the whole month, not just the booking being added.
+
+**No `Create` methods.** A no-arg constructor lets any event open the stream, and Marten's own docs
+say that is *"probably safest unless you can guarantee that a certain event type will always be first"*
+— which does not hold here. "First event drawn in the swimlane" is a good rule that covers 3 of 4
+bands: `MonthClosure` is genuinely always opened by `BookingMonthStarted`, but the `Timesheet` stream
+is opened by `HoursBooked` **or** `ZeroHoursFilled` depending on whether the employee booked anything
+before leaving a project. The leftmost event survives as a doc comment, not a dependency.
+
+### `identity=` on a read model — what one ROW is
+
+A view's `fields=` say what a row holds and never what a row **is**. `MyTimesheet` is per booking,
+`MyProjects` per (employee, project), `OpenMonths` per (employee, month) — and nothing said so until
+a projection had to group events.
+
+**A projection with no slicing rule cannot be registered.** Marten rejects a multi-stream projection
+with no `Identity<T>` rules **at startup**, so the whole host goes down and you lose the per-test
+failure detail — 55 individual failures become 55 identical fixture errors. `Identity` is derivable
+for any event carrying the view's whole key; where it is not, the generator emits the projection but
+leaves the registration commented with the reason.
+
+Declare `identity=` on the read model. Where it is missing the generator falls back to the system key
+and stamps the projection `GUESSED`, because silently grouping the wrong rows together is worse than
+saying so. **Only 1 of 10 views in `hour-booking` declares it** — see ANTI-PATTERNS.md #3.
+
+### Example data comes from `IInitialData`
+
+The model declares field names and types but **never example values**, which is why tests cannot be
+fully generated. Marten's `IInitialData` is the answer: seed the foreign/genesis events once with
+fixed ids, and `ResetAllMartenDataAsync()` re-applies them before every test. Values live in one
+`SeedData` class — `SeedData.EmployeeId`, `SeedData.Month`, `SeedData.WorkingDay` — so a GIVEN can
+name things and a failing test is reproducible.
+
+### `enforce=` on a GWT — where a rule is checked
+
+`periphery` (FluentValidation, rejected before any stream is read) or `aggregate` (default, needs
+accumulated state). **This is declared, not derived.** The obvious heuristic — "no `given=` means the
+request alone settles it" — fails on a real model: almost every GWT carries a *context* `given=` like
+*"the month is open"*, so on `hour-booking` it found zero periphery rules out of four. The default is
+the safe one, because a state rule placed in a validator cannot enforce itself.
+
+### The mirror is not infallible either
+
+Two API facts the docs got wrong or never stated, both caught by compiling:
+
+- **`JasperFx.Resources` is a namespace, not a package.** Inferring a package id from a `using` in a
+  doc sample fails restore.
+- **`JasperFxEnvironment` is in `JasperFx.CommandLine`**, not `JasperFx` as the migration guide says.
+- **The two projection base classes are in different namespaces**:
+  `Marten.Events.Aggregation.SingleStreamProjection<,>` but
+  `Marten.Events.Projections.MultiStreamProjection<,>`. No doc page states either.
+
+The last two were settled by **reflecting over the assembly with a .NET 10 file-based app**
+(`dotnet run probe.cs` with a `#:package` directive) — that is the tiebreaker when the docs and the
+compiler disagree, and it takes about a minute.
+
+So: read the mirror first, then **compile**. The mirror removes most of the guessing, not all of it.
+
+**Smells the checker cannot see are catalogued in [ANTI-PATTERNS.md](ANTI-PATTERNS.md)**, with the
+tooling-catches-it column made explicit. Read it before trusting a green run.
+
+## Keep it simple, but prepare for evolution
+
+The standing principle for codegen, and the reason for several choices that would otherwise look
+like over-engineering:
+
+- **The system IR separates `shared` from `slices`** even though generation is currently sequential.
+  That split is what makes a parallel fan-out possible later without redesigning anything.
+- **Slices are nowhere near independent.** In `hour-booking` the `Timesheet` aggregate is touched by
+  4 commands across 4 slices, `MonthClosure` by 4, and every event feeds 2–5 views. So "generate a
+  slice" can never mean generating its events and projections — several slices would each write the
+  same file. Events, aggregates, views and the GWT tests are generated **once, from the whole
+  system**; only handlers, endpoints, pages and slice-local validators are per-slice.
+- **The agent tree stays flat.** Subagents do not reliably get to spawn subagents, and workflow
+  nesting is one level. An orchestrator fans out `(slice × side)` directly rather than
+  slice-agents-spawning-side-agents.
+- **Do one slice end to end before any orchestration.** Throughput is worthless before correctness,
+  and a fan-out is impossible to debug if a single slice has never succeeded.
 
 ## How the bilateral link works
 
@@ -97,6 +221,9 @@ node tools/design.mjs check <system-dir>     # the styled pages against the mode
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate <dir>/   # a whole system: every model, plus the cross-model rules
 node tools/model.mjs map      <dir>/   # (re)generate <dir>/_context-map.drawio from the real edges
+node tools/model.mjs compile  <dir>/   # the system IR a generator reads -> build/<system>.ir.json
+node tools/docs.mjs sync               # mirror Marten/Wolverine/Alba docs into reference/llms/
+node tools/codegen.mjs        <dir>/   # the deterministic code -> generated/<System>/
 ```
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is
@@ -480,11 +607,33 @@ band per business capability, drawn **inside** the Event Stream lane, declaring 
 it holds:
 
 ```xml
-<object id="swim-timesheet" label="Timesheet stream" em="lane" streams="Timesheet">
+<object id="swim-timesheet" label="Timesheet stream" em="lane"
+        streams="Timesheet" identity="employeeId, month">
 ```
 
 An event's **y is its stream**, not its column. Its `aggregate=` must match the band it is drawn
 in, and an event drawn in no band has an undefined stream — both are errors.
+
+### `identity=` — what keys ONE stream, and why it is a domain question
+
+Marten keys a stream. Without `identity=` a generator has nothing to append to, and every attribute
+rule can pass while the model stays silent about it — which is exactly what happened here, right up
+to the point of writing code.
+
+`identity=` is **required on any band holding events we write** (`band-needs-identity`), and every
+name in it must appear on **every** owned event in that band (`identity-not-on-every-event`). Bands
+holding only imports or foreign events are exempt: we project from those streams, never append.
+
+The choice decides **which business rules are real invariants**, so it is not a technical detail:
+
+| Timesheet keyed by | *"at most 18 hours in a day"* is |
+| --- | --- |
+| `bookingId` | not an invariant — a check against an eventually-consistent projection, and two concurrent bookings can both pass |
+| `employeeId, month` | a true aggregate invariant, enforced inside the transaction |
+
+`hour-booking` chose `employeeId, month`, which **required adding `month:string` to all four
+Timesheet events and their commands** — the key has to be on every event or the event cannot say
+which stream it belongs to. Expect that ripple; it is the normal cost of the decision.
 
 The rule worth enforcing is the little book's, ch. 11:
 

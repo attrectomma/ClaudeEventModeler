@@ -24,7 +24,7 @@
             <mxGeometry x="40" y="870" width="2860" height="660" as="geometry" />
           </mxCell>
         </object>
-        <object id="swim-0" label="Timesheet stream" em="lane" streams="Timesheet">
+        <object id="swim-0" label="Timesheet stream" em="lane" streams="Timesheet" identity="employeeId, month">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="40" y="895" width="2860" height="95" as="geometry" />
           </mxCell>
@@ -99,7 +99,7 @@
             <mxGeometry x="100" y="1450" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="rm-my-projects" label="MyProjects" em="readmodel" slice="my-projects" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="rm-my-projects" label="MyProjects" em="readmodel" identity="employeeId, projectId" slice="my-projects" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="100" y="610" width="180" height="60" as="geometry" />
           </mxCell>
@@ -134,12 +134,12 @@
             <mxGeometry x="1060" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-book-hours" label="BookHours" em="command" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?" terminal="bookingId:generated" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-book-hours" label="BookHours" em="command" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, projectId:Guid, date:DateOnly, hours:decimal, note:string?" terminal="bookingId:generated" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="1060" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="evt-hours-booked" label="HoursBooked" em="event" public="true" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, bookedAt:DateTimeOffset" source="&quot;the first time you book hours for a day is HoursBooked&quot;" note="ANY date in the open month — future (&quot;employees may prefill&quot;) and past (&quot;book all days of the week on Friday&quot;). Whole or half hours, never 0.">
+        <object id="evt-hours-booked" label="HoursBooked" em="event" public="true" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, projectId:Guid, date:DateOnly, hours:decimal, note:string?, bookedAt:DateTimeOffset" source="&quot;the first time you book hours for a day is HoursBooked&quot;" note="ANY date in the open month — future (&quot;employees may prefill&quot;) and past (&quot;book all days of the week on Friday&quot;). Whole or half hours, never 0.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="1060" y="910" width="180" height="60" as="geometry" />
           </mxCell>
@@ -149,12 +149,12 @@
             <mxGeometry x="1380" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-correct-hours" label="CorrectHours" em="command" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-correct-hours" label="CorrectHours" em="command" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, hours:decimal, note:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="1380" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="evt-hours-corrected" label="HoursCorrected" em="event" public="true" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?, correctedAt:DateTimeOffset" source="&quot;This should be a HoursCorrected event carrying the 8 hours, not the 2 difference&quot;" note="carries the ABSOLUTE value, not a delta. Truth for a day+project = last HoursCorrected, else HoursBooked.">
+        <object id="evt-hours-corrected" label="HoursCorrected" em="event" public="true" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, hours:decimal, note:string?, correctedAt:DateTimeOffset" source="&quot;This should be a HoursCorrected event carrying the 8 hours, not the 2 difference&quot;" note="carries the ABSOLUTE value, not a delta. Truth for a day+project = last HoursCorrected, else HoursBooked.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="1380" y="910" width="180" height="60" as="geometry" />
           </mxCell>
@@ -164,12 +164,12 @@
             <mxGeometry x="1700" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-remove-booking" label="RemoveBooking" em="command" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-remove-booking" label="RemoveBooking" em="command" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="1700" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="evt-booking-removed" label="BookingRemoved" em="event" public="true" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, removedAt:DateTimeOffset" source="&quot;changed or removed ... by the employees&quot;" note="distinct from HoursCorrected: you cannot correct to 0, so removal is the only way to take a line back.">
+        <object id="evt-booking-removed" label="BookingRemoved" em="event" public="true" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, removedAt:DateTimeOffset" source="&quot;changed or removed ... by the employees&quot;" note="distinct from HoursCorrected: you cannot correct to 0, so removal is the only way to take a line back.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="1700" y="910" width="180" height="60" as="geometry" />
           </mxCell>
@@ -194,12 +194,12 @@
             <mxGeometry x="2660" y="580" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="cmd-fill-zero-hours" label="FillZeroHours" em="command" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal" terminal="bookingId:generated, hours:const" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="cmd-fill-zero-hours" label="FillZeroHours" em="command" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, projectId:Guid, date:DateOnly, hours:decimal" terminal="bookingId:generated, hours:const" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="2660" y="650" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="evt-zero-hours-filled" label="ZeroHoursFilled" em="event" public="true" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, filledAt:DateTimeOffset" source="&quot;we fill out the remainder of the month with 0 hours booked per day&quot;" note="one event PER DAY. The only way a zero enters the system.">
+        <object id="evt-zero-hours-filled" label="ZeroHoursFilled" em="event" public="true" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, month:string, projectId:Guid, date:DateOnly, hours:decimal, filledAt:DateTimeOffset" source="&quot;we fill out the remainder of the month with 0 hours booked per day&quot;" note="one event PER DAY. The only way a zero enters the system.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="2660" y="910" width="180" height="60" as="geometry" />
           </mxCell>
@@ -219,12 +219,12 @@
             <mxGeometry x="1060" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-book-hours-4" label="zero hours is not a booking — removal is the only way to take a line back&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="book-hours" rule="zero hours is not a booking — removal is the only way to take a line back" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours, so a HoursBooked with 0 hours would be a business rule violation&quot;">
+        <object id="gwt-book-hours-4" label="zero hours is not a booking — removal is the only way to take a line back&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="book-hours" rule="zero hours is not a booking — removal is the only way to take a line back" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours, so a HoursBooked with 0 hours would be a business rule violation&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1060" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-book-hours-5" label="hours are booked in whole or half hours only&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="book-hours" rule="hours are booked in whole or half hours only" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeWholeOrHalf" source="&quot;date + project + hours spend. Full hours or 0,5 hours.&quot;">
+        <object id="gwt-book-hours-5" label="hours are booked in whole or half hours only&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="book-hours" rule="hours are booked in whole or half hours only" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeWholeOrHalf" source="&quot;date + project + hours spend. Full hours or 0,5 hours.&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1060" y="2360" width="300" height="120" as="geometry" />
           </mxCell>
@@ -269,12 +269,12 @@
             <mxGeometry x="1380" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-correct-hours-4" label="a correction cannot take the hours to zero — removal is the only way&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="correct-hours" rule="a correction cannot take the hours to zero — removal is the only way" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours&quot;">
+        <object id="gwt-correct-hours-4" label="a correction cannot take the hours to zero — removal is the only way&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="correct-hours" rule="a correction cannot take the hours to zero — removal is the only way" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1380" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-correct-hours-5" label="corrections are in whole or half hours only&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="correct-hours" rule="corrections are in whole or half hours only" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeWholeOrHalf" source="&quot;Full hours or 0,5 hours&quot;">
+        <object id="gwt-correct-hours-5" label="corrections are in whole or half hours only&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="correct-hours" rule="corrections are in whole or half hours only" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeWholeOrHalf" source="&quot;Full hours or 0,5 hours&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1380" y="2360" width="300" height="120" as="geometry" />
           </mxCell>
