@@ -304,6 +304,13 @@ it cannot be mistaken for the design, and it does not fight the sticky-note gram
 | `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |
 | `codegen` | per slice | nothing — it reads the compiled IR | tests pass |
 
+**`styling` delegates aesthetic judgement to Anthropic's official `frontend-design` plugin** rather
+than reinventing design taste — install via `/plugin`. That plugin already supplies the token-system
+spec (4–6 colours, 2+ type roles, one signature element), the anti-templated-default heuristics, and
+the restraint discipline; its workflow even asks for screenshots to self-critique with, which is
+exactly what `tools/design.mjs` provides. `styling` adds only what the plugin cannot know: the field
+contract from the model, the `designs/<screen-slug>.html` convention, and the review loop.
+
 The wireframe belongs to `event-model`, and the boundary is not obvious: `binds=` and `em="action"`
 carry **business information** — which fields a screen shows, which are typed, and which action it
 offers. That last one is a domain fact, not decoration. Colour, type, spacing and components carry
