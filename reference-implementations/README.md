@@ -11,11 +11,16 @@ agreed to.
 
 ```
 reference-implementations/
-  automation/
-    email-outbox/          the event model — ONE model, shared by every implementation below
-    generated/             what tools/codegen.mjs emits from it, unedited
-    src/, tests/           the implementations
+  automation/            the Automation pattern — four ways to wake a trigger, one model
+    email-outbox/        the event model
+    generated/           the implementations
+  state-change/          the Command pattern on an EXISTING stream — the aggregate handler
+    drafting/            the event model                     workflow, with and without HTTP
+    generated/           both implementations
 ```
+
+Each folder has its own README with the measured comparison. Each is self-contained: its own model, its own
+project, readable without the other.
 
 ---
 

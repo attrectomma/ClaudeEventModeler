@@ -126,6 +126,35 @@ const seedConstants = () => {
   return lines.join("\n");
 };
 
+// WHAT KEYS A STREAM, in the store's terms — and this decides whether Wolverine's aggregate handler
+// workflow is available at all.
+//
+// [WriteAggregate] resolves the stream identity from a member of the COMMAND (or an HTTP route argument),
+// so the identity has to be a single value of the store's identity type. A composite key cannot satisfy
+// that: there is no one member to read, which is why CLAUDE.md says [Aggregate] does not fit one. Making
+// it mechanical rather than a remark:
+//
+//   every keyed band has ONE Guid identity field  ->  StreamIdentity.AsGuid, key IS the field
+//   every keyed band has ONE field                ->  AsString, key IS the field
+//   any band has a composite key                  ->  AsString, key is a prefixed join, and the
+//                                                     aggregate handler workflow is unavailable
+//
+// The prefix mattered: a key of `email:{id}` can never equal the `emailId` a command carries, so even a
+// single-field key blocked the workflow while it was being decorated.
+const keyedAggs = ir.shared.aggregates.filter((a) => (a.identity ?? []).length);
+const identityFieldOf = (a) => {
+  const name = a.identity[0];
+  for (const e of ir.shared.events) {
+    const f = (e.fields ?? []).find((x) => x.name === name);
+    if (f) return f;
+  }
+  return null;
+};
+const singleKeyed = keyedAggs.length > 0 && keyedAggs.every((a) => a.identity.length === 1);
+const allGuid = singleKeyed && keyedAggs.every((a) => (CS[identityFieldOf(a)?.type] ?? "") === "Guid");
+const STREAM_ID = allGuid ? "Guid" : "string";
+const STREAM_IDENTITY = allGuid ? "AsGuid" : "AsString";
+
 const files = [];
 const kept = [];
 // Fully derived: always overwritten, because the diff IS the review of a model change.
@@ -250,12 +279,22 @@ namespace ${NS}.Slices.${pascal(s.context)};
 /// </summary>
 public sealed record ${stateName(s)}
 {
-    public string Id { get; init; } = default!;
+    public ${STREAM_ID} Id { get; init; }${STREAM_ID === "string" ? " = default!;" : ""}
 
     /// <summary>Marten's convention. The aggregate workflow uses it for optimistic concurrency.</summary>
     public int Version { get; set; }
 
-${keyed.length ? `    public static string StreamKey(${keyed.map((k) => {
+${keyed.length === 1 ? `    /// <summary>
+    /// The stream key IS the identity field — no prefix, no composition. That is what lets Wolverine's
+    /// aggregate handler workflow find the stream from a command member or a route argument.
+    /// </summary>
+    public static ${STREAM_ID} StreamKey(${STREAM_ID} ${camel(keyed[0])}) => ${camel(keyed[0])};
+` : keyed.length ? `    /// <summary>
+    /// A COMPOSITE key, so it is a joined string and the aggregate handler workflow is unavailable for this
+    /// stream: [WriteAggregate] reads one member, and there is no single member to read. Use
+    /// FetchForWriting(streamKey) instead — same optimistic concurrency, honest about the key.
+    /// </summary>
+    public static string StreamKey(${keyed.map((k) => {
       const f = evs[0].fields.find((x) => x.name === k);
       return `${f ? type(f) : "string"} ${camel(k)}`;
     }).join(", ")})
@@ -323,7 +362,7 @@ namespace ${NS}.Views;
 /// </summary>
 public sealed record ${pascal(v.label)}
 {
-    public string Id { get; init; } = default!;
+    public ${STREAM_ID} Id { get; init; }${STREAM_ID === "string" ? " = default!;" : ""}
 
 ${v.fields.map((f) => {
       const d = v.derived?.[f.name];
@@ -345,8 +384,8 @@ ${multi ? `///
 /// Grouped by ${KEY.join(" + ")}${guessedKey ? " — GUESSED from the system key, because this read model\n/// declares no identity=. Declare it: a wrong grain groups the wrong rows together." : " (declared on the read model)"}.` : ""}
 /// </summary>
 public sealed class ${pascal(v.label)}Projection : ${multi
-      ? `MultiStreamProjection<${pascal(v.label)}, string>`
-      : `SingleStreamProjection<${pascal(v.label)}, string>`}
+      ? `MultiStreamProjection<${pascal(v.label)}, ${STREAM_ID}>`
+      : `SingleStreamProjection<${pascal(v.label)}, ${STREAM_ID}>`}
 {
 ${multi ? `    public ${pascal(v.label)}Projection()
     {
@@ -566,7 +605,7 @@ public abstract class IntegrationContext(AppFixture fixture) : IAsyncLifetime
     /// GIVEN: append prior events straight to the stream, bypassing the endpoints. A GWT's GIVEN is
     /// history, not a sequence of requests to replay.
     /// </summary>
-    protected async Task Given(string streamKey, params object[] events)
+    protected async Task Given(${STREAM_ID} streamKey, params object[] events)
     {
         await using var session = Store.LightweightSession();
         session.Events.Append(streamKey, events);
@@ -574,7 +613,7 @@ public abstract class IntegrationContext(AppFixture fixture) : IAsyncLifetime
     }
 
     /// <summary>THEN: the events a stream actually holds, in order.</summary>
-    protected async Task<object[]> EventsFor(string streamKey)
+    protected async Task<object[]> EventsFor(${STREAM_ID} streamKey)
     {
         await using var session = Store.QuerySession();
         var raw = await session.Events.FetchStreamAsync(streamKey);
@@ -911,7 +950,7 @@ var marten = builder.Services.AddMarten(opts =>
         // strings. Marten fixes this once per store — Guid and string streams cannot be mixed.
 ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a.identity.join(" + ")))]
       .map((k) => `        //   ${k}`).join("\n")}
-        opts.Events.StreamIdentity = StreamIdentity.AsString;
+        opts.Events.StreamIdentity = StreamIdentity.${STREAM_IDENTITY};
 
         // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's
         // camelCase policy entirely. Set the casing here or every read endpoint quietly returns

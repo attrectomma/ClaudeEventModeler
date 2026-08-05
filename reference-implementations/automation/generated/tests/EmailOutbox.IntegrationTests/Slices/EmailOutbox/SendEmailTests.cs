@@ -30,7 +30,7 @@ namespace EmailOutbox.IntegrationTests.Slices.EmailOutbox;
 /// </summary>
 public sealed class SendEmailTests(AppFixture fixture) : IntegrationContext(fixture)
 {
-    private static string Stream => SendEmailState.StreamKey(SeedData.EmailId);
+    private static Guid Stream => SendEmailState.StreamKey(SeedData.EmailId);
 
     private static EmailPrepared Prepared => new(
         SeedData.EmailId, "someone@example.com", "Subject", "Body", SeedData.SeededAt);

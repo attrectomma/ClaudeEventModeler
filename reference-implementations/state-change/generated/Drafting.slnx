@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Drafting/Drafting.csproj" />
+  <Project Path="tests/Drafting.IntegrationTests/Drafting.IntegrationTests.csproj" />
+</Solution>

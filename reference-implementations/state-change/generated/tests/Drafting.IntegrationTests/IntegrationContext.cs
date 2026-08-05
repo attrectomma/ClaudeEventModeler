@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Wolverine.Tracking;
 using Xunit;
 
-namespace EmailOutbox.IntegrationTests;
+namespace Drafting.IntegrationTests;
 
 [Collection("integration")]
 public abstract class IntegrationContext(AppFixture fixture) : IAsyncLifetime

@@ -20,7 +20,12 @@ namespace EmailOutbox.Views;
 /// </summary>
 public sealed record EmailsToSend
 {
-    public string Id { get; init; } = default!;
+    /// <summary>
+    /// The stream key, which is now the emailId itself. Before the store keyed streams by a prefixed string,
+    /// the document id was "email:{guid}" while identity= declared emailId — 1:1 but not equal, so loading by
+    /// emailId silently returned null. Keying the stream by the field dissolves that mismatch.
+    /// </summary>
+    public Guid Id { get; init; }
 
     /// <summary>Carried by an upstream event.</summary>
     public Guid EmailId { get; init; }
@@ -58,7 +63,7 @@ public sealed record EmailsToSend
 /// Contrast the write side, which registers nothing and folds live.
 
 /// </summary>
-public sealed class EmailsToSendProjection : SingleStreamProjection<EmailsToSend, string>
+public sealed class EmailsToSendProjection : SingleStreamProjection<EmailsToSend, Guid>
 {
     /// <summary>
     /// Puts the row on the list. The only event here that means "there is work to do".

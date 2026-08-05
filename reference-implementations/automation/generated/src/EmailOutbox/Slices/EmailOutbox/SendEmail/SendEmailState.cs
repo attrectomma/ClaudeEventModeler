@@ -21,7 +21,7 @@ namespace EmailOutbox.Slices.EmailOutbox;
 /// </summary>
 public sealed record SendEmailState
 {
-    public string Id { get; init; } = default!;
+    public Guid Id { get; init; }
 
     /// <summary>Marten's convention. The aggregate workflow uses it for optimistic concurrency.</summary>
     public int Version { get; set; }
@@ -48,7 +48,11 @@ public sealed record SendEmailState
     /// </summary>
     public bool Sent { get; init; }
 
-    public static string StreamKey(Guid emailId) => $"email:{emailId}";
+    /// <summary>
+    /// The stream key IS the emailId — no prefix. That is what lets Wolverine's aggregate handler workflow
+    /// find this stream from a command member or a route argument, which a prefixed key can never do.
+    /// </summary>
+    public static Guid StreamKey(Guid emailId) => emailId;
 
     public static SendEmailState Apply(EmailPrepared e, SendEmailState current) => current with
     {

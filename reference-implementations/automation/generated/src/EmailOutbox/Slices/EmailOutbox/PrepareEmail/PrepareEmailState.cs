@@ -20,13 +20,12 @@ namespace EmailOutbox.Slices.EmailOutbox;
 /// </summary>
 public sealed record PrepareEmailState
 {
-    public string Id { get; init; } = default!;
+    public Guid Id { get; init; }
 
     /// <summary>Marten's convention. The aggregate workflow uses it for optimistic concurrency.</summary>
     public int Version { get; set; }
 
-    public static string StreamKey(Guid emailId)
-        => $"email:{emailId}";
+    public static Guid StreamKey(Guid emailId) => emailId;
 
     // BOTH FOLDS ARE DELIBERATELY EMPTY, and this file is really a finding rather than code.
     //

@@ -1,0 +1,157 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="drafting" id="context">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1140" pageHeight="1910" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="model-drafting" label="Drafting&#10;drafting · context" em="model" context="drafting" system="drafting" note="A reference model for the STATE CHANGE pattern. revise-subject acts on a stream that already exists, which is what the aggregate handler workflow is for — and it is implemented twice, with and without Wolverine.HTTP, from this one model.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="1040" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="550" width="1040" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="870" width="1040" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-email" label="Email stream — one stream per email, keyed by a SINGLE field, which is what makes the aggregate handler workflow possible" em="lane" streams="Email" identity="emailId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="895" width="1040" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1230" width="1040" height="620" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-draft-email" label="draft-email&#10;command · ready" em="group" slice="draft-email" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="80" y="140" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-my-drafts" label="my-drafts&#10;view · ready" em="group" slice="my-drafts" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="400" y="140" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-revise-subject" label="revise-subject&#10;command · ready" em="group" slice="revise-subject" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="140" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-compose" label="Compose" em="screen" slice="draft-email" screen="compose" inputs="to:string, subject:string, body:string" note="The stream does not exist yet, so nothing is displayed — there is nothing to read. That is what makes draft-email the CREATE slice and revise-subject the state change.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="200" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-draft-email" label="DraftEmail" em="command" slice="draft-email" aggregate="Email" fields="emailId:Guid, to:string, subject:string, body:string" terminal="emailId:generated" note="The handler mints the id: a screen cannot supply one for a thing that does not exist yet.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-email-drafted" label="EmailDrafted" em="event" slice="draft-email" aggregate="Email" fields="emailId:Guid, to:string, subject:string, body:string, draftedAt:DateTimeOffset" terminal="draftedAt:clock" note="Opens the stream. Every rule in revise-subject is a statement about what this event left behind.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-my-drafts" label="MyDrafts" em="readmodel" slice="my-drafts" identity="emailId" fields="emailId:Guid, to:string, subject:string, body:string" note="One row per email. It exists so the Draft screen has something to read — a screen cannot display what no View supplies.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-draft" label="Draft" em="screen" slice="revise-subject" screen="draft" displays="emailId:Guid, to:string, subject:string" inputs="subject:string" note="subject is both displayed and typed: the reader sees the current one and replaces it. That is exactly why NothingChanged is a real rule — the obvious mistake is submitting what was already there.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="200" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-revise-subject" label="ReviseSubject" em="command" slice="revise-subject" aggregate="Email" fields="emailId:Guid, subject:string" note="Acts on a stream that ALREADY EXISTS, and carries the stream identity as a single field — the two conditions Wolverine's aggregate handler workflow needs.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-subject-revised" label="SubjectRevised" em="event" slice="revise-subject" aggregate="Email" fields="emailId:Guid, subject:string, revisedAt:DateTimeOffset" terminal="revisedAt:clock" note="Feeds MyDrafts to update the row, which is why the edge points left — the Event to View exception.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-compose--cmd-draft-email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-compose" target="cmd-draft-email">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-draft-email--evt-email-drafted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-draft-email" target="evt-email-drafted">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-evt-email-drafted--rm-my-drafts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-email-drafted" target="rm-my-drafts">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="950" />
+              <mxPoint x="390" y="630" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-subject-revised--rm-my-drafts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-subject-revised" target="rm-my-drafts">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="1025" />
+              <mxPoint x="510" y="1025" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-my-drafts--scr-draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-drafts" target="scr-draft">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="520" />
+              <mxPoint x="700" y="520" />
+              <mxPoint x="700" y="350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-scr-draft--cmd-revise-subject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-draft" target="cmd-revise-subject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-revise-subject--evt-subject-revised" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-revise-subject" target="evt-subject-revised">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="gwt-draft-email-1" label="a composed email becomes a draft&#10;&#10;GIVEN —&#10;WHEN DraftEmail&#10;THEN EmailDrafted" em="gwt" slice="draft-email" rule="a composed email becomes a draft" when="DraftEmail" then="EmailDrafted">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1260" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-draft-email-2" label="a draft with no recipient is refused&#10;&#10;GIVEN —&#10;WHEN DraftEmail&#10;THEN error: RecipientRequired" em="gwt" slice="draft-email" rule="a draft with no recipient is refused" when="DraftEmail" then="error: RecipientRequired" enforce="periphery">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1400" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-revise-subject-1" label="a draft's subject can be revised&#10;&#10;GIVEN EmailDrafted&#10;WHEN ReviseSubject&#10;THEN SubjectRevised" em="gwt" slice="revise-subject" rule="a draft's subject can be revised" given="EmailDrafted" when="ReviseSubject" then="SubjectRevised" note="The happy path, and the only assertion both implementations must satisfy identically.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1260" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-revise-subject-2" label="revising to the subject it already has changes nothing&#10;&#10;GIVEN EmailDrafted&#10;WHEN ReviseSubject&#10;THEN error: NothingChanged" em="gwt" slice="revise-subject" rule="revising to the subject it already has changes nothing" given="EmailDrafted" when="ReviseSubject" then="error: NothingChanged" enforce="aggregate" note="The rule that cannot be checked without the FOLDED STATE — you have to know the current subject to know it did not change. This is what the aggregate handler workflow exists to hand you.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1400" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-revise-subject-3" label="a draft nobody wrote cannot be revised&#10;&#10;GIVEN —&#10;WHEN ReviseSubject&#10;THEN error: NotDrafted" em="gwt" slice="revise-subject" rule="a draft nobody wrote cannot be revised" when="ReviseSubject" then="error: NotDrafted" enforce="aggregate" note="Needs the stream to be ABSENT, so it cannot be a validator rule despite a blank given=. The two implementations answer this one differently, which is the most interesting difference between them.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1540" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-revise-subject-4" label="a blank subject is refused&#10;&#10;GIVEN —&#10;WHEN ReviseSubject&#10;THEN error: SubjectRequired" em="gwt" slice="revise-subject" rule="a blank subject is refused" when="ReviseSubject" then="error: SubjectRequired" enforce="periphery" note="Settled by the request alone, so it is refused before any stream is read.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1680" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
