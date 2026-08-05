@@ -19,6 +19,7 @@ needs a human to notice, which is the whole reason this file exists.
 | 11 | [A state rule enforced at the periphery](#11) | **no** |
 | 12 | [A todo row that never completes](#12) | **no** |
 | 13 | [A rule added after the slice was built](#13) | yes — `codegen` reports `GWT WITHOUT A TEST` |
+| 14 | [An automation nothing ever runs](#14) | **no** — only starting the app and watching a second sweep |
 
 ---
 
@@ -196,3 +197,72 @@ hand-written work.
 The general lesson is about the `emit` / `scaffold` split itself: a file that is written once and then
 owned can go stale against the model silently, and every such file needs its own staleness check.
 Tests were the first; they are unlikely to be the last.
+
+## 14. An automation nothing ever runs <a id="14"></a>
+
+The Automation pattern says `Event(s) → View → Trigger → Command → Event(s)` and says nothing about what
+wakes the trigger — correctly, because that is transport. The trap is that "automatic" is the entire
+claim of the pattern, and **nothing in the grammar, the checker or the test suite notices when it is
+false.** `fill-zero-hours` passed six GWTs while the only thing that could ever run it was a human with
+`curl`.
+
+**Why a green suite cannot see it.** If the trigger is an HTTP endpoint, the *test seam and the
+production mechanism are the same thing*. The tests drive the only caller that exists, so they prove the
+sweep works and say nothing about whether anything calls it. Make the trigger a message handler and the
+question becomes askable: who sends the message?
+
+Two further versions of the same failure, both found by running the app rather than reading it, and
+neither caught by any test:
+
+- **A trigger that returns its report.** Wolverine's rule is *"by returning another type, Wolverine
+  treats the return value as a cascaded message to publish"*, and there is no opt-out attribute. Driven
+  fire-and-forget there is no requester, so the returned report became an unroutable message —
+  `No routes can be determined for Envelope (ZeroFillRun)` — and that failure took the whole outgoing
+  batch with it. A fire-and-forget trigger must not return a message-shaped value.
+- **A sweep that logs only when it does something.** Then "alive with nothing to do" and "dead" produce
+  byte-identical output. Log every sweep.
+
+### The heartbeat is only a clock
+
+The obvious design for a periodic automation is a durable self-rescheduling message: the trigger's
+handler schedules its own successor, so the beat survives a restart. **It does not work on this stack**,
+and it fails silently. Six attempts, every one with logging that proved the message had been created:
+
+| Attempt | Result |
+| --- | --- |
+| `bus.ScheduleAsync` inside the handler | no row, no error, one sweep ever |
+| `return DeliveryMessage<T>` via `DelayedFor` | "Successfully processed", value dropped |
+| `return OutgoingMessages` + `.Delay(...)` | the documented idiom; also dropped |
+| schedule from a fresh DI scope | also dropped |
+| schedule *before* the sweep, not after | also dropped |
+| Wolverine debug logging | `marked as Scheduled` → `scheduled with durable sender … relying on durable inbox scheduling` → `Enqueued for sending` → **nothing** |
+
+The invariant: scheduling from **outside** a message context always persists; scheduling from **inside** a
+durable local-queue handler never does. Not a polling delay — `ScheduledJobPollingTime` defaults to 5s and
+every node polls the main store from startup.
+
+**The resolution was to stop needing it.** A periodic sweep does not need a durable scheduled message at
+all, because *the work is not carried in the message* — it is recomputed from the todo View every time.
+The `Pending` rows **are** the durable queue, and they are built from the event store. Kill the process
+mid-sweep and the next start reads the same rows and carries on. Durable scheduling earns its keep for
+deferred **one-shot** work ("remind me in three days"), where losing the message loses the intent; here
+the intent is already in Postgres. So the heartbeat only has to be a clock, and a loop is a clock.
+
+That also removed a limitation the message version had: one loop per process instead of a chain per
+startup accumulating across restarts.
+
+**A timer is safe *because* it is absent in tests.** The danger was never the timer, it was a timer in the
+*test host*: a sweep firing mid-test appends events into streams other slices assert on, and every GIVEN
+becomes a race. `AppFixture` sets `Automation:Heartbeat=false`; tests send the same sweep message to the
+same handler, so the production path stays tested and only the clock is missing — and a clock is the one
+part of an automation a test must control rather than observe.
+
+What a test *can* assert is that **repeated sweeping is safe**, which is what makes the interval a free
+choice. Correctness must not depend on how often the clock ticks.
+
+**A related trap in the demo seed, same shape.** `GenesisData.Populate` is idempotent via
+`if (MyProjects.Any()) return;`. Add new genesis data later — a calendar, say — and it never lands on an
+existing demo database, because the guard fired on the *old* data. The zero-fill demo looked broken for
+exactly this reason: no `WorkingDayPublished` events, so nothing to fill, so silence. `docker compose
+down -v` fixes it, and the general point is #13's again: anything written once and then guarded needs a
+reason to be reconciled.

@@ -2,12 +2,28 @@
 //   fill-zero-hours — the automated trigger. Hand-written; regeneration keeps this file.
 // </auto-generated-scaffold>
 #nullable enable
+using JasperFx.Core;
 using Marten;
 using Wolverine;
 using Wolverine.Http;
+using HourBooking.Automation;
 using HourBooking.Views;
 
 namespace HourBooking.Slices.Booking;
+
+/// <summary>
+/// The sweep message. One per automation slice, named Run&lt;Slice&gt; by convention and EMITTED by the
+/// generator — because "an automation needs something to wake it" is derivable from
+/// <c>pattern="automation"</c>, and leaving it to whoever remembers is how an automation ends up with
+/// no way to run.
+/// </summary>
+/// <remarks>
+/// It carries nothing. An earlier version had a <c>Continue</c> flag, because the beat was meant to come
+/// from the handler rescheduling itself — see <c>AutomationHeartbeat</c> for why that does not work on
+/// this stack, and why the cadence belongs to the heartbeat instead. With the loop owned there, every
+/// sender of this message means exactly the same thing: sweep once, now.
+/// </remarks>
+public sealed record RunFillZeroHours;
 
 /// <summary>
 /// The ZeroFillProcessor: <c>Event(s) -> View -> AUTOMATED TRIGGER -> Command -> Event(s)</c>.
@@ -20,6 +36,31 @@ namespace HourBooking.Slices.Booking;
 ///   WorkingDays  -> ZeroFillProcessor    which days it is allowed to fill
 ///   ZeroFillProcessor -> FillZeroHours   the command, one per day
 ///
+/// THE TRIGGER IS A MESSAGE HANDLER, NOT AN HTTP ENDPOINT, and that is the important thing about this
+/// file. It used to be a <c>[WolverinePost]</c> and nothing else, which meant the only way it ever ran
+/// was a human with curl — so it was the shape of an automation with no automation in it. Worse, the
+/// test seam and the production mechanism were the same thing, which is exactly why the missing
+/// scheduler was invisible: the tests passed, and they were driving the only caller that existed.
+///
+/// Now three different senders wake the same handler, and none of them changes the slice:
+///
+///   AutomationHeartbeat&lt;RunFillZeroHours&gt;   production. Durable, self-rescheduling, every 30s.
+///   POST /automation/zero-fill/run          an operator forcing a run. One-shot.
+///   bus.InvokeAsync in a test               the test seam. No HTTP involved at all.
+///
+/// WHY A SWEEP RATHER THAN REACTING TO THE EVENT. Three of the four automations in this system cannot
+/// be woken by "one of our events landed":
+///
+///   fill-zero-hours       EmployeeRemovedFromProject is FOREIGN — we never append it, so there is no
+///                         transaction of ours to hang a doorbell on.
+///   start-month           EmployeeAssignedToProject, likewise foreign.
+///   send-closing-reminder triggered by the PASSAGE OF TIME. No event says "it is now three days
+///                         before the closing date", so nothing event-driven can ever wake it.
+///
+/// So a periodic sweep is the guarantee and a doorbell could only ever be a latency optimisation.
+/// Event forwarding, Marten subscriptions and projection RaiseSideEffects are all real and all fail on
+/// at least one of those three.
+///
 /// Both rules the model states about WHICH days get filled are enforced right here, because both are
 /// questions about a view rather than about the stream:
 ///
@@ -31,22 +72,59 @@ namespace HourBooking.Slices.Booking;
 /// GWT 4 (AlreadyFilled) is enforced twice on purpose. Here it is the todo list's tick-off, which stops
 /// the processor working the same row twice and costs nothing; in FillZeroHoursHandler it is the rule in
 /// the transaction, which is what actually holds.
-///
-/// TRANSPORT, which the model deliberately does not state. The tick arrives as an HTTP POST, so a
-/// scheduler, an operator or a test can all drive it the same way; a Marten subscription that notified
-/// this processor instead would be equally legal, because the shape rule is view -> command and says
-/// nothing about what wakes the processor up. What there is NOT is a background timer: a timer firing
-/// inside the test host would fill zeros nobody asked for and every other slice's GIVEN would stop
-/// meaning what it says.
 /// </summary>
 public static class ZeroFillProcessor
 {
     public const string TickRoute = "/automation/zero-fill/run";
 
-    [WolverinePost(TickRoute)]
-    public static async Task<ZeroFillRun> Run(
+    /// <summary>
+    /// THE TRIGGER. Woken by a message, so it does not care which of the three senders sent it.
+    ///
+    /// It returns <see cref="Task"/> and NOT the run report, and that is load-bearing rather than
+    /// tidiness. Wolverine's rule is *"by returning another type, Wolverine treats the return value as a
+    /// cascaded message to publish"* — there is no attribute that opts out. Driven fire-and-forget there
+    /// is no requester, so a returned <see cref="ZeroFillRun"/> became a cascading message with no
+    /// subscriber:
+    ///
+    ///     No routes can be determined for Envelope #... (HourBooking.Slices.Booking.ZeroFillRun)
+    ///
+    /// and that routing failure took the whole outgoing batch with it. A fire-and-forget trigger must not
+    /// return a message-shaped value. The report is still produced for the operator route and for a
+    /// human; it just does not travel back through the bus.
+    ///
+    /// It also does NOT schedule the next sweep. The cadence belongs to <c>AutomationHeartbeat</c> —
+    /// see there for the six attempts at doing it here and why none of them persist.
+    /// </summary>
+    public static Task Handle(
+        RunFillZeroHours message,
         IQuerySession session,
         IMessageBus bus,
+        ILogger logger,
+        CancellationToken cancellation) =>
+        Sweep(session, bus, logger, cancellation);
+
+    /// <summary>
+    /// An operator forcing a sweep, and the only reason this route still exists. It is NOT the trigger
+    /// and it is not how the automation runs — it does the same work one-shot, so a manual run cannot
+    /// fork a second heartbeat chain. Returning the report here is safe: an HTTP return value is a
+    /// response body, not a cascading message.
+    /// </summary>
+    [WolverinePost(TickRoute)]
+    public static Task<ZeroFillRun> Force(
+        IQuerySession session, IMessageBus bus, ILogger logger, CancellationToken cancellation) =>
+        Sweep(session, bus, logger, cancellation);
+
+    /// <summary>
+    /// The sweep itself.
+    ///
+    /// It takes <see cref="IQuerySession"/> and not <see cref="IDocumentSession"/> deliberately: an
+    /// automation never appends an event, and a read-only session makes that a compile error rather
+    /// than a convention. The events come from the decider, reached through the command.
+    /// </summary>
+    public static async Task<ZeroFillRun> Sweep(
+        IQuerySession session,
+        IMessageBus bus,
+        ILogger logger,
         CancellationToken cancellation)
     {
         // Pending, not every row: a row that only ever saw a tick-off is not work. See ZeroFillTodo.
@@ -80,6 +158,14 @@ public static class ZeroFillProcessor
             }
         }
 
+        // ALWAYS log, even a sweep that did nothing. A sweep is silent whenever there is no work, so
+        // logging only the interesting case makes "the heartbeat is alive" and "the heartbeat died"
+        // produce identical output — which is exactly the ambiguity that hid a one-shot heartbeat here.
+        logger.LogInformation(
+            "Zero-fill sweep: {Filled} filled, {Skipped} skipped, across {Rows} pending row(s). " +
+            "Next sweep in {Interval}.",
+            filled.Count, skipped.Count, work.Count, AutomationHeartbeat<RunFillZeroHours>.Interval);
+
         return new ZeroFillRun(filled, skipped);
     }
 
@@ -104,7 +190,7 @@ public static class ZeroFillProcessor
 }
 
 /// <summary>
-/// What one tick did. Not a domain concept and not persisted — an automation with no visible output is
+/// What one sweep did. Not a domain concept and not persisted — an automation with no visible output is
 /// impossible to operate, and it is what lets a test see that a day was SKIPPED for a named rule rather
 /// than silently never attempted.
 /// </summary>

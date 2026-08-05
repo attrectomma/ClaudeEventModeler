@@ -5,11 +5,13 @@
 #nullable enable
 using System.Text.Json;
 using Alba;
+using JasperFx.Core;
 using Microsoft.Extensions.DependencyInjection;
 using HourBooking.Contracts;
 using HourBooking.Slices.Booking;
 using Shouldly;
 using Wolverine;
+using Wolverine.Tracking;
 using Xunit;
 
 namespace HourBooking.IntegrationTests.Slices.Booking;
@@ -43,17 +45,28 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     private static BookingMonthStarted MonthOpened =>
         new(SeedData.EmployeeId, SeedData.EmployeeName, SeedData.Month, SeedData.SeededAt);
 
-    /// <summary>WHEN the automation runs: one tick of the ZeroFillProcessor.</summary>
-    private async Task<ZeroFillRun> Tick()
+    /// <summary>
+    /// WHEN the automation runs: one sweep of the ZeroFillProcessor.
+    ///
+    /// The trigger is a Wolverine MESSAGE handler, so this sends the message — it does not post to the
+    /// operator route. That matters more than it looks: while the trigger was an HTTP endpoint, the test
+    /// seam and the production mechanism were the same thing, so "nothing ever wakes this in production"
+    /// was invisible to a green suite. Driving the message means the test exercises what the heartbeat
+    /// exercises, and the route is left as what it actually is — a convenience for an operator.
+    ///
+    /// It returns nothing, because the trigger returns nothing: a Wolverine handler's return value is a
+    /// CASCADING MESSAGE, and a ZeroFillRun coming back from a fire-and-forget sweep could not be routed,
+    /// which killed the whole outgoing batch. So assertions here are against the event stream — the truth
+    /// anyway; the run report is operator observability, reachable over the operator route.
+    ///
+    /// The clock is absent in tests by design (AppFixture sets Automation:Heartbeat=false), so calling
+    /// this IS the beat as far as a test is concerned.
+    /// </summary>
+    private async Task Tick()
     {
-        var (_, result) = await WhenPosting(x =>
-        {
-            x.Post.Url(ZeroFillProcessor.TickRoute);
-            x.IgnoreStatusCode();
-        });
-
-        result.Context.Response.StatusCode.ShouldBe(200);
-        return JsonSerializer.Deserialize<ZeroFillRun>(await result.ReadAsTextAsync(), Json)!;
+        using var scope = Host.Services.CreateScope();
+        var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+        await bus.InvokeAsync(new RunFillZeroHours());
     }
 
     /// <summary>
@@ -99,7 +112,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
             new EmployeeRemovedFromProject(
                 SeedData.EmployeeId, SeedData.ProjectId, SeedData.MidMonthRemoval, SeedData.SeededAt));
 
-        var run = await Tick();
+        await Tick();
 
         var expected = SeedData.PublishedWorkingDays.Where(d => d >= SeedData.MidMonthRemoval).ToList();
         var filled = await Filled(SeedData.EmployeeId, SeedData.ProjectId);
@@ -116,8 +129,6 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
         filled.ShouldAllBe(e => e.Date >= SeedData.MidMonthRemoval);
         SeedData.PublishedWorkingDays.ShouldContain(SeedData.WorkingDay);   // there were earlier ones
         filled.ShouldNotContain(e => e.Date == SeedData.WorkingDay);
-
-        run.Filled.Count(d => d.ProjectId == SeedData.ProjectId).ShouldBe(expected.Count);
     }
 
     // only working days are filled — weekends and public holidays are not
@@ -202,10 +213,11 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
         // And the processor never gets that far: the ZeroHoursFilled ticked the day off the todo row,
         // so the tick does not even ask. The rest of the month still fills — the accepted side of the
         // boundary, without which "not twice" could just as well mean "never".
-        var run = await Tick();
-        run.Filled.ShouldNotContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.WorkingDay);
-        run.Filled.ShouldContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.SecondWorkingDay);
-        run.Skipped.ShouldBeEmpty();
+        await Tick();
+
+        var afterTick = await Filled(SeedData.EmployeeId, SeedData.LeftProjectId);
+        afterTick.Count(e => e.Date == SeedData.WorkingDay).ShouldBe(1);          // still only the one
+        afterTick.ShouldContain(e => e.Date == SeedData.SecondWorkingDay);        // the rest still fills
     }
 
     // a day that already carries booked hours is left alone
@@ -247,9 +259,11 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
         // The accepted side of the boundary. Without it, "left alone" could equally mean "never fills",
         // and the day-by-day nature matters: only the booked day is refused, and the rest of the month
         // fills as normal.
-        var run = await Tick();
-        run.Filled.ShouldNotContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.WorkingDay);
-        run.Filled.ShouldContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.SecondWorkingDay);
+        await Tick();
+
+        var afterTick = await Filled(SeedData.EmployeeId, SeedData.LeftProjectId);
+        afterTick.ShouldNotContain(e => e.Date == SeedData.WorkingDay);      // the booked day, left alone
+        afterTick.ShouldContain(e => e.Date == SeedData.SecondWorkingDay);   // the rest still fills
     }
 
     // a closed month is not zero-filled either
@@ -296,5 +310,47 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
         var before = (await Filled(SeedData.EmployeeId, SeedData.LeftProjectId)).Count;
         await Tick();
         (await Filled(SeedData.EmployeeId, SeedData.LeftProjectId)).Count.ShouldBe(before);
+    }
+
+    /// <summary>
+    /// NOT a GWT — the model says nothing about transport, and it should not. This asserts the two
+    /// properties that make repeated, unattended sweeping safe, which is what the pattern actually needs
+    /// from the sweep once the clock lives in AutomationHeartbeat and not here.
+    ///
+    /// What this does NOT assert is the clock. AppFixture switches the heartbeat off, because a sweep
+    /// firing on its own mid-test would append events into streams other slices are asserting on. The
+    /// clock is verified by running the app and watching a second sweep arrive — see ANTI-PATTERNS #14,
+    /// which exists because a green suite proved nothing about it.
+    /// </summary>
+    [Fact]
+    public async Task RepeatedSweepingIsSafeSoAClockCanDriveIt()
+    {
+        // IDEMPOTENT. The heartbeat sweeps forever, so the second sweep must be a no-op rather than a
+        // second set of bookings. This is the property that makes the interval a free choice: correctness
+        // cannot depend on how often the clock ticks, or on two ticks overlapping.
+        await Tick();
+        var afterFirst = await Filled(SeedData.EmployeeId, SeedData.LeftProjectId);
+        afterFirst.ShouldNotBeEmpty();
+
+        await Tick();
+        await Tick();
+
+        var afterThree = await Filled(SeedData.EmployeeId, SeedData.LeftProjectId);
+        afterThree.Select(e => e.Date).ShouldBe(afterFirst.Select(e => e.Date));
+        afterThree.Select(e => e.BookingId).ShouldBe(afterFirst.Select(e => e.BookingId));
+
+        // ONE EVENT PER DAY still holds across sweeps, which is the thing a re-run could plausibly break.
+        afterThree.Select(e => e.Date).ShouldBeUnique();
+
+        // And the sweep is reachable the way the heartbeat reaches it: by sending the message, through
+        // the bus, to the same handler. Nothing here posts to the operator route — that route is a
+        // convenience for a human, not the mechanism.
+        var tracked = await Host.ExecuteAndWaitAsync(async () =>
+        {
+            using var scope = Host.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<IMessageBus>()
+                .InvokeAsync(new RunFillZeroHours());
+        });
+        tracked.Executed.SingleMessage<RunFillZeroHours>().ShouldNotBeNull();
     }
 }

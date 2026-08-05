@@ -778,6 +778,80 @@ and the thing that stops the processor working the same row twice.
 Per the same source, if there is no view and no conditional logic, it is not an automation at all
 — it is just a command that emits several events.
 
+### What makes an automation actually run
+
+The model is right to say nothing about transport — the grammar constrains the *shape*, `View →
+Command`, and not what wakes the trigger. But "automatic" is the whole claim of the pattern, and an
+automation you have to POST to is a command with a gear drawn on it. So the trigger is a **Wolverine
+message handler** for a sweep message `Run<Slice>`, and three senders wake the same handler:
+
+| Sender | Purpose |
+| --- | --- |
+| `AutomationHeartbeat<Run<Slice>>` | **production.** Durable, self-rescheduling. |
+| `POST /automation/<slice>/run` | an operator forcing a run. One-shot. |
+| `bus.InvokeAsync` in a test | the test seam. No HTTP involved. |
+
+**A trigger that is an HTTP endpoint hides its own absence.** While `ZeroFillProcessor` was a
+`[WolverinePost]`, the test seam and the production mechanism were the same thing — so "nothing ever
+wakes this" was invisible to a green suite, because the tests were driving the only caller there was.
+
+**A periodic sweep is the guarantee; a doorbell is only ever a latency optimisation.** Event
+forwarding, Marten subscriptions and projection `RaiseSideEffects` are all real, and all fail on two
+things this model actually contains:
+
+- **the triggering event is often FOREIGN** — `fill-zero-hours` waits on `EmployeeRemovedFromProject`,
+  which we never append, so there is no transaction of ours to hang a doorbell on
+- **some automations are triggered by TIME** — `send-closing-reminder` has `BeforeClosingDate` and
+  `TooSoonToRemind`, and no event says *"it is now three days before the closing date"*
+
+3 of the 4 automations here are one of those.
+
+### The heartbeat is only a clock
+
+**Wolverine has no cron.** The obvious substitute is a durable self-rescheduling message — the handler
+schedules its own successor, so the beat survives a restart. **It does not work here, and it fails
+silently.** Six attempts, each with logging that proved the message had been created: `bus.ScheduleAsync`
+inside the handler, `DeliveryMessage<T>` via `DelayedFor`, `OutgoingMessages` + `.Delay()`, a fresh DI
+scope, scheduling before the sweep instead of after — and finally Wolverine's own debug trace ending
+`Enqueued for sending` → nothing. Scheduling from *outside* a message context always persists; from
+*inside* a durable local-queue handler it never does.
+
+**The fix was to stop needing durability.** A sweep's work is not carried in its message — it is
+recomputed from the todo View every time, so the `Pending` rows *are* the durable queue, built from the
+event store. Kill the process mid-sweep and the next start reads the same rows. Durable scheduling earns
+its keep for deferred **one-shot** work ("remind me in three days"), where losing the message loses the
+intent. So the heartbeat is a loop, and `AutomationHeartbeat` owns the cadence rather than the handler.
+
+**A timer is safe because it is absent in tests.** The danger was never the timer, it was a timer in the
+*test* host: a sweep firing mid-test turns every other slice's GIVEN into a race. `AppFixture` sets
+`Automation:Heartbeat=false`, and tests send the same sweep message to the same handler — so the
+production path stays tested and only the clock is missing. A clock is the one part of an automation a
+test must control rather than observe. What a test *can* assert is that **repeated sweeping is safe**,
+which is what makes the interval a free choice.
+
+The generator owns all of it, because *"a `pattern="automation"` slice needs something to wake it"* is
+derivable: it emits the sweep message, `AutomationHeartbeat`, and the `Discovery.IncludeType(typeof(...))`
+registration — needed because Wolverine's conventional discovery only finds `*Handler`/`*Consumer`, and a
+processor named after its automation cell is neither. Only slices past `in-design` get a heartbeat, since
+the message has no handler until the slice exists.
+
+**The trigger returns `Task`, never its run report.** Wolverine treats a handler's return value as a
+*cascading message* and offers no opt-out, so a report returned from a fire-and-forget sweep is
+unroutable and takes the whole outgoing batch down with it. The sweep lives in a plain method; the
+operator route returns the report, because an HTTP return value is a response body rather than a cascade.
+
+**Then run it and look.** Every bug above survived a green suite, and only starting the app found any of
+them. Log **every** sweep including an empty one, or "alive with nothing to do" and "dead" are
+byte-identical. The proof is a second sweep arriving with nobody calling anything:
+
+```
+Automation heartbeat started for slice fill-zero-hours: RunFillZeroHours every 00:00:06.
+Zero-fill sweep: 21 filled, 0 skipped, across 1 pending row(s).
+Zero-fill sweep: 0 filled, 0 skipped, across 1 pending row(s).      # x6 more, unaided
+```
+
+An unrun automation fails exactly like unrendered CSS. See ANTI-PATTERNS.md #14.
+
 ## Layout grid
 
 Time flows left to right. Three lanes, plus a GWT band below them because GWTs are drawn

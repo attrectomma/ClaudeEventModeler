@@ -104,6 +104,16 @@ const checkGwtCoverage = (p, gwts) => {
   for (const g of gwts) if (!src.includes(g.rule)) untested.push({ path: p, rule: g.rule });
 };
 
+// There WAS a check here for "the trigger never schedules its successor", from when the beat was meant
+// to come from the handler rescheduling itself. That design does not work on this stack (see
+// AutomationHeartbeat) and the cadence now lives in generated code, so there is no line left for a human
+// to forget — and a check that fires on every correct automation is worse than no check.
+//
+// What replaced it is structural rather than a lint: the generator emits the heartbeat and its
+// registration for every automation slice past in-design. The thing still NOT verifiable here is whether
+// the clock actually ticks in a running process; only starting the app and watching a second sweep does
+// that. ANTI-PATTERNS.md #14.
+
 // --- events -----------------------------------------------------------------------------------
 
 const owned = ir.shared.events.filter((e) => e.ownedBy);
@@ -390,6 +400,13 @@ public sealed class AppFixture : IAsyncLifetime
                 services.AddSingleton<IInitialData, SeedData>();
             });
             builder.UseSetting("ConnectionStrings:Marten", _postgres.GetConnectionString());
+
+            // No automation clock in tests. A sweep firing on its own mid-test appends events into
+            // streams other slices are asserting on, and every GIVEN in the suite becomes a race. Tests
+            // send the sweep message themselves — the same message the heartbeat sends, to the same
+            // handler — so the production path is still the tested path. Only the clock is absent, and
+            // the clock is the one part of an automation a test must control rather than observe.
+            builder.UseSetting("Automation:Heartbeat", "false");
         });
     }
 
@@ -552,7 +569,156 @@ ${s.gwts.map((g, i) => {
 `);
 }
 
-// --- projects ---------------------------------------------------------------------------------
+// --- automation heartbeats --------------------------------------------------------------------
+
+// An automation that only runs when a human POSTs to a route is not an automation. What wakes the
+// processor is transport and the model says nothing about it — but that a `pattern="automation"`
+// slice needs SOMETHING to wake it is mechanically derivable, so the generator owns it rather than
+// leaving it to whoever remembers.
+//
+// Only slices past in-design get one: the message has no handler until the slice is implemented, and
+// Wolverine asserts a subscriber exists.
+const automations = ir.slices.filter(
+  (s) => s.pattern === "automation" && s.status !== "in-design");
+const sweepMessage = (s) => `Run${pascal(s.name)}`;
+
+
+if (automations.length) {
+  emit(join(APP, "Automation", "AutomationHeartbeat.cs"),
+    `${banner("the automation heartbeat — what wakes a processor")}
+#nullable enable
+using Wolverine;
+
+namespace ${NS}.Automation;
+
+/// <summary>
+/// Seeds ONE durable, self-rescheduling sweep message per automation slice, and is the answer to the
+/// only real question the Automation pattern leaves open: what makes it run?
+///
+/// An automation that runs when a human POSTs to a route is not an automation. But the model says
+/// nothing about transport — the grammar constrains the SHAPE (a trigger reads a View and issues a
+/// Command) and not what wakes the trigger. So this lives in generated code, derived from
+/// <c>pattern="automation"</c>, rather than in whatever a slice's author remembered to write.
+///
+/// THE HEARTBEAT IS ONLY A CLOCK, and realising that is what made this simple.
+///
+/// The obvious design is a durable self-rescheduling message: the trigger's handler schedules its own
+/// successor, so the beat survives a restart. It does not work on this stack. Six attempts, every one
+/// failing SILENTLY with no error and with logging proving the message had been created correctly:
+///
+///   bus.ScheduleAsync inside the handler        no row, no error, one sweep ever
+///   return DeliveryMessage&lt;T&gt; via DelayedFor    "Successfully processed", value dropped
+///   return OutgoingMessages + .Delay(...)       the documented idiom; also dropped
+///   schedule from a fresh DI scope              also dropped
+///   schedule BEFORE the sweep, not after        also dropped
+///   Wolverine debug logging                     "marked as Scheduled" -> "scheduled with durable
+///                                               sender ... relying on durable inbox scheduling" ->
+///                                               "Enqueued for sending" -> nothing. Two minutes later
+///                                               wolverine_incoming_envelopes still held one row.
+///
+/// The invariant across all of them: scheduling from OUTSIDE a message context always persists;
+/// scheduling from INSIDE a durable local-queue handler never does. Not polling —
+/// Durability.ScheduledJobPollingTime defaults to 5s and every node polls the main store from startup.
+///
+/// BUT A PERIODIC SWEEP DOES NOT NEED A DURABLE SCHEDULED MESSAGE AT ALL, which is the point that
+/// dissolves the problem rather than working around it. The sweep's work is not carried in the message —
+/// it is recomputed from the todo View every time. The Pending rows in that projection ARE the durable
+/// queue, and they are built from the event store. Kill the process mid-sweep and the next start reads
+/// the same pending rows and carries on. Durable scheduling earns its keep for deferred ONE-SHOT work
+/// ("remind me in three days"), where losing the message loses the intent. Here the intent is already in
+/// Postgres. So the heartbeat only has to be a clock, and a loop is a clock.
+///
+/// It also removes the duplicate-chain hazard the message version had: one loop per process, rather
+/// than a chain per startup accumulating across restarts.
+///
+/// WHY A TIMER IS SAFE HERE, given a timer was the thing to avoid. The danger was never the timer, it
+/// was the timer running in the TEST host: a sweep firing mid-test appends events into streams other
+/// slices are asserting on, and every GIVEN in the suite becomes a race. So this is not registered in
+/// the test host at all — see AppFixture. Tests drive the same handler by sending the same message, so
+/// the production path stays tested; only the clock is absent, and a clock is the one part of an
+/// automation a test must control rather than observe.
+///
+/// IHostedLifecycleService, not IHostedService: StartedAsync runs after every hosted service has
+/// started, so Wolverine's runtime and the Marten schema are both up before the first sweep.
+/// </summary>
+public sealed class AutomationHeartbeat<TSweep>(IServiceProvider services, string slice, TSweep seed)
+    : IHostedLifecycleService, IAsyncDisposable
+    where TSweep : notnull
+{
+    private readonly CancellationTokenSource _stopping = new();
+    private Task? _loop;
+
+    /// <summary>
+    /// How often a sweep runs. Short enough that a human running the demo sees it happen without
+    /// waiting for a coffee, and overridable so the demo can be watched.
+    /// </summary>
+    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(
+        double.TryParse(Environment.GetEnvironmentVariable("AUTOMATION_SWEEP_SECONDS"), out var s)
+            ? s
+            : 30);
+
+    public Task StartedAsync(CancellationToken cancellation)
+    {
+        var logger = services.GetRequiredService<ILoggerFactory>()
+            .CreateLogger<AutomationHeartbeat<TSweep>>();
+
+        logger.LogInformation(
+            "Automation heartbeat started for slice {Slice}: {Sweep} every {Interval}.",
+            slice, typeof(TSweep).Name, Interval);
+
+        // Not awaited: StartedAsync must return so the host finishes starting. The loop owns its own
+        // lifetime and is stopped by the CTS in StoppingAsync.
+        _loop = RunAsync(logger);
+        return Task.CompletedTask;
+    }
+
+    private async Task RunAsync(ILogger logger)
+    {
+        using var timer = new PeriodicTimer(Interval);
+
+        while (await timer.WaitForNextTickAsync(_stopping.Token).ConfigureAwait(false))
+        {
+            try
+            {
+                // A fresh scope per beat, and the message goes through the bus rather than calling the
+                // trigger directly — so the beat exercises exactly the path a test and an operator take.
+                await using var scope = services.CreateAsyncScope();
+                await scope.ServiceProvider.GetRequiredService<IMessageBus>()
+                    .InvokeAsync(seed, _stopping.Token);
+            }
+            catch (OperationCanceledException) when (_stopping.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception e)
+            {
+                // One failed sweep must never kill the heartbeat: the next beat re-reads the todo View
+                // and the work is still pending, so recovery is automatic. A heartbeat that dies on a
+                // transient error is indistinguishable from one that finished its work.
+                logger.LogError(e, "Automation sweep failed for slice {Slice}. Continuing.", slice);
+            }
+        }
+    }
+
+    public async Task StoppingAsync(CancellationToken cancellation)
+    {
+        await _stopping.CancelAsync();
+        if (_loop is not null) await _loop.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StoppingAsync(CancellationToken.None);
+        _stopping.Dispose();
+    }
+
+    public Task StartingAsync(CancellationToken cancellation) => Task.CompletedTask;
+    public Task StartAsync(CancellationToken cancellation) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellation) => Task.CompletedTask;
+    public Task StoppedAsync(CancellationToken cancellation) => Task.CompletedTask;
+}
+`);
+}
 
 emit(join(APP, "Program.cs"),
   `${banner("application bootstrapping")}
@@ -569,7 +735,9 @@ using Wolverine.Http.FluentValidation;
 using Marten.Schema;
 using Wolverine.Marten;
 using ${NS};
-using ${NS}.Views;
+using ${NS}.Views;${automations.length ? `
+using ${NS}.Automation;
+${[...new Set(automations.map((s) => `using ${NS}.Slices.${pascal(s.context)};`))].join("\n")}` : ""}
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -613,9 +781,38 @@ builder.Host.UseWolverine(opts =>
     opts.Policies.AutoApplyTransactions();
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
+${automations.length === 0 ? "" : `
+    // An automation's trigger is a Wolverine message handler, but its class is named after the
+    // automation cell on the model — ZeroFillProcessor, AdminNotifier — and Wolverine's conventional
+    // discovery only finds types called *Handler or *Consumer. Registering them explicitly keeps the
+    // model's vocabulary in the code instead of renaming a domain concept to suit a scanning rule.
+    //
+    // typeof(), not IncludeType<T>(): a Wolverine handler class is static, and a static type cannot be
+    // a generic argument.
+${automations.flatMap((s) => (s.automations ?? []).map(
+  (a) => `    opts.Discovery.IncludeType(typeof(${a}));`)).join("\n")}`}
 });
 
 builder.Services.AddWolverineHttp();
+
+${automations.length === 0 ? "// No automation slice is past in-design, so there is no heartbeat to run." :
+`// AUTOMATION HEARTBEATS — what makes an automation automatic.
+//
+// One clock per automation slice, each sending that slice's sweep message on an interval. The durable
+// state is the slice's todo View, not the clock: a sweep recomputes its work from Pending rows every
+// time, so a restart loses nothing. See AutomationHeartbeat for why a durable self-rescheduling message
+// was tried first, six ways, and abandoned.
+//
+// GATED OFF IN TESTS. The clock is the one part of an automation a test must control rather than
+// observe: a sweep firing mid-test appends events into streams other slices are asserting on, and every
+// GIVEN in the suite becomes a race. AppFixture sets Automation:Heartbeat=false; tests send the same
+// sweep message themselves, so the production path is still the tested path.
+if (builder.Configuration.GetValue("Automation:Heartbeat", true))
+{
+${automations.map((s) =>
+`    builder.Services.AddSingleton<IHostedService>(sp =>
+        new AutomationHeartbeat<${sweepMessage(s)}>(sp, "${s.name}", new ${sweepMessage(s)}()));`).join("\n")}
+}`}
 
 if (builder.Environment.IsDevelopment())
 {

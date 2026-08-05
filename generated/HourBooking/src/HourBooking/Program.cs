@@ -18,6 +18,8 @@ using Marten.Schema;
 using Wolverine.Marten;
 using HourBooking;
 using HourBooking.Views;
+using HourBooking.Automation;
+using HourBooking.Slices.Booking;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,9 +65,35 @@ builder.Host.UseWolverine(opts =>
     opts.Policies.AutoApplyTransactions();
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
+
+    // An automation's trigger is a Wolverine message handler, but its class is named after the
+    // automation cell on the model — ZeroFillProcessor, AdminNotifier — and Wolverine's conventional
+    // discovery only finds types called *Handler or *Consumer. Registering them explicitly keeps the
+    // model's vocabulary in the code instead of renaming a domain concept to suit a scanning rule.
+    //
+    // typeof(), not IncludeType<T>(): a Wolverine handler class is static, and a static type cannot be
+    // a generic argument.
+    opts.Discovery.IncludeType(typeof(ZeroFillProcessor));
 });
 
 builder.Services.AddWolverineHttp();
+
+// AUTOMATION HEARTBEATS — what makes an automation automatic.
+//
+// One clock per automation slice, each sending that slice's sweep message on an interval. The durable
+// state is the slice's todo View, not the clock: a sweep recomputes its work from Pending rows every
+// time, so a restart loses nothing. See AutomationHeartbeat for why a durable self-rescheduling message
+// was tried first, six ways, and abandoned.
+//
+// GATED OFF IN TESTS. The clock is the one part of an automation a test must control rather than
+// observe: a sweep firing mid-test appends events into streams other slices are asserting on, and every
+// GIVEN in the suite becomes a race. AppFixture sets Automation:Heartbeat=false; tests send the same
+// sweep message themselves, so the production path is still the tested path.
+if (builder.Configuration.GetValue("Automation:Heartbeat", true))
+{
+    builder.Services.AddSingleton<IHostedService>(sp =>
+        new AutomationHeartbeat<RunFillZeroHours>(sp, "fill-zero-hours", new RunFillZeroHours()));
+}
 
 if (builder.Environment.IsDevelopment())
 {
