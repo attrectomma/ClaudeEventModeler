@@ -23,6 +23,11 @@ using EmailOutbox.Slices.EmailOutbox;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// FIRST, and the order matters: each wakeup resolves which mechanism was chosen here, and every
+// Configure* hook below asks it. Resolved last, a mechanism sets flags after the callbacks that read
+// them have already run — no error, and the automation never wakes.
+SendEmailWakeup.Choose(builder.Configuration);
+
 var marten = builder.Services.AddMarten(opts =>
     {
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
@@ -42,12 +47,21 @@ var marten = builder.Services.AddMarten(opts =>
         // the append, so a GWT THEN can be asserted straight after the request returns.
         // Write side registers NOTHING: the per-slice state types are folded live on demand.
         opts.Projections.Add<EmailsToSendProjection>(ProjectionLifecycle.Inline);
+
+        SendEmailWakeup.ConfigureMarten(opts);
     })
-    .IntegrateWithWolverine();
+    .IntegrateWithWolverine(integration =>
+    {
+        SendEmailWakeup.ConfigureIntegration(integration);
+    });
 
 // Starting data for running the app by hand: membership, an open month, one booking. Development
 // only, and idempotent, because Populate runs on every startup.
 if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
+
+// A wakeup mechanism may need the STORE, not just its options — AddAsyncDaemon, for instance. A
+// subscription and an async projection both run in the daemon, and neither exists without it.
+SendEmailWakeup.ConfigureStore(marten);
 
 builder.Services.AddResourceSetupOnStartup();
 
@@ -56,6 +70,7 @@ builder.Host.UseWolverine(opts =>
     opts.Policies.AutoApplyTransactions();
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
+    SendEmailWakeup.ConfigureWolverine(opts);
 
     // An automation's trigger is a Wolverine message handler, but its class is named after the
     // automation cell on the model — ZeroFillProcessor, AdminNotifier — and Wolverine's conventional
@@ -80,7 +95,7 @@ builder.Services.AddWolverineHttp();
 // Each Register body is SCAFFOLD — hand-owned, kept by regeneration — and carries the decision table
 // plus a TODO(codegen) marker that codegen reports until it is gone. Worked implementations of all four
 // against one shared model: reference-implementations/automation/.
-SendEmailWakeup.Register(builder);
+SendEmailWakeup.RegisterServices(builder);
 
 if (builder.Environment.IsDevelopment())
 {

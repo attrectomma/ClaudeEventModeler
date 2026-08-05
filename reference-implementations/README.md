@@ -59,30 +59,67 @@ slice has to say which row it was in and why.
 
 ## The four, and what each has to answer
 
-All four satisfy the *same* GWTs from the *same* model. What differs is only how `EmailProcessor` is woken.
+All four satisfy the *same* GWTs from the *same* model. What differs is only how `EmailProcessor` is woken,
+selected by `Automation:Wakeup`. In a real project you pick one and delete the rest.
 
-| | Implementation | The questions it has to answer |
-| --- | --- | --- |
-| **A** | event forwarding → handler | How late is it? Does the outbox make it durable without a daemon? Does `ExecuteAndWaitAsync` make it synchronously testable? |
-| **B** | Marten `ISubscription` | What does the async daemon cost in tests? Is ordering real? What happens on replay? |
-| **C** | projection `RaiseSideEffects` | Does it fire with `Inline` projections, and at what cost? If not, it runs `Async` — and then what does a test look like? Does its own output event re-enter the projection? |
-| **D** | sweep on a clock | The baseline. What does polling cost when a doorbell would have done? |
+| | Implementation | State | Measured |
+| --- | --- | --- | --- |
+| **A** | event forwarding → doorbell handler | **works** | wakes in **~1s**, no daemon, no polling |
+| **B** | Marten `ISubscription` | not built | needs `AddAsyncDaemon`; fails loudly if selected |
+| **C** | projection `RaiseSideEffects` | not built | `Inline` vs `Async` still open; fails loudly if selected |
+| **D** | sweep on a clock | **works** | wakes within one interval (**~2s** at a 1s tick) |
 
-**Status: the model is built and validated; the implementations are not written yet.** Findings will be
-recorded here per implementation, and a claim without a measurement behind it does not belong in this file.
+`WakeupMechanismTests` is the only test in the project that can tell any of this. Every other test drives
+`RunSendEmail` itself — correct, because that is the production path — but says nothing about whether
+anything *sends* it. So each test there boots its **own host** with one mechanism on, posts an email through
+the ordinary endpoint, and waits. **Nobody invokes the trigger.** If `EmailSent` appears, the mechanism woke
+it. `WithNoMechanismNothingIsEverSent` is the control, and without it "forwarding works" could just as well
+be "something else in the host happens to run the trigger".
 
-## Known problem this folder is meant to settle
+An unimplemented mechanism **throws on startup**. A wakeup that silently does nothing is the defect this
+folder documents, so a missing one must not resemble a working one.
 
-**`tools/codegen.mjs` still hard-codes one answer.** For any slice with `pattern="automation"` past
-`in-design`, it emits `AutomationHeartbeat` plus its registration — the sweep, unconditionally. The docs
-now describe a choice; the generator does not offer one.
+### What building two of them taught
 
-The fix is *not* a new cell attribute. By the argument above, how a trigger is woken is not a domain fact,
-so it does not belong on the model — which leaves two candidates:
+**Hook order is load-bearing, and getting it wrong fails silently.** A mechanism may need configuration in
+generated bootstrap code — forwarding sets a flag on `IntegrateWithWolverine`, a subscription needs
+`AddAsyncDaemon`. `Program.cs` is `emit`, so it cannot be edited; the generator therefore emits five call
+sites (`Choose`, `ConfigureMarten`, `ConfigureStore`, `ConfigureIntegration`, `ConfigureWolverine`,
+`RegisterServices`) and the scaffold decides what they do. `Choose` was originally resolved *last*, so
+forwarding set its flag on a callback that had already run: no error, nothing logged, the automation never
+woke. Only the real-wakeup test caught it. **This folder reproduced its own subject matter in its own
+plumbing.**
 
-1. the generator emits **no** waking mechanism, marks the hole, and the decision table in
-   `.claude/agents/backend-agent.md` tells the implementer how to choose
-2. the generator emits the trigger and the mechanism is selected by configuration
+**At-least-once is not a footnote, and one guard is not enough.** With forwarding, the outbox delivered
+`EmailPrepared` twice. Two runs folded the stream *before* either appended, so both legitimately saw
+`Sent == false` and both passed the `AlreadySent` rule. What stopped the second was Marten's optimistic
+concurrency — `FetchForWriting` captured the version and the second append collided.
 
-Option 1 is probably right for the kit and option 2 is what this folder needs in order to compare them
-side by side. Settling that is part of the exercise, not a prerequisite for it.
+> The **rule** catches the sequential duplicate. The **transaction** catches the simultaneous one.
+> They are complementary. A decider with only the rule sends twice under a double delivery; one with only
+> the version check reports a crash where a plain refusal is the truth.
+
+Left alone, that collision surfaced as a failed message, a logged stack trace and a Wolverine retry — which
+is how the forwarding test first passed *while printing what looked like a failure*. Translating
+`EventStreamUnexpectedMaxEventIdException` into `AlreadySent` is what makes a duplicate delivery a
+non-event. Worth stating plainly: **every mechanism here is at-least-once, so the decider must be
+idempotent, and idempotent means both guards.**
+
+**Shared-schema isolation is a real limit.** Each mechanism gets its own host, but the generated
+`Program.cs` hard-codes `DatabaseSchemaName`, so `UseSetting` cannot separate them and rows accumulate
+across tests. The tests are made independent by naming their own `emailId` instead — which works because
+the endpoint honours a supplied id and mints one only when it is absent.
+
+## Status
+
+The model is built and validated. Both deciders are green, and two of four wakeup mechanisms are
+implemented and verified to fire unaided: **11 tests passing**. The generator no longer chooses a mechanism
+— it emits the seam and reports `AUTOMATION NOT WOKEN` until a choice is made, which is the check that
+would have caught the original defect.
+
+**Still to do:** B (`ISubscription`) and C (`RaiseSideEffects`). C has an open question worth settling
+first — Marten documents side effects as built for *async* projection processing, with inline support added
+later for a single client, so if `EnableSideEffectsOnInlineProjections` proves unsound the projection moves
+to `Async` and that mechanism's tests become eventually-consistent. That cost is itself a finding.
+
+A claim without a measurement behind it does not belong in this file.

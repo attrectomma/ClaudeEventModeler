@@ -2,6 +2,7 @@
 //   send-email — the decider. Hand-written; regeneration keeps this file.
 // </auto-generated-scaffold>
 #nullable enable
+using JasperFx.Events;
 using Marten;
 using EmailOutbox.Contracts;
 
@@ -52,7 +53,33 @@ public static class SendEmailHandler
         var providerMessageId = $"prov-{Guid.NewGuid():n}";
 
         stream.AppendOne(new EmailSent(command.EmailId, providerMessageId, DateTimeOffset.UtcNow));
-        await session.SaveChangesAsync(cancellation);
+
+        try
+        {
+            await session.SaveChangesAsync(cancellation);
+        }
+        catch (EventStreamUnexpectedMaxEventIdException)
+        {
+            // A CONCURRENT duplicate, and the reason the AlreadySent check above is not sufficient on its own.
+            //
+            // Every wakeup mechanism here is at-least-once. When a delivery arrives twice, two runs fold this
+            // stream BEFORE either appends, so both legitimately see Sent == false and both pass the rule.
+            // What stops the second one is Marten's optimistic concurrency: FetchForWriting captured the
+            // stream version, and the second append collides on it.
+            //
+            // So the rule catches the sequential duplicate and the transaction catches the simultaneous one.
+            // They are complementary, not redundant — a decider with only the rule sends twice under a double
+            // delivery, and one with only the version check reports a crash where a plain refusal is the truth.
+            //
+            // Translated rather than rethrown: from the caller's point of view this IS AlreadySent. Left as an
+            // exception it becomes a failed message, a logged stack trace and a Wolverine retry — which is how
+            // the forwarding test first passed while printing what looked like a failure.
+            //
+            // This stream only ever holds EmailPrepared then EmailSent, so a collision here can only be a
+            // concurrent send. On a stream with other writers, re-read and re-decide instead of assuming.
+            return SendOutcome.Rejected("AlreadySent",
+                $"Email {command.EmailId} was sent concurrently by another run; this one lost the version race.");
+        }
 
         return SendOutcome.Delivered(command.EmailId, providerMessageId);
     }

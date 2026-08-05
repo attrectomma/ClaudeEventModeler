@@ -747,7 +747,9 @@ public static class ${a}
     scaffold(p,
       `${banner(`${s.name} — HOW this automation is woken. Choose one; regeneration keeps this file.`)}
 #nullable enable
+using Marten;
 using Wolverine;
+using Wolverine.Marten;
 using ${NS}.Contracts;
 
 namespace ${NS}.Automation;
@@ -785,13 +787,32 @@ namespace ${NS}.Automation;
 /// </summary>
 public static class ${pascal(s.name)}Wakeup
 {
-    public static void Register(WebApplicationBuilder builder)
+    /// <summary>
+    /// Resolves WHICH mechanism was chosen. Called first, before every Configure hook below asks for it —
+    /// resolve it later and a mechanism silently configures nothing.
+    /// </summary>
+    public static void Choose(IConfiguration config) { }
+
+    /// <summary>Hosted services and anything needing the app builder. A clock lives here.</summary>
+    public static void RegisterServices(WebApplicationBuilder builder)
     {
         // TODO(codegen): choose how ${s.name} is woken, then delete this line.
         //
-        // Until it is gone, \`node tools/codegen.mjs\` reports this slice under AUTOMATION NOT WOKEN —
-        // because an automation nothing ever runs passes every test it has.
+        // Until it is gone, codegen reports this slice under AUTOMATION NOT WOKEN — because an
+        // automation nothing ever runs passes every test it has, and that is not hypothetical.
     }
+
+    /// <summary>Marten options: a projection lifecycle, a subscription registration.</summary>
+    public static void ConfigureMarten(StoreOptions opts) { }
+
+    /// <summary>The store: AddAsyncDaemon, which a subscription and an async projection both need.</summary>
+    public static void ConfigureStore(MartenServiceCollectionExtensions.MartenConfigurationExpression marten) { }
+
+    /// <summary>The Marten-to-Wolverine integration: where event forwarding is switched on.</summary>
+    public static void ConfigureIntegration(MartenIntegration integration) { }
+
+    /// <summary>Wolverine options: discovery, policies, whatever a doorbell handler needs.</summary>
+    public static void ConfigureWolverine(WolverineOptions opts) { }
 }
 `);
   }
@@ -856,6 +877,11 @@ using ${NS}.Automation;
 ${[...new Set(automations.map((s) => `using ${NS}.Slices.${pascal(s.context)};`))].join("\n")}` : ""}
 
 var builder = WebApplication.CreateBuilder(args);
+${automations.length === 0 ? "" : `
+// FIRST, and the order matters: each wakeup resolves which mechanism was chosen here, and every
+// Configure* hook below asks it. Resolved last, a mechanism sets flags after the callbacks that read
+// them have already run — no error, and the automation never wakes.
+${automations.map((s) => `${pascal(s.name)}Wakeup.Choose(builder.Configuration);`).join("\n")}`}
 
 var marten = builder.Services.AddMarten(opts =>
     {
@@ -883,20 +909,30 @@ ${ir.shared.views.map((v) => registerable.includes(v.label)
         // projection with no rules AT STARTUP, so registering it now would take the host down.
         // opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
     ).join("\n")}
+${automations.length === 0 ? "" : `
+${automations.map((s) => `        ${pascal(s.name)}Wakeup.ConfigureMarten(opts);`).join("\n")}`}
     })
-    .IntegrateWithWolverine();
+    .IntegrateWithWolverine(${automations.length === 0 ? "" : `integration =>
+    {
+${automations.map((s) => `        ${pascal(s.name)}Wakeup.ConfigureIntegration(integration);`).join("\n")}
+    }`});
 
 // Starting data for running the app by hand: membership, an open month, one booking. Development
 // only, and idempotent, because Populate runs on every startup.
 if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
 
-builder.Services.AddResourceSetupOnStartup();
+${automations.length === 0 ? "" : `// A wakeup mechanism may need the STORE, not just its options — AddAsyncDaemon, for instance. A
+// subscription and an async projection both run in the daemon, and neither exists without it.
+${automations.map((s) => `${pascal(s.name)}Wakeup.ConfigureStore(marten);`).join("\n")}
+
+`}builder.Services.AddResourceSetupOnStartup();
 
 builder.Host.UseWolverine(opts =>
 {
     opts.Policies.AutoApplyTransactions();
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
+${automations.length === 0 ? "" : `${automations.map((s) => `    ${pascal(s.name)}Wakeup.ConfigureWolverine(opts);`).join("\n")}`}
 ${automations.length === 0 ? "" : `
     // An automation's trigger is a Wolverine message handler, but its class is named after the
     // automation cell on the model — ZeroFillProcessor, AdminNotifier — and Wolverine's conventional
@@ -923,7 +959,7 @@ ${automations.length === 0 ? "// No automation slice is past in-design, so nothi
 // Each Register body is SCAFFOLD — hand-owned, kept by regeneration — and carries the decision table
 // plus a TODO(codegen) marker that codegen reports until it is gone. Worked implementations of all four
 // against one shared model: reference-implementations/automation/.
-${automations.map((s) => `${pascal(s.name)}Wakeup.Register(builder);`).join("\n")}`}
+${automations.map((s) => `${pascal(s.name)}Wakeup.RegisterServices(builder);`).join("\n")}`}
 
 if (builder.Environment.IsDevelopment())
 {
