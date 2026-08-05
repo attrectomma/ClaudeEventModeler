@@ -45,7 +45,7 @@
           </mxCell>
         </object>
 
-        <object id="ui-catalog" label="Catalog Page" em="screen" slice="add-item" inputs="itemId:Guid, name:string">
+        <object id="ui-catalog" label="Catalog Page" em="screen" screen="catalog" slice="add-item" inputs="itemId:Guid, name:string">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="100" y="90" width="180" height="90" as="geometry" />
           </mxCell>
@@ -66,7 +66,7 @@
             <mxGeometry x="420" y="290" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-cart" label="Cart Page" em="screen" slice="cart-items" displays="itemId:Guid, discount:decimal">
+        <object id="ui-cart" label="Cart Page" em="screen" screen="cart" slice="cart-items" displays="itemId:Guid, discount:decimal">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="420" y="90" width="180" height="90" as="geometry" />
           </mxCell>
@@ -83,7 +83,7 @@
           </mxCell>
         </object>
 
-        <object id="ui-summary" label="Summary Page" em="screen" slice="clear-cart">
+        <object id="ui-summary" label="Summary Page" em="screen" screen="summary" slice="clear-cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="1060" y="90" width="180" height="90" as="geometry" />
           </mxCell>

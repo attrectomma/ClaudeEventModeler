@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="Month closure" id="month-closure">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2960" pageHeight="2450" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2960" pageHeight="2660" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -11,311 +11,311 @@
         </object>
         <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="160" width="2860" height="180" as="geometry" />
+            <mxGeometry x="40" y="160" width="2860" height="390" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="340" width="2860" height="180" as="geometry" />
+            <mxGeometry x="40" y="550" width="2860" height="180" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="660" width="2860" height="590" as="geometry" />
+            <mxGeometry x="40" y="870" width="2860" height="590" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-0" label="MonthClosure stream" em="lane" streams="MonthClosure">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="685" width="2860" height="95" as="geometry" />
+            <mxGeometry x="40" y="895" width="2860" height="95" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-1" label="Timesheet stream — imported from booking" em="lane" streams="Timesheet">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="780" width="2860" height="305" as="geometry" />
+            <mxGeometry x="40" y="990" width="2860" height="305" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-2" label="seeded from outside — not our streams" em="lane" streams="Employee, Membership, Calendar">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="1085" width="2860" height="165" as="geometry" />
+            <mxGeometry x="40" y="1295" width="2860" height="165" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="1490" width="2860" height="900" as="geometry" />
+            <mxGeometry x="40" y="1700" width="2860" height="900" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-start-month" label="start-month&#10;automation · in-design" em="group" slice="start-month" pattern="automation" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="80" y="120" width="540" height="1130" as="geometry" />
+            <mxGeometry x="80" y="120" width="540" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-upstream-timesheet" label="upstream-timesheet&#10;upstream · in-design" em="group" slice="upstream-timesheet" pattern="upstream" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="720" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="720" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-my-month-status" label="my-month-status&#10;view · in-design" em="group" slice="my-month-status" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1040" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="1040" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-submit-closure" label="submit-closure&#10;command · in-design" em="group" slice="submit-closure" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1360" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="1360" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-admin-month-review" label="admin-month-review&#10;view · in-design" em="group" slice="admin-month-review" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1680" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="1680" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-reject-closure" label="reject-closure&#10;command · in-design" em="group" slice="reject-closure" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2000" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="2000" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-complete-closure" label="complete-closure&#10;command · in-design" em="group" slice="complete-closure" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2320" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="2320" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-close-month-directly" label="close-month-directly&#10;command · in-design" em="group" slice="close-month-directly" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2640" y="120" width="220" height="1130" as="geometry" />
+            <mxGeometry x="2640" y="120" width="220" height="1340" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-employee-seeded" label="EmployeeSeeded" em="external" origin="genesis seed" slice="start-month" aggregate="Employee" fields="employeeId:Guid, employeeName:string" source="&quot;we can use genesis events wherever we need starting data&quot; — seeded for the POC, so there is no foreign contract to get wrong">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1100" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="1310" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-employee-assigned" label="EmployeeAssignedToProject" em="external" origin="genesis seed" slice="start-month" aggregate="Membership" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" source="&quot;we can use genesis events wherever we need starting data&quot; — seeded for the POC, so there is no foreign contract to get wrong">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1170" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="1380" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-month-start-todo" label="MonthStartTodo" em="readmodel" slice="start-month" fields="employeeId:Guid, employeeName:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: project members whose next booking month has not been started yet.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="100" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="auto-start-month" label="MonthStarter" em="automation" slice="start-month" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="420" y="370" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="580" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-start-booking-month" label="StartBookingMonth" em="command" slice="start-month" aggregate="MonthClosure" fields="employeeId:Guid, employeeName:string, month:string" terminal="month:clock" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="420" y="440" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="650" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-booking-month-started" label="BookingMonthStarted" em="event" public="true" slice="start-month" aggregate="MonthClosure" fields="employeeId:Guid, employeeName:string, month:string, startedAt:DateTimeOffset" source="&quot;an automation that starts each new month for each employee with a BookingMonthStarted event&quot;" note="gives the month its own event. Without it, month had to be derived from a booking date, so an employee who booked nothing had no month at all — could not be reminded and could not submit a closure.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="420" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-hours-booked" label="HoursBooked" em="external" slice="upstream-timesheet" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, bookedAt:DateTimeOffset" from="booking" note="IMPORTED — published by the booking model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="740" y="795" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="1005" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-hours-corrected" label="HoursCorrected" em="external" slice="upstream-timesheet" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?, correctedAt:DateTimeOffset" from="booking" note="IMPORTED — published by the booking model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="740" y="865" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="1075" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-booking-removed" label="BookingRemoved" em="external" slice="upstream-timesheet" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, removedAt:DateTimeOffset" from="booking" note="IMPORTED — published by the booking model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="740" y="935" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="1145" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-zero-hours-filled" label="ZeroHoursFilled" em="external" slice="upstream-timesheet" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, filledAt:DateTimeOffset" from="booking" note="IMPORTED — published by the booking model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="740" y="1005" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="1215" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-working-day-published" label="WorkingDayPublished" em="external" origin="Google Calendar" slice="upstream-timesheet" aggregate="Calendar" fields="date:DateOnly, month:string" source="&quot;We could integrate with e.g.: google calendar. We fill only for working days.&quot;" note="one event per working day, from the Hungarian Google calendar — carries public holidays and working Saturdays.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="740" y="1100" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="1310" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-my-month-status" label="MyMonthStatus" em="readmodel" slice="my-month-status" fields="employeeId:Guid, month:string, monthStatus:string, dayTotal:decimal, projectTotals:decimal, missingDays:int, rejectionComment:string?" derived="dayTotal=hours, projectTotals=hours, missingDays=WorkingDayPublished+HoursBooked, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="1060" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-month-closing" label="MonthClosing" em="screen" slice="submit-closure" displays="employeeId, month, monthStatus, dayTotal, projectTotals, missingDays, rejectionComment" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-month-closing" label="MonthClosing" em="screen" screen="month-closing" slice="submit-closure" displays="employeeId, month, monthStatus, dayTotal, projectTotals, missingDays, rejectionComment" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="1380" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-submit-month-closure" label="SubmitMonthClosure" em="command" slice="submit-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="1380" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closure-submitted" label="MonthClosureSubmitted" em="event" public="true" slice="submit-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" source="&quot;if an employee closes a month&quot;" note="a SUBMISSION, not a closure. Scope is (employee, month), never per project.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="1380" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-admin-employee-month" label="AdminEmployeeMonth" em="readmodel" slice="admin-month-review" fields="employeeId:Guid, employeeName:string, month:string, monthStatus:string, submittedAt:DateTimeOffset?, projectTotals:decimal, dayTotals:decimal" derived="projectTotals=hours, dayTotals=hours, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the admin's queue AND detail in one view, for the POC.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="1700" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-admin-reject" label="AdminMonthReview" em="screen" slice="reject-closure" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="rejectionComment" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-admin-reject" label="AdminMonthReview" em="screen" screen="admin-month-review" slice="reject-closure" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="rejectionComment" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="2020" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-reject-closure" label="RejectMonthClosure" em="command" slice="reject-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid" terminal="rejectedBy:actor" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="2020" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closure-rejected" label="MonthClosureRejected" em="event" public="true" slice="reject-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid, rejectedAt:DateTimeOffset" source="&quot;or reject it with a comment&quot;" note="employee must see on the UI that their closing attempt was rejected. Sends them back to editing.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="2020" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-admin-complete" label="AdminMonthReview" em="screen" slice="complete-closure" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="closingNote" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-admin-complete" label="AdminMonthReview" em="screen" screen="admin-month-review" slice="complete-closure" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="closingNote" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="2340" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-complete-closure" label="CompleteMonthClosure" em="command" slice="complete-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" terminal="closedBy:actor" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="2340" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closed" label="MonthClosed" em="event" public="true" slice="complete-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?, closedAt:DateTimeOffset" source="&quot;Any admin can complete the closing&quot;" note="scope is (employee, month). NOT per project. Closed is closed.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="2340" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-admin-direct" label="AdminEmployeeMonths" em="screen" slice="close-month-directly" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="closingNote" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-admin-direct" label="AdminEmployeeMonths" em="screen" screen="admin-employee-months" slice="close-month-directly" displays="employeeId, employeeName, month, monthStatus, submittedAt, projectTotals, dayTotals" inputs="closingNote" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="2660" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-close-month-directly" label="CloseMonthDirectly" em="command" slice="close-month-directly" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?" terminal="closedBy:actor" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="2660" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-month-closed-direct" label="MonthClosed" em="event" public="true" slice="close-month-directly" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?, closedAt:DateTimeOffset" source="&quot;Admins shortcut this and just simply close with an optional note&quot;" note="SAME fact as the other MonthClosed cell. Two slices, one event type — the shortcut never passes through submission or notification.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="2660" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-start-month-1" label="every project member gets a booking month opened for them&#10;&#10;GIVEN EmployeeAssignedToProject&#10;WHEN StartBookingMonth&#10;THEN BookingMonthStarted" em="gwt" slice="start-month" rule="every project member gets a booking month opened for them" given="EmployeeAssignedToProject" when="StartBookingMonth" then="BookingMonthStarted" source="&quot;an automation that starts each new month for each employee with a BookingMonthStarted event&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1520" width="300" height="120" as="geometry" />
+            <mxGeometry x="100" y="1730" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-start-month-2" label="a month is only started once per employee&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN StartBookingMonth&#10;THEN error: MonthAlreadyStarted" em="gwt" slice="start-month" rule="a month is only started once per employee" given="BookingMonthStarted" when="StartBookingMonth" then="error: MonthAlreadyStarted" source="accepted by the domain expert — the todo-list tick-off is what stops the processor working a row twice">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1660" width="300" height="120" as="geometry" />
+            <mxGeometry x="100" y="1870" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-submit-closure-1" label="an employee closes their own month, which submits it rather than closing it&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN SubmitMonthClosure&#10;THEN MonthClosureSubmitted" em="gwt" slice="submit-closure" rule="an employee closes their own month, which submits it rather than closing it" given="BookingMonthStarted" when="SubmitMonthClosure" then="MonthClosureSubmitted" source="&quot;The month can be closed by the employee or by an admin&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1520" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="1730" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-submit-closure-2" label="a rejected month can be fixed and submitted again&#10;&#10;GIVEN MonthClosureRejected&#10;WHEN SubmitMonthClosure&#10;THEN MonthClosureSubmitted" em="gwt" slice="submit-closure" rule="a rejected month can be fixed and submitted again" given="MonthClosureRejected" when="SubmitMonthClosure" then="MonthClosureSubmitted" source="&quot;Any admin can complete the closing or reject it with a comment&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1660" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="1870" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-submit-closure-3" label="a month already awaiting review cannot be submitted again&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN SubmitMonthClosure&#10;THEN error: ClosureAlreadySubmitted" em="gwt" slice="submit-closure" rule="a month already awaiting review cannot be submitted again" given="MonthClosureSubmitted" when="SubmitMonthClosure" then="error: ClosureAlreadySubmitted" source="accepted by the domain expert — you cannot act on something that is not there">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1800" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2010" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-submit-closure-4" label="a closed month cannot be submitted — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN SubmitMonthClosure&#10;THEN error: MonthIsClosed" em="gwt" slice="submit-closure" rule="a closed month cannot be submitted — closed is closed" given="MonthClosed" when="SubmitMonthClosure" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1940" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2150" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-reject-closure-1" label="any admin can reject a submitted closure, which sends the employee back to editing&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN MonthClosureRejected" em="gwt" slice="reject-closure" rule="any admin can reject a submitted closure, which sends the employee back to editing" given="MonthClosureSubmitted" when="RejectMonthClosure" then="MonthClosureRejected" source="&quot;or reject it with a comment&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="1520" width="300" height="120" as="geometry" />
+            <mxGeometry x="2020" y="1730" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-reject-closure-2" label="a rejection must carry a comment&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN error: RejectionCommentRequired" em="gwt" slice="reject-closure" rule="a rejection must carry a comment" given="MonthClosureSubmitted" when="RejectMonthClosure" then="error: RejectionCommentRequired" source="&quot;reject it with a comment&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="1660" width="300" height="120" as="geometry" />
+            <mxGeometry x="2020" y="1870" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-reject-closure-3" label="the employee must be able to see that their closing attempt was rejected&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN MonthClosureRejected" em="gwt" slice="reject-closure" rule="the employee must be able to see that their closing attempt was rejected" given="MonthClosureSubmitted" when="RejectMonthClosure" then="MonthClosureRejected" source="&quot;A closure gets rejected is an event. and employee should see on the ui that their closing attempt got rejected&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="1800" width="300" height="120" as="geometry" />
+            <mxGeometry x="2020" y="2010" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-reject-closure-4" label="only an admin may reject a closure&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN RejectMonthClosure&#10;THEN error: NotAnAdmin" em="gwt" slice="reject-closure" rule="only an admin may reject a closure" given="MonthClosureSubmitted" when="RejectMonthClosure" then="error: NotAnAdmin" source="&quot;Any admin can complete the closing or reject it&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="1940" width="300" height="120" as="geometry" />
+            <mxGeometry x="2020" y="2150" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-reject-closure-5" label="there is nothing to reject until the employee has submitted&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN RejectMonthClosure&#10;THEN error: NoClosureSubmitted" em="gwt" slice="reject-closure" rule="there is nothing to reject until the employee has submitted" given="BookingMonthStarted" when="RejectMonthClosure" then="error: NoClosureSubmitted" source="accepted by the domain expert — you cannot act on something that is not there">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="2080" width="300" height="120" as="geometry" />
+            <mxGeometry x="2020" y="2290" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-reject-closure-6" label="a closed month cannot be rejected — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN RejectMonthClosure&#10;THEN error: MonthIsClosed" em="gwt" slice="reject-closure" rule="a closed month cannot be rejected — closed is closed" given="MonthClosed" when="RejectMonthClosure" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="2220" width="300" height="120" as="geometry" />
+            <mxGeometry x="2020" y="2430" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-complete-closure-1" label="any admin can complete a submitted closure, which closes the month&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CompleteMonthClosure&#10;THEN MonthClosed" em="gwt" slice="complete-closure" rule="any admin can complete a submitted closure, which closes the month" given="MonthClosureSubmitted" when="CompleteMonthClosure" then="MonthClosed" source="&quot;Any admin can complete the closing&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1520" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="1730" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-complete-closure-2" label="only an admin may complete a closure&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CompleteMonthClosure&#10;THEN error: NotAnAdmin" em="gwt" slice="complete-closure" rule="only an admin may complete a closure" given="MonthClosureSubmitted" when="CompleteMonthClosure" then="error: NotAnAdmin" source="&quot;Any admin can complete the closing&quot; / &quot;Admins can see everything&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1660" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="1870" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-complete-closure-3" label="there is nothing to complete until the employee has submitted&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CompleteMonthClosure&#10;THEN error: NoClosureSubmitted" em="gwt" slice="complete-closure" rule="there is nothing to complete until the employee has submitted" given="BookingMonthStarted" when="CompleteMonthClosure" then="error: NoClosureSubmitted" source="accepted by the domain expert — you cannot act on something that is not there">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1800" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="2010" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-complete-closure-4" label="a closed month cannot be closed again — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN CompleteMonthClosure&#10;THEN error: MonthIsClosed" em="gwt" slice="complete-closure" rule="a closed month cannot be closed again — closed is closed" given="MonthClosed" when="CompleteMonthClosure" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1940" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="2150" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-close-month-directly-1" label="an admin can close a month directly, without waiting for the employee to submit&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CloseMonthDirectly&#10;THEN MonthClosed" em="gwt" slice="close-month-directly" rule="an admin can close a month directly, without waiting for the employee to submit" given="BookingMonthStarted" when="CloseMonthDirectly" then="MonthClosed" source="&quot;Admins shortcut this and just simply close with an optional note&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="1520" width="300" height="120" as="geometry" />
+            <mxGeometry x="2660" y="1730" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-close-month-directly-2" label="the closing note is optional&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CloseMonthDirectly&#10;THEN MonthClosed" em="gwt" slice="close-month-directly" rule="the closing note is optional" given="BookingMonthStarted" when="CloseMonthDirectly" then="MonthClosed" source="&quot;just simply close with an optional note&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="1660" width="300" height="120" as="geometry" />
+            <mxGeometry x="2660" y="1870" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-close-month-directly-3" label="the shortcut also works on a month that was submitted&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CloseMonthDirectly&#10;THEN MonthClosed" em="gwt" slice="close-month-directly" rule="the shortcut also works on a month that was submitted" given="MonthClosureSubmitted" when="CloseMonthDirectly" then="MonthClosed" source="&quot;Admins shortcut this&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="1800" width="300" height="120" as="geometry" />
+            <mxGeometry x="2660" y="2010" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-close-month-directly-4" label="only an admin may close a month directly&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CloseMonthDirectly&#10;THEN error: NotAnAdmin" em="gwt" slice="close-month-directly" rule="only an admin may close a month directly" given="BookingMonthStarted" when="CloseMonthDirectly" then="error: NotAnAdmin" source="&quot;Admins can see everything&quot; / &quot;currently assigning needs admin role&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="1940" width="300" height="120" as="geometry" />
+            <mxGeometry x="2660" y="2150" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-close-month-directly-5" label="a closed month cannot be closed again — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN CloseMonthDirectly&#10;THEN error: MonthIsClosed" em="gwt" slice="close-month-directly" rule="a closed month cannot be closed again — closed is closed" given="MonthClosed" when="CloseMonthDirectly" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="2080" width="300" height="120" as="geometry" />
+            <mxGeometry x="2660" y="2290" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-evt-employee-assigned--rm-month-start-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitDx=0;exitDy=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-month-start-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="58" y="1200" /><mxPoint x="58" y="430" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="58" y="1410" /><mxPoint x="58" y="640" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-employee-seeded--rm-month-start-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-seeded" target="rm-month-start-todo">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -342,7 +342,7 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-admin-employee-month--ui-admin-complete" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admin-employee-month" target="ui-admin-complete">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1920" y="295" /><mxPoint x="2300" y="295" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1920" y="505" /><mxPoint x="2300" y="505" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-admin-complete--cmd-complete-closure" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-admin-complete" target="cmd-complete-closure">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -360,7 +360,7 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-admin-employee-month--ui-admin-direct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admin-employee-month" target="ui-admin-direct">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1920" y="303" /><mxPoint x="2620" y="303" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1920" y="513" /><mxPoint x="2620" y="513" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-admin-direct--cmd-close-month-directly" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-admin-direct" target="cmd-close-month-directly">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -384,31 +384,31 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-rejected--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-rejected" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="1265" /><mxPoint x="1150" y="1265" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="1475" /><mxPoint x="1150" y="1475" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="1274" /><mxPoint x="1150" y="1274" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="1484" /><mxPoint x="1150" y="1484" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed-direct--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="1283" /><mxPoint x="1150" y="1283" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="1493" /><mxPoint x="1150" y="1493" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-month-started--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-my-month-status">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="526" /><mxPoint x="1150" y="526" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="736" /><mxPoint x="1150" y="736" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-working-day-published--rm-my-month-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-working-day-published" target="rm-my-month-status">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-booked--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-hours-booked" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="534" /><mxPoint x="1790" y="534" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="744" /><mxPoint x="1790" y="744" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-corrected--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-hours-corrected" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="542" /><mxPoint x="1790" y="542" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="752" /><mxPoint x="1790" y="752" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-removed--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-booking-removed" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="550" /><mxPoint x="1790" y="550" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="760" /><mxPoint x="1790" y="760" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-zero-hours-filled--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-zero-hours-filled" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="558" /><mxPoint x="1790" y="558" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="830" y="768" /><mxPoint x="1790" y="768" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-submitted--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closure-submitted" target="rm-admin-employee-month">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -417,14 +417,209 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="1292" /><mxPoint x="1790" y="1292" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2430" y="1502" /><mxPoint x="1790" y="1502" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closed-direct--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-month-closed-direct" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="1301" /><mxPoint x="1790" y="1301" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="1511" /><mxPoint x="1790" y="1511" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-month-started--rm-admin-employee-month" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-month-started" target="rm-admin-employee-month">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="566" /><mxPoint x="1790" y="566" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="776" /><mxPoint x="1790" y="776" /></Array></mxGeometry>
         </mxCell>
+        <object id="wf-ui-month-closing-title" label="MonthClosing" em="chrome" slice="submit-closure">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-employeeId" label="employeeId" em="field" binds="employeeId" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-month" label="month" em="field" binds="month" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-dayTotal" label="dayTotal" em="field" binds="dayTotal" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-projectTotals" label="projectTotals" em="field" binds="projectTotals" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-missingDays" label="missingDays" em="field" binds="missingDays" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-rejectionComment" label="rejectionComment" em="field" binds="rejectionComment" slice="submit-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-month-closing-action" label="SubmitMonthClosure" em="action" command="SubmitMonthClosure" slice="submit-closure">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="1450" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-title" label="AdminMonthReview" em="chrome" slice="reject-closure">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-employeeId" label="employeeId" em="field" binds="employeeId" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-employeeName" label="employeeName" em="field" binds="employeeName" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-month" label="month" em="field" binds="month" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-submittedAt" label="submittedAt" em="field" binds="submittedAt" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-projectTotals" label="projectTotals" em="field" binds="projectTotals" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-dayTotals" label="dayTotals" em="field" binds="dayTotals" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-rejectionComment" label="rejectionComment" em="field" binds="rejectionComment" slice="reject-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="2030" y="384" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-reject-action" label="RejectMonthClosure" em="action" command="RejectMonthClosure" slice="reject-closure">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="2090" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-title" label="AdminMonthReview" em="chrome" slice="complete-closure">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-employeeId" label="employeeId" em="field" binds="employeeId" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-employeeName" label="employeeName" em="field" binds="employeeName" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-month" label="month" em="field" binds="month" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-submittedAt" label="submittedAt" em="field" binds="submittedAt" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-projectTotals" label="projectTotals" em="field" binds="projectTotals" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-dayTotals" label="dayTotals" em="field" binds="dayTotals" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-closingNote" label="closingNote" em="field" binds="closingNote" slice="complete-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="2350" y="384" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-complete-action" label="CompleteMonthClosure" em="action" command="CompleteMonthClosure" slice="complete-closure">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="2410" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-title" label="AdminEmployeeMonths" em="chrome" slice="close-month-directly">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-employeeId" label="employeeId" em="field" binds="employeeId" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-employeeName" label="employeeName" em="field" binds="employeeName" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-month" label="month" em="field" binds="month" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-submittedAt" label="submittedAt" em="field" binds="submittedAt" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-projectTotals" label="projectTotals" em="field" binds="projectTotals" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-dayTotals" label="dayTotals" em="field" binds="dayTotals" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-closingNote" label="closingNote" em="field" binds="closingNote" slice="close-month-directly">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="2670" y="384" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-admin-direct-action" label="CloseMonthDirectly" em="action" command="CloseMonthDirectly" slice="close-month-directly">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="2730" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
       </root>
     </mxGraphModel>
   </diagram>

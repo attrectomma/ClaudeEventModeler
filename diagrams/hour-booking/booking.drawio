@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="Booking" id="booking">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2960" pageHeight="3080" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2960" pageHeight="3290" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -11,337 +11,337 @@
         </object>
         <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="160" width="2860" height="180" as="geometry" />
+            <mxGeometry x="40" y="160" width="2860" height="390" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="340" width="2860" height="180" as="geometry" />
+            <mxGeometry x="40" y="550" width="2860" height="180" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="660" width="2860" height="660" as="geometry" />
+            <mxGeometry x="40" y="870" width="2860" height="660" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-0" label="Timesheet stream" em="lane" streams="Timesheet">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="685" width="2860" height="95" as="geometry" />
+            <mxGeometry x="40" y="895" width="2860" height="95" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-1" label="MonthClosure stream — imported from month-closure" em="lane" streams="MonthClosure">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="780" width="2860" height="305" as="geometry" />
+            <mxGeometry x="40" y="990" width="2860" height="305" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-2" label="seeded from outside — not our streams" em="lane" streams="Project, Membership, Calendar">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="1085" width="2860" height="235" as="geometry" />
+            <mxGeometry x="40" y="1295" width="2860" height="235" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="1560" width="2860" height="1460" as="geometry" />
+            <mxGeometry x="40" y="1770" width="2860" height="1460" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-my-projects" label="my-projects&#10;view · in-design" em="group" slice="my-projects" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="80" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="80" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-upstream-month" label="upstream-month&#10;upstream · in-design" em="group" slice="upstream-month" pattern="upstream" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="400" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="400" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-my-timesheet" label="my-timesheet&#10;view · in-design" em="group" slice="my-timesheet" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="720" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="720" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-book-hours" label="book-hours&#10;command · ready" em="group" slice="book-hours" pattern="command" status="ready" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1040" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="1040" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-correct-hours" label="correct-hours&#10;command · in-design" em="group" slice="correct-hours" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1360" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="1360" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-remove-booking" label="remove-booking&#10;command · in-design" em="group" slice="remove-booking" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="1680" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="1680" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-working-days" label="working-days&#10;view · in-design" em="group" slice="working-days" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2000" y="120" width="220" height="1200" as="geometry" />
+            <mxGeometry x="2000" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-design" em="group" slice="fill-zero-hours" pattern="automation" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
-            <mxGeometry x="2320" y="120" width="540" height="1200" as="geometry" />
+            <mxGeometry x="2320" y="120" width="540" height="1410" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-project-created" label="ProjectCreated" em="external" origin="genesis seed" slice="my-projects" aggregate="Project" fields="projectId:Guid, projectName:string" source="&quot;we can use genesis events wherever we need starting data&quot; — seeded for the POC, so there is no foreign contract to get wrong">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1100" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="1310" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-employee-assigned" label="EmployeeAssignedToProject" em="external" origin="genesis seed" slice="my-projects" aggregate="Membership" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" source="&quot;we can use genesis events wherever we need starting data&quot; — seeded for the POC, so there is no foreign contract to get wrong">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1170" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="1380" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-employee-removed" label="EmployeeRemovedFromProject" em="external" origin="genesis seed" slice="my-projects" aggregate="Membership" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly, removedAt:DateTimeOffset" source="&quot;we can use genesis events wherever we need starting data&quot; — seeded for the POC, so there is no foreign contract to get wrong">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="100" y="1240" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="1450" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-my-projects" label="MyProjects" em="readmodel" slice="my-projects" fields="employeeId:Guid, projectId:Guid, projectName:string, assignedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="100" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="100" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-booking-month-started" label="BookingMonthStarted" em="external" slice="upstream-month" aggregate="MonthClosure" fields="employeeId:Guid, employeeName:string, month:string, startedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="420" y="795" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="1005" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-month-closure-submitted" label="MonthClosureSubmitted" em="external" slice="upstream-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="420" y="865" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="1075" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-month-closure-rejected" label="MonthClosureRejected" em="external" slice="upstream-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string, rejectionComment:string, rejectedBy:Guid, rejectedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="420" y="935" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="1145" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="ext-month-closed" label="MonthClosed" em="external" slice="upstream-month" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?, closedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
-            <mxGeometry x="420" y="1005" width="180" height="60" as="geometry" />
+            <mxGeometry x="420" y="1215" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-my-timesheet" label="MyTimesheet" em="readmodel" slice="my-timesheet" fields="employeeId:Guid, month:string, monthStatus:string, bookingId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, dayTotal:decimal" derived="dayTotal=hours, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="740" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="740" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-timesheet-book" label="Timesheet" em="screen" slice="book-hours" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="date, projectId, hours, note" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-timesheet-book" label="Timesheet" em="screen" screen="timesheet" slice="book-hours" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="date, projectId, hours, note" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="1060" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-book-hours" label="BookHours" em="command" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?" terminal="bookingId:generated" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="1060" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-hours-booked" label="HoursBooked" em="event" public="true" slice="book-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, bookedAt:DateTimeOffset" source="&quot;the first time you book hours for a day is HoursBooked&quot;" note="ANY date in the open month — future (&quot;employees may prefill&quot;) and past (&quot;book all days of the week on Friday&quot;). Whole or half hours, never 0.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="1060" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-timesheet-correct" label="Timesheet" em="screen" slice="correct-hours" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="bookingId, hours, note" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-timesheet-correct" label="Timesheet" em="screen" screen="timesheet" slice="correct-hours" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="bookingId, hours, note" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="1380" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-correct-hours" label="CorrectHours" em="command" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="1380" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-hours-corrected" label="HoursCorrected" em="event" public="true" slice="correct-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, hours:decimal, note:string?, correctedAt:DateTimeOffset" source="&quot;This should be a HoursCorrected event carrying the 8 hours, not the 2 difference&quot;" note="carries the ABSOLUTE value, not a delta. Truth for a day+project = last HoursCorrected, else HoursBooked.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="1380" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="ui-timesheet-remove" label="Timesheet" em="screen" slice="remove-booking" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="bookingId" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="ui-timesheet-remove" label="Timesheet" em="screen" screen="timesheet" slice="remove-booking" displays="employeeId, month, monthStatus, bookingId, projectId, projectName, date, hours, note, dayTotal" inputs="bookingId" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="200" width="180" height="90" as="geometry" />
+            <mxGeometry x="1700" y="200" width="180" height="300" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-remove-booking" label="RemoveBooking" em="command" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="1700" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-booking-removed" label="BookingRemoved" em="event" public="true" slice="remove-booking" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, removedAt:DateTimeOffset" source="&quot;changed or removed ... by the employees&quot;" note="distinct from HoursCorrected: you cannot correct to 0, so removal is the only way to take a line back.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="1700" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-working-day-published" label="WorkingDayPublished" em="external" origin="Google Calendar" slice="working-days" aggregate="Calendar" fields="date:DateOnly, month:string" source="&quot;We could integrate with e.g.: google calendar. We fill only for working days.&quot;" note="one event per working day, from the Hungarian Google calendar — carries public holidays and working Saturdays.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="1100" width="180" height="60" as="geometry" />
+            <mxGeometry x="2020" y="1310" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-working-days" label="WorkingDays" em="readmodel" slice="working-days" fields="date:DateOnly, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2020" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="2020" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="rm-zero-fill-todo" label="ZeroFillTodo" em="readmodel" slice="fill-zero-hours" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, project) still to be zero-filled to month end.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="400" width="180" height="60" as="geometry" />
+            <mxGeometry x="2340" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="auto-fill-zero" label="ZeroFillProcessor" em="automation" slice="fill-zero-hours" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="370" width="180" height="60" as="geometry" />
+            <mxGeometry x="2660" y="580" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="cmd-fill-zero-hours" label="FillZeroHours" em="command" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal" terminal="bookingId:generated, hours:const" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="440" width="180" height="60" as="geometry" />
+            <mxGeometry x="2660" y="650" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="evt-zero-hours-filled" label="ZeroHoursFilled" em="event" public="true" slice="fill-zero-hours" aggregate="Timesheet" fields="bookingId:Guid, employeeId:Guid, projectId:Guid, date:DateOnly, hours:decimal, filledAt:DateTimeOffset" source="&quot;we fill out the remainder of the month with 0 hours booked per day&quot;" note="one event PER DAY. The only way a zero enters the system.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="2660" y="700" width="180" height="60" as="geometry" />
+            <mxGeometry x="2660" y="910" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-1" label="hours can be booked on a project the employee belongs to, in an open month&#10;&#10;GIVEN BookingMonthStarted, EmployeeAssignedToProject&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="hours can be booked on a project the employee belongs to, in an open month" given="BookingMonthStarted, EmployeeAssignedToProject" when="BookHours" then="HoursBooked" source="&quot;employees can book their work hours ... only to project they belong to&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="1590" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="1800" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-2" label="a date in the future is allowed — employees may prefill&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="a date in the future is allowed — employees may prefill" given="BookingMonthStarted" when="BookHours" then="HoursBooked" source="&quot;A booking on a future date is allowed, employees may prefill.&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="1730" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="1940" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-3" label="a date in the past is allowed within the open month&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="a date in the past is allowed within the open month" given="BookingMonthStarted" when="BookHours" then="HoursBooked" source="&quot;an employee prefers to book all days of the week on Friday. That is acceptable.&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="1870" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-4" label="zero hours is not a booking — removal is the only way to take a line back&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="book-hours" rule="zero hours is not a booking — removal is the only way to take a line back" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours, so a HoursBooked with 0 hours would be a business rule violation&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2010" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-5" label="hours are booked in whole or half hours only&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="book-hours" rule="hours are booked in whole or half hours only" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeWholeOrHalf" source="&quot;date + project + hours spend. Full hours or 0,5 hours.&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2150" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2360" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-6" label="a closed month cannot be booked into — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN BookHours&#10;THEN error: MonthIsClosed" em="gwt" slice="book-hours" rule="a closed month cannot be booked into — closed is closed" given="MonthClosed" when="BookHours" then="error: MonthIsClosed" source="&quot;Any time until the working month isnt closed&quot; / &quot;closed is closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2290" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2500" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-7" label="hours cannot be booked to a project the employee has left, and NOTHING is persisted&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN BookHours&#10;THEN error: NotAProjectMember" em="gwt" slice="book-hours" rule="hours cannot be booked to a project the employee has left, and NOTHING is persisted" given="EmployeeRemovedFromProject" when="BookHours" then="error: NotAProjectMember" source="&quot;it must be rejected, but we do not persist any new event&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2430" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2640" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-8" label="at most 18 hours can stand for one day&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: DailyCapExceeded" em="gwt" slice="book-hours" rule="at most 18 hours can stand for one day" given="BookingMonthStarted" when="BookHours" then="error: DailyCapExceeded" source="&quot;Cap is 18 hours&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2570" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2780" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-9" label="a day+project can only be BOOKED once — booking it again is a correction, not a booking&#10;&#10;GIVEN HoursBooked&#10;WHEN BookHours&#10;THEN error: AlreadyBookedUseCorrection" em="gwt" slice="book-hours" rule="a day+project can only be BOOKED once — booking it again is a correction, not a booking" given="HoursBooked" when="BookHours" then="error: AlreadyBookedUseCorrection" source="&quot;There may be only one HoursBooked ... that results in either the one HoursBooked or a Correction&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2710" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="2920" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-book-hours-10" label="a submitted month is still open, so it can still be booked into until an admin closes it&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN BookHours&#10;THEN HoursBooked" em="gwt" slice="book-hours" rule="a submitted month is still open, so it can still be booked into until an admin closes it" given="MonthClosureSubmitted" when="BookHours" then="HoursBooked" source="&quot;Can you still book into a month you have already submitted? Yes.&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1060" y="2850" width="300" height="120" as="geometry" />
+            <mxGeometry x="1060" y="3060" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-1" label="a correction carries the new TOTAL for the day, never the difference&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN HoursCorrected" em="gwt" slice="correct-hours" rule="a correction carries the new TOTAL for the day, never the difference" given="HoursBooked" when="CorrectHours" then="HoursCorrected" source="&quot;a HoursCorrected event carrying the 8 hours, not the 2 difference!&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1590" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="1800" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-2" label="the truth for a day+project is the last correction, or the booking if there was none&#10;&#10;GIVEN HoursBooked, HoursCorrected&#10;WHEN CorrectHours&#10;THEN HoursCorrected" em="gwt" slice="correct-hours" rule="the truth for a day+project is the last correction, or the booking if there was none" given="HoursBooked, HoursCorrected" when="CorrectHours" then="HoursCorrected" source="&quot;the final truth is last HoursCorrected event if any, or the HoursBooked if no corrections&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1730" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="1940" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-3" label="correcting a day+project that was never booked is not a correction&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN CorrectHours&#10;THEN error: BookingNotFound" em="gwt" slice="correct-hours" rule="correcting a day+project that was never booked is not a correction" given="BookingMonthStarted" when="CorrectHours" then="error: BookingNotFound" source="&quot;There may be only one HoursBooked&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="1870" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-4" label="a correction cannot take the hours to zero — removal is the only way&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="correct-hours" rule="a correction cannot take the hours to zero — removal is the only way" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="2010" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-5" label="corrections are in whole or half hours only&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="correct-hours" rule="corrections are in whole or half hours only" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeWholeOrHalf" source="&quot;Full hours or 0,5 hours&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="2150" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2360" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-6" label="a correction cannot push the day over 18 hours&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: DailyCapExceeded" em="gwt" slice="correct-hours" rule="a correction cannot push the day over 18 hours" given="HoursBooked" when="CorrectHours" then="error: DailyCapExceeded" source="&quot;Cap is 18 hours&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="2290" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2500" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-7" label="a closed month cannot be corrected — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN CorrectHours&#10;THEN error: MonthIsClosed" em="gwt" slice="correct-hours" rule="a closed month cannot be corrected — closed is closed" given="MonthClosed" when="CorrectHours" then="error: MonthIsClosed" source="&quot;Any time until the working month isnt closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="2430" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2640" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-correct-hours-8" label="a submitted month is still open, so it can still be corrected&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN CorrectHours&#10;THEN HoursCorrected" em="gwt" slice="correct-hours" rule="a submitted month is still open, so it can still be corrected" given="MonthClosureSubmitted" when="CorrectHours" then="HoursCorrected" source="&quot;Can you still book into a month you have already submitted? Yes.&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1380" y="2570" width="300" height="120" as="geometry" />
+            <mxGeometry x="1380" y="2780" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-remove-booking-1" label="an employee can remove their own booking while the month is open&#10;&#10;GIVEN HoursBooked&#10;WHEN RemoveBooking&#10;THEN BookingRemoved" em="gwt" slice="remove-booking" rule="an employee can remove their own booking while the month is open" given="HoursBooked" when="RemoveBooking" then="BookingRemoved" source="&quot;Can a booking be changed or removed afterwards? Yes, by the employees.&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="1590" width="300" height="120" as="geometry" />
+            <mxGeometry x="1700" y="1800" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-remove-booking-2" label="removal is the only way to take a day+project back to nothing&#10;&#10;GIVEN HoursBooked, HoursCorrected&#10;WHEN RemoveBooking&#10;THEN BookingRemoved" em="gwt" slice="remove-booking" rule="removal is the only way to take a day+project back to nothing" given="HoursBooked, HoursCorrected" when="RemoveBooking" then="BookingRemoved" source="&quot;employees may never book 0 hours&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="1730" width="300" height="120" as="geometry" />
+            <mxGeometry x="1700" y="1940" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-remove-booking-3" label="a booking already removed cannot be removed again&#10;&#10;GIVEN BookingRemoved&#10;WHEN RemoveBooking&#10;THEN error: BookingNotFound" em="gwt" slice="remove-booking" rule="a booking already removed cannot be removed again" given="BookingRemoved" when="RemoveBooking" then="error: BookingNotFound" source="accepted by the domain expert — you cannot act on something that is not there">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="1870" width="300" height="120" as="geometry" />
+            <mxGeometry x="1700" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-remove-booking-4" label="a closed month cannot be edited — closed is closed&#10;&#10;GIVEN MonthClosed&#10;WHEN RemoveBooking&#10;THEN error: MonthIsClosed" em="gwt" slice="remove-booking" rule="a closed month cannot be edited — closed is closed" given="MonthClosed" when="RemoveBooking" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="1700" y="2010" width="300" height="120" as="geometry" />
+            <mxGeometry x="1700" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-fill-zero-hours-1" label="leaving a project fills the rest of that month with zero hours, one event per day&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN FillZeroHours&#10;THEN ZeroHoursFilled" em="gwt" slice="fill-zero-hours" rule="leaving a project fills the rest of that month with zero hours, one event per day" given="EmployeeRemovedFromProject" when="FillZeroHours" then="ZeroHoursFilled" source="&quot;we fill out the remainder of the month with 0 hours booked per day&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1590" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="1800" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-fill-zero-hours-2" label="only working days are filled — weekends and public holidays are not&#10;&#10;GIVEN EmployeeRemovedFromProject, WorkingDayPublished&#10;WHEN FillZeroHours&#10;THEN ZeroHoursFilled" em="gwt" slice="fill-zero-hours" rule="only working days are filled — weekends and public holidays are not" given="EmployeeRemovedFromProject, WorkingDayPublished" when="FillZeroHours" then="ZeroHoursFilled" source="&quot;We fill only for working days ... google can provide us a calendar that marks holidays or working saturdays&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1730" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="1940" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-fill-zero-hours-3" label="the system may write a zero where an employee may not&#10;&#10;GIVEN EmployeeRemovedFromProject&#10;WHEN FillZeroHours&#10;THEN ZeroHoursFilled" em="gwt" slice="fill-zero-hours" rule="the system may write a zero where an employee may not" given="EmployeeRemovedFromProject" when="FillZeroHours" then="ZeroHoursFilled" source="&quot;employees may never book 0 hours&quot;">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="1870" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="gwt-fill-zero-hours-4" label="a day already zero-filled is not filled twice&#10;&#10;GIVEN ZeroHoursFilled&#10;WHEN FillZeroHours&#10;THEN error: AlreadyFilled" em="gwt" slice="fill-zero-hours" rule="a day already zero-filled is not filled twice" given="ZeroHoursFilled" when="FillZeroHours" then="error: AlreadyFilled" source="accepted by the domain expert — the todo-list tick-off is what stops the processor working a row twice">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
-            <mxGeometry x="2340" y="2010" width="300" height="120" as="geometry" />
+            <mxGeometry x="2340" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
         <mxCell id="e-evt-employee-assigned--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitDx=0;exitDy=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-my-projects">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="58" y="1200" /><mxPoint x="58" y="430" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="58" y="1410" /><mxPoint x="58" y="640" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-project-created--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-project-created" target="rm-my-projects">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-projects--ui-timesheet-book" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-projects" target="ui-timesheet-book">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="295" /><mxPoint x="1020" y="295" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="505" /><mxPoint x="1020" y="505" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-timesheet--ui-timesheet-book" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-timesheet" target="ui-timesheet-book">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -353,10 +353,10 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-timesheet--ui-timesheet-correct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-timesheet" target="ui-timesheet-correct">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="960" y="303" /><mxPoint x="1340" y="303" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="960" y="513" /><mxPoint x="1340" y="513" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-projects--ui-timesheet-correct" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-projects" target="ui-timesheet-correct">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="311" /><mxPoint x="1340" y="311" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="521" /><mxPoint x="1340" y="521" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-timesheet-correct--cmd-correct-hours" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-timesheet-correct" target="cmd-correct-hours">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -365,10 +365,10 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-timesheet--ui-timesheet-remove" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-timesheet" target="ui-timesheet-remove">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="960" y="319" /><mxPoint x="1660" y="319" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="960" y="529" /><mxPoint x="1660" y="529" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-my-projects--ui-timesheet-remove" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-my-projects" target="ui-timesheet-remove">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="327" /><mxPoint x="1660" y="327" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="537" /><mxPoint x="1660" y="537" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-ui-timesheet-remove--cmd-remove-booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ui-timesheet-remove" target="cmd-remove-booking">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -377,16 +377,16 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-employee-removed--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitDx=0;exitDy=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-removed" target="rm-my-projects">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="46" y="1270" /><mxPoint x="46" y="430" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="46" y="1480" /><mxPoint x="46" y="640" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-working-day-published--rm-working-days" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-working-day-published" target="rm-working-days">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-employee-removed--rm-zero-fill-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-removed" target="rm-zero-fill-todo">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="526" /><mxPoint x="2430" y="526" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="736" /><mxPoint x="2430" y="736" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-working-days--auto-fill-zero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-working-days" target="auto-fill-zero">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="335" /><mxPoint x="2750" y="335" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2110" y="545" /><mxPoint x="2750" y="545" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-rm-zero-fill-todo--auto-fill-zero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-zero-fill-todo" target="auto-fill-zero">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -401,13 +401,13 @@
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-hours-corrected--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-corrected" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="1335" /><mxPoint x="830" y="1335" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1470" y="1545" /><mxPoint x="830" y="1545" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-booking-removed--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-booking-removed" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1790" y="1344" /><mxPoint x="830" y="1344" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1790" y="1554" /><mxPoint x="830" y="1554" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-zero-hours-filled--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-zero-hours-filled" target="rm-my-timesheet">
-          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="1353" /><mxPoint x="830" y="1353" /></Array></mxGeometry>
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="2750" y="1563" /><mxPoint x="830" y="1563" /></Array></mxGeometry>
         </mxCell>
         <mxCell id="e-evt-month-closure-submitted--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-month-closure-submitted" target="rm-my-timesheet">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
@@ -424,6 +424,186 @@
         <mxCell id="e-evt-hours-booked--rm-my-timesheet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-hours-booked" target="rm-my-timesheet">
           <mxGeometry relative="1" as="geometry"></mxGeometry>
         </mxCell>
+        <object id="wf-ui-timesheet-book-title" label="Timesheet" em="chrome" slice="book-hours">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-employeeId" label="employeeId" em="field" binds="employeeId" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-month" label="month" em="field" binds="month" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-bookingId" label="bookingId" em="field" binds="bookingId" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-projectId" label="projectId" em="field" binds="projectId" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-projectName" label="projectName" em="field" binds="projectName" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-date" label="date" em="field" binds="date" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-hours" label="hours" em="field" binds="hours" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="384" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-note" label="note" em="field" binds="note" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="406" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-dayTotal" label="dayTotal" em="field" binds="dayTotal" slice="book-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1070" y="428" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-book-action" label="BookHours" em="action" command="BookHours" slice="book-hours">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="1130" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-title" label="Timesheet" em="chrome" slice="correct-hours">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-employeeId" label="employeeId" em="field" binds="employeeId" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-month" label="month" em="field" binds="month" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-bookingId" label="bookingId" em="field" binds="bookingId" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-projectId" label="projectId" em="field" binds="projectId" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-projectName" label="projectName" em="field" binds="projectName" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-date" label="date" em="field" binds="date" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-hours" label="hours" em="field" binds="hours" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="384" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-note" label="note" em="field" binds="note" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="406" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-dayTotal" label="dayTotal" em="field" binds="dayTotal" slice="correct-hours">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1390" y="428" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-correct-action" label="CorrectHours" em="action" command="CorrectHours" slice="correct-hours">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="1450" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-title" label="Timesheet" em="chrome" slice="remove-booking">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="206" width="160" height="24" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-employeeId" label="employeeId" em="field" binds="employeeId" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="230" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-month" label="month" em="field" binds="month" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="252" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-monthStatus" label="monthStatus" em="field" binds="monthStatus" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="274" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-bookingId" label="bookingId" em="field" binds="bookingId" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="296" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-projectId" label="projectId" em="field" binds="projectId" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="318" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-projectName" label="projectName" em="field" binds="projectName" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="340" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-date" label="date" em="field" binds="date" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="362" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-hours" label="hours" em="field" binds="hours" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="384" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-note" label="note" em="field" binds="note" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="406" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-dayTotal" label="dayTotal" em="field" binds="dayTotal" slice="remove-booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#dddddd;fontSize=9;align=left;spacingLeft=4;fontColor=#555555;dashed=1;dashPattern=1 2;" vertex="1" parent="1">
+            <mxGeometry x="1710" y="428" width="160" height="20" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="wf-ui-timesheet-remove-action" label="RemoveBooking" em="action" command="RemoveBooking" slice="remove-booking">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;fontColor=#334f6d;" vertex="1" parent="1">
+            <mxGeometry x="1770" y="466" width="100" height="24" as="geometry" />
+          </mxCell>
+        </object>
       </root>
     </mxGraphModel>
   </diagram>

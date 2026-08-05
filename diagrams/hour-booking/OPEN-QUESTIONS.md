@@ -11,39 +11,45 @@ node tools/drawio.mjs render  diagrams/hour-booking/booking.drawio
 **Each model now renders legibly whole**, which is the point of the split — `tools/crop.mjs` is no
 longer needed to read this system.
 
-| Model | Slices | Elements | Width | Owner |
+| Model | Slices | Screens | Width | Owner |
 | --- | --- | --- | --- | --- |
-| [booking](booking.drawio) | 8 | 24 | 2900px | frontend + backend |
-| [month-closure](month-closure.drawio) | 8 | 25 | 2960px | frontend + backend |
-| [notifications](notifications.drawio) | 4 | 13 | 1940px | **backend only** |
+| [booking](booking.drawio) | 8 | 3 (one screen, three affordances) | 2900px | frontend + backend |
+| [month-closure](month-closure.drawio) | 8 | 4 (three screens) | 2960px | frontend + backend |
+| [notifications](notifications.drawio) | 4 | none | 1940px | **backend only** |
 
 `node tools/model.mjs validate diagrams/hour-booking/` →
-**0 errors, 0 warnings, 108 notes**, across **3 models / 20 slices / 117 elements** (elements
-including GWTs). See [_context-map.png](_context-map.png) for how the three relate.
+**0 errors, 0 warnings, 108 notes**, across **3 models / 20 slices / 192 elements** (elements
+including GWTs and wireframe cells). See [_context-map.png](_context-map.png) for how the three
+relate.
 
 Why three and not the four originally proposed, and what the tooling grew: see
 [MODEL-ORGANIZATION.md](../../MODEL-ORGANIZATION.md).
 
+## Done since the split
+
+1. **Screen identity.** `screen=` slugs on all 7 screen cells — `timesheet` ×3,
+   `admin-month-review` ×2, `month-closing`, `admin-employee-months` — with the asymmetric rule:
+   `displays=` must agree across a slug, `inputs=` may differ.
+2. **Native draw.io wireframes** in the UI lane of both models with screens. Screens grew 180×90 →
+   180×300, the UI lane 180 → 390, and everything below shifted 210px. 61 bound `field` cells, 7
+   `action` buttons read off the real edges. Low fidelity by design.
+3. **The `screen` rule family**, all negative-tested: `screen-displays-disagree`, `field-unbound`,
+   `field-binds-nothing`, `action-unknown-command`, `wireframe-orphan` (errors);
+   `screen-needs-slug`, `screen-label-varies`, `field-not-drawn` (warnings).
+4. **The skill rewritten** as an 11-phase ordered walkthrough, and `diagrams/template.drawio`
+   brought onto the current grid with a model cell and a wireframe-height UI lane.
+
 ## Next session starts here
 
-**UI / design.** Agreed in principle, not started:
+**The styled design, and codegen.**
 
-1. **Screen identity.** A screen is still a repeated *string*, not a thing — `Timesheet` is three
-   cells in `booking` with hand-copied `displays=`, and nothing compares them. The fix is one
-   `screen="timesheet"` slug plus one rule: **`displays=` must agree across cells sharing a slug;
-   `inputs=` may differ.** That asymmetry is load-bearing — the same Timesheet offers *book*,
-   *correct* and *remove* in three slices because there may be only one `HoursBooked` per
-   day+project. This blocks everything below.
-2. **Style/tokens skill** → `designs/tokens.css` from a human's words, 2–3 variants to choose from.
-3. **Per-screen HTML** → `designs/<screen>.html`, elements tagged `data-em="<field>"`, so the same
-   two-directional check that runs against Views can run against the design. The model gets a
-   `design=` link, never an embedded image.
-4. **Native draw.io wireframes in the UI lane**, low fidelity, every field a *declared cell* rather
-   than a picture. This is the expensive one — the UI lane grows ~160–200px and every y below it
-   shifts. Doing it once per small model is the whole reason the split came first.
-
-Also still queued: **codegen is NOT started**, and its blocker is unchanged — Wolverine/Marten/Alba
-move faster than model knowledge and the local `llms.txt` mirror is still unbuilt.
+1. **Style/tokens skill** → `designs/tokens.css` from a human's words, 2–3 variants to choose from.
+2. **Per-screen HTML** → `designs/<screen>.html`, elements tagged `data-em="<field>"`, so the same
+   two-directional check that runs against the wireframe can run against the styled design. The
+   model gets a `design=` link, never an embedded image. This makes it a **three-way** check:
+   `displays=`/`inputs=` ↔ wireframe `binds=` ↔ HTML `data-em`.
+3. **Codegen is NOT started**, and its blocker is unchanged — Wolverine/Marten/Alba move faster than
+   model knowledge and the local `llms.txt` mirror is still unbuilt.
 
 ## Provenance
 

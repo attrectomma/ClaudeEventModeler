@@ -153,6 +153,13 @@ function parseCells(body) {
       isPublic: a.public === "true",
       from: a.from ?? null,
       origin: a.origin ?? null,
+      // A screen's identity. Screens repeat across every slice that triggers from them, so the
+      // slug is what makes three Timesheet cells one screen — see screenRules().
+      screen: a.screen ?? null,
+      // On a wireframe cell: which attribute this element shows (em="field"), or which Command
+      // this affordance issues (em="action").
+      binds: a.binds ?? null,
+      command: a.command ?? null,
       // Conway. On a lane: which team does work in it. On a slice cell: who is accountable, and
       // `owners` acknowledges a slice that genuinely needs more than one team.
       owner: a.owner ?? null,
@@ -923,6 +930,125 @@ function swimlaneRules(ir) {
   return d;
 }
 
+// --- screens: identity, and a wireframe the checker can actually see -------------------------
+//
+// Two separate problems, both invisible before this.
+//
+// 1. A screen had no identity. It was a repeated LABEL — "Timesheet" is three cells in booking,
+//    with displays= hand-copied between them and nothing comparing the copies. Exactly the bug
+//    the slice cell fixed for slices. screen="timesheet" is the slug, and what it buys is:
+//
+//      displays= must AGREE across cells sharing a slug — it is a property of the screen
+//      inputs=   may DIFFER — the same Timesheet offers book, correct and remove in three slices
+//
+//    That asymmetry is load-bearing, not a convenience: "there may be only one HoursBooked per
+//    day+project, so booking again is a Correction" is a domain fact about affordances, and it is
+//    the reason one screen legitimately has three different action buttons.
+//
+// 2. A wireframe drawn as a picture earns nothing. The book does draw wireframes, and they are
+//    sketch-level — but a grey box the tool cannot read will drift from displays= silently. So
+//    every element of a wireframe is a cell that DECLARES what it shows: em="field" binds="hours",
+//    em="action" command="BookHours". Then the design and the model are checked against each other
+//    in both directions, which is the same trick displays= itself plays on read models.
+//
+// Wireframes are optional. A model mid-session has screens and no wireframe, and nagging about
+// that would punish following the method in order — so field-not-drawn only fires once a screen
+// has started to be drawn.
+
+function screenRules(ir) {
+  const d = [];
+  const push = (severity, rule, message, at) => d.push({ family: "screen", severity, rule, message, at });
+  const screens = ir.elements.filter((e) => e.kind === "screen");
+  if (!screens.length) return d;
+
+  // --- 1. identity
+  const bySlug = new Map();
+  for (const s of screens) {
+    if (!s.screen) {
+      push("warn", "screen-needs-slug",
+        `${s.label} declares no screen=. Without it nothing knows this is the same screen as the other cells labelled "${s.label}", and their displays= can drift apart unnoticed.`, s.id);
+      continue;
+    }
+    if (!bySlug.has(s.screen)) bySlug.set(s.screen, []);
+    bySlug.get(s.screen).push(s);
+  }
+  for (const [slug, cells] of bySlug) {
+    const key = (e) => e.displays.map((f) => f.name).sort().join(", ");
+    const first = cells[0];
+    for (const c of cells.slice(1)) {
+      if (key(c) !== key(first)) {
+        push("error", "screen-displays-disagree",
+          `screen="${slug}" is drawn in ${cells.length} slices, but ${c.label} (${c.slice}) displays ${key(c) || "nothing"} while ${first.label} (${first.slice}) displays ${key(first) || "nothing"}. What a screen shows is a property of the screen — if these really differ, they are two screens.`,
+          c.id);
+      }
+    }
+    const labels = [...new Set(cells.map((c) => c.label))];
+    if (labels.length > 1) {
+      push("warn", "screen-label-varies",
+        `screen="${slug}" is drawn with ${labels.length} different labels (${labels.join(", ")}). One screen, one name.`, cells[1].id);
+    }
+  }
+
+  // --- 2. the wireframe
+  const parts = ir.elements.filter((e) => e.kind === "field" || e.kind === "action" || e.kind === "chrome");
+  const inside = (outer, g) =>
+    outer.geometry && g &&
+    g.x + g.w / 2 >= outer.geometry.x && g.x + g.w / 2 <= outer.geometry.x + outer.geometry.w &&
+    g.y + g.h / 2 >= outer.geometry.y && g.y + g.h / 2 <= outer.geometry.y + outer.geometry.h;
+
+  const drawn = new Map();   // screen id -> bound names present
+  for (const p of parts) {
+    const host = screens.find((s) => inside(s, p.geometry));
+    if (!host) {
+      push("error", "wireframe-orphan",
+        `${p.label || p.id} (${p.kind}) is not drawn inside any screen, so there is no screen for it to be part of.`, p.id);
+      continue;
+    }
+    if (!drawn.has(host.id)) drawn.set(host.id, new Set());
+
+    if (p.kind === "field") {
+      if (!p.binds) {
+        push("error", "field-binds-nothing",
+          `a field on ${host.label} declares no binds=. A wireframe element the checker cannot read is a picture, and will drift from displays= silently.`, p.id);
+        continue;
+      }
+      const known = [...host.displays, ...host.inputs].map((f) => f.name);
+      if (!known.includes(p.binds)) {
+        push("error", "field-unbound",
+          `${host.label} draws a field bound to "${p.binds}", which is neither displayed nor typed on that screen (${known.join(", ") || "nothing declared"}). Either the screen needs it — and a View has to supply it — or the design is showing data the system cannot provide.`, p.id);
+      } else {
+        drawn.get(host.id).add(p.binds);
+      }
+    }
+
+    if (p.kind === "action") {
+      if (!p.command) {
+        push("warn", "action-names-no-command",
+          `an action on ${host.label} declares no command=. The affordance is the whole reason one screen appears in several slices.`, p.id);
+        continue;
+      }
+      const issued = ir.elements.filter((e) => e.kind === "command" && host.downstream.includes(e.id));
+      if (!issued.some((c) => c.label === p.command)) {
+        push("error", "action-unknown-command",
+          `${host.label} draws an action issuing "${p.command}", but this cell triggers ${issued.map((c) => c.label).join(", ") || "no command at all"}. The button and the arrow disagree.`, p.id);
+      }
+    }
+  }
+
+  // The other direction: a screen that has been drawn must draw everything it claims to show.
+  for (const s of screens) {
+    const has = drawn.get(s.id);
+    if (!has) continue;                       // not drawn yet — see the note above
+    for (const f of [...s.displays, ...s.inputs]) {
+      if (!has.has(f.name)) {
+        push("warn", "field-not-drawn",
+          `${s.label} declares ${f.name} but the wireframe does not show it. Either draw it, or drop it from displays=/inputs= — an attribute nothing displays makes its View over-specified.`, s.id);
+      }
+    }
+  }
+  return d;
+}
+
 // --- system: many small models, and the only thing allowed to cross between them -------------
 //
 // "It is perfectly fine to have more than one model on a board. In fact, this is the rule rather
@@ -1220,7 +1346,7 @@ function runOne(f) {
   // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while
   // its own cells still carry errors.
   const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
-                ...flowRules(ir), ...conwayRules(ir)];
+                ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir)];
   return { ir, findings: [...core, ...sliceRules(ir, core)] };
 }
 
