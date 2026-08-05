@@ -10,11 +10,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   bookHours,
+  correctHours,
   getProjects,
   getTimesheet,
   type Project,
   type Rejection,
   type Timesheet as Sheet,
+  type TimesheetLine,
 } from "./api";
 import "./tokens.css";
 
@@ -31,6 +33,9 @@ export default function Timesheet() {
   const [rejection, setRejection] = useState<Rejection | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // One form, two modes — which IS the domain fact. "There may be only one HoursBooked per
+  // day+project, so booking again is a Correction", so the screen must say which action it offers.
+  const [correcting, setCorrecting] = useState<TimesheetLine | null>(null);
   const [date, setDate] = useState("2026-08-05");
   const [projectId, setProjectId] = useState("");
   const [hours, setHours] = useState("8");
@@ -57,21 +62,50 @@ export default function Timesheet() {
 
   const editable = sheet?.monthStatus === "Open" || sheet?.monthStatus === "Submitted";
 
+  function startCorrecting(line: TimesheetLine) {
+    setCorrecting(line);
+    setRejection(null);
+    setDate(line.date);
+    setProjectId(line.projectId);
+    setHours(String(line.hours));
+    setNote(line.note ?? "");
+  }
+
+  function cancelCorrecting() {
+    setCorrecting(null);
+    setRejection(null);
+    setNote("");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setRejection(null);
-    const problem = await bookHours(EMPLOYEE_ID, MONTH, {
-      bookingId: crypto.randomUUID(),
-      employeeId: EMPLOYEE_ID,
-      month: MONTH,
-      projectId,
-      date,
-      hours: Number(hours),
-      note: note.trim() === "" ? null : note,
-    });
+
+    // A correction takes no date and no project: the booking it names already has both.
+    const problem = correcting
+      ? await correctHours(EMPLOYEE_ID, MONTH, {
+          bookingId: correcting.bookingId,
+          employeeId: EMPLOYEE_ID,
+          month: MONTH,
+          hours: Number(hours),
+          note: note.trim() === "" ? null : note,
+        })
+      : await bookHours(EMPLOYEE_ID, MONTH, {
+          bookingId: crypto.randomUUID(),
+          employeeId: EMPLOYEE_ID,
+          month: MONTH,
+          projectId,
+          date,
+          hours: Number(hours),
+          note: note.trim() === "" ? null : note,
+        });
+
     setRejection(problem);
-    if (!problem) setNote("");
+    if (!problem) {
+      setNote("");
+      setCorrecting(null);
+    }
     await load();
     setBusy(false);
   }
@@ -151,10 +185,11 @@ export default function Timesheet() {
               <td className="note" data-label="Note"><span data-em="note">{l.note ?? ""}</span></td>
               <td className="num" data-label="Day total">{l.dayTotal}</td>
               <td className="actions">
-                {/* correct-hours and remove-booking are still in-design. The affordances the model
-                    says this screen offers are shown, disabled, rather than quietly omitted. */}
                 <button className="link" data-em-action="CorrectHours" data-em-input="bookingId"
-                        disabled title="correct-hours is not built yet">Correct</button>
+                        onClick={() => startCorrecting(l)}
+                        disabled={!editable || correcting?.bookingId === l.bookingId}>Correct</button>
+                {/* remove-booking is still in-design. Shown disabled rather than omitted: the model
+                    says this screen offers the affordance, and hiding it would lie about the screen. */}
                 <button className="link danger" data-em-action="RemoveBooking" data-em-input="bookingId"
                         disabled title="remove-booking is not built yet">Remove</button>
               </td>
@@ -171,15 +206,18 @@ export default function Timesheet() {
       </table>
 
       <form onSubmit={submit}>
-        <h2>Book hours</h2>
+        <h2>{correcting ? `Correct ${day(correcting.date)} · ${nameOf(correcting.projectId)}` : "Book hours"}</h2>
         <div>
           <label htmlFor="f-date">Date</label>
+          {/* A correction cannot move the day or the project — it names a booking that has both. */}
           <input id="f-date" type="date" value={date} data-em-input="date"
+                 disabled={correcting !== null}
                  onChange={(e) => setDate(e.target.value)} />
         </div>
         <div>
           <label htmlFor="f-project">Project</label>
           <select id="f-project" value={projectId} data-em-input="projectId"
+                  disabled={correcting !== null}
                   onChange={(e) => setProjectId(e.target.value)}>
             {projects.map((p) => (
               <option key={p.projectId} value={p.projectId}>
@@ -197,13 +235,26 @@ export default function Timesheet() {
           <label htmlFor="f-note">Note <span style={{ textTransform: "none" }}>(optional)</span></label>
           <input id="f-note" value={note} data-em-input="note" onChange={(e) => setNote(e.target.value)} />
         </div>
-        <button className="primary" data-em-action="BookHours" disabled={busy || !editable}>
-          {busy ? "Booking…" : "Book hours"}
-        </button>
+        {correcting ? (
+          <>
+            <button className="primary" data-em-action="CorrectHours" disabled={busy || !editable}>
+              {busy ? "Saving…" : "Save correction"}
+            </button>
+            <button type="button" className="link" onClick={cancelCorrecting} disabled={busy}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <button className="primary" data-em-action="BookHours" disabled={busy || !editable}>
+            {busy ? "Booking…" : "Book hours"}
+          </button>
+        )}
         <p className="hint">
-          Whole or half hours only, never zero. Booking the same day and project again is a
-          correction, not a second booking.
-          {!editable && " This month is closed, so it can no longer be booked into."}
+          Whole or half hours only, never zero.{" "}
+          {correcting
+            ? "A correction carries the new total for the day, not the difference."
+            : "Booking the same day and project again is a correction, not a second booking."}
+          {!editable && " This month is closed, so it can no longer be edited."}
         </p>
       </form>
     </main>

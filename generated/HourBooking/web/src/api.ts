@@ -1,4 +1,4 @@
-// The API surface this screen needs, and nothing more.
+// The API surface these screens need, and nothing more.
 //
 // Shapes mirror the model: MyTimesheet is one document per (employee, month) holding lines, and
 // projectName lives on MyProjects because it was deliberately removed from MyTimesheet — the row it
@@ -40,6 +40,39 @@ const json = async <T>(res: Response): Promise<T> => {
   return (await res.json()) as T;
 };
 
+/**
+ * The rule name lands in DIFFERENT places depending on where the rule was enforced:
+ *   periphery (FluentValidation middleware) -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
+ *   the decider (our own ProblemDetails)    -> { title: "DailyCapExceeded", detail: "..." }
+ * Found by calling the API, not by reading either library. Shared by both commands, which is what the
+ * second slice made obvious.
+ */
+async function readRejection(res: Response): Promise<Rejection> {
+  const problem = (await res.json().catch(() => ({}))) as {
+    title?: string;
+    detail?: string;
+    errors?: Record<string, string[]>;
+  };
+  const fromValidator = Object.values(problem.errors ?? {}).flat()[0];
+  return {
+    title: fromValidator ?? problem.title ?? "Rejected",
+    detail: fromValidator
+      ? "The request itself was refused before any booking was read."
+      : (problem.detail ?? `The request was refused (${res.status}).`),
+  };
+}
+
+const post = async (url: string, body: unknown): Promise<Rejection | null> => {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.status === 204 ? null : readRejection(res);
+};
+
+// --- reads ----------------------------------------------------------------------------------------
+
 export const getTimesheet = (employeeId: string, month: string) =>
   fetch(`/timesheet/${employeeId}/${month}`).then((r) =>
     r.status === 404 ? null : json<Timesheet>(r),
@@ -47,6 +80,8 @@ export const getTimesheet = (employeeId: string, month: string) =>
 
 export const getProjects = (employeeId: string) =>
   fetch(`/timesheet/${employeeId}/projects`).then(json<Project[]>);
+
+// --- book-hours -----------------------------------------------------------------------------------
 
 export type BookHours = {
   bookingId: string;
@@ -58,37 +93,26 @@ export type BookHours = {
   note: string | null;
 };
 
-/**
- * Returns null on success, or the rejected rule. Both the periphery validator and the decider answer
- * with ProblemDetails, so one shape covers HoursMustBeWholeOrHalf and DailyCapExceeded alike.
- */
-export async function bookHours(
-  employeeId: string,
-  month: string,
-  command: BookHours,
-): Promise<Rejection | null> {
-  const res = await fetch(`/timesheet/${employeeId}/${month}/bookings`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(command),
-  });
-  if (res.status === 204) return null;
+export const bookHours = (employeeId: string, month: string, command: BookHours) =>
+  post(`/timesheet/${employeeId}/${month}/bookings`, command);
 
-  // The rule name lands in DIFFERENT places depending on where the rule was enforced, which the
-  // comment above used to claim it did not:
-  //   periphery (FluentValidation middleware) -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
-  //   the decider (our own ProblemDetails)    -> { title: "DailyCapExceeded", detail: "..." }
-  // Found by calling the API, not by reading either library.
-  const problem = (await res.json().catch(() => ({}))) as {
-    title?: string;
-    detail?: string;
-    errors?: Record<string, string[]>;
-  };
-  const fromValidator = Object.values(problem.errors ?? {}).flat()[0];
-  return {
-    title: fromValidator ?? problem.title ?? "Rejected",
-    detail: fromValidator
-      ? "The request itself was refused before any booking was read."
-      : problem.detail ?? `The booking was refused (${res.status}).`,
-  };
-}
+// --- correct-hours --------------------------------------------------------------------------------
+
+export type CorrectHours = {
+  bookingId: string;
+  employeeId: string;
+  month: string;
+  hours: number;
+  note: string | null;
+};
+
+/**
+ * The second affordance of the SAME screen. A correction carries the new TOTAL for the day, never the
+ * difference — the expert was explicit about that — so the form sends what the day should now read.
+ * It takes no date or project: the booking it names already has both.
+ */
+export const correctHours = (employeeId: string, month: string, command: CorrectHours) =>
+  post(
+    `/timesheet/${employeeId}/${month}/bookings/${command.bookingId}/corrections`,
+    command,
+  );
