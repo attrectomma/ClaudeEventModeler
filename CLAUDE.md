@@ -351,17 +351,27 @@ vertically under the pattern they describe.
 | --- | --- | --- | --- |
 | UI | 40 | 180 | screens |
 | Commands / Views | 220 | 180 | commands, read models, automations |
-| Event Stream | 400 | 180 | events, external events |
-| GWT | 620 | grows down | one `gwt` cell per business rule |
+| *forward routing band* | 400 | 140 | horizontal runs of long Event → View feeds |
+| Event Stream | 540 | grows with the swimlanes | events, split into one band per stream |
+| *backward routing corridor* | 1115 | 200 | horizontal runs of edges pointing left |
+| GWT | 1345 | grows down | one `gwt` cell per business rule |
 
 Lanes start at x=40. Columns are 320 apart — x=100, 420, 740, 1060, … — with elements 180 wide,
-events and commands 60 tall, screens 90. Keep y=350..470 clear for edge routing; long horizontal
-edges get explicit waypoints in it.
+events and commands 60 tall, screens 90.
 
-GWT cells are 300 wide (they hold sentences) and 100 tall, left-aligned to their slice's column.
-The first row starts at **y=650**, not 620 — the band's own label occupies its top edge, and a row
-at 620 renders over it. Subsequent rows every 120px: 650, 770, 890, … 300 + 20 fits the 320 column
-pitch exactly, so a slice's GWTs never collide with the next slice's.
+**Every long edge gets its own y in a routing band.** One y per *target* is not enough: several
+events feeding the same View then share a horizontal run and the picture becomes unreadable.
+Allocate sequentially — forward at 406 + 8n, backward at 1120 + 9n. Neither band holds a box, so a
+routed edge never cuts through anything.
 
-Add a column by widening the page and every lane, rather than stacking a second row into the
-routing band. Page width = `40 + laneWidth + 60`.
+GWT cells are 300 wide (they hold sentences) and 120 tall, left-aligned to their slice's column,
+first row at **y=1375** and every 140 after. 300 + 20 fits the 320 column pitch exactly, so a
+slice's GWTs never collide with the next slice's. **Put the rule text in the label**, not only in
+`rule=` — several GWTs in a slice share a `given/when/then` triple and differ only in the case they
+describe, so without it they render as identical grey boxes.
+
+Add a column by widening the page and every lane, rather than stacking a second row into a routing
+band. Page width = `40 + laneWidth + 60`.
+
+These numbers move whenever a swimlane is added. Read them off the model rather than trusting this
+table; `tools/model.mjs` derives everything from geometry and never hard-codes a y.
