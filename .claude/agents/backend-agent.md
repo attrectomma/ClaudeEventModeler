@@ -113,11 +113,14 @@ This is the standing point that the Event Model and the implementation are allow
 
 | When | Implementation | Why |
 | --- | --- | --- |
-| the trigger event is **ours**, appended in our own transaction | **event forwarding → handler** | immediate, outbox-durable, no polling. The common case. |
-| ours, and **ordering or replay** matters | **Marten `ISubscription`** | ordered, durable checkpoint, runs in the async daemon |
-| ours, and the decision is a function of **the view row** | **projection `RaiseSideEffects`** | fires exactly when the row changes; needs `EnableSideEffectsOnInlineProjections` if inline |
+| the trigger event is **ours**, and cheap + immediate wins | **event forwarding → a doorbell handler** | ~1s, no daemon, one class. But a delivery that never happens is lost — no record of intent outside the moment |
+| ours, and **losing one is unacceptable** | **Marten `ISubscription`** | durable checkpoint, so a host that was down catches up. Ordered, and coalesces one wakeup per event *page*. Costs the async daemon |
 | the trigger event is **foreign** — we never append it | **sweep a todo View on a clock** | there is no transaction of ours to hook |
 | there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
+| "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model, and it forces the view Async |
+
+All four are **built and measured** against one shared model in
+`reference-implementations/automation/` — read that before writing one.
 
 Say in your report which you chose and which row of that table you were in. Choosing wrong is not a
 compile error and no checker can see it.

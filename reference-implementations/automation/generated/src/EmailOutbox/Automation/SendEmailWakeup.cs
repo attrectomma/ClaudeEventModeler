@@ -6,6 +6,11 @@
 using JasperFx.Events.Daemon;
 using JasperFx.Events.Projections;
 using Marten;
+// ISubscription is in Marten.Subscriptions, EventRange in JasperFx.Events.Projections,
+// ISubscriptionController in JasperFx.Events.Daemon, and NullChangeListener in Marten itself. No doc page
+// states any of them — settled by reflecting over the assemblies, which is the tiebreaker when the docs and
+// the compiler disagree.
+using Marten.Subscriptions;
 using Wolverine;
 using Wolverine.Marten;
 using EmailOutbox.Contracts;
@@ -74,11 +79,6 @@ public static class SendEmailWakeup
     /// <summary>Hosted services and anything needing the app builder. The clock lives here.</summary>
     public static void RegisterServices(WebApplicationBuilder builder)
     {
-        if (Chosen is Mechanism.Subscription)
-            throw new NotSupportedException(
-                $"{Chosen} is not implemented yet in this reference. Failing loudly on purpose: a wakeup " +
-                "mechanism that silently does nothing is the exact defect this folder exists to document.");
-
         if (Chosen == Mechanism.Sweep)
             builder.Services.AddSingleton<IHostedService>(sp => new SweepClock(sp));
     }
@@ -112,12 +112,24 @@ public static class SendEmailWakeup
     /// <summary>The store: AddAsyncDaemon, which a subscription and an async projection both need.</summary>
     public static void ConfigureStore(MartenServiceCollectionExtensions.MartenConfigurationExpression marten)
     {
-        // The daemon is what RUNS an async projection, and therefore what calls RaiseSideEffects at all.
-        // Switched on only for the mechanisms that need it: it is a background thread, and enabling it for
-        // the others would make their tests eventually-consistent for nothing.
+        // The daemon runs both an async projection and a subscription, so it is what makes C and B possible
+        // at all. Switched on only for the mechanisms that need it: it is a background thread, and enabling
+        // it for the others would make their tests eventually-consistent for nothing.
         //
         // Solo rather than HotCold: one node, no leader election, much faster startup.
-        if (Chosen == Mechanism.SideEffects) marten.AddAsyncDaemon(DaemonMode.Solo);
+        if (Chosen is Mechanism.SideEffects or Mechanism.Subscription)
+            marten.AddAsyncDaemon(DaemonMode.Solo);
+
+        // SUBSCRIPTION. Registered through the IoC container because it needs IMessageBus; Scoped, so Marten
+        // builds one per page and the bus comes from that same scope.
+        //
+        // IncludeType is not just an optimisation — it is the statement of intent. This subscription cares
+        // about EmailPrepared and nothing else, so Marten never fetches the rest. Note what is NOT filtered
+        // in: EmailSent. Subscribing to the automation own output would wake the trigger with its completion.
+        if (Chosen == Mechanism.Subscription)
+            marten.AddSubscriptionWithServices<SendEmailSubscription>(
+                ServiceLifetime.Singleton,
+                o => o.IncludeType<EmailPrepared>());
     }
 
     /// <summary>
@@ -222,4 +234,68 @@ public static class SendEmailWakeup
         public Task StopAsync(CancellationToken cancellation) => Task.CompletedTask;
         public Task StoppedAsync(CancellationToken cancellation) => Task.CompletedTask;
     }
+}
+
+/// <summary>
+/// MECHANISM B: a Marten subscription — the async daemon pushes committed events at this, in order, with a
+/// durable checkpoint recording how far it has got.
+///
+/// WHAT IT UNIQUELY OFFERS, and the only reason to prefer it over forwarding:
+///
+///   ORDER      events arrive in sequence order, not "as soon as possible". Forwarding explicitly gives no
+///              ordering guarantee; a subscription does.
+///   REPLAY     the checkpoint is a row in the database, so it can be rewound. A doorbell that was never
+///              delivered is simply lost; a subscription that was offline catches up.
+///   BACKLOG    it starts from wherever its checkpoint is, so events appended while the app was down are
+///              processed on the next start. Forwarding only ever sees live traffic.
+///
+/// WHAT IT COSTS: the async daemon, a background thread — and therefore the same startup weight as C, though
+/// notably NOT the same consistency cost. The todo View stays <c>Inline</c>, updated in the append's own
+/// transaction, so by the time the daemon hands this subscription the event the row is already committed and
+/// the trigger reads a current View. That is the concrete advantage over side effects, which force the view
+/// Async to get called at all.
+///
+/// It is also entirely OUTSIDE the read model, unlike C: a registration and a class, and the projection is
+/// left alone.
+/// </summary>
+public sealed class SendEmailSubscription(IServiceProvider services) : ISubscription
+{
+    /// <summary>
+    /// One message per PAGE, not per event — and that is deliberate rather than lazy.
+    ///
+    /// The trigger reads the whole todo View and works everything pending, so waking it twenty times for a
+    /// page of twenty events would do the same work twenty times over and collide with itself on the way. A
+    /// subscription naturally coalesces a burst into a single wakeup, which forwarding does not: that fires
+    /// once per event.
+    ///
+    /// Nothing here reads an event payload. The page says *something happened, go look*; the trigger then
+    /// decides from the View. Reach into <c>page.Events</c> for data and this stops being an automation and
+    /// becomes an event handler with extra steps.
+    /// </summary>
+    public async Task<IChangeListener> ProcessEventsAsync(
+        EventRange page,
+        ISubscriptionController controller,
+        IDocumentOperations operations,
+        CancellationToken cancellationToken)
+    {
+        if (page.Events.Count == 0) return NullChangeListener.Instance;
+
+        // IServiceProvider, resolved PER PAGE — not IMessageBus by constructor injection, which deadlocks.
+        //
+        // Marten builds this subscription during store construction, and Wolverine's message store IS Marten.
+        // Taking IMessageBus in the constructor therefore makes MessageBus reach for WolverineRuntime.Storage
+        // while that Lazy is still being created:
+        //
+        //     InvalidOperationException: ValueFactory attempted to access the Value property of this instance.
+        //
+        // A circular startup, and nothing in the docs warns of it. Resolving when a page arrives puts the
+        // lookup safely after everything is initialised.
+        await using var scope = services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<IMessageBus>()
+            .InvokeAsync(new RunSendEmail(), cancellationToken);
+
+        return NullChangeListener.Instance;
+    }
+
+    public ValueTask DisposeAsync() => new();
 }

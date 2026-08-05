@@ -161,6 +161,56 @@ public sealed class WakeupMechanismTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// B: MARTEN SUBSCRIPTION. The async daemon pushes committed events at the subscription, in order, with a
+    /// durable checkpoint — and the subscription rings the same doorbell.
+    ///
+    /// Note what it does NOT cost, unlike C: the todo View stays Inline, updated in the append's own
+    /// transaction, so the row is already committed by the time the daemon hands over the event.
+    /// </summary>
+    [Fact]
+    public async Task SubscriptionWakesTheTrigger()
+    {
+        var emailId = Guid.NewGuid();
+        await using var host = await HostFor("subscription");
+
+        await Compose(host, emailId);
+
+        var sent = await WaitForSend(host, emailId, TimeSpan.FromSeconds(30));
+
+        sent.ShouldNotBeNull();
+        sent!.EmailId.ShouldBe(emailId);
+    }
+
+    /// <summary>
+    /// B's DISTINCTIVE CLAIM, and the only property no other mechanism here has: it catches up on a backlog.
+    ///
+    /// The email is prepared while NO mechanism is running — the doorbell that forwarding depends on is never
+    /// rung, and that delivery is simply gone. A subscription starts from its own checkpoint, so a host that
+    /// comes up later processes what it missed.
+    ///
+    /// This is the difference between "wakes on live traffic" and "eventually processes everything", and it is
+    /// the reason to accept the daemon rather than take the cheaper doorbell.
+    /// </summary>
+    [Fact]
+    public async Task SubscriptionCatchesUpOnEventsItWasNotRunningFor()
+    {
+        var emailId = Guid.NewGuid();
+
+        // Prepared with nothing listening. Forwarding would have lost this one for good.
+        await using (var quiet = await HostFor("none"))
+        {
+            await Compose(quiet, emailId);
+            (await WaitForSend(quiet, emailId, TimeSpan.FromSeconds(2))).ShouldBeNull();
+        }
+
+        // A new host, subscription on, and nobody composes anything. The only work available is the backlog.
+        await using var listening = await HostFor("subscription");
+
+        var sent = await WaitForSend(listening, emailId, TimeSpan.FromSeconds(30));
+        sent.ShouldNotBeNull();
+    }
+
+    /// <summary>
     /// C: PROJECTION SIDE EFFECTS. The todo View publishes the run message itself when a row turns Pending,
     /// so the wakeup is a property of the read model rather than of anything outside it.
     ///
@@ -208,14 +258,22 @@ public sealed class WakeupMechanismTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// The two mechanisms not yet built fail LOUDLY. A wakeup that silently does nothing is the defect this
-    /// whole folder documents, so an unimplemented one must not look like a working one.
+    /// All four are implemented now, so what is left to pin is the FALLBACK: an unrecognised setting means no
+    /// wakeup at all, not a default one. Silently falling back to some mechanism would hide a typo in
+    /// configuration behind a working automation — and the whole subject of this folder is wakeups that are
+    /// not what they appear to be.
     /// </summary>
     [Theory]
-    [InlineData("subscription")]
-    public async Task UnimplementedMechanismsRefuseToStart(string mechanism)
+    [InlineData("")]
+    [InlineData("forwardng")]
+    [InlineData("cron")]
+    public async Task AnUnrecognisedSettingMeansNoWakeupAtAll(string setting)
     {
-        var boot = async () => await HostFor(mechanism);
-        await boot.ShouldThrowAsync<NotSupportedException>();
+        var emailId = Guid.NewGuid();
+        await using var host = await HostFor(setting);
+
+        await Compose(host, emailId);
+
+        (await WaitForSend(host, emailId, TimeSpan.FromSeconds(2))).ShouldBeNull();
     }
 }

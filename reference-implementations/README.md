@@ -64,10 +64,28 @@ selected by `Automation:Wakeup`. In a real project you pick one and delete the r
 
 | | Implementation | State | Measured |
 | --- | --- | --- | --- |
-| **A** | event forwarding → doorbell handler | **works** | **~1s.** No daemon, no polling. Only for events *we* append |
-| **B** | Marten `ISubscription` | not built | needs `AddAsyncDaemon`; fails loudly if selected |
-| **C** | projection `RaiseSideEffects` | **works, on Async** | **~4s.** Forces the view Async and drags in the daemon |
-| **D** | sweep on a clock | **works** | within one interval (**~2s** at a 1s tick). Works for *any* trigger |
+| | Mechanism | Wakes in | Daemon | View stays Inline | Catches up on a backlog | Touches the read model |
+| --- | --- | --- | --- | --- | --- | --- |
+| **A** | event forwarding → doorbell | **~1s** | no | yes | **no** | no |
+| **B** | Marten `ISubscription` | ~3s | yes | **yes** | **yes** | no |
+| **C** | projection `RaiseSideEffects` | ~4s | yes | **no** | yes | **yes** |
+| **D** | sweep on a clock | one interval | no | yes | yes | no |
+
+All four are implemented and verified to fire with nobody invoking the trigger. **15 tests, stable across
+repeated runs.**
+
+Reading that table as a recommendation:
+
+- **the trigger event is ours and you want it cheap and immediate → A.** No daemon, no polling, one class.
+  Its cost is invisible until it matters: a delivery that never happens is simply lost, because there is no
+  record of intent outside the moment.
+- **ours, and you cannot afford to lose one → B.** The checkpoint is a row in the database, so a host that
+  was down catches up. It also *coalesces* — one wakeup per page rather than per event — which A does not.
+  Pay for it with the async daemon.
+- **the trigger is foreign or is the passage of time → D.** Nothing else can work: there is no transaction
+  of ours to hang a doorbell on, and no event to subscribe to.
+- **C only when "is there work?" genuinely means "did this row change".** It is the only one that reaches
+  into the read model, and the only one that forces the todo View to be eventually consistent.
 
 `WakeupMechanismTests` is the only test in the project that can tell any of this. Every other test drives
 `RunSendEmail` itself — correct, because that is the production path — but says nothing about whether
@@ -78,6 +96,31 @@ be "something else in the host happens to run the trigger".
 
 An unimplemented mechanism **throws on startup**. A wakeup that silently does nothing is the defect this
 folder documents, so a missing one must not resemble a working one.
+
+### B: the one that catches up
+
+Its distinctive property is not speed — it is the only mechanism with a **durable record of intent outside
+the moment**. `SubscriptionCatchesUpOnEventsItWasNotRunningFor` prepares an email with nothing listening,
+disposes that host, and starts a second one with the subscription on. Nobody composes anything; the only
+work available is the backlog, and it gets processed. Forwarding would have lost that delivery for good.
+
+It also **coalesces**: one wakeup per event *page*, not per event. Since the trigger works the whole todo
+View anyway, waking it twenty times for a page of twenty events would do the same work twenty times and
+collide with itself. Forwarding fires once per event and relies on `AlreadySent` to absorb the rest.
+
+And unlike C it keeps the view **Inline** — updated in the append's own transaction — so by the time the
+daemon hands over the event, the row the trigger reads is already committed. Same daemon cost, none of the
+consistency cost.
+
+**Two API facts no doc page states**, both settled by reflecting over the assemblies:
+
+- `ISubscription` is in `Marten.Subscriptions`, `EventRange` in `JasperFx.Events.Projections`,
+  `ISubscriptionController` in `JasperFx.Events.Daemon`, `NullChangeListener` in `Marten` itself.
+- **a subscription cannot take `IMessageBus` by constructor injection.** Marten builds the subscription
+  during store construction, and Wolverine's message store *is* Marten — so `MessageBus` reaches for
+  `WolverineRuntime.Storage` while that `Lazy` is still being created:
+  *"ValueFactory attempted to access the Value property of this instance."* A circular startup. Resolve the
+  bus from `IServiceProvider` when a page arrives instead.
 
 ### C: it works, and the interesting part is what it costs
 
@@ -147,11 +190,12 @@ the endpoint honours a supplied id and mints one only when it is absent.
 
 ## Status
 
-The model is built and validated. Both deciders are green, and three of four wakeup mechanisms are
-implemented and verified to fire unaided: **11 tests passing**, stable across repeated runs. The generator no longer chooses a mechanism
+The model is built and validated, both deciders are green, and all four wakeup mechanisms are implemented
+and verified to fire unaided: **15 tests passing**, stable across repeated runs. The generator no longer chooses a mechanism
 — it emits the seam and reports `AUTOMATION NOT WOKEN` until a choice is made, which is the check that
 would have caught the original defect.
 
-**Still to do:** B (`ISubscription`) — the only one left, and the only one that offers ordering and replay.
+All four mechanisms are built. What is *not* settled is whether the generator should offer a default — it
+currently offers none, and reports `AUTOMATION NOT WOKEN` until a choice is made.
 
 A claim without a measurement behind it does not belong in this file.
