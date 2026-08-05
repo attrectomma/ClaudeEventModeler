@@ -86,19 +86,59 @@ leave its registration commented rather than breaking the host.
 identical state types. That is the design's known cost — do not "fix" it by sharing a fold across
 slices without saying so; report the duplication instead.
 
+## If the slice is an automation, the shape is different
+
+`pattern="automation"` means `Event(s) → View (a todo list) → Automated Trigger → Command → Event(s)`,
+and almost everything above assumed screen → command → event. What changes:
+
+**An automation is a TRIGGER, not an event handler.** It is a peer of a person at a screen: it *looks
+at a View* and *issues a Command*. It never takes an event as input and never appends one.
+`Event → Processor → Event` is the classic anti-pattern.
+
+**The decider is a Wolverine message handler, not an endpoint.** The trigger issues the command with
+`IMessageBus.InvokeAsync<TOutcome>(...)`. Do **not** give the command an HTTP route — nobody types it,
+and inventing public surface for it is inventing a requirement. The *trigger* may have an operational
+route so it can be ticked.
+
+**Never register a background timer.** A recurring automation firing inside the test host fills work
+nobody asked for, and every other slice's GIVEN stops meaning what it says. The tick must be **pulled,
+not pushed**, in tests.
+
+**Not every GWT is enforced in the decider**, and the model tells you which side owns each:
+
+- the model draws a View into the **processor** → the rule belongs in the trigger's *work selection*
+- the model draws it into the **command** → the rule belongs in the decider
+- a GWT whose `then=` is **positive** has no rule name to reject with, which is a reliable tell that it
+  is about which work gets selected rather than about refusing a request
+
+**The tick-off edge is completion, not supply.** The automation's own output event points back at the
+todo View. In the projection that means *tick the row off* — it must never create one. Getting this
+wrong makes the view sourced from its own output; see blind spot 5 in the system's OPEN-QUESTIONS.md.
+
+**Tests need two WHENs.** A *tick* for rules about which work is selected, and a *direct command
+invoke* for the rejection — a GWT's `when=` names the command, and once the tick-off works the
+rejection is otherwise unreachable.
+
 ## Rejections
 
 Return `ProblemDetails` with the **rule's name as `Title`**, via the shared `Rejections.Problem`
 helper. A GWT says `then="error: RuleName"`, so the name is the machine-readable part.
 
-The periphery and the decider do **not** produce the same shape, and that is not yours to fix:
+There are **three** shapes, not one, and none of them is yours to unify:
 
 ```
-periphery (FluentValidation middleware) -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
-the decider (Rejections.Problem)        -> { title: "DailyCapExceeded", detail: "..." }
+periphery (FluentValidation middleware)  -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
+an HTTP decider (Rejections.Problem)     -> { title: "DailyCapExceeded", detail: "..." }
+an automation's decider (an outcome type)-> { rule: "AlreadyFilled", detail: "..." }
 ```
 
-Say so in your report, because the frontend has to read both.
+The third exists because an automation has **no HTTP caller** to hand a `ProblemDetails` to, so the
+handler returns an outcome the trigger reads. The invariant across all three is that the **rule name is
+the machine-readable part**. Say in your report which shapes this slice can produce, because the
+frontend has to read whichever reach it.
+
+Small one: Alba's `ReadAsJsonAsync<T>` depends on the app's formatters. With Wolverine HTTP it is safer
+to read the text and `JsonSerializer.Deserialize<T>(body, new(JsonSerializerDefaults.Web))`.
 
 ## Tests
 

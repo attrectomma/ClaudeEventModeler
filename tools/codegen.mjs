@@ -176,7 +176,16 @@ const registerable = [];   // views whose projection is valid enough to register
 for (const v of ir.shared.views) {
   const derived = Object.entries(v.derived ?? {});
   const streams = [...new Set(v.from.map((l) => ir.shared.events.find((e) => e.label === l)?.aggregate).filter(Boolean))];
-  const multi = streams.length > 1;
+  // One row is one stream only when the view is keyed exactly as its single feeding stream is.
+  // Anything else — several streams, or a finer grain than the stream — needs the multi-stream base
+  // class, whatever the stream count says.
+  const streamKey = streams.length === 1
+    ? (ir.shared.aggregates.find((a) => a.name === streams[0])?.identity ?? [])
+    : [];
+  const ownKey = v.identity?.length ? v.identity : SYS_KEY;
+  const rowIsStream = streams.length === 1 && streamKey.length > 0 &&
+    streamKey.length === ownKey.length && streamKey.every((k) => ownKey.includes(k));
+  const multi = !rowIsStream;
   // A row of THIS view, not of the system. Declared on the read model where the grain is known;
   // where it is not, fall back to the system key and say so, because guessing a view's grain
   // silently is how a projection ends up grouping the wrong rows together.

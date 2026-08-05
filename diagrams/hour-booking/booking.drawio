@@ -79,7 +79,7 @@
             <mxGeometry x="2000" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-design" em="group" slice="fill-zero-hours" pattern="automation" status="in-design" owner="backend-agent">
+        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-progress" em="group" slice="fill-zero-hours" pattern="automation" status="in-progress" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="2320" y="120" width="540" height="1410" as="geometry" />
           </mxCell>
@@ -179,12 +179,12 @@
             <mxGeometry x="2020" y="1310" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="rm-working-days" label="WorkingDays" em="readmodel" slice="working-days" fields="date:DateOnly, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="rm-working-days" label="WorkingDays" em="readmodel" identity="date" slice="working-days" fields="date:DateOnly, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="2020" y="610" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="rm-zero-fill-todo" label="ZeroFillTodo" em="readmodel" slice="fill-zero-hours" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, project) still to be zero-filled to month end.">
+        <object id="rm-zero-fill-todo" label="ZeroFillTodo" em="readmodel" identity="employeeId, projectId" slice="fill-zero-hours" fields="employeeId:Guid, projectId:Guid, effectiveFrom:DateOnly" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, project) still to be zero-filled to month end.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="2340" y="610" width="180" height="60" as="geometry" />
           </mxCell>

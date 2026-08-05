@@ -49,10 +49,24 @@ public sealed class GenesisData : IInitialData
         session.Events.Append($"membership:{EmployeeId}:{GeminiId}",
             new EmployeeAssignedToProject(EmployeeId, GeminiId, "Gemini", at));
 
-        // Left the project, so booking against it must be refused — the UI can then show why.
+        // Left the project, so booking against it must be refused — the UI can then show why. It is
+        // also the one pending ZeroFillTodo row, so POSTing the ZeroFillProcessor tick does something.
         session.Events.Append($"membership:{EmployeeId}:{VoyagerId}",
             new EmployeeAssignedToProject(EmployeeId, VoyagerId, "Voyager", at),
             new EmployeeRemovedFromProject(EmployeeId, VoyagerId, new DateOnly(2026, 8, 1), at));
+
+        // The calendar genesis: one WorkingDayPublished per working day of the month. Monday–Friday,
+        // minus St Stephen's Day, plus a working Saturday — the Hungarian shape, as example data. Without
+        // it the ZeroFillProcessor has no days it is allowed to fill and a demo tick does nothing.
+        var holiday = new DateOnly(2026, 8, 20);
+        var workingSaturday = new DateOnly(2026, 8, 22);
+        var first = new DateOnly(2026, 8, 1);
+        for (var d = first; d.Month == first.Month; d = d.AddDays(1))
+        {
+            var weekday = d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+            if ((weekday && d != holiday) || d == workingSaturday)
+                session.Events.Append($"calendar:{Month}", new WorkingDayPublished(d, Month));
+        }
 
         // The dev shortcut standing in for the start-month automation.
         session.Events.Append($"monthClosure:{EmployeeId}:{Month}",

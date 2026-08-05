@@ -17,6 +17,7 @@ needs a human to notice, which is the whole reason this file exists.
 | 9 | [A screen that is a repeated label](#9) | yes — `screen/screen-needs-slug` |
 | 10 | [A GWT that is right and useless](#10) | **no** |
 | 11 | [A state rule enforced at the periphery](#11) | **no** |
+| 12 | [A todo row that never completes](#12) | **no** |
 
 ---
 
@@ -134,6 +135,28 @@ must agree, `inputs=` may differ) makes it one screen with three affordances.
 `slice-needs-gwt` fires on an empty slice, but a slice with one GWT and nine unwritten rules looks
 identical to a complete one. *"Don't save on GWTs"* is advice no checker can enforce. Ask for the
 failure cases explicitly, every time.
+
+## 12. A todo row that never completes <a id="12"></a>
+
+**Live in `hour-booking`.** An automation's View is a todo list: an event puts a row on it, the
+automation works the row, the resulting event ticks it off. The model says all of that — but it never
+says **what a finished row looks like**.
+
+`ZeroFillTodo` is one row per (employee, project) still to be zero-filled *to month end*. Deciding a
+row is done needs the calendar, and a projection cannot query another view. So rows accumulate: the
+work stops happening — each remaining day is refused as already filled — but the row stays pending
+forever.
+
+Two smaller versions of the same gap, both found on the first automation slice:
+
+- **A todo view needs state the model does not list.** `fields=` gives what a reader sees; the tick-off
+  needs bookkeeping — which days are done, whether the row is still pending — which is the pattern's
+  machinery and is invisible on the canvas.
+- **`terminal="...:const"` carries no value.** The grammar can say a value arrives as a constant and
+  cannot say *which* constant. Here the event's own `source=` supplied it ("0 hours booked per day"),
+  which is luck rather than design.
+
+Nothing automatic catches any of this, because every attribute rule passes.
 
 ## 11. A state rule enforced at the periphery <a id="11"></a>
 

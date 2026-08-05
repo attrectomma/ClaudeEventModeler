@@ -3,6 +3,7 @@
 //   Scaffolded once by tools/codegen.mjs, then FILLED IN BY HAND. Regeneration keeps this file.
 // </auto-generated-scaffold>
 #nullable enable
+using System.Collections.Immutable;
 using Marten;
 using Marten.Schema;
 using HourBooking.Contracts;
@@ -32,8 +33,51 @@ public sealed class SeedData : IInitialData
     public static readonly DateOnly SecondWorkingDay = new(2026, 8, 4);
     public static readonly DateTimeOffset SeededAt = new(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
 
+    // --- the calendar ----------------------------------------------------------------------------
+    //
+    // WorkingDayPublished is foreign (origin="Google Calendar"), so like membership it can only be
+    // seeded — nothing in this system produces it. The model's note is the spec: "one event per working
+    // day, from the Hungarian Google calendar — carries public holidays and working Saturdays."
+    //
+    // August 2026 starts on a Saturday. These three are the interesting days, and every one of them is
+    // an example VALUE the model does not state:
+
+    /// <summary>Saturday. Not published, so not filled.</summary>
+    public static readonly DateOnly Weekend = new(2026, 8, 8);
+
+    /// <summary>Thursday, St Stephen's Day. A weekday the calendar does NOT publish, so not filled.</summary>
+    public static readonly DateOnly PublicHoliday = new(2026, 8, 20);
+
+    /// <summary>A Saturday the calendar DOES publish. Filled — which is why nothing computes weekends.</summary>
+    public static readonly DateOnly WorkingSaturday = new(2026, 8, 22);
+
+    /// <summary>A mid-month removal date, so "the rest of the month" has a before and an after.</summary>
+    public static readonly DateOnly MidMonthRemoval = new(2026, 8, 17);
+
+    /// <summary>
+    /// Every working day of <see cref="Month"/>: Monday–Friday, minus the public holiday, plus the
+    /// working Saturday. The one list both the seeding and the assertions read, so a test never
+    /// restates the calendar.
+    /// </summary>
+    public static readonly ImmutableArray<DateOnly> PublishedWorkingDays = BuildCalendar();
+
+    private static ImmutableArray<DateOnly> BuildCalendar()
+    {
+        var first = new DateOnly(2026, 8, 1);
+        var days = ImmutableArray.CreateBuilder<DateOnly>();
+        for (var d = first; d.Month == first.Month; d = d.AddDays(1))
+        {
+            var weekday = d.DayOfWeek is not (DayOfWeek.Saturday or DayOfWeek.Sunday);
+            if ((weekday && d != PublicHoliday) || d == WorkingSaturday) days.Add(d);
+        }
+        return days.ToImmutable();
+    }
+
     /// <summary>Membership is seeded per (employee, project) — the grain of the MyProjects view.</summary>
     public static string MembershipStream(Guid employeeId, Guid projectId) => $"membership:{employeeId}:{projectId}";
+
+    /// <summary>One calendar stream per month. The WorkingDays view is grained per DATE, not per stream.</summary>
+    public static string CalendarStream(string month) => $"calendar:{month}";
 
     public async Task Populate(IDocumentStore store, CancellationToken cancellation)
     {
@@ -47,6 +91,11 @@ public sealed class SeedData : IInitialData
         session.Events.Append(MembershipStream(EmployeeId, LeftProjectId),
             new EmployeeAssignedToProject(EmployeeId, LeftProjectId, "Gemini", SeededAt),
             new EmployeeRemovedFromProject(EmployeeId, LeftProjectId, WorkingDay, SeededAt));
+
+        // The calendar. This removal is therefore also the GIVEN for fill-zero-hours: one ZeroFillTodo
+        // row, pending from WorkingDay to the end of the month.
+        session.Events.Append(CalendarStream(Month),
+            PublishedWorkingDays.Select(d => new WorkingDayPublished(d, Month)).Cast<object>().ToArray());
 
         await session.SaveChangesAsync(cancellation);
     }
