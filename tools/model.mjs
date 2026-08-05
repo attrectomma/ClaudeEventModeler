@@ -3,10 +3,14 @@
 //
 //   node tools/model.mjs compile  <file.drawio> [--out model.json]
 //   node tools/model.mjs validate <file.drawio> [--json]     grammar + completeness, exit 1 on error
+//   node tools/model.mjs validate <system-dir>/ [--json]     every model in the system, plus the
+//                                                            cross-model rules a single file
+//                                                            structurally cannot see
+//   node tools/model.mjs map      <system-dir>/              (re)generate _context-map.drawio
 //   node tools/model.mjs mark     <file.drawio>              draw red markers on failures, in place
 //   node tools/model.mjs clear    <file.drawio>              remove every marker
 //
-// Four rule families:
+// Seven rule families:
 //
 //   grammar      — does every connection belong to one of the four Event Modeling patterns
 //   completeness — does every attribute of every element have a source in a connected element
@@ -15,15 +19,18 @@
 //   conway       — can each slice actually be built by one team, or does it span the org chart
 //   slice        — is each vertical slice a real, contiguous band whose declared pattern matches
 //                  what it is made of, and is its status= honest about the findings inside it
+//   system       — folder-scoped. Does every imported event resolve to a model that publishes it,
+//                  with the fields we consume; is every slice name unique; is each model still
+//                  small enough to read in one render
 //
 // Completeness is RECALL ONLY. It reports every attribute with no upstream name-match. Some of
 // those are legitimately derivable (the book's totalPrice from itemPrice) and want a mappings=
 // entry rather than a new field. Deciding which is which is judgement, and belongs to the
 // completeness-checker agent or a human — not here. Never soften a finding to look clean.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
-import { resolve } from "node:path";
+import { resolve, join, basename } from "node:path";
 
 // Fallback classification, so a model is checkable before anyone annotates em=.
 // Matches the palette table in CLAUDE.md.
@@ -135,6 +142,24 @@ function parseCells(body) {
       status: a.status ?? null,
       // Only on a swimlane band: which aggregates' events live in this stream.
       streams: a.streams ?? null,
+      // Only on a model cell: this model's identity within its system. Dilger's pink "Model
+      // Context" note — "I use a pink sticky note placed on the left side of each model to
+      // properly name it."
+      context: a.context ?? null,
+      system: a.system ?? null,
+      // The cross-model surface. `public` marks an event another model in this system may
+      // consume; `from` marks an imported one and names the model that publishes it; `origin`
+      // names a genuine third party, which nothing here can check.
+      isPublic: a.public === "true",
+      from: a.from ?? null,
+      origin: a.origin ?? null,
+      // A screen's identity. Screens repeat across every slice that triggers from them, so the
+      // slug is what makes three Timesheet cells one screen — see screenRules().
+      screen: a.screen ?? null,
+      // On a wireframe cell: which attribute this element shows (em="field"), or which Command
+      // this affordance issues (em="action").
+      binds: a.binds ?? null,
+      command: a.command ?? null,
       // Conway. On a lane: which team does work in it. On a slice cell: who is accountable, and
       // `owners` acknowledges a slice that genuinely needs more than one team.
       owner: a.owner ?? null,
@@ -179,8 +204,12 @@ function buildIr(file) {
   const lanes = nodes.filter(
     (n) => !swimlaneNodes.includes(n) && (n.kind === "lane" || n.id.startsWith("lane-"))
   );
+  // The model cell names the model; it is not an element of it. Left in `elements` it would be
+  // reported as unsliced, and laneOf() would try to place a note that belongs to no lane.
+  const modelCells = nodes.filter((n) => n.kind === "model" && !isMarker(n.id));
   const elements = nodes.filter(
-    (n) => !lanes.includes(n) && !swimlaneNodes.includes(n) && !isMarker(n.id) && n.kind !== "group"
+    (n) => !lanes.includes(n) && !swimlaneNodes.includes(n) && !modelCells.includes(n) &&
+      !isMarker(n.id) && n.kind !== "group"
   );
   const live = edges.filter((e) => !isMarker(e.id));
 
@@ -232,9 +261,17 @@ function buildIr(file) {
     };
   });
 
+  // The model's own extent, which is what "can it be read in one render" is measured against.
+  const right = Math.max(0, ...[...elements, ...lanes].map((n) => (n.geometry ? n.geometry.x + n.geometry.w : 0)));
+
   return {
     source: file.replace(/\\/g, "/"),
     page: name,
+    model: modelCells[0]
+      ? { id: modelCells[0].id, label: modelCells[0].label, context: modelCells[0].context,
+          system: modelCells[0].system, duplicated: modelCells.length > 1 }
+      : null,
+    width: right,
     lanes: lanes.map(({ id, label, owner }) => ({ id, label, owner: owner ?? null })),
     slices,
     sliceCells,
@@ -412,8 +449,13 @@ function completeness(ir) {
       // upstream clock and arrives as payload; calling it clock-filled invites an implementer to
       // write UtcNow at ingest and silently rewrite a foreign fact.
       if (e.kind === "external") {
+        // With from= the producer IS in this system, so systemRules can check the contract for
+        // real. Saying "confirm it" here would send a reader off to do by hand what the folder
+        // check already did.
         d.push({ family: "completeness", severity: "info", rule: "external-terminal",
-          message: `${e.label}.${f.name} enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.`,
+          message: e.from
+            ? `${e.label}.${f.name} is imported from the ${e.from} model, so it is terminal here. The contract is checked across the system, not in this file.`
+            : `${e.label}.${f.name} enters from another system, so it is terminal here. Confirm the upstream contract actually carries it.`,
           at: e.id, attribute: f.name });
         continue;
       }
@@ -888,6 +930,346 @@ function swimlaneRules(ir) {
   return d;
 }
 
+// --- screens: identity, and a wireframe the checker can actually see -------------------------
+//
+// Two separate problems, both invisible before this.
+//
+// 1. A screen had no identity. It was a repeated LABEL — "Timesheet" is three cells in booking,
+//    with displays= hand-copied between them and nothing comparing the copies. Exactly the bug
+//    the slice cell fixed for slices. screen="timesheet" is the slug, and what it buys is:
+//
+//      displays= must AGREE across cells sharing a slug — it is a property of the screen
+//      inputs=   may DIFFER — the same Timesheet offers book, correct and remove in three slices
+//
+//    That asymmetry is load-bearing, not a convenience: "there may be only one HoursBooked per
+//    day+project, so booking again is a Correction" is a domain fact about affordances, and it is
+//    the reason one screen legitimately has three different action buttons.
+//
+// 2. A wireframe drawn as a picture earns nothing. The book does draw wireframes, and they are
+//    sketch-level — but a grey box the tool cannot read will drift from displays= silently. So
+//    every element of a wireframe is a cell that DECLARES what it shows: em="field" binds="hours",
+//    em="action" command="BookHours". Then the design and the model are checked against each other
+//    in both directions, which is the same trick displays= itself plays on read models.
+//
+// Wireframes are optional. A model mid-session has screens and no wireframe, and nagging about
+// that would punish following the method in order — so field-not-drawn only fires once a screen
+// has started to be drawn.
+
+function screenRules(ir) {
+  const d = [];
+  const push = (severity, rule, message, at) => d.push({ family: "screen", severity, rule, message, at });
+  const screens = ir.elements.filter((e) => e.kind === "screen");
+  if (!screens.length) return d;
+
+  // --- 1. identity
+  const bySlug = new Map();
+  for (const s of screens) {
+    if (!s.screen) {
+      push("warn", "screen-needs-slug",
+        `${s.label} declares no screen=. Without it nothing knows this is the same screen as the other cells labelled "${s.label}", and their displays= can drift apart unnoticed.`, s.id);
+      continue;
+    }
+    if (!bySlug.has(s.screen)) bySlug.set(s.screen, []);
+    bySlug.get(s.screen).push(s);
+  }
+  for (const [slug, cells] of bySlug) {
+    const key = (e) => e.displays.map((f) => f.name).sort().join(", ");
+    const first = cells[0];
+    for (const c of cells.slice(1)) {
+      if (key(c) !== key(first)) {
+        push("error", "screen-displays-disagree",
+          `screen="${slug}" is drawn in ${cells.length} slices, but ${c.label} (${c.slice}) displays ${key(c) || "nothing"} while ${first.label} (${first.slice}) displays ${key(first) || "nothing"}. What a screen shows is a property of the screen — if these really differ, they are two screens.`,
+          c.id);
+      }
+    }
+    const labels = [...new Set(cells.map((c) => c.label))];
+    if (labels.length > 1) {
+      push("warn", "screen-label-varies",
+        `screen="${slug}" is drawn with ${labels.length} different labels (${labels.join(", ")}). One screen, one name.`, cells[1].id);
+    }
+  }
+
+  // --- 2. the wireframe
+  const parts = ir.elements.filter((e) => e.kind === "field" || e.kind === "action" || e.kind === "chrome");
+  const inside = (outer, g) =>
+    outer.geometry && g &&
+    g.x + g.w / 2 >= outer.geometry.x && g.x + g.w / 2 <= outer.geometry.x + outer.geometry.w &&
+    g.y + g.h / 2 >= outer.geometry.y && g.y + g.h / 2 <= outer.geometry.y + outer.geometry.h;
+
+  const drawn = new Map();   // screen id -> bound names present
+  for (const p of parts) {
+    const host = screens.find((s) => inside(s, p.geometry));
+    if (!host) {
+      push("error", "wireframe-orphan",
+        `${p.label || p.id} (${p.kind}) is not drawn inside any screen, so there is no screen for it to be part of.`, p.id);
+      continue;
+    }
+    if (!drawn.has(host.id)) drawn.set(host.id, new Set());
+
+    if (p.kind === "field") {
+      if (!p.binds) {
+        push("error", "field-binds-nothing",
+          `a field on ${host.label} declares no binds=. A wireframe element the checker cannot read is a picture, and will drift from displays= silently.`, p.id);
+        continue;
+      }
+      const known = [...host.displays, ...host.inputs].map((f) => f.name);
+      if (!known.includes(p.binds)) {
+        push("error", "field-unbound",
+          `${host.label} draws a field bound to "${p.binds}", which is neither displayed nor typed on that screen (${known.join(", ") || "nothing declared"}). Either the screen needs it — and a View has to supply it — or the design is showing data the system cannot provide.`, p.id);
+      } else {
+        drawn.get(host.id).add(p.binds);
+      }
+    }
+
+    if (p.kind === "action") {
+      if (!p.command) {
+        push("warn", "action-names-no-command",
+          `an action on ${host.label} declares no command=. The affordance is the whole reason one screen appears in several slices.`, p.id);
+        continue;
+      }
+      const issued = ir.elements.filter((e) => e.kind === "command" && host.downstream.includes(e.id));
+      if (!issued.some((c) => c.label === p.command)) {
+        push("error", "action-unknown-command",
+          `${host.label} draws an action issuing "${p.command}", but this cell triggers ${issued.map((c) => c.label).join(", ") || "no command at all"}. The button and the arrow disagree.`, p.id);
+      }
+    }
+  }
+
+  // The other direction: a screen that has been drawn must draw everything it claims to show.
+  for (const s of screens) {
+    const has = drawn.get(s.id);
+    if (!has) continue;                       // not drawn yet — see the note above
+    for (const f of [...s.displays, ...s.inputs]) {
+      if (!has.has(f.name)) {
+        push("warn", "field-not-drawn",
+          `${s.label} declares ${f.name} but the wireframe does not show it. Either draw it, or drop it from displays=/inputs= — an attribute nothing displays makes its View over-specified.`, s.id);
+      }
+    }
+  }
+  return d;
+}
+
+// --- system: many small models, and the only thing allowed to cross between them -------------
+//
+// "It is perfectly fine to have more than one model on a board. In fact, this is the rule rather
+// than the exception for me. I prefer having many smaller models over one large model… I aim to
+// capture one business context in each model, so I can read it from left to right without any
+// visual interruptions." — Understanding EventSourcing, ch. 18
+//
+// A folder is a system; each .drawio in it is one business context. The rule that keeps them
+// independent is the one ch. 15 gives for crossing a boundary at all: you never let another model
+// rebuild your state from your internals. So a model's ONLY public surface is an event marked
+// public="true", and a consumer draws it as a yellow external carrying from="<context>".
+//
+// That is what makes the cross-model check possible. Within a single model an external event is
+// terminal by construction — "we have neither control over it nor knowledge of what produced it"
+// — and completeness() can only report it. Across a system the producer IS in the folder, so the
+// import resolves, and an event nobody publishes becomes an error instead of a note.
+
+const SIZE_BUDGET = 3200;   // px. The book's criterion is "read it left to right without visual
+                            // interruptions"; ours is the operational form of the same thing —
+                            // if you need tools/crop.mjs to look at it, the model is too big.
+
+function systemRules(models) {
+  const d = [];
+  const push = (severity, rule, message, model, at) =>
+    d.push({ family: "system", severity, rule, message, model, at });
+
+  const contextOf = (m) => m.ir.model?.context ?? m.name;
+  const byContext = new Map(models.map((m) => [contextOf(m), m]));
+
+  // Every event another model is allowed to consume, and every import wanting one.
+  const published = new Map();     // context -> label -> element
+  for (const m of models) {
+    const pub = new Map();
+    for (const e of m.ir.elements) if (e.kind === "event" && e.isPublic) pub.set(e.label, e);
+    published.set(contextOf(m), pub);
+  }
+  const consumed = new Set();      // `${context}/${label}` actually imported by someone
+
+  for (const m of models) {
+    const ctx = contextOf(m);
+
+    if (!m.ir.model) {
+      push("warn", "model-needs-cell",
+        `${m.name} has no model cell, so it has no identity of its own and nothing states which business context it is.`, ctx);
+    } else {
+      if (m.ir.model.duplicated) {
+        push("error", "model-cell-duplicated", `${m.name} has more than one model cell. A model is one business context.`, ctx, m.ir.model.id);
+      }
+      if (m.ir.model.context && m.ir.model.context !== m.name) {
+        push("warn", "model-context-mismatch",
+          `${m.name}.drawio declares context="${m.ir.model.context}". The file name is the context's name everywhere else, so make them agree.`, ctx, m.ir.model.id);
+      }
+    }
+
+    if (m.ir.width > SIZE_BUDGET) {
+      push("warn", "model-too-wide",
+        `${ctx} is ${m.ir.width}px wide, over the ${SIZE_BUDGET}px budget. It can no longer be read in one render, which is the point of keeping models small — split it, or move a chapter of slices into their own model.`, ctx);
+    }
+
+    for (const e of m.ir.elements) {
+      if (e.kind !== "external") continue;
+
+      if (!e.from) {
+        if (!e.origin) {
+          push("info", "external-unattributed",
+            `${e.label} says nothing about where it comes from. from="<context>" if a model in this system publishes it, origin="<system>" if it is genuinely foreign — the first is checked, the second is a claim on record.`, ctx, e.id);
+        }
+        continue;
+      }
+
+      const src = byContext.get(e.from);
+      if (!src) {
+        push("error", "unknown-source-model",
+          `${e.label} declares from="${e.from}", but this system has no such model (${[...byContext.keys()].join(", ")}).`, ctx, e.id);
+        continue;
+      }
+      if (src === m) {
+        push("error", "self-import", `${e.label} imports from its own model.`, ctx, e.id);
+        continue;
+      }
+      const pub = published.get(e.from).get(e.label);
+      if (!pub) {
+        const near = [...published.get(e.from).keys()];
+        push("error", "unpublished-import",
+          `${e.label} is imported from "${e.from}", which does not publish it. A model's only public surface is an event marked public="true"` +
+          (near.length ? ` — ${e.from} publishes ${near.join(", ")}.` : `, and ${e.from} publishes nothing.`), ctx, e.id);
+        continue;
+      }
+      consumed.add(`${e.from}/${e.label}`);
+
+      // The import is a contract. Consuming a field the publisher does not carry is the whole
+      // class of bug that only shows up when the two models are read side by side.
+      const have = new Map(pub.fields.map((f) => [f.name, f.type]));
+      for (const f of e.fields) {
+        if (!have.has(f.name)) {
+          push("error", "import-field-missing",
+            `${ctx} imports ${e.label}.${f.name}, which ${e.from} does not publish on it (${pub.fields.map((x) => x.name).join(", ")}).`, ctx, e.id);
+        } else if (have.get(f.name) !== f.type) {
+          push("warn", "import-field-type",
+            `${ctx} imports ${e.label}.${f.name}:${f.type}, but ${e.from} publishes it as ${have.get(f.name)}.`, ctx, e.id);
+        }
+      }
+    }
+  }
+
+  for (const [ctx, pub] of published) {
+    for (const [label, e] of pub) {
+      if (!consumed.has(`${ctx}/${label}`)) {
+        push("info", "unconsumed-export",
+          `${ctx} publishes ${label} but no model in this system imports it. Either a consumer is missing, or it does not need to be public.`, ctx, e.id);
+      }
+    }
+  }
+
+  // A slice is a branch and a ticket, so its name has to mean one thing across the whole system.
+  const slices = new Map();
+  for (const m of models) {
+    for (const s of m.ir.slices) {
+      if (!slices.has(s.name)) slices.set(s.name, []);
+      slices.get(s.name).push(contextOf(m));
+    }
+  }
+  for (const [name, where] of slices) {
+    if (where.length > 1) {
+      push("error", "slice-name-collision",
+        `slice "${name}" exists in ${where.join(" and ")}. One branch per slice only works if the name is unique across the system.`, where[0]);
+    }
+  }
+
+  // Two contexts feeding each other is legal — projections read many streams — but it is worth
+  // seeing, because it says these two may really be one context, or the boundary is in the
+  // wrong place.
+  const edges = new Set();
+  for (const m of models)
+    for (const e of m.ir.elements)
+      if (e.kind === "external" && e.from && byContext.has(e.from)) edges.add(`${e.from}>${contextOf(m)}`);
+  for (const pair of edges) {
+    const [a, b] = pair.split(">");
+    if (a < b && edges.has(`${b}>${a}`)) {
+      push("info", "context-cycle",
+        `${a} and ${b} each consume the other's events. Not illegal — a projection may read many streams — but worth a look: it can mean the boundary is in the wrong place.`, a);
+    }
+  }
+
+  return d;
+}
+
+// --- context map: what a Miro board gives free, and a folder does not ------------------------
+//
+// Generated from the actual publish/import edges, never hand-edited, so it cannot drift.
+
+function contextMap(models, system) {
+  const contextOf = (m) => m.ir.model?.context ?? m.name;
+  const order = models.map(contextOf);
+  const links = new Map();
+  for (const m of models)
+    for (const e of m.ir.elements)
+      if (e.kind === "external" && e.from) {
+        const k = `${e.from}>${contextOf(m)}`;
+        if (!links.has(k)) links.set(k, []);
+        links.get(k).push(e.label);
+      }
+
+  const W = 300, H = 120, GAP = 300, MID = 420;
+  const at = (c) => 60 + order.indexOf(c) * (W + GAP);
+  const forward = [...links.keys()].filter((k) => order.indexOf(k.split(">")[1]) > order.indexOf(k.split(">")[0]));
+  const back = [...links.keys()].filter((k) => !forward.includes(k));
+  const top = MID - H / 2 - 40 - 46 * forward.length;
+  const bottom = MID + H / 2 + 40 + 46 * back.length;
+
+  const cells = order.map((c) => {
+    const m = models.find((x) => contextOf(x) === c);
+    const own = m.ir.elements.filter((e) => e.kind === "event" && !e.isPublic).length;
+    const pub = m.ir.elements.filter((e) => e.kind === "event" && e.isPublic).length;
+    return `        <object id="ctx-${c}" label="${c}&#10;&#10;${m.ir.slices.length} slices · ${m.ir.width}px&#10;${own} internal + ${pub} public events" em="model" context="${c}">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="${at(c)}" y="${MID - H / 2}" width="${W}" height="${H}" as="geometry" />
+          </mxCell>
+        </object>`;
+  });
+
+  // Label the horizontal run explicitly rather than letting draw.io drop the edge label on
+  // whichever segment happens to be the midpoint — on an orthogonal detour that is the vertical
+  // one, and the list ends up hanging in space beside the boxes.
+  const link = (k, i, isBack) => {
+    const [from, to] = k.split(">");
+    const labels = links.get(k);
+    const y = isBack ? bottom - 46 * i : top + 46 * i;
+    const x1 = at(from) + W / 2, x2 = at(to) + W / 2;
+    return [
+      `        <mxCell id="map-${from}-${to}" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=2;exitX=0.5;exitY=${isBack ? 1 : 0};exitDx=0;exitDy=0;entryX=0.5;entryY=${isBack ? 1 : 0};entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx-${from}" target="ctx-${to}">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="${x1}" y="${y}" /><mxPoint x="${x2}" y="${y}" /></Array></mxGeometry>
+        </mxCell>`,
+      `        <mxCell id="map-lbl-${from}-${to}" value="${labels.map(escapeXml).join("&#10;")}" style="text;html=1;align=center;verticalAlign=${isBack ? "top" : "bottom"};fontSize=11;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="${Math.min(x1, x2)}" y="${isBack ? y + 4 : y - 4 - 18 * labels.length}" width="${Math.abs(x2 - x1)}" height="${18 * labels.length}" as="geometry" />
+        </mxCell>`,
+    ].join("\n");
+  };
+  forward.forEach((k, i) => cells.push(link(k, i, false)));
+  back.forEach((k, i) => cells.push(link(k, i, true)));
+
+  const w = at(order[order.length - 1]) + W + 60;
+  return `<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="${system} — context map" id="context-map">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="${w}" pageHeight="${bottom + 120}" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="map-title" label="&lt;b&gt;${system}&lt;/b&gt; — generated context map. Do not edit: run &lt;b&gt;node tools/model.mjs map&lt;/b&gt;. An arrow is an event one model publishes and another imports; that is the only thing allowed to cross." em="note">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#888888;" vertex="1" parent="1">
+            <mxGeometry x="60" y="30" width="${w - 120}" height="30" as="geometry" />
+          </mxCell>
+        </object>
+${cells.join("\n")}
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
+`;
+}
+
 // --- marking: overlay cells only, never mutate a modelled cell ---------------
 
 function stripMarkers(xml) {
@@ -943,13 +1325,81 @@ function markerCells(ir, findings) {
 
 const [cmd, target, ...rest] = process.argv.slice(2);
 if (!cmd || !target) {
-  console.error("usage: node tools/model.mjs <compile|validate|mark|clear> <file.drawio> [--json] [--out f]");
+  console.error("usage: node tools/model.mjs <compile|validate|mark|clear|map> <file.drawio | system-dir/> [--json] [--out f]");
   process.exit(2);
 }
 const file = resolve(target);
 if (!existsSync(file)) {
   console.error(`not found: ${file}`);
   process.exit(1);
+}
+
+// A folder is a system: every .drawio in it is one business context of that system. Files
+// starting with "_" are generated (the context map), and are never validated as models.
+const isSystem = statSync(file).isDirectory();
+const systemFiles = () =>
+  readdirSync(file).filter((f) => f.endsWith(".drawio") && !f.startsWith("_")).sort()
+    .map((f) => ({ name: basename(f, ".drawio"), path: join(file, f) }));
+
+function runOne(f) {
+  const ir = buildIr(f);
+  // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while
+  // its own cells still carry errors.
+  const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
+                ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir)];
+  return { ir, findings: [...core, ...sliceRules(ir, core)] };
+}
+
+if (isSystem) {
+  const models = systemFiles().map((m) => ({ ...m, ...runOne(m.path) }));
+  if (!models.length) {
+    console.error(`${target}: no models found.`);
+    process.exit(1);
+  }
+  const system = models.find((m) => m.ir.model?.system)?.ir.model.system ?? basename(file);
+
+  if (cmd === "map") {
+    const out = join(file, "_context-map.drawio");
+    writeFileSync(out, contextMap(models, system), "utf8");
+    console.log(`${out}  (${models.length} models)`);
+    process.exit(0);
+  }
+  if (cmd !== "validate") {
+    console.error(`${cmd} takes a single file, not a system folder.`);
+    process.exit(2);
+  }
+
+  const sysFindings = systemRules(models);
+  const all = [...models.flatMap((m) => m.findings.map((x) => ({ ...x, model: m.name }))), ...sysFindings];
+  const errors = all.filter((f) => f.severity === "error");
+
+  if (rest.includes("--json")) {
+    console.log(JSON.stringify({ system, models: models.map((m) => m.name), findings: all }, null, 2));
+    process.exit(errors.length ? 1 : 0);
+  }
+  const rank = { error: 0, warn: 1, info: 2 };
+  const icon = { error: "ERROR", warn: " WARN", info: " INFO" };
+  const show = (fs) => {
+    fs.sort((a, b) => rank[a.severity] - rank[b.severity] || a.family.localeCompare(b.family));
+    for (const f of fs) console.log(`  ${icon[f.severity]}  [${f.family}/${f.rule}] ${f.message}`);
+  };
+  console.log(`system "${system}" — ${models.length} model(s)\n`);
+  for (const m of models) {
+    const e = m.findings.filter((f) => f.severity === "error").length;
+    console.log(`${m.name} — ${m.ir.slices.length} slice(s), ${m.ir.elements.length} element(s), ${m.ir.width}px` +
+      `${e ? `  ${e} ERROR(S)` : ""}`);
+    show(m.findings);
+    console.log("");
+  }
+  console.log(`across the system`);
+  show(sysFindings);
+  console.log(
+    `\n${errors.length} error(s), ${all.filter((f) => f.severity === "warn").length} warning(s), ` +
+      `${all.filter((f) => f.severity === "info").length} note(s)   ` +
+      `${models.length} models / ${models.reduce((n, m) => n + m.ir.slices.length, 0)} slices / ` +
+      `${models.reduce((n, m) => n + m.ir.elements.length, 0)} elements`
+  );
+  process.exit(errors.length ? 1 : 0);
 }
 
 if (cmd === "clear") {
@@ -960,11 +1410,7 @@ if (cmd === "clear") {
   process.exit(0);
 }
 
-const ir = buildIr(file);
-// sliceRules runs last and reads the others: a slice cannot claim to be past in-design while its
-// own cells still carry errors.
-const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir), ...flowRules(ir), ...conwayRules(ir)];
-const findings = [...core, ...sliceRules(ir, core)];
+const { ir, findings } = runOne(file);
 const errors = findings.filter((f) => f.severity === "error");
 
 if (cmd === "compile") {

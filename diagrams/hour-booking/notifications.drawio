@@ -1,0 +1,219 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="Notifications" id="notifications">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="2265" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="model-notifications" label="Notifications&#10;hour-booking · notifications" em="model" context="notifications" system="hour-booking" note="two processes that watch the closure stream and act on it: telling the admins, and nagging the employee">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="1900" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="340" width="1900" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="660" width="1900" height="545" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-0" label="AdminNotification stream — a process of its own" em="lane" streams="AdminNotification">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="685" width="1900" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-1" label="Reminder stream — a process of its own" em="lane" streams="Reminder">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="780" width="1900" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-2" label="MonthClosure stream — imported from month-closure" em="lane" streams="MonthClosure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="875" width="1900" height="235" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-3" label="seeded from outside — not our streams" em="lane" streams="Admin">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1110" width="1900" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1445" width="1900" height="760" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-admins" label="admins&#10;view · in-design" em="group" slice="admins" pattern="view" status="in-design" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="80" y="120" width="220" height="1085" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-upstream-closure" label="upstream-closure&#10;upstream · in-design" em="group" slice="upstream-closure" pattern="upstream" status="in-design" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="400" y="120" width="220" height="1085" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-notify-admins" label="notify-admins&#10;automation · in-design" em="group" slice="notify-admins" pattern="automation" status="in-design" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="720" y="120" width="540" height="1085" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-send-closing-reminder" label="send-closing-reminder&#10;automation · in-design" em="group" slice="send-closing-reminder" pattern="automation" status="in-design" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+            <mxGeometry x="1360" y="120" width="540" height="1085" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-admin-seeded" label="AdminSeeded" em="external" origin="genesis seed" slice="admins" aggregate="Admin" fields="adminId:Guid, adminName:string, seededAt:DateTimeOffset" source="&quot;Admins: seed with a genesis event AdminSeeded&quot;" note="genesis/seed event. em=external because it is authored at deployment, outside any slice of this model, and is therefore terminal.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1125" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-admins" label="Admins" em="readmodel" slice="admins" fields="adminId:Guid, adminName:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="the recipient list. &quot;All admins can see everything&quot; is authorization — a GWT, not a data-supply edge.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="100" y="400" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ext-month-closure-submitted" label="MonthClosureSubmitted" em="external" slice="upstream-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
+            <mxGeometry x="420" y="890" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ext-booking-month-started" label="BookingMonthStarted" em="external" slice="upstream-closure" aggregate="MonthClosure" fields="employeeId:Guid, employeeName:string, month:string, startedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
+            <mxGeometry x="420" y="960" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ext-month-closed" label="MonthClosed" em="external" slice="upstream-closure" aggregate="MonthClosure" fields="employeeId:Guid, month:string, closedBy:Guid, closingNote:string?, closedAt:DateTimeOffset" from="month-closure" note="IMPORTED — published by the month-closure model of this system. Its only public surface.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;dashed=1;dashPattern=1 3;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1030" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-notify-todo" label="ClosureNotificationTodo" em="readmodel" slice="notify-admins" fields="employeeId:Guid, month:string, submittedAt:DateTimeOffset" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per submitted closure not yet announced to the admins.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="740" y="400" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="auto-notify-admins" label="AdminNotifier" em="automation" slice="notify-admins" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="370" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-notify-admins" label="NotifyAdmins" em="command" slice="notify-admins" aggregate="AdminNotification" fields="employeeId:Guid, month:string, adminId:Guid" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="440" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-admins-notified" label="AdminsNotified" em="event" slice="notify-admins" aggregate="AdminNotification" fields="employeeId:Guid, month:string, adminId:Guid, notifiedAt:DateTimeOffset" source="&quot;I want to record this as a fact&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="700" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-open-months" label="OpenMonths" em="readmodel" slice="send-closing-reminder" fields="employeeId:Guid, month:string, closingDate:DateOnly, lastRemindedAt:DateTimeOffset?" mappings="lastRemindedAt=sentAt" derived="closingDate=month" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert" note="TODO LIST: one row per (employee, month) past the closing date and still not closed. lastRemindedAt is what makes 'every 3 days' implementable.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="400" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="auto-send-reminder" label="ClosingReminder" em="automation" slice="send-closing-reminder" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="370" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-send-closing-reminder" label="SendClosingReminder" em="command" slice="send-closing-reminder" aggregate="Reminder" fields="employeeId:Guid, month:string" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;dashed=1;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="440" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-closing-reminder-sent" label="ClosingReminderSent" em="event" slice="send-closing-reminder" aggregate="Reminder" fields="employeeId:Guid, month:string, sentAt:DateTimeOffset" source="&quot;we send a reminder 3 days after the closing date&quot;" note="closing date = last day of each month. REPEATS every 3 days while the month stays open.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="795" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-notify-admins-1" label="submitting a closure notifies the admins, and that is recorded as a fact&#10;&#10;GIVEN MonthClosureSubmitted&#10;WHEN NotifyAdmins&#10;THEN AdminsNotified" em="gwt" slice="notify-admins" rule="submitting a closure notifies the admins, and that is recorded as a fact" given="MonthClosureSubmitted" when="NotifyAdmins" then="AdminsNotified" source="&quot;it triggers a notification to the admins&quot; / &quot;I want to record this as a fact&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1475" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-notify-admins-2" label="every seeded admin is a recipient&#10;&#10;GIVEN MonthClosureSubmitted, AdminSeeded&#10;WHEN NotifyAdmins&#10;THEN AdminsNotified" em="gwt" slice="notify-admins" rule="every seeded admin is a recipient" given="MonthClosureSubmitted, AdminSeeded" when="NotifyAdmins" then="AdminsNotified" source="&quot;All admins can see everything&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1615" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-notify-admins-3" label="a submission is announced once, not on every pass of the processor&#10;&#10;GIVEN AdminsNotified&#10;WHEN NotifyAdmins&#10;THEN error: AlreadyNotified" em="gwt" slice="notify-admins" rule="a submission is announced once, not on every pass of the processor" given="AdminsNotified" when="NotifyAdmins" then="error: AlreadyNotified" source="accepted by the domain expert — the todo-list tick-off is what stops the processor working a row twice">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1755" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-1" label="a month still open after its closing date earns the employee a reminder&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN SendClosingReminder&#10;THEN ClosingReminderSent" em="gwt" slice="send-closing-reminder" rule="a month still open after its closing date earns the employee a reminder" given="BookingMonthStarted" when="SendClosingReminder" then="ClosingReminderSent" source="&quot;For open month of previous month we send a reminder 3 days after the closing date&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1475" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-2" label="the reminder repeats every three days while the month stays open&#10;&#10;GIVEN ClosingReminderSent&#10;WHEN SendClosingReminder&#10;THEN ClosingReminderSent" em="gwt" slice="send-closing-reminder" rule="the reminder repeats every three days while the month stays open" given="ClosingReminderSent" when="SendClosingReminder" then="ClosingReminderSent" source="&quot;Reminder fire every 3 days&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1615" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-3" label="no reminder before the closing date, which is the last day of the month&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN SendClosingReminder&#10;THEN error: BeforeClosingDate" em="gwt" slice="send-closing-reminder" rule="no reminder before the closing date, which is the last day of the month" given="BookingMonthStarted" when="SendClosingReminder" then="error: BeforeClosingDate" source="&quot;The last day of each month is the closing date&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1755" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-4" label="no second reminder within three days of the last one&#10;&#10;GIVEN ClosingReminderSent&#10;WHEN SendClosingReminder&#10;THEN error: TooSoonToRemind" em="gwt" slice="send-closing-reminder" rule="no second reminder within three days of the last one" given="ClosingReminderSent" when="SendClosingReminder" then="error: TooSoonToRemind" source="&quot;Reminder fire every 3 days&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1895" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-send-closing-reminder-5" label="a closed month is never reminded about&#10;&#10;GIVEN MonthClosed&#10;WHEN SendClosingReminder&#10;THEN error: MonthIsClosed" em="gwt" slice="send-closing-reminder" rule="a closed month is never reminded about" given="MonthClosed" when="SendClosingReminder" then="error: MonthIsClosed" source="&quot;Nothing happens much later, closed is closed&quot;">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="2035" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-admin-seeded--rm-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-admin-seeded" target="rm-admins">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closure-submitted--rm-notify-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-month-closure-submitted" target="rm-notify-todo">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-admins--auto-notify-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-admins" target="auto-notify-admins">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="190" y="295" /><mxPoint x="1150" y="295" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-notify-todo--auto-notify-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-notify-todo" target="auto-notify-admins">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-auto-notify-admins--cmd-notify-admins" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auto-notify-admins" target="cmd-notify-admins">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-cmd-notify-admins--evt-admins-notified" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-notify-admins" target="evt-admins-notified">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-admins-notified--rm-notify-todo" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-admins-notified" target="rm-notify-todo">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-booking-month-started--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-booking-month-started" target="rm-open-months">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="526" /><mxPoint x="1470" y="526" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-month-closed--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-month-closed" target="rm-open-months">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="510" y="534" /><mxPoint x="1470" y="534" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-open-months--auto-send-reminder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-open-months" target="auto-send-reminder">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-auto-send-reminder--cmd-send-closing-reminder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auto-send-reminder" target="cmd-send-closing-reminder">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-cmd-send-closing-reminder--evt-closing-reminder-sent" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-send-closing-reminder" target="evt-closing-reminder-sent">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-closing-reminder-sent--rm-open-months" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;strokeColor=#82b366;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-closing-reminder-sent" target="rm-open-months">
+          <mxGeometry relative="1" as="geometry"></mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

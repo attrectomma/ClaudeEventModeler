@@ -88,7 +88,19 @@ node tools/drawio.mjs inflate <file>   # decompress in place, making it plain-Re
 node tools/drawio.mjs render  <file>   # export a PNG beside the file
 node tools/crop.mjs <file> <x0> <x1> <out>   # an x-window of a wide model, so it renders legibly
 node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to end
+
+node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound wireframe cells
+node tools/design.mjs shot  <file.html>      # render one design page to PNG, per viewport
+node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
+
+node tools/model.mjs validate <file>   # one model
+node tools/model.mjs validate <dir>/   # a whole system: every model, plus the cross-model rules
+node tools/model.mjs map      <dir>/   # (re)generate <dir>/_context-map.drawio from the real edges
 ```
+
+**Validate the folder, not the file.** A single file cannot see whether an imported event is
+actually published anywhere; only the system run can. `compile`, `mark` and `clear` still take one
+file.
 
 A real model runs thousands of pixels wide, and a whole-model PNG downscaled to fit a screen is
 too mushy to spot layout defects in — which defeats the point of rendering. `crop` writes a
@@ -113,6 +125,13 @@ draw.io colour picker, in this order.
 | Automation / processor | `automation` | Commands / Views | `#e1d5e7` | `#9673a6` | ours |
 | Given / When / Then | `gwt` | GWT band | `#f0f0f0` | `#999999` | ours |
 | Slice group label | `group` | left of a slice | `#f8cecc` | `#b85450` | book (pink) |
+| Model context note | `model` | top-left, above the lanes | `#f8cecc` | `#b85450` | book (pink) |
+| Wireframe field | `field` | inside a screen | `#f0f0f0` / `#ffffff` | `#dddddd` / `#999999` | ours |
+| Wireframe action | `action` | inside a screen | `#dae8fc` | `#6c8ebf` | ours |
+| Wireframe chrome | `chrome` | inside a screen | none | none | ours |
+
+A `field` is drawn white-on-grey when it is typed (`inputs=`) and dashed grey when it is only shown
+(`displays=`), so a wireframe reads as a form at a glance.
 
 Rules:
 - Events are past tense (`OrderPlaced`), commands imperative (`PlaceOrder`).
@@ -156,6 +175,13 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `rule` | `gwt` | the business rule this GWT names |
 | `pattern` | slice cell | which of the four patterns this slice is — checked against what it's made of |
 | `status` | slice cell | where the slice sits in the implementation workflow |
+| `screen` | screen | the screen's identity. Cells sharing a slug are one screen |
+| `binds` | `field` | which `displays=`/`inputs=` attribute this wireframe element shows |
+| `command` | `action` | which Command this affordance issues — checked against the screen's edge |
+| `context` / `system` | model cell | which business context this model is, and which system it belongs to |
+| `public` | event | another model in this system may consume it. The only public surface there is |
+| `from` | external | the sibling model that publishes it — **checked** |
+| `origin` | external | a genuinely foreign system — a claim on record, unverifiable |
 
 `displays` is what makes the check two-directional. Without it a read model can be missing every
 attribute and nothing notices, because nothing states what the screen needed.
@@ -224,6 +250,183 @@ reorder the columns. A vertical slice that isn't vertical isn't a slice.
 
 Every element geometrically inside a band must declare that `slice=`, and every element declaring
 it must be drawn inside. That is what stops the drawing and the data drifting apart.
+
+## The screen: identity, and a wireframe the checker can see
+
+Two problems, both invisible before `screen=` existed.
+
+**A screen had no identity.** It was a repeated *label* — `Timesheet` is three cells in `booking`,
+with `displays=` hand-copied between them and nothing comparing the copies. Exactly the bug the slice
+cell fixed for slices. `screen="timesheet"` is the slug, and it buys one asymmetric rule:
+
+> **`displays=` must agree across cells sharing a slug. `inputs=` may differ.**
+
+What a screen *shows* is a property of the screen. What it *offers* is a property of the slice — the
+same Timesheet offers book, correct and remove in three slices. That asymmetry is load-bearing, not
+a convenience: *"there may be only one `HoursBooked` per day+project, so booking again is a
+Correction"* is a domain fact about affordances, and it is why one screen legitimately has three
+different buttons.
+
+**A wireframe drawn as a picture earns nothing.** The book does draw wireframes and they are
+sketch-level, but a grey box the tool cannot read will drift from `displays=` silently. So every
+element of a wireframe declares what it is — `em="field" binds="hours"`, `em="action"
+command="BookHours"`, `em="chrome"` for decoration. Then the design and the model check each other
+in both directions, the same trick `displays=` plays on read models:
+
+- a field bound to something the screen doesn't declare → **error**. The design shows data the
+  system cannot supply.
+- a declared attribute the wireframe never draws → **warning**. Its View is over-specified.
+- an action naming a command the screen has no edge to → **error**. The button and the arrow
+  disagree.
+
+Wireframes are **optional and late**: a screen with none is fine, and `field-not-drawn` only fires
+once a screen has started to be drawn. Drawing one before the completeness check passes commits to
+showing fields that may turn out to have no source.
+
+```
+node tools/wireframe.mjs scaffold <file>   # grow the UI lane, shift everything below, bind a cell
+                                           # per attribute, read the action off the real edge
+```
+
+That is a **scaffold, not a design**. The stacked layout it produces asserts nothing about the real
+arrangement — its value is that the cells exist, are bound, and are checked. Rearrange them
+afterwards. It is a tool rather than a hand edit because it touches every y and every routing point
+in the file.
+
+Keep the wireframe **low fidelity**: no colour, no type, no imagery. It stays legible at model scale,
+it cannot be mistaken for the design, and it does not fight the sticky-note grammar.
+
+### Three skills, and the line between them is what each may invent
+
+| Skill | Scope | Invents | Gate |
+| --- | --- | --- | --- |
+| `event-model` | once per context | layout only — never a domain fact | the completeness check, deterministic |
+| `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |
+| `codegen` | per slice | nothing — it reads the compiled IR | tests pass |
+
+**`styling` delegates aesthetic judgement to Anthropic's official `frontend-design` plugin** rather
+than reinventing design taste — install via `/plugin`. That plugin already supplies the token-system
+spec (4–6 colours, 2+ type roles, one signature element), the anti-templated-default heuristics, and
+the restraint discipline; its workflow even asks for screenshots to self-critique with, which is
+exactly what `tools/design.mjs` provides. `styling` adds only what the plugin cannot know: the field
+contract from the model, the `designs/<screen-slug>.html` convention, and the review loop.
+
+The wireframe belongs to `event-model`, and the boundary is not obvious: `binds=` and `em="action"`
+carry **business information** — which fields a screen shows, which are typed, and which action it
+offers. That last one is a domain fact, not decoration. Colour, type, spacing and components carry
+none, so they live in `styling`.
+
+**A dependency graph, not a pipeline.** Styling gates only *frontend* codegen. A model with no
+screens is backend-only and can go straight to codegen with no design in existence — `notifications`
+is exactly that today. Same for any View or Automation slice.
+
+The styled design is found **by convention, not by an attribute**: `designs/<screen-slug>.html`. The
+slug already exists, so a `design=` attribute would be a second place the same fact lives — the thing
+this kit refuses everywhere else. That gives a three-way check, which is `styling`'s to run:
+
+```
+displays= / inputs=   ↔   wireframe binds=   ↔   HTML data-em
+```
+
+All three must agree on *which fields*. Layout and style are free to differ — that is the point of
+keeping them in separate artifacts.
+
+### A design nobody has looked at is worth exactly as much as unrendered XML
+
+*"Never hand over diagram XML you have not rendered"* applies unchanged to CSS. **A human cannot
+read a stylesheet and picture the result, and neither can Claude.** So the design gets the same
+closing loop the model has, via headless Chrome — already on this machine, no Playwright, no
+Puppeteer:
+
+```
+node tools/design.mjs sheet designs/<system>/
+```
+
+It produces three things, and each answers a different reviewer:
+
+| Artifact | For | Why it exists |
+| --- | --- | --- |
+| `_shots/<screen>-<viewport>.png` | the record | one file per screen per viewport, so a finding can name the one that broke |
+| `_shots/contact-sheet-<viewport>.png` | **looking** | every screen at **1:1** in one image. A folder of PNGs has the same defect as a folder of HTML — you open them one at a time |
+| `index.html` | the human | live iframes plus a full-size link. A screenshot cannot be hovered, tabbed through, or resized |
+
+**One sheet per viewport, at native width.** A 1440px shot scaled into a shared column is
+illegible, which defeats the point of looking; and the sheet is captured at whatever size fits all
+its rows, because a fixed height silently crops the last one. Both of those were real defects caught
+by rendering the sheet and looking at it.
+
+Always shoot at least a desktop and a mobile width. A single desktop screenshot hides half the
+problems.
+
+## Many small models, one system
+
+> *"It is perfectly fine to have more than one model on a board. In fact, this is the rule rather
+> than the exception for me. I prefer having many smaller models over one large model… I aim to
+> capture one business context in each model, so I can read it from left to right without any
+> visual interruptions."* — Understanding EventSourcing, ch. 18
+
+Four levels, only two of them files. A **system** is a folder under `diagrams/`. A **model** is one
+`.drawio` in it: one business context, one flow. A **slice** is a slice cell, as always. *Chapters*
+(Dilger's blue arrows grouping slices inside a model) are the fourth, and deliberately not built —
+they solve the same problem as splitting at a smaller scale, so **prefer splitting.**
+
+```
+diagrams/hour-booking/            <- the folder IS the system
+  booking.drawio                  <- one business context
+  month-closure.drawio
+  notifications.drawio
+  booking.errors.drawio           <- an alternative flow of booking.drawio
+  _context-map.drawio             <- GENERATED. Never hand-edit; leading _ excludes it from validate
+  OPEN-QUESTIONS.md
+```
+
+**No manifest file.** No `system.yml`, no index. The diagram is the single source of truth; a
+manifest would be a second place facts live. The folder is the system, every fact sits on a cell,
+and anything system-wide is *derived*.
+
+**Each model names itself with a model cell** — `em="model"`, `context=`, `system=`. This is
+Dilger's pink "Model Context" sticky, drawn top-left above the lanes. Same precedent as the slice
+cell: identity is a cell, not a filename. `context=` must match the file name.
+
+### Only an event crosses a model boundary
+
+Ch. 15 is explicit that you never let another model rebuild your state from your internals. So:
+
+> **A model's only public surface is an event marked `public="true"`. A consumer imports it as a
+> yellow external declaring `from="<context>"`.**
+
+Nothing else crosses — no read model, command, screen or unmarked event. A View belongs to the
+context that reads it; if two contexts need the same projection, each builds its own from the
+events it imports.
+
+An external event now answers *where it came from*, and the two answers are checked differently:
+
+| | Means | Checked |
+| --- | --- | --- |
+| `from="month-closure"` | published by a sibling model in this system | **yes** — the label must exist there, be `public="true"`, and its `fields=` must cover what we consume |
+| `origin="Google Calendar"` | a genuine third party | no — a claim on record, exactly as before |
+
+That first row is checking power a single model cannot have. Inside one file an external is terminal
+by construction; across a folder the producer is present, so an import nobody publishes is an
+**error** rather than a note.
+
+Direct consumption between contexts of one system is allowed — the book is explicit that a context
+is *not* a microservice and that you should *"not split but keep everything in one system until you
+know more."* Full ch. 15 translation (View → automation → command → external event) is for a real
+system boundary. What the kit insists on is that the coupling is **declared**: undeclared is an
+error, declared is a note on the context map. Same treatment as a Conway split.
+
+### The size budget is one readable render
+
+The book's criterion is readability, not a slice count. This kit already has the operational form of
+that rule — *always render and look* — and `tools/crop.mjs` exists only because a model defeated it.
+So: **if you need `crop.mjs`, the model is too big.** `model.mjs` warns above **3200px** (≈10
+columns, ≈8 slices); it never blocks, because a genuinely linear ten-slice story is legitimate.
+
+Alternative flows are the other splitting axis: *"pick one flow and model it… Most of the time, it's
+easier to define a dedicated model"* for the error cases that would disrupt it. Cheap ones stay GWTs.
+
+**Slice names are unique across the system** — a slice is a branch and a ticket.
 
 ## Conway: who can actually build a slice
 
@@ -392,20 +595,28 @@ vertically under the pattern they describe.
 
 | Band | y | Height | Holds |
 | --- | --- | --- | --- |
-| UI | 40 | 180 | screens |
-| Commands / Views | 220 | 180 | commands, read models, automations |
-| *forward routing band* | 400 | 140 | horizontal runs of long Event → View feeds |
-| Event Stream | 540 | grows with the swimlanes | events, split into one band per stream |
-| *backward routing corridor* | 1115 | 200 | horizontal runs of edges pointing left |
-| GWT | 1345 | grows down | one `gwt` cell per business rule |
+| *model context note* | 30 | 90 | the pink cell naming this model |
+| UI | 160 | 390 | screens, 300 tall so a wireframe fits inside one |
+| *UI routing strip* | 500 | 50 | horizontal runs of View → Screen feeds, below the screens |
+| Commands / Views | 550 | 180 | commands, read models, automations |
+| *forward routing band* | 730 | 140 | horizontal runs of long Event → View feeds |
+| Event Stream | 870 | grows with the swimlanes | events, split into one band per stream |
+| *backward routing corridor* | event lane bottom + 10 | 200 | horizontal runs of edges pointing left |
+| GWT | event lane bottom + 240 | grows down | one `gwt` cell per business rule |
 
 Lanes start at x=40. Columns are 320 apart — x=100, 420, 740, 1060, … — with elements 180 wide,
-events and commands 60 tall, screens 90.
+events and commands 60 tall, **screens 180×300** (a screen has to hold its wireframe, and 180 wide
+is not a choice: a wider screen would overflow its 220-wide slice band).
 
 **Every long edge gets its own y in a routing band.** One y per *target* is not enough: several
 events feeding the same View then share a horizontal run and the picture becomes unreadable.
-Allocate sequentially — forward at 406 + 8n, backward at 1120 + 9n. Neither band holds a box, so a
-routed edge never cuts through anything.
+Allocate sequentially — forward at `forwardBand + 6 + 8n`, backward at `eventLaneBottom + 15 + 9n`,
+View → Screen at `uiLane + 345 + 8n`. No band holds a box, so a routed edge never cuts through
+anything.
+
+**Events stacked in one column need a left corridor, not a vertical run.** Several externals in the
+same column feeding the same View cannot all go straight up — the lower ones would cut through the
+ones above. Send them out the left edge and up a corridor at `columnX - 30 - 12n`.
 
 GWT cells are 300 wide (they hold sentences) and 120 tall, left-aligned to their slice's column,
 first row at **y=1375** and every 140 after. 300 + 20 fits the 320 column pitch exactly, so a
