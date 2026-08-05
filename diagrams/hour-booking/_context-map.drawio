@@ -1,0 +1,48 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="hour-booking — context map" id="context-map">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1620" pageHeight="686" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="map-title" label="&lt;b&gt;hour-booking&lt;/b&gt; — generated context map. Do not edit: run &lt;b&gt;node tools/model.mjs map&lt;/b&gt;. An arrow is an event one model publishes and another imports; that is the only thing allowed to cross." em="note">
+          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontColor=#888888;" vertex="1" parent="1">
+            <mxGeometry x="60" y="30" width="1500" height="30" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ctx-booking" label="booking&#10;&#10;8 slices · 2900px&#10;0 internal + 4 public events" em="model" context="booking">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="60" y="360" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ctx-month-closure" label="month-closure&#10;&#10;8 slices · 2960px&#10;0 internal + 5 public events" em="model" context="month-closure">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="660" y="360" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ctx-notifications" label="notifications&#10;&#10;4 slices · 1940px&#10;2 internal + 0 public events" em="model" context="notifications">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="1260" y="360" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="map-booking-month-closure" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx-booking" target="ctx-month-closure">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="210" y="228" /><mxPoint x="810" y="228" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="map-lbl-booking-month-closure" value="HoursBooked&#10;HoursCorrected&#10;BookingRemoved&#10;ZeroHoursFilled" style="text;html=1;align=center;verticalAlign=bottom;fontSize=11;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="210" y="152" width="600" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="map-month-closure-notifications" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx-month-closure" target="ctx-notifications">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="810" y="274" /><mxPoint x="1410" y="274" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="map-lbl-month-closure-notifications" value="MonthClosureSubmitted&#10;BookingMonthStarted&#10;MonthClosed" style="text;html=1;align=center;verticalAlign=bottom;fontSize=11;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="810" y="216" width="600" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="map-month-closure-booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#b85450;strokeWidth=2;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ctx-month-closure" target="ctx-booking">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="810" y="566" /><mxPoint x="210" y="566" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="map-lbl-month-closure-booking" value="BookingMonthStarted&#10;MonthClosureSubmitted&#10;MonthClosureRejected&#10;MonthClosed" style="text;html=1;align=center;verticalAlign=top;fontSize=11;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="210" y="570" width="600" height="72" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
