@@ -193,4 +193,28 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
         result.Context.Response.StatusCode.ShouldBe(204);
         (await EventsFor(Timesheet)).OfType<HoursBooked>().ShouldHaveSingleItem();
     }
+
+    // NOT a GWT. The model says the Timesheet screen displays ten attributes, so a slice whose
+    // screen cannot read back what it wrote is not done end to end. Reads belong to my-timesheet,
+    // which is still in-design; this asserts the round trip the screen depends on, no more.
+    [Fact]
+    public async Task TheScreenCanReadBackWhatItBooked()
+    {
+        await Given(MonthClosure, MonthOpened);
+        await Book(SeedData.WorkingDay, 7.5m);
+
+        var sheet = await Host.Scenario(x =>
+            x.Get.Url($"/timesheet/{SeedData.EmployeeId}/{SeedData.Month}"));
+        var body = await sheet.ReadAsTextAsync();
+
+        // The inline projection ran in the same transaction as the append, so it is already there.
+        body.ShouldContain("\"monthStatus\": \"Open\"", Case.Insensitive);
+        body.ShouldContain("7.5");
+
+        var projects = await Host.Scenario(x =>
+            x.Get.Url($"/timesheet/{SeedData.EmployeeId}/projects"));
+        var list = await projects.ReadAsTextAsync();
+        list.ShouldContain("Apollo");   // the name the screen joins on projectId
+        list.ShouldContain("Gemini");   // left, and flagged rather than hidden
+    }
 }

@@ -579,6 +579,7 @@ emit(join(APP, `${NS}.csproj`),
 
   <ItemGroup>
     <PackageReference Include="Marten" Version="8.*" />
+    <PackageReference Include="Marten.AspNetCore" Version="8.*" />
     <PackageReference Include="WolverineFx.Http" Version="5.*" />
     <PackageReference Include="WolverineFx.Http.Marten" Version="5.*" />
     <PackageReference Include="WolverineFx.Http.FluentValidation" Version="5.*" />

@@ -124,7 +124,7 @@
             <mxGeometry x="420" y="1215" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object id="rm-my-timesheet" label="MyTimesheet" em="readmodel" slice="my-timesheet" fields="employeeId:Guid, month:string, monthStatus:string, bookingId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, dayTotal:decimal" derived="dayTotal=hours, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
+        <object id="rm-my-timesheet" label="MyTimesheet" em="readmodel" identity="employeeId, month" slice="my-timesheet" fields="employeeId:Guid, month:string, monthStatus:string, bookingId:Guid, projectId:Guid, date:DateOnly, hours:decimal, note:string?, dayTotal:decimal" derived="dayTotal=hours, monthStatus=BookingMonthStarted+MonthClosureSubmitted+MonthClosureRejected+MonthClosed" proposed="claude — invented layout/UI/fields, NOT stated by the domain expert">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;dashed=1;" vertex="1" parent="1">
             <mxGeometry x="740" y="610" width="180" height="60" as="geometry" />
           </mxCell>
