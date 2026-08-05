@@ -162,10 +162,28 @@ Which gives:
 Inserting is the common case for a `view`, and it is the expensive one: every column to the right
 moves by 320 per inserted column, and so does every routing point.
 
-### The geometry
+### The geometry — `tools/slice.mjs` owns all of it
 
-**Read the numbers off the model. Never off CLAUDE.md's table** — they move whenever a swimlane is
-added or the UI lane grows, and the table is a snapshot. In a current model:
+```
+node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at <spec>] [--columns N] [--aggregate A]
+node tools/slice.mjs swimlane <file> --label <text> --streams <A[,B]> [--identity <f[,f]>] [--height N]
+node tools/slice.mjs route    <file> --from <id> --to <id>
+node tools/slice.mjs identity <file> --band <id>
+node tools/slice.mjs demote   <file> [--slice <n>]... | --from-diff
+node tools/slice.mjs reflow   <file>
+```
+
+Every command takes `--dry-run`, which prints the plan and writes nothing. **Use it before an insert**
+— that is where the arithmetic is, and the plan tells you how many cells and routing points move.
+
+`add` emits the slice cell, the column band, and one placeholder per cell the pattern requires, wired
+with the edges the pattern determines. Placeholders are labelled `TODO:<kind>` and carry no `fields=`,
+because **a label is a domain fact** — naming and filling them is your job, from the brief. `route`
+connects a placeholder to the existing cells the user named; it refuses a left-pointing
+non-`Event → View` edge rather than routing it prettily, and the fix it names is `add --at`.
+
+Do not hand-place cells. The numbers below are for reading a diff, not for doing arithmetic with —
+**read them off the model, never off CLAUDE.md's table**, which is a snapshot and says so:
 
 ```
 column x        = first column x + 320n         (100, 420, 740, …)
@@ -191,10 +209,10 @@ Several events stacked in **one column** feeding the same View cannot all run st
 ones would cut through the ones above. Send them out the left edge and up a corridor at
 `columnX − 30 − 12n`.
 
-> **This arithmetic is a tool's job, not a hand edit** — the same reasoning as
-> `tools/wireframe.mjs`: it touches every y and every routing point in the file, and an insert touches
-> every x as well. `tools/slice.mjs` does not exist yet. Until it does, do the arithmetic explicitly,
-> show your working, and **record what you had to move** — that record is the tool's specification.
+> Specified in `tools/slice.spec.md` and exercised by `tools/fixtures/cart-replay.mjs`, which builds
+> the cart model of *Understanding EventSourcing* ch. 12–17 as the nine appends those chapters are —
+> including the insert-at-position-0 that ch. 16 demands. `diagrams/cart/` is the result. If you think
+> the tool has a geometry bug, reproduce it there first: that fixture is the regression suite.
 
 ### Writing the cells
 

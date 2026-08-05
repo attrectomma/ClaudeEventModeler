@@ -312,6 +312,14 @@ node tools/drawio.mjs render  <file>   # export a PNG beside the file
 node tools/crop.mjs <file> <x0> <x1> <out>   # an x-window of a wide model, so it renders legibly
 node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to end
 
+node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at start|end|before:<s>|after:<s>]
+node tools/slice.mjs swimlane <file> --label <t> --streams <A> [--identity <f>]   # + the cascade
+node tools/slice.mjs route    <file> --from <id> --to <id>    # allocates a routing y in the right band
+node tools/slice.mjs identity <file> --band <id>              # propagate the stream key onto its events
+node tools/slice.mjs demote   <file> --from-diff              # impacted slices back to in-design
+node tools/slice.mjs reflow   <file>                          # re-derive lane/page geometry
+node tools/fixtures/cart-replay.mjs          # the book's cart model in nine appends — the regression suite
+
 node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound wireframe cells
 node tools/design.mjs shot  <file.html>      # render one design page to PNG, per viewport
 node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
@@ -539,6 +547,16 @@ already in it. Neither owns the file and a model can alternate between them. Wha
 rule: **layout is invented, a domain fact never is.** `add-slice` keeps that honest with a **gap
 list** — every attribute must trace to a sentence in the brief or to an answer the user gave, and
 the remainder is asked, not filled.
+
+**All of the geometry is `tools/slice.mjs`'s, none of it the skill's** — same reasoning as
+`wireframe.mjs`: it touches every y and every routing point, and an insert touches every x too. It
+emits `TODO:<kind>` placeholders with no `fields=`, because a label is a domain fact. Specified in
+`tools/slice.spec.md`; the regression suite is `tools/fixtures/cart-replay.mjs`, which builds the cart
+model of *Understanding EventSourcing* ch. 12–17 as the nine successive appends those chapters are —
+0 errors at every round, byte-identical on re-run. **The insert is not the exotic case:** ch. 16's
+Inventories view feeds the Cart Page in column 1, and a View → Screen edge may not point left, so it
+has to go in at position 0 and shift everything. Appending is easy arithmetic and appending is not
+what a growing model needs.
 
 **Appending is not a local edit, and that is `add-slice`'s real content.** Ch. 14 of *Understanding
 EventSourcing* adds one slice and discovers a missing `aggregateId` that then has to be defined

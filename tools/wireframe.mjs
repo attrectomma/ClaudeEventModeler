@@ -54,9 +54,16 @@ const names = (spec) =>
 
 // ---------------------------------------------------------------- read what we need
 
-const blocks = [...xml.matchAll(
-  /        <object [\s\S]*?<\/object>\n|        <mxCell id="(?!0"|1")[\s\S]*?(?:<\/mxCell>\n|\/>\n)/g)]
-  .map((m) => m[0]);
+// The self-closing alternative must come SECOND and use [^>]*? so it cannot cross a ">". Written as
+// `[\s\S]*?(?:<\/mxCell>\n|\/>\n)` a lazy match stops at whichever comes first — and inside an edge
+// that is its own self-closing <mxGeometry ... />. The block then ends early, the trailing
+// </mxCell> matches nothing, and the rewrite below DROPS it: every edge in the file loses its
+// closing tag. Found while building tools/slice.mjs, which had inherited the same pattern.
+const BLOCK_RE = new RegExp(
+  "        <object [\\s\\S]*?</object>\\n" +
+  "|        <mxCell id=\"(?!0\"|1\")[^>]*?/>\\n" +
+  "|        <mxCell id=\"(?!0\"|1\")[\\s\\S]*?</mxCell>\\n", "g");
+const blocks = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]);
 
 const geom = (b) => {
   const g = /<mxGeometry([^>]*?)as="geometry"/.exec(b);

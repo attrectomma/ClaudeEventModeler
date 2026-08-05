@@ -92,13 +92,19 @@ rejects because it *"doubles the width of the model."*
 ## 3 — CLI
 
 ```
-node tools/slice.mjs add       <file> --slice <name> --pattern <p> [--at <spec>] [--columns N]
+node tools/slice.mjs add       <file> --slice <name> --pattern <p> [--at <spec>] [--columns N] [--aggregate A]
 node tools/slice.mjs swimlane  <file> --label <text> --streams <A[,B]> [--identity <f[,f]>] [--height N]
-node tools/slice.mjs route     <file> --from <id> --to <id> [--band forward|backward|ui|left]
+node tools/slice.mjs route     <file> --from <id> --to <id>
 node tools/slice.mjs identity  <file> --band <id>
 node tools/slice.mjs demote    <file> [--slice <name>]...        # or --from-diff
 node tools/slice.mjs reflow    <file>
 ```
+
+`--aggregate` says which swimlane a pattern's events go in. That is positioning by a fact the user
+supplied, not inventing one — and where the model has exactly one band it is a derivation, so the flag
+is only required from the second band onward. `route` needs no `--band`: the band follows from the two
+endpoints' kinds and relative x, and letting a caller override it would be letting them route an
+illegal edge prettily.
 
 Every command takes `--dry-run`, which prints the plan and writes nothing.
 
@@ -288,3 +294,50 @@ Replay the nine appends into a fresh copy of `diagrams/template.drawio`, from a 
 
 Then the regression that matters most: `git diff` between rounds touches only cells that had to move.
 A round that reformats the file has failed even if the picture is right.
+
+**Built.** `tools/slice.mjs`, `tools/fixtures/cart-replay.mjs`, and the model at `diagrams/cart/`.
+The replay reaches **0 errors, 1 warning** (`model-too-wide`, asserted) at every round, and a
+re-run of any command is byte-identical.
+
+---
+
+## 8 — Corrections this spec needed, found by implementing it
+
+Kept rather than edited away, because each one is a thing the design could not see.
+
+**A copied regex was silently deleting every edge.** §5 said to reuse `wireframe.mjs`'s block pattern.
+That pattern ends a cell at `(?:<\/mxCell>\n|\/>\n)` — and a lazy match takes whichever comes first,
+which inside an edge is its own self-closing `<mxGeometry ... />`. The block ended early, the trailing
+`</mxCell>` matched nothing, and the rewrite dropped it: 88 opens against 54 closes, every edge
+unterminated. Nothing errored. `model.mjs` simply saw no edges, so all 7 commands read as having no
+trigger and all 5 views as fed by nothing — **107 validation errors that looked like modelling gaps.**
+The self-closing alternative must come second and use `[^>]*?` so it cannot cross a `>`.
+**`tools/wireframe.mjs` had the same bug** and is fixed with it.
+
+**`w`/`h` are not attribute names.** `setGeom({w})` matching `\bw="..."` finds nothing and the fallback
+*injects* a bogus `w="1580"`, so lanes never widen and the page grows past them. Map to `width`/`height`.
+
+**The cell shift threshold is `x0 - 20`, not `x0`.** A slice band is drawn 20px left of its own first
+column, so at the column x the band stays put while its members move — `slice/slice-member-outside` on
+every insert. Routing points need a different threshold again (`x0 - 60`), because a left corridor at
+`columnX - 30 - 12n` belongs to the column it serves.
+
+**A View and a processor share a column, and their order is load-bearing.** §3 said `add` emits the
+pattern's cells; it did not say where two lane cells go. Both at one y drew them on top of each other.
+Stacked the obvious way — View above — the external event's feed into the View passes straight through
+the processor. The View goes **underneath**: reading upward from the event lane that is
+Event → View → Trigger, the cheat sheet's own order.
+
+**Edge hints have to come from the boxes.** One vertical constant makes a lateral hop (processor →
+command, one column right at the same height) dogleg down through the routing band and back up.
+
+**CRLF.** git's autocrlf leaves `.drawio` working copies with `\r\n` on Windows, and every pattern here
+anchors on `\n`. Normalise in, restore out — so a uniformly-CRLF file still comes back byte-identical
+where nothing changed. `wireframe.mjs` silently no-ops on such a file ("no screen cells").
+
+**Renaming a template band's label is not enough.** `identity --band <id>` addresses a band by id, so a
+model still carrying `swim-rename` cannot name the one thing that command needs.
+
+**The final width is 4180px, not the 3940 estimated here.** `widen` grows by `max(columns × 320, what
+the content needs)`, which leaves slack an append does not reclaim. Over budget either way, which was
+the point — but `reflow` uses `Math.max` and therefore never tightens. A genuine loose end.
