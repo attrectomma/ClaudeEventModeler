@@ -302,7 +302,10 @@ Figma was evaluated and **deliberately dropped** for the POC — see the reasoni
 | `model.mjs map <dir>/` | regenerate the context map from the real publish/import edges |
 | `model.mjs mark <file>` | draw red badges and arrows on every failure, in place |
 | `model.mjs clear <file>` | strip every marker, restoring the file byte-exactly |
-| `model.mjs compile <file>` | the JSON IR a generator would read |
+| `model.mjs compile <dir>/` | the **system IR** a generator reads: shared contract + slices |
+| `model.mjs compile <file>` | the JSON IR for one model |
+| `docs.mjs sync` | mirror Marten/Wolverine/Alba docs into `reference/llms/` |
+| `docs.mjs status` | how many doc pages are mirrored, and how stale |
 | `drawio.mjs render <file>` | export a PNG beside the file |
 | `drawio.mjs check <file>` | is this plain XML, or compressed? |
 | `drawio.mjs inflate <file>` | decompress in place, making it readable |

@@ -18,13 +18,43 @@ argued with per slice — it is the stack.
 - Docker
 - Aspire — optional, only after an explicit feasibility check
 
-Wolverine, Marten and Alba each need continuously updated, LLM-friendly documentation
-available locally. Their APIs move faster than model knowledge, so anything generated against
-remembered API shapes will be subtly wrong.
+Wolverine, Marten and Alba each need continuously updated, LLM-friendly documentation available
+locally. Their APIs move faster than model knowledge, so anything generated against remembered API
+shapes will be subtly wrong — right shape, wrong method name, quietly deprecated overload. Codegen
+*multiplies* that: a fan-out of agents produces one wrong file per agent instead of one you would
+have caught.
 
-Marten and Wolverine both publish `llms.txt` (`https://martendb.io/llms.txt`,
-`https://wolverinefx.net/llms.txt`) — a markdown index whose every entry is also served as raw
-`.md`, so the whole doc set can be mirrored locally and refreshed. Not yet built.
+**All three publish `llms.txt`** — a markdown index whose every entry is also served as raw `.md`.
+Alba does too, at `jasperfx.github.io/alba/llms.txt`, which this file previously said it did not.
+
+```
+node tools/docs.mjs sync     # mirror all three into reference/llms/   (392 pages, ~4 MB)
+node tools/docs.mjs status   # how many pages, and how stale
+```
+
+**Read the mirror before writing any generated code.** Each library has
+`reference/llms/<lib>/INDEX.md`, a local table of contents grouped as upstream groups it. The mirror
+lives under `reference/`, which is **gitignored** — it is a regenerable build input like
+`node_modules`, so a fresh clone must run `sync` once. `_manifest.json` records when it last ran so
+staleness is visible rather than assumed.
+
+## Keep it simple, but prepare for evolution
+
+The standing principle for codegen, and the reason for several choices that would otherwise look
+like over-engineering:
+
+- **The system IR separates `shared` from `slices`** even though generation is currently sequential.
+  That split is what makes a parallel fan-out possible later without redesigning anything.
+- **Slices are nowhere near independent.** In `hour-booking` the `Timesheet` aggregate is touched by
+  4 commands across 4 slices, `MonthClosure` by 4, and every event feeds 2–5 views. So "generate a
+  slice" can never mean generating its events and projections — several slices would each write the
+  same file. Events, aggregates, views and the GWT tests are generated **once, from the whole
+  system**; only handlers, endpoints, pages and slice-local validators are per-slice.
+- **The agent tree stays flat.** Subagents do not reliably get to spawn subagents, and workflow
+  nesting is one level. An orchestrator fans out `(slice × side)` directly rather than
+  slice-agents-spawning-side-agents.
+- **Do one slice end to end before any orchestration.** Throughput is worthless before correctness,
+  and a fan-out is impossible to debug if a single slice has never succeeded.
 
 ## How the bilateral link works
 
@@ -97,6 +127,8 @@ node tools/design.mjs check <system-dir>     # the styled pages against the mode
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate <dir>/   # a whole system: every model, plus the cross-model rules
 node tools/model.mjs map      <dir>/   # (re)generate <dir>/_context-map.drawio from the real edges
+node tools/model.mjs compile  <dir>/   # the system IR a generator reads -> build/<system>.ir.json
+node tools/docs.mjs sync               # mirror Marten/Wolverine/Alba docs into reference/llms/
 ```
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is

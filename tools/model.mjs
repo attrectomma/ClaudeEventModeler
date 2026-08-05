@@ -28,9 +28,9 @@
 // entry rather than a new field. Deciding which is which is judgement, and belongs to the
 // completeness-checker agent or a human — not here. Never soften a finding to look clean.
 
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
-import { resolve, join, basename } from "node:path";
+import { resolve, join, basename, dirname } from "node:path";
 
 // Fallback classification, so a model is checkable before anyone annotates em=.
 // Matches the palette table in CLAUDE.md.
@@ -1163,6 +1163,30 @@ function systemRules(models) {
     }
   }
 
+  // One event label, one record type. Two cells drawing the same fact with different fields cannot
+  // both be generated — MonthClosed is drawn twice in month-closure, once per closing route — and a
+  // generator picking whichever cell it met first would emit a type that is wrong for the other.
+  // Cheap to check, and it becomes a compile error the moment codegen exists.
+  const shapes = new Map();
+  for (const m of models) {
+    for (const e of m.ir.elements) {
+      if (e.kind !== "event" && e.kind !== "external") continue;
+      const sig = e.fields.map((f) => `${f.name}:${f.type}${f.nullable ? "?" : ""}`).sort().join(", ");
+      if (!shapes.has(e.label)) shapes.set(e.label, []);
+      shapes.get(e.label).push({ sig, ctx: contextOf(m), id: e.id, imported: Boolean(e.from) });
+    }
+  }
+  for (const [label, cells] of shapes) {
+    const sigs = [...new Set(cells.map((c) => c.sig))];
+    if (sigs.length > 1) {
+      const odd = cells.find((c) => c.sig === sigs[1]);
+      push("error", "event-shape-disagrees",
+        `${label} is drawn with ${sigs.length} different field lists, so it cannot become one type. ` +
+        cells.map((c) => `${c.ctx}${c.imported ? " (import)" : ""}: ${c.sig || "no fields"}`).join("  |  "),
+        odd.ctx, odd.id);
+    }
+  }
+
   // A slice is a branch and a ticket, so its name has to mean one thing across the whole system.
   const slices = new Map();
   for (const m of models) {
@@ -1194,6 +1218,154 @@ function systemRules(models) {
   }
 
   return d;
+}
+
+// --- the system IR: what a generator reads ----------------------------------------------------
+//
+// Per-model IRs describe three separate pictures. A generator needs one object, and it needs the
+// SHARED layer separated from the per-slice layer — because slices are nowhere near independent:
+// in hour-booking the Timesheet aggregate is touched by 5 slices, MonthClosure by 6, and every
+// event feeds 2-5 views. Generating "a slice" therefore cannot mean generating its events and
+// projections; several slices would each write the same file.
+//
+// So: `shared` is generated once, `slices` can then be generated independently. That is the split
+// that makes parallel fan-out possible later, and it costs nothing to compute now.
+//
+// An event label can appear in several cells — produced in one context, imported as an external in
+// others, and twice in one context where two slices emit the same fact. The DEFINITION is the cell
+// that is not an import; imports resolve to it.
+
+function buildSystemIr(models, system) {
+  const contextOf = (m) => m.ir.model?.context ?? m.name;
+
+  // --- events: one entry per distinct label, however many cells draw it
+  const events = new Map();
+  const at = (label) => {
+    if (!events.has(label)) {
+      events.set(label, { label, aggregate: null, fields: [], ownedBy: null, origin: null,
+                          importedBy: [], cells: [], isPublic: false });
+    }
+    return events.get(label);
+  };
+  for (const m of models) {
+    const ctx = contextOf(m);
+    for (const e of m.ir.elements) {
+      if (e.kind !== "event" && e.kind !== "external") continue;
+      const rec = at(e.label);
+      rec.cells.push({ id: e.id, context: ctx, slice: e.slice });
+      if (e.kind === "external" && e.from) { rec.importedBy.push(ctx); continue; }
+      // A definition: either our own event, or a foreign one whose contract we still must model.
+      rec.aggregate ??= e.aggregate;
+      rec.isPublic ||= e.isPublic;
+      if (e.kind === "event") rec.ownedBy ??= ctx; else rec.origin ??= e.origin ?? "unknown";
+      if (!rec.fields.length) rec.fields = e.fields;
+    }
+  }
+
+  // --- aggregates: the transactional boundary, and every command that writes to it
+  const aggregates = new Map();
+  for (const rec of events.values()) {
+    if (!rec.aggregate) continue;
+    if (!aggregates.has(rec.aggregate)) {
+      aggregates.set(rec.aggregate, { name: rec.aggregate, ownedBy: rec.ownedBy, events: [], commands: [] });
+    }
+    const a = aggregates.get(rec.aggregate);
+    a.ownedBy ??= rec.ownedBy;
+    if (rec.ownedBy) a.events.push(rec.label);
+  }
+  for (const m of models) {
+    const ctx = contextOf(m);
+    const byId = new Map(m.ir.elements.map((e) => [e.id, e]));
+    for (const c of m.ir.elements.filter((e) => e.kind === "command")) {
+      const emits = c.downstream.map((id) => byId.get(id)).filter((x) => x && x.kind === "event");
+      const agg = c.aggregate ?? emits[0]?.aggregate;
+      if (!agg || !aggregates.has(agg)) continue;
+      aggregates.get(agg).commands.push({
+        label: c.label, context: ctx, slice: c.slice, fields: c.fields,
+        terminal: c.terminal, mappings: c.mappings, emits: emits.map((x) => x.label),
+      });
+    }
+  }
+
+  // --- views: fed by events from anywhere, which is why they are shared and not per-slice
+  const views = [];
+  for (const m of models) {
+    const ctx = contextOf(m);
+    const byId = new Map(m.ir.elements.map((e) => [e.id, e]));
+    for (const v of m.ir.elements.filter((e) => e.kind === "readmodel")) {
+      views.push({
+        label: v.label, context: ctx, slice: v.slice, fields: v.fields,
+        derived: v.derived, mappings: v.mappings,
+        from: [...new Set(v.upstream.map((id) => byId.get(id)?.label).filter(Boolean))],
+        // A todo-list View is the thing an automation works through, and it needs the tick-off
+        // edge to be understood as completion rather than supply.
+        todoFor: m.ir.elements.filter((a) => a.kind === "automation" && a.upstream.includes(v.id))
+          .map((a) => a.label),
+      });
+    }
+  }
+
+  // --- screens: keyed by SLUG, because one page serves every slice the screen appears in
+  const screens = new Map();
+  for (const m of models) {
+    const ctx = contextOf(m);
+    const byId = new Map(m.ir.elements.map((e) => [e.id, e]));
+    for (const s of m.ir.elements.filter((e) => e.kind === "screen")) {
+      const slug = s.screen ?? s.label;
+      if (!screens.has(slug)) {
+        screens.set(slug, { slug, label: s.label, displays: s.displays, inputs: [], commands: [],
+                            contexts: [], slices: [], design: `designs/${system}/${slug}.html` });
+      }
+      const rec = screens.get(slug);
+      for (const f of s.inputs) if (!rec.inputs.some((x) => x.name === f.name)) rec.inputs.push(f);
+      for (const d of s.downstream) {
+        const c = byId.get(d);
+        if (c?.kind === "command" && !rec.commands.includes(c.label)) rec.commands.push(c.label);
+      }
+      if (!rec.contexts.includes(ctx)) rec.contexts.push(ctx);
+      rec.slices.push({ context: ctx, slice: s.slice, inputs: s.inputs.map((f) => f.name) });
+    }
+  }
+
+  // --- slices: the unit of work, and of parallelism once `shared` exists
+  const slices = [];
+  for (const m of models) {
+    const ctx = contextOf(m);
+    const byId = new Map(m.ir.elements.map((e) => [e.id, e]));
+    const cell = (id) => byId.get(id);
+    for (const s of m.ir.slices) {
+      const scr = s.screens.map(cell).filter(Boolean)[0];
+      slices.push({
+        context: ctx, name: s.name, pattern: s.pattern, status: s.status, kind: s.kind,
+        owner: m.ir.sliceCells.find((c) => c.slice === s.name)?.owner ?? null,
+        owners: (m.ir.sliceCells.find((c) => c.slice === s.name)?.owners ?? "")
+          .split(",").map((x) => x.trim()).filter(Boolean),
+        screen: scr ? (scr.screen ?? scr.label) : null,
+        commands: s.commands.map(cell).filter(Boolean).map((c) => c.label),
+        emits: s.events.map(cell).filter(Boolean).filter((e) => e.kind === "event").map((e) => e.label),
+        imports: s.events.map(cell).filter(Boolean).filter((e) => e.kind === "external").map((e) => e.label),
+        views: s.readModels.map(cell).filter(Boolean).map((v) => v.label),
+        automations: s.automations.map(cell).filter(Boolean).map((a) => a.label),
+        gwts: s.gwts,
+        // Nothing to generate from a column that only lands other people's events.
+        generates: s.pattern !== "upstream",
+      });
+    }
+  }
+
+  return {
+    system,
+    generatedAt: null,      // stamped by the caller; keeping it out makes the IR diffable
+    models: models.map((m) => ({ context: contextOf(m), source: m.ir.source, width: m.ir.width,
+                                 slices: m.ir.slices.length })),
+    shared: {
+      events: [...events.values()].sort((a, b) => a.label.localeCompare(b.label)),
+      aggregates: [...aggregates.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      views: views.sort((a, b) => a.label.localeCompare(b.label)),
+      screens: [...screens.values()].sort((a, b) => a.slug.localeCompare(b.slug)),
+    },
+    slices: slices.sort((a, b) => a.name.localeCompare(b.name)),
+  };
 }
 
 // --- context map: what a Miro board gives free, and a folder does not ------------------------
@@ -1362,6 +1534,20 @@ if (isSystem) {
     const out = join(file, "_context-map.drawio");
     writeFileSync(out, contextMap(models, system), "utf8");
     console.log(`${out}  (${models.length} models)`);
+    process.exit(0);
+  }
+  if (cmd === "compile") {
+    const ir = buildSystemIr(models, system);
+    const json = JSON.stringify(ir, null, 2);
+    const i = rest.indexOf("--out");
+    const out = i >= 0 && rest[i + 1] ? resolve(rest[i + 1]) : resolve("build", `${system}.ir.json`);
+    if (i >= 0 || !rest.includes("--stdout")) {
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(out, json + "\n", "utf8");
+      console.log(`${ir.shared.events.length} event(s), ${ir.shared.aggregates.length} aggregate(s), ` +
+        `${ir.shared.views.length} view(s), ${ir.shared.screens.length} screen(s), ` +
+        `${ir.slices.filter((s) => s.generates).length}/${ir.slices.length} generating slice(s) -> ${out}`);
+    } else console.log(json);
     process.exit(0);
   }
   if (cmd !== "validate") {

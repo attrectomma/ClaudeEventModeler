@@ -51,18 +51,34 @@ reach working generated code once rather than to style four screens. The other t
 it was written. Installing it (`/plugin`) and re-running `styling` improves the aesthetics without
 changing the contract or the checks. See [designs/README.md](../../designs/README.md).
 
-## Next session starts here
+## Codegen: prerequisites done, generation not started
 
-**Codegen.** The last unbuilt piece, and the one that proves the whole idea.
+The agreed order, and where it stands:
 
-`book-hours` is the slice to do first: `status="ready"`, 10 GWTs, a styled screen, and it crosses both
-agents so it exercises the full stack.
+| | Step | State |
+| --- | --- | --- |
+| 1 | `llms.txt` mirror for Marten / Wolverine / Alba | **done** — 392 pages, `node tools/docs.mjs sync` |
+| 2 | system-level IR | **done** — `node tools/model.mjs compile diagrams/hour-booking/` |
+| 3 | contract generation: events, aggregates, projections, **and the failing Alba tests** | next |
+| 4 | `book-hours` end to end, one agent, sequential, until `dotnet test` is green | |
+| 5 | docker-compose for the human demo, strictly separate from the test infrastructure | |
+| 6 | *then* the orchestrator and parallel fan-out | deferred on purpose |
 
-The known blocker is unchanged: the enforced stack is .NET 10 / Postgres / Wolverine / Marten / Alba /
-Testcontainers, and **Wolverine, Marten and Alba all move faster than model knowledge**, so anything
-generated against remembered API shapes will be subtly wrong. Both publish `llms.txt`
-(`martendb.io/llms.txt`, `wolverinefx.net/llms.txt`) as a markdown index whose every entry is served
-as raw `.md`. Mirroring that locally is a **prerequisite**, not a nice-to-have, and is still unbuilt.
+The IR for this system: **16 events, 9 aggregates, 10 views, 4 screens, 17 of 20 slices generating**
+(the three `upstream-*` columns only land other people's events, so they generate nothing).
+
+**Generate the Alba tests in step 3, before any implementation, and let them fail.** The GWTs come
+from the model, not from the code, so tests built from them cannot be tautological — and it makes the
+GWT band's role as the unowned contract between frontend and backend literal.
+
+Two decisions still open, both flagged during the concept review:
+
+- **FluentValidation vs aggregate rules.** A GWT with an empty `given` is *input* validation (hours
+  must be whole or half); a GWT whose `given` names events is a *state* decision (a closed month
+  cannot be booked into) and belongs on the aggregate, where it can see the stream. Getting this
+  wrong puts business rules in validators that cannot enforce them.
+- **One Postgres, not N.** Testcontainers per agent would be one container per agent. One instance per
+  test assembly with schema isolation is the answer.
 
 Note the skill order is a **dependency, not a pipeline**: styling gates only *frontend* codegen.
 [notifications](notifications.drawio) has no screens, so it is backend-only and could go to codegen
