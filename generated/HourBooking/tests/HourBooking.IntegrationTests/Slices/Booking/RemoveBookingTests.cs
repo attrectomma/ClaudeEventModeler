@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.Booking;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN HoursBooked
     //   WHEN  RemoveBooking
     //   THEN  BookingRemoved
-    [Fact]
+    [Fact(Skip = "slice remove-booking is in-design — nobody has claimed these rules yet")]
     public Task AnEmployeeCanRemoveTheirOwnBookingWhileTheMonthIsOpen()
         => throw new NotImplementedException(
             "TODO(codegen): expect BookingRemoved. " +
@@ -33,7 +34,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN HoursBooked, HoursCorrected
     //   WHEN  RemoveBooking
     //   THEN  BookingRemoved
-    [Fact]
+    [Fact(Skip = "slice remove-booking is in-design — nobody has claimed these rules yet")]
     public Task RemovalIsTheOnlyWayToTakeADayProjectBackTo()
         => throw new NotImplementedException(
             "TODO(codegen): expect BookingRemoved. " +
@@ -43,7 +44,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN BookingRemoved
     //   WHEN  RemoveBooking
     //   THEN  error: BookingNotFound
-    [Fact]
+    [Fact(Skip = "slice remove-booking is in-design — nobody has claimed these rules yet")]
     public Task ABookingAlreadyRemovedCannotBeRemovedAgain()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for BookingNotFound. " +
@@ -53,7 +54,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosed
     //   WHEN  RemoveBooking
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice remove-booking is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthCannotBeEditedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +

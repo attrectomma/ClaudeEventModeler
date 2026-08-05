@@ -7,18 +7,21 @@
 using JasperFx;
 using JasperFx.Resources;
 using JasperFx.Events;
+using Weasel.Core;
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
+using Marten.Schema;
 using Wolverine.Marten;
+using HourBooking;
 using HourBooking.Views;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddMarten(opts =>
+var marten = builder.Services.AddMarten(opts =>
     {
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
         opts.DatabaseSchemaName = "hourBooking";
@@ -27,6 +30,11 @@ builder.Services.AddMarten(opts =>
         // strings. Marten fixes this once per store — Guid and string streams cannot be mixed.
         //   employeeId + month
         opts.Events.StreamIdentity = StreamIdentity.AsString;
+
+        // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's
+        // camelCase policy entirely. Set the casing here or every read endpoint quietly returns
+        // PascalCase and the front end silently reads undefined.
+        opts.UseSystemTextJsonForSerialization(EnumStorage.AsString, Casing.CamelCase);
 
         // Read side: every read model is an INLINE projection, updated in the same transaction as
         // the append, so a GWT THEN can be asserted straight after the request returns.
@@ -44,6 +52,10 @@ builder.Services.AddMarten(opts =>
     })
     .IntegrateWithWolverine();
 
+// Starting data for running the app by hand: membership, an open month, one booking. Development
+// only, and idempotent, because Populate runs on every startup.
+if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
+
 builder.Services.AddResourceSetupOnStartup();
 
 builder.Host.UseWolverine(opts =>
@@ -55,7 +67,18 @@ builder.Host.UseWolverine(opts =>
 
 builder.Services.AddWolverineHttp();
 
+if (builder.Environment.IsDevelopment())
+{
+    // The Vite dev server is a different origin. Development only — never a wildcard in production.
+    builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
+        .WithOrigins("http://localhost:5173")
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+}
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment()) app.UseCors();
 
 app.MapWolverineEndpoints(opts =>
 {

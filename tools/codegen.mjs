@@ -63,6 +63,15 @@ const banner = (what) =>
 // periphery rules out of four. Declared instead, and defaulting to the safe answer (the aggregate,
 // where the stream is visible). A misplaced rule in a validator cannot enforce itself.
 const isPeriphery = (g) => (g.enforce ?? "aggregate") === "periphery";
+
+// A slice nobody has started yet still gets its tests generated — they document the rules — but
+// skipped, so `dotnet test` going green means the slices that ARE claimed actually pass. The skip
+// count is then the honest measure of what is left.
+const CLAIMED = new Set(["ready", "in-progress", "in-review", "closed"]);
+const isClaimed = (s) => CLAIMED.has(s.status ?? "in-design");
+const factAttr = (s) => isClaimed(s)
+  ? "[Fact]"
+  : `[Fact(Skip = ${JSON.stringify(`slice ${s.name} is ${s.status ?? "in-design"} — nobody has claimed these rules yet`)})]`;
 const ruleName = (g) => pascal((/^error:\s*(.+)$/i.exec((g.then ?? "").trim())?.[1] ?? g.rule ?? g.id).trim());
 const testName = (g, i) => {
   const base = (g.rule || g.label || g.id).replace(/\s*\n[\s\S]*$/, "");
@@ -70,7 +79,15 @@ const testName = (g, i) => {
 };
 
 const files = [];
+const kept = [];
+// Fully derived: always overwritten, because the diff IS the review of a model change.
 const emit = (p, body) => { write(p, body); files.push(p); };
+// Needs judgement: scaffolded once, then owned by whoever filled it in. Overwriting this would
+// silently delete the only part of the code a model cannot express.
+const scaffold = (p, body) => {
+  if (existsSync(p)) { kept.push(p); return; }
+  write(p, body); files.push(p);
+};
 
 // --- events -----------------------------------------------------------------------------------
 
@@ -114,7 +131,7 @@ for (const s of ir.slices) {
   if (!agg || !agg.events.length) continue;
   const evs = agg.events.map((l) => ir.shared.events.find((e) => e.label === l));
   const keyed = agg.identity;
-  emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${stateName(s)}.cs`),
+  scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${stateName(s)}.cs`),
     `${banner(`${s.name} — the state this slice folds to make its decision`)}
 using ${NS}.Contracts;
 
@@ -170,7 +187,7 @@ for (const v of ir.shared.views) {
     return KEY.every((k) => e?.fields.some((f) => f.name === k));
   });
   if (!multi || sliceable.length) registerable.push(v.label);
-  emit(join(APP, "Views", `${pascal(v.label)}.cs`),
+  scaffold(join(APP, "Views", `${pascal(v.label)}.cs`),
     `${banner(`${v.label} read model — fed by ${v.from.length} event type(s)`)}
 using Marten.Events.Aggregation;   // SingleStreamProjection
 using Marten.Events.Projections;   // MultiStreamProjection
@@ -240,7 +257,7 @@ for (const [s, gwts] of peripheryBySlice) {
   const cmd = s.commands[0];
   const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === cmd));
   const fields = agg?.commands.find((c) => c.label === cmd)?.fields ?? [];
-  emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}Validator.cs`),
+  scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}Validator.cs`),
     `${banner(`${cmd} — periphery validation for slice "${s.name}"`)}
 using FluentValidation;
 using ${NS}.Slices.${pascal(s.context)}.${pascal(s.name)};
@@ -273,6 +290,7 @@ emit(join(TESTS, "AppFixture.cs"),
 using Alba;
 using JasperFx.CommandLine;
 using Marten;
+using Marten.Schema;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Wolverine;
@@ -312,6 +330,10 @@ public sealed class AppFixture : IAsyncLifetime
                 services.RunWolverineInSoloMode();
                 // No broker in tests. Sends are still tracked, just not delivered.
                 services.DisableAllExternalWolverineTransports();
+
+                // Marten attaches any IInitialData in the container to StoreOptions, and
+                // ResetAllMartenDataAsync re-applies it — so every test starts in the same world.
+                services.AddSingleton<IInitialData, SeedData>();
             });
             builder.UseSetting("ConnectionStrings:Marten", _postgres.GetConnectionString());
         });
@@ -332,7 +354,7 @@ public sealed class IntegrationCollection : ICollectionFixture<AppFixture>;
 // Marten's IInitialData is the answer to "a test needs example data and the model has none". The
 // genesis events are seeded once with fixed ids, ResetAllData re-applies them, and every test then
 // starts from the same known world instead of inventing its own.
-emit(join(TESTS, "SeedData.cs"),
+scaffold(join(TESTS, "SeedData.cs"),
   `${banner("baseline data — one known world, re-applied before every test")}
 using Marten;
 using Marten.Schema;
@@ -440,7 +462,7 @@ for (const s of ir.slices) {
     ? `${stateName(s)}.StreamKey(/* ${agg.identity.join(", ")} */)`
     : "/* no command in this slice, so no stream is written */";
   gwtCount += s.gwts.length;
-  emit(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
+  scaffold(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
     `${banner(`slice "${s.name}" — ${s.gwts.length} GWT(s), one test each`)}
 using Alba;
 using ${NS}.Contracts;
@@ -453,6 +475,7 @@ namespace ${NS}.IntegrationTests.Slices.${pascal(s.context)};
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: ${s.pattern}. Status: ${s.status}.
+/// ${isClaimed(s) ? "LIVE: this slice is claimed, so every test here must pass." : "SKIPPED: promote the slice past in-design to turn these on."}
 /// ${s.owners.length > 1 ? `This slice needs ${s.owners.join(" and ")}, so these are the contract between them.` : `Owned by ${s.owner ?? "nobody in particular"}.`}
 /// </summary>
 public sealed class ${pascal(s.name)}Tests(AppFixture fixture) : IntegrationContext(fixture)
@@ -464,7 +487,7 @@ ${s.gwts.map((g, i) => {
     //   GIVEN ${g.given || "(nothing)"}
     //   WHEN  ${g.when || "(nothing)"}
     //   THEN  ${g.then || "(nothing)"}${isPeriphery(g) ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
-    [Fact]
+    ${factAttr(s)}
     public Task ${testName(g, i)}()
         => throw new NotImplementedException(
             "TODO(codegen): ${err ? `expect a 400/ProblemDetails for ${ruleName(g)}` : `expect ${thens.join(", ") || "the modelled outcome"}`}. " +
@@ -481,18 +504,21 @@ emit(join(APP, "Program.cs"),
 using JasperFx;
 using JasperFx.Resources;
 using JasperFx.Events;
+using Weasel.Core;
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
+using Marten.Schema;
 using Wolverine.Marten;
+using ${NS};
 using ${NS}.Views;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddMarten(opts =>
+var marten = builder.Services.AddMarten(opts =>
     {
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
         opts.DatabaseSchemaName = "${camel(ir.system)}";
@@ -502,6 +528,11 @@ builder.Services.AddMarten(opts =>
 ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a.identity.join(" + ")))]
       .map((k) => `        //   ${k}`).join("\n")}
         opts.Events.StreamIdentity = StreamIdentity.AsString;
+
+        // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's
+        // camelCase policy entirely. Set the casing here or every read endpoint quietly returns
+        // PascalCase and the front end silently reads undefined.
+        opts.UseSystemTextJsonForSerialization(EnumStorage.AsString, Casing.CamelCase);
 
         // Read side: every read model is an INLINE projection, updated in the same transaction as
         // the append, so a GWT THEN can be asserted straight after the request returns.
@@ -516,6 +547,10 @@ ${ir.shared.views.map((v) => registerable.includes(v.label)
     })
     .IntegrateWithWolverine();
 
+// Starting data for running the app by hand: membership, an open month, one booking. Development
+// only, and idempotent, because Populate runs on every startup.
+if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
+
 builder.Services.AddResourceSetupOnStartup();
 
 builder.Host.UseWolverine(opts =>
@@ -527,7 +562,18 @@ builder.Host.UseWolverine(opts =>
 
 builder.Services.AddWolverineHttp();
 
+if (builder.Environment.IsDevelopment())
+{
+    // The Vite dev server is a different origin. Development only — never a wildcard in production.
+    builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
+        .WithOrigins("http://localhost:5173")
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+}
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment()) app.UseCors();
 
 app.MapWolverineEndpoints(opts =>
 {
@@ -540,7 +586,7 @@ return await app.RunJasperFxCommands(args);
 
 emit(join(APP, "appsettings.json"),
   JSON.stringify({
-    ConnectionStrings: { Marten: "Host=localhost;Port=5432;Database=" + camel(ir.system) + ";Username=postgres;Password=postgres" },
+    ConnectionStrings: { Marten: "Host=localhost;Port=5433;Database=" + camel(ir.system).toLowerCase() + ";Username=postgres;Password=postgres" },
     Logging: { LogLevel: { Default: "Information", "Microsoft.AspNetCore": "Warning" } },
   }, null, 2) + "\n");
 
@@ -556,6 +602,7 @@ emit(join(APP, `${NS}.csproj`),
 
   <ItemGroup>
     <PackageReference Include="Marten" Version="8.*" />
+    <PackageReference Include="Marten.AspNetCore" Version="8.*" />
     <PackageReference Include="WolverineFx.Http" Version="5.*" />
     <PackageReference Include="WolverineFx.Http.Marten" Version="5.*" />
     <PackageReference Include="WolverineFx.Http.FluentValidation" Version="5.*" />
@@ -604,7 +651,7 @@ emit(join(OUT, `${NS}.slnx`),
 </Solution>
 `);
 
-console.log(`${files.length} file(s) -> ${OUT}`);
+console.log(`${files.length} file(s) written, ${kept.length} kept (already filled in) -> ${OUT}`);
 console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, ${foreign.length} foreign)`);
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);

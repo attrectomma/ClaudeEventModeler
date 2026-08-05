@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.Booking;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: automation. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// Owned by backend-agent.
 /// </summary>
 public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN EmployeeRemovedFromProject
     //   WHEN  FillZeroHours
     //   THEN  ZeroHoursFilled
-    [Fact]
+    [Fact(Skip = "slice fill-zero-hours is in-design — nobody has claimed these rules yet")]
     public Task LeavingAProjectFillsTheRestOfThatMonthWithZeroHours()
         => throw new NotImplementedException(
             "TODO(codegen): expect ZeroHoursFilled. " +
@@ -33,7 +34,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN EmployeeRemovedFromProject, WorkingDayPublished
     //   WHEN  FillZeroHours
     //   THEN  ZeroHoursFilled
-    [Fact]
+    [Fact(Skip = "slice fill-zero-hours is in-design — nobody has claimed these rules yet")]
     public Task OnlyWorkingDaysAreFilledWeekendsAndPublicHolidaysAreNot()
         => throw new NotImplementedException(
             "TODO(codegen): expect ZeroHoursFilled. " +
@@ -43,7 +44,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN EmployeeRemovedFromProject
     //   WHEN  FillZeroHours
     //   THEN  ZeroHoursFilled
-    [Fact]
+    [Fact(Skip = "slice fill-zero-hours is in-design — nobody has claimed these rules yet")]
     public Task TheSystemMayWriteAZeroWhereAnEmployeeMayNot()
         => throw new NotImplementedException(
             "TODO(codegen): expect ZeroHoursFilled. " +
@@ -53,7 +54,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN ZeroHoursFilled
     //   WHEN  FillZeroHours
     //   THEN  error: AlreadyFilled
-    [Fact]
+    [Fact(Skip = "slice fill-zero-hours is in-design — nobody has claimed these rules yet")]
     public Task ADayAlreadyZeroFilledIsNotFilledTwice()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for AlreadyFilled. " +

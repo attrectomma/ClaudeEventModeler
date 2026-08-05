@@ -7,6 +7,7 @@
 using Alba;
 using JasperFx.CommandLine;
 using Marten;
+using Marten.Schema;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Wolverine;
@@ -46,6 +47,10 @@ public sealed class AppFixture : IAsyncLifetime
                 services.RunWolverineInSoloMode();
                 // No broker in tests. Sends are still tracked, just not delivered.
                 services.DisableAllExternalWolverineTransports();
+
+                // Marten attaches any IInitialData in the container to StoreOptions, and
+                // ResetAllMartenDataAsync re-applies it — so every test starts in the same world.
+                services.AddSingleton<IInitialData, SeedData>();
             });
             builder.UseSetting("ConnectionStrings:Marten", _postgres.GetConnectionString());
         });
