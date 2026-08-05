@@ -131,6 +131,8 @@ function parseCells(body) {
       // sits in the implementation workflow.
       pattern: a.pattern ?? null,
       status: a.status ?? null,
+      // Only on a swimlane band: which aggregates' events live in this stream.
+      streams: a.streams ?? null,
       aggregate: a.aggregate ?? null,
       fields: parseFields(a.fields),
       // On a screen: what it shows (the book marks these green on the wireframe) and what the
@@ -163,9 +165,16 @@ function buildIr(file) {
   const { nodes, edges } = parseCells(body);
 
   const isMarker = (id) => id.startsWith(MARK_PREFIX);
-  const lanes = nodes.filter((n) => n.kind === "lane" || n.id.startsWith("lane-"));
+  // A swimlane is drawn INSIDE the Event Stream lane and is not itself a lane. Keeping it out of
+  // `lanes` matters: laneOf() takes the first containing match, and parseCells returns every
+  // <object> before every bare <mxCell>, so a swimlane authored as an object would otherwise be
+  // found ahead of the lane that contains it and every event would look misplaced.
+  const swimlaneNodes = nodes.filter((n) => n.streams && !isMarker(n.id));
+  const lanes = nodes.filter(
+    (n) => !swimlaneNodes.includes(n) && (n.kind === "lane" || n.id.startsWith("lane-"))
+  );
   const elements = nodes.filter(
-    (n) => !lanes.includes(n) && !isMarker(n.id) && n.kind !== "group"
+    (n) => !lanes.includes(n) && !swimlaneNodes.includes(n) && !isMarker(n.id) && n.kind !== "group"
   );
   const live = edges.filter((e) => !isMarker(e.id));
 
@@ -186,6 +195,11 @@ function buildIr(file) {
   // draw.io container — a container reparents its children and makes their mxGeometry relative,
   // which would break every absolute-x reader here and in tools/crop.mjs.
   const sliceCells = nodes.filter((n) => n.kind === "group" && n.slice && !isMarker(n.id));
+  // Swimlanes cut the Event Stream lane horizontally, one band per stream. "Swimlanes define
+  // stream boundaries. Typically, all events in one swimlane end up in a physical stream."
+  const swimlanes = swimlaneNodes
+    .map((n) => ({ id: n.id, label: n.label, geometry: n.geometry,
+                   streams: n.streams.split(",").map((s) => s.trim()).filter(Boolean) }));
 
   const sliceNames = [...new Set([
     ...elements.map((e) => e.slice).filter(Boolean),
@@ -218,6 +232,7 @@ function buildIr(file) {
     lanes: lanes.map(({ id, label }) => ({ id, label })),
     slices,
     sliceCells,
+    swimlanes,
     elements,
     edges: live,
   };
@@ -738,6 +753,61 @@ function sliceRules(ir, priorFindings) {
   return d;
 }
 
+// --- swimlanes: stream boundaries -------------------------------------------
+//
+// A swimlane is NOT a team boundary. "Swimlanes define stream boundaries. Typically, all events in
+// one swimlane end up in a physical stream" — Understanding EventSourcing, ch. 7. One band per
+// business capability, and every event in the band belongs to that stream.
+//
+// The rule worth enforcing is the little book's, ch. 11: "a single command should never interact
+// with multiple swimlanes or aggregates. The moment you do this, you introduce the need for a
+// transactional boundary around the operation." Two effects that must happen atomically are not
+// two aggregates — they are one.
+
+function swimlaneRules(ir) {
+  const d = [];
+  const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  const push = (severity, rule, message, at) => d.push({ family: "swimlane", severity, rule, message, at });
+  if (!ir.swimlanes.length) return d;             // not every model draws them
+
+  const bandOf = (e) => {
+    if (!e.geometry) return null;
+    const mid = e.geometry.y + e.geometry.h / 2;
+    return ir.swimlanes.find((s) => s.geometry && mid >= s.geometry.y && mid <= s.geometry.y + s.geometry.h) ?? null;
+  };
+
+  for (const e of ir.elements) {
+    if (e.kind !== "event" && e.kind !== "external") continue;
+    if (!e.aggregate) {
+      push("warn", "event-needs-aggregate",
+        `${e.label} declares no aggregate=, so it belongs to no stream.`, e.id);
+      continue;
+    }
+    const band = bandOf(e);
+    if (!band) {
+      push("error", "event-outside-swimlane",
+        `${e.label} is drawn outside every swimlane, so which stream it lands in is undefined.`, e.id);
+    } else if (!band.streams.includes(e.aggregate)) {
+      push("error", "event-wrong-swimlane",
+        `${e.label} is aggregate="${e.aggregate}" but is drawn in the "${band.label}" swimlane, which holds ${band.streams.join(", ")}.`,
+        e.id);
+    }
+  }
+
+  for (const e of ir.elements) {
+    if (e.kind !== "command") continue;
+    const emitted = e.downstream.map((id) => byId.get(id))
+      .filter((x) => x && (x.kind === "event" || x.kind === "external"));
+    const streams = [...new Set(emitted.map((x) => x.aggregate).filter(Boolean))];
+    if (streams.length > 1) {
+      push("error", "command-crosses-swimlane",
+        `${e.label} emits events in ${streams.length} streams (${streams.join(", ")}). A Command must never touch more than one — that is a transactional boundary, and two effects that must be atomic are one aggregate, not two.`,
+        e.id);
+    }
+  }
+  return d;
+}
+
 // --- marking: overlay cells only, never mutate a modelled cell ---------------
 
 function stripMarkers(xml) {
@@ -813,7 +883,7 @@ if (cmd === "clear") {
 const ir = buildIr(file);
 // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while its
 // own cells still carry errors.
-const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir)];
+const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir)];
 const findings = [...core, ...sliceRules(ir, core)];
 const errors = findings.filter((f) => f.severity === "error");
 

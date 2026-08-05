@@ -38,7 +38,8 @@ for (const b of blocks) {
   if (!g) { keep.push(b); continue; }
   const a = Object.fromEntries([...g[1].matchAll(/(\w+)="([^"]*)"/g)].map(([, k, v]) => [k, v]));
   const x = +(a.x ?? 0), w = +(a.width ?? 0);
-  if (/id="lane-/.test(b)) {                            // lanes span the model; clamp to the window
+  // Lanes and swimlanes span the whole model; clamp them or they blow out the export bounds.
+  if (/id="lane-/.test(b) || /\bstreams="/.test(b)) {
     keep.push(b.replace(/x="40"/, 'x="20"').replace(/width="\d+"/, `width="${x1 - x0 + 40}"`));
   } else if (x + w >= x0 && x <= x1) {
     keep.push(b.replace(`x="${a.x}"`, `x="${x - x0 + 40}"`));

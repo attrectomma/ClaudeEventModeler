@@ -225,6 +225,39 @@ reorder the columns. A vertical slice that isn't vertical isn't a slice.
 Every element geometrically inside a band must declare that `slice=`, and every element declaring
 it must be drawn inside. That is what stops the drawing and the data drifting apart.
 
+## Swimlanes: stream boundaries, not team boundaries
+
+A swimlane is **not** an org chart. *"Swimlanes define stream boundaries. Typically, all events in
+one swimlane end up in a physical stream"* — Understanding EventSourcing, ch. 7. One horizontal
+band per business capability, drawn **inside** the Event Stream lane, declaring which aggregates
+it holds:
+
+```xml
+<object id="swim-timesheet" label="Timesheet stream" em="lane" streams="Timesheet">
+```
+
+An event's **y is its stream**, not its column. Its `aggregate=` must match the band it is drawn
+in, and an event drawn in no band has an undefined stream — both are errors.
+
+The rule worth enforcing is the little book's, ch. 11:
+
+> *"A single command should never interact with multiple swimlanes or aggregates. The moment you
+> do this, you introduce the need for a transactional boundary around the operation."*
+
+So `command-crosses-swimlane` is an error, not a warning. Two effects that must happen atomically
+are not two aggregates — they are one.
+
+**A swimlane is not a lane**, and `buildIr` deliberately keeps it out of `lanes`. `laneOf()` takes
+the first containing match, and `parseCells` returns every `<object>` before every bare `<mxCell>`
+— so a swimlane authored as an object would be found ahead of the lane containing it, and every
+event would look misplaced. Anything spanning the model must also be clamped in `tools/crop.mjs`
+or it blows out the export bounds.
+
+**The validation test is manual and worth doing.** From the same chapter: hide every swimlane but
+one, read its events left to right to someone from the business who cannot see the model. They
+should form a compelling narrative. If the story does not hold, the stream boundary is wrong — and
+nothing automatic will tell you.
+
 ### `status` turns the gate from global into per-slice
 
 `in-design` → `ready` → `in-progress` → `in-review` → `closed`.
