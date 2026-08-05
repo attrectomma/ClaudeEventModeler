@@ -62,6 +62,32 @@ for evolution.
 Pass each agent: the slice name, the system folder, and the relevant slice of the IR. Do not paste the
 whole model.
 
+## The pattern does not choose the implementation — make the agent choose, out loud
+
+`pattern=` names one of the four shapes. It is a **contract**: which blocks connect, in which
+direction. It never says which library recipe realises them, and for `command`, `view` and `automation`
+there is a real choice with real consequences.
+
+| `pattern=` | The choice | Worked comparison |
+| --- | --- | --- |
+| `command` | aggregate handler workflow vs. explicit `FetchForWriting`; endpoint vs. message; `StartStream` when the slice creates | `reference-implementations/state-change/` |
+| `view` | live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — six recipes, and `identity=` narrows but does not decide | `reference-implementations/state-view/` |
+| `automation` | what wakes the trigger: forwarding, subscription, `RaiseSideEffects`, clock | `reference-implementations/automation/` |
+| `translation` | the automation choice, plus how the foreign event lands | — |
+
+Two things follow, and both are yours to enforce:
+
+**The reference implementations are worked examples, not the menu.** They record what a choice *cost*
+on the model they were built against. The set of options lives in the library's own docs —
+`reference/llms/marten/…`, `reference/llms/wolverine/…` — and each reference implementation covers only
+some of them. An agent that copies the nearest reference implementation without checking the mirror for
+a closer fit has skipped the decision, not made it.
+
+**A slice that does not state its choice is not finished.** No checker can see a wrong one: the model
+validates, the code compiles, the tests pass. So require in the report *which* recipe, *why*, and what
+it costs — a daemon, eventual consistency, a rebuild hazard. Then carry that sentence into the commit
+message, because it is the only place the reasoning will survive.
+
 ## Gates — yours to enforce, not theirs to claim
 
 | | Must be true |
@@ -69,6 +95,7 @@ whole model.
 | Backend | `dotnet test` green, and the slice's tests **LIVE not skipped** |
 | Coverage | `codegen` prints no `GWT WITHOUT A TEST` — see below, this one is not implied by green |
 | Reads | anything the screen `displays=` can actually be fetched |
+| Choice | the report names the implementation recipe chosen and why. "Same as the reference implementation" is not an answer unless the mirror was checked |
 | Frontend | `tsc` clean, `design.mjs check` clean, and **the render has been looked at** |
 | Model | `model.mjs validate` still zero errors — implementing must not have needed a model change nobody made |
 

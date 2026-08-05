@@ -1,0 +1,370 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="campaigns" id="context">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2940" pageHeight="1820" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="model-campaigns" label="Campaigns&#10;campaigns · context" em="model" context="campaigns" system="campaigns" note="A reference model for the VIEW pattern, not a domain. Five view slices over TWO stream types, so that Marten's read-model recipes can be compared against ONE model — the point being that Event(s) -> View does not choose between them. Every green box here is a legitimate SingleStreamProjection, EventProjection, MultiStreamProjection, FlatTableProjection or live fold; which one is right is decided by identity=, not by the drawing.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="360" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="2840" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="550" width="2840" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="870" width="2840" height="310" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-campaign" label="Campaign stream — one stream per campaign" em="lane" streams="Campaign" identity="campaignId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="895" width="2840" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-message" label="Message stream — one stream per message" em="lane" streams="Message" identity="messageId" note="A SECOND stream type is the whole reason this model exists: a multi-stream projection spanning two of them is not the same problem as one spanning many streams of one type, and only a model with both can show the difference.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1000" width="2840" height="170" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1300" width="2840" height="460" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-open-campaign" label="open-campaign&#10;command · ready" em="group" slice="open-campaign" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="80" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-close-campaign" label="close-campaign&#10;command · ready" em="group" slice="close-campaign" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="400" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-queue-message" label="queue-message&#10;command · ready" em="group" slice="queue-message" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-record-outcome" label="record-outcome&#10;command · ready" em="group" slice="record-outcome" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-message-status" label="message-status&#10;view · ready" em="group" slice="message-status" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1360" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-delivery-log" label="delivery-log&#10;view · ready" em="group" slice="delivery-log" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1680" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-campaign-dashboard" label="campaign-dashboard&#10;view · ready" em="group" slice="campaign-dashboard" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="2000" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-sender-monthly" label="sender-monthly&#10;view · ready" em="group" slice="sender-monthly" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="2320" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-message-metrics" label="message-metrics&#10;view · ready" em="group" slice="message-metrics" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="2640" y="140" width="220" height="1040" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-campaigns-open" label="Campaigns" em="screen" slice="open-campaign" screen="campaigns" inputs="name:string" note="The same screen appears in two slices under one slug. displays= must agree across them and inputs= may differ — which is the whole point: opening needs a name typed, closing needs a campaign picked.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="200" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-campaigns-close" label="Campaigns" em="screen" slice="close-campaign" screen="campaigns" inputs="campaignId:Guid" note="Second cell of the campaigns screen. No displays= on either cell, so no View feeds this screen — deliberately: this model exists to compare read-model IMPLEMENTATIONS, and a screen would drag in styling and a frontend port that add nothing to that comparison.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="200" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-compose" label="Compose" em="screen" slice="queue-message" screen="compose" inputs="campaignId:Guid, subject:string, recipients:string[]" note="recipients is a LIST typed on one screen. That single fact is what makes an EventProjection the right recipe for delivery-log: one event, N documents.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="200" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-deliveries" label="Deliveries" em="screen" slice="record-outcome" screen="deliveries" inputs="messageId:Guid, recipient:string, outcome:string, reason:string?" note="An operator records what the mail provider reported. In a real system this is a webhook and the trigger is an external event; a screen keeps this model inside one context, which is what it is for.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="200" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-open-campaign" label="OpenCampaign" em="command" slice="open-campaign" aggregate="Campaign" fields="campaignId:Guid, name:string" terminal="campaignId:generated" note="The handler mints the id: a screen cannot supply one for a campaign that does not exist yet.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-close-campaign" label="CloseCampaign" em="command" slice="close-campaign" aggregate="Campaign" fields="campaignId:Guid" note="One field, because the decider folds the Campaign stream for everything else.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-queue-message" label="QueueMessage" em="command" slice="queue-message" aggregate="Message" fields="messageId:Guid, campaignId:Guid, senderId:Guid, subject:string, recipients:string[]" terminal="messageId:generated, senderId:actor" note="Writes the Message stream only. The rule that the campaign must be open is a cross-stream READ of the Campaign stream, never a second write — one command, one swimlane.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-record-outcome" label="RecordOutcome" em="command" slice="record-outcome" aggregate="Message" fields="messageId:Guid, recipient:string, outcome:string, reason:string?" note="One command, two possible events — allowed, and the little book says it should not be the rule. A delivery attempt reports either success or failure, and splitting that into two commands would let a caller claim both for one attempt.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-campaign-opened" label="CampaignOpened" em="event" slice="open-campaign" aggregate="Campaign" fields="campaignId:Guid, name:string, openedAt:DateTimeOffset" terminal="openedAt:clock" note="Opens the Campaign stream.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-campaign-closed" label="CampaignClosed" em="event" slice="close-campaign" aggregate="Campaign" fields="campaignId:Guid, closedAt:DateTimeOffset" terminal="closedAt:clock" note="The second Campaign event, and the reason campaign-dashboard.status is a fold over event PRESENCE rather than a field carried by anything.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-message-queued" label="MessageQueued" em="event" slice="queue-message" aggregate="Message" fields="messageId:Guid, campaignId:Guid, senderId:Guid, subject:string, recipients:string[], queuedAt:DateTimeOffset" terminal="queuedAt:clock" note="Feeds all five views, and is the only Message event carrying campaignId. That asymmetry is deliberate — see the note on campaign-dashboard.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1020" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-message-delivered" label="MessageDelivered" em="event" slice="record-outcome" aggregate="Message" fields="messageId:Guid, recipient:string, deliveredAt:DateTimeOffset" terminal="deliveredAt:clock" note="Carries no campaignId. A delivery notification is a fact about a message and its recipient; duplicating the campaign onto it just to make a projection easy would be the tail wagging the dog.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1020" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-message-bounced" label="MessageBounced" em="event" slice="record-outcome" aggregate="Message" fields="messageId:Guid, recipient:string, reason:string, bouncedAt:DateTimeOffset" terminal="bouncedAt:clock" note="Drawn in the same swimlane as its sibling because its stream is the same. Two rows inside one band is what a slice emitting two events looks like.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1095" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-message-status" label="MessageStatus" em="readmodel" slice="message-status" identity="messageId" fields="messageId:Guid, campaignId:Guid, subject:string, recipientCount:int, delivered:int, bounced:int, status:string" derived="recipientCount=recipients, delivered=MessageDelivered, bounced=MessageBounced, status=MessageQueued+MessageDelivered+MessageBounced" note="One row per Message stream, fed only by that stream's own events. That is the definition of a SINGLE-STREAM projection — and equally the definition of a live fold, which needs no registration and no table at all. Both are built, so the cost of the table is visible.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-delivery-log" label="DeliveryLog" em="readmodel" slice="delivery-log" identity="messageId, recipient" fields="messageId:Guid, campaignId:Guid, recipient:string, subject:string, queuedAt:DateTimeOffset" derived="recipient=recipients" note="One row per RECIPIENT of a message, and one MessageQueued event creates all of them at once. No aggregation can express that: an aggregation folds many events into one row, this fans one event into many. That is what EventProjection is for.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-campaign-dashboard" label="CampaignDashboard" em="readmodel" slice="campaign-dashboard" identity="campaignId" fields="campaignId:Guid, name:string, status:string, queued:int, delivered:int, bounced:int" derived="status=CampaignOpened+CampaignClosed, queued=MessageQueued, delivered=MessageDelivered, bounced=MessageBounced" note="One row per campaign, fed by BOTH stream types. Campaign events carry campaignId and MessageQueued carries it too, so those group with Identity&lt;T&gt;. MessageDelivered and MessageBounced do NOT carry it, so they need a custom grouper over a lookup — which is the honest cost of not denormalising the key onto every event.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-sender-monthly" label="SenderMonthly" em="readmodel" slice="sender-monthly" identity="senderId, month" fields="senderId:Guid, month:string, messages:int, recipients:int" derived="month=MessageQueued, messages=MessageQueued, recipients=recipients" note="One row per sender per calendar month, rolled up over MANY streams of ONE type. month is not a field of any event — it comes from the event's own timestamp, which the model has no way to name, so it is declared derived from the event itself.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-message-metrics" label="MessageMetrics" em="readmodel" slice="message-metrics" identity="messageId" fields="messageId:Guid, campaignId:Guid, senderId:Guid, recipientCount:int, delivered:int, bounced:int, queuedAt:DateTimeOffset" derived="recipientCount=recipients, delivered=MessageDelivered, bounced=MessageBounced" note="Deliberately the SAME grain as MessageStatus. The duplication is the comparison: this one is a flat SQL table rather than a JSONB document, so it answers 'delivery rate by campaign by day' with a GROUP BY instead of a fold. Same events, same identity, a different storage shape.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-campaigns-open--cmd-open-campaign" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-campaigns-open" target="cmd-open-campaign">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-open-campaign--evt-campaign-opened" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-open-campaign" target="evt-campaign-opened">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-scr-campaigns-close--cmd-close-campaign" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-campaigns-close" target="cmd-close-campaign">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-close-campaign--evt-campaign-closed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-close-campaign" target="evt-campaign-closed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-scr-compose--cmd-queue-message" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-compose" target="cmd-queue-message">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-queue-message--evt-message-queued" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-queue-message" target="evt-message-queued">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-scr-deliveries--cmd-record-outcome" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-deliveries" target="cmd-record-outcome">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-record-outcome--evt-message-delivered" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-record-outcome" target="evt-message-delivered">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-record-outcome--evt-message-bounced" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-record-outcome" target="evt-message-bounced">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1250" y="630" />
+              <mxPoint x="1250" y="1175" />
+              <mxPoint x="1150" y="1175" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-campaign-opened--rm-campaign-dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.15;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-campaign-opened" target="rm-campaign-dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="736" />
+              <mxPoint x="2047" y="736" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-campaign-closed--rm-campaign-dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.3;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-campaign-closed" target="rm-campaign-dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="744" />
+              <mxPoint x="2074" y="744" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-queued--rm-message-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.25;exitY=0;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-queued" target="rm-message-status">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="785" y="752" />
+              <mxPoint x="1425" y="752" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-queued--rm-delivery-log" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.4;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-queued" target="rm-delivery-log">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="812" y="760" />
+              <mxPoint x="1790" y="760" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-queued--rm-campaign-dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-queued" target="rm-campaign-dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="768" />
+              <mxPoint x="2110" y="768" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-queued--rm-sender-monthly" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.6;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-queued" target="rm-sender-monthly">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="848" y="776" />
+              <mxPoint x="2430" y="776" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-queued--rm-message-metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-queued" target="rm-message-metrics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="875" y="784" />
+              <mxPoint x="2705" y="784" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-delivered--rm-message-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.25;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-delivered" target="rm-message-status">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1105" y="792" />
+              <mxPoint x="1470" y="792" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-delivered--rm-campaign-dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.7;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-delivered" target="rm-campaign-dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1123" y="800" />
+              <mxPoint x="2146" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-delivered--rm-message-metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-delivered" target="rm-message-metrics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1195" y="808" />
+              <mxPoint x="2750" y="808" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-bounced--rm-message-status" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-bounced" target="rm-message-status">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1280" y="1125" />
+              <mxPoint x="1280" y="816" />
+              <mxPoint x="1515" y="816" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-bounced--rm-campaign-dashboard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0.85;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-bounced" target="rm-campaign-dashboard">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1300" y="1140" />
+              <mxPoint x="1300" y="824" />
+              <mxPoint x="2173" y="824" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-message-bounced--rm-message-metrics" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-message-bounced" target="rm-message-metrics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1320" y="1110" />
+              <mxPoint x="1320" y="832" />
+              <mxPoint x="2795" y="832" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="gwt-open-campaign-1" label="a campaign can be opened&#10;&#10;GIVEN —&#10;WHEN OpenCampaign&#10;THEN CampaignOpened" em="gwt" slice="open-campaign" rule="a campaign can be opened" when="OpenCampaign" then="CampaignOpened">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-open-campaign-2" label="a campaign with no name is refused&#10;&#10;GIVEN —&#10;WHEN OpenCampaign&#10;THEN error: NameRequired" em="gwt" slice="open-campaign" rule="a campaign with no name is refused" when="OpenCampaign" then="error: NameRequired" enforce="periphery">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-campaign-1" label="an open campaign can be closed&#10;&#10;GIVEN CampaignOpened&#10;WHEN CloseCampaign&#10;THEN CampaignClosed" em="gwt" slice="close-campaign" rule="an open campaign can be closed" given="CampaignOpened" when="CloseCampaign" then="CampaignClosed">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-close-campaign-2" label="closing a closed campaign is refused&#10;&#10;GIVEN CampaignOpened, CampaignClosed&#10;WHEN CloseCampaign&#10;THEN error: AlreadyClosed" em="gwt" slice="close-campaign" rule="closing a closed campaign is refused" given="CampaignOpened, CampaignClosed" when="CloseCampaign" then="error: AlreadyClosed" enforce="aggregate">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-queue-message-1" label="a message can be queued to an open campaign&#10;&#10;GIVEN CampaignOpened&#10;WHEN QueueMessage&#10;THEN MessageQueued" em="gwt" slice="queue-message" rule="a message can be queued to an open campaign" given="CampaignOpened" when="QueueMessage" then="MessageQueued">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-queue-message-2" label="a message with no recipients is refused&#10;&#10;GIVEN —&#10;WHEN QueueMessage&#10;THEN error: RecipientsRequired" em="gwt" slice="queue-message" rule="a message with no recipients is refused" when="QueueMessage" then="error: RecipientsRequired" enforce="periphery">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-queue-message-3" label="a message cannot be queued to a closed campaign&#10;&#10;GIVEN CampaignOpened, CampaignClosed&#10;WHEN QueueMessage&#10;THEN error: CampaignNotOpen" em="gwt" slice="queue-message" rule="a message cannot be queued to a closed campaign" given="CampaignOpened, CampaignClosed" when="QueueMessage" then="error: CampaignNotOpen" enforce="aggregate" note="The cross-stream rule. It reads the Campaign stream and writes the Message stream, which is a READ plus one write and not two writes — the distinction command-crosses-swimlane exists to protect.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-record-outcome-1" label="a delivery is recorded&#10;&#10;GIVEN MessageQueued&#10;WHEN RecordOutcome&#10;THEN MessageDelivered" em="gwt" slice="record-outcome" rule="a delivery is recorded" given="MessageQueued" when="RecordOutcome" then="MessageDelivered">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-record-outcome-2" label="a bounce is recorded&#10;&#10;GIVEN MessageQueued&#10;WHEN RecordOutcome&#10;THEN MessageBounced" em="gwt" slice="record-outcome" rule="a bounce is recorded" given="MessageQueued" when="RecordOutcome" then="MessageBounced" note="Same command, same given, a different event — the outcome field decides. This is why one command emitting two events is the right shape here.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-record-outcome-3" label="an outcome for a recipient not on the message is refused&#10;&#10;GIVEN MessageQueued&#10;WHEN RecordOutcome&#10;THEN error: NotARecipient" em="gwt" slice="record-outcome" rule="an outcome for a recipient not on the message is refused" given="MessageQueued" when="RecordOutcome" then="error: NotARecipient" enforce="aggregate" note="Needs the folded recipients list, so it cannot be a validator rule. It is also what keeps DeliveryLog honest: a delivery for a recipient with no log row would be unreachable from the view.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

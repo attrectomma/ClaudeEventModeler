@@ -16,26 +16,20 @@ using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
 using Marten.Schema;
 using Wolverine.Marten;
-using EmailOutbox;
-using EmailOutbox.Views;
-using EmailOutbox.Automation;
-using EmailOutbox.Slices.EmailOutbox;
+using Campaigns;
+using Campaigns.Views;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// FIRST, and the order matters: each wakeup resolves which mechanism was chosen here, and every
-// Configure* hook below asks it. Resolved last, a mechanism sets flags after the callbacks that read
-// them have already run — no error, and the automation never wakes.
-SendEmailWakeup.Choose(builder.Configuration);
 
 var marten = builder.Services.AddMarten(opts =>
     {
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
-        opts.DatabaseSchemaName = "emailOutbox";
+        opts.DatabaseSchemaName = "campaigns";
 
         // Every stream in this system is keyed by a composite of model fields, so stream ids are
         // strings. Marten fixes this once per store — Guid and string streams cannot be mixed.
-        //   emailId
+        //   campaignId
+        //   messageId
         opts.Events.StreamIdentity = StreamIdentity.AsGuid;
 
         // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's
@@ -49,12 +43,8 @@ var marten = builder.Services.AddMarten(opts =>
         // are folded live on demand.
         ViewRegistrations.Register(opts);
 
-        SendEmailWakeup.ConfigureMarten(opts);
     })
-    .IntegrateWithWolverine(integration =>
-    {
-        SendEmailWakeup.ConfigureIntegration(integration);
-    });
+    .IntegrateWithWolverine();
 
 // Starting data for running the app by hand: membership, an open month, one booking. Development
 // only, and idempotent, because Populate runs on every startup.
@@ -64,10 +54,6 @@ if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData()
 // async daemon, and without the daemon nothing processes it and Marten only warns.
 ViewRegistrations.ConfigureStore(marten);
 
-// A wakeup mechanism may need the STORE, not just its options — AddAsyncDaemon, for instance. A
-// subscription and an async projection both run in the daemon, and neither exists without it.
-SendEmailWakeup.ConfigureStore(marten);
-
 builder.Services.AddResourceSetupOnStartup();
 
 builder.Host.UseWolverine(opts =>
@@ -75,32 +61,12 @@ builder.Host.UseWolverine(opts =>
     opts.Policies.AutoApplyTransactions();
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
-    SendEmailWakeup.ConfigureWolverine(opts);
 
-    // An automation's trigger is a Wolverine message handler, but its class is named after the
-    // automation cell on the model — ZeroFillProcessor, AdminNotifier — and Wolverine's conventional
-    // discovery only finds types called *Handler or *Consumer. Registering them explicitly keeps the
-    // model's vocabulary in the code instead of renaming a domain concept to suit a scanning rule.
-    //
-    // typeof(), not IncludeType<T>(): a Wolverine handler class is static, and a static type cannot be
-    // a generic argument.
-    opts.Discovery.IncludeType(typeof(EmailProcessor));
 });
 
 builder.Services.AddWolverineHttp();
 
-// HOW EACH AUTOMATION IS WOKEN — one hook per slice, and the generator deliberately does NOT choose.
-//
-// The model constrains the contract, not the mechanism: it says the trigger decides from accumulated
-// state and issues a command, and says nothing about what wakes it. Event forwarding, a Marten
-// subscription, projection RaiseSideEffects and a clock-driven sweep are all valid; which is right
-// depends on whether the trigger event is ours, whether ordering matters, and whether the trigger is an
-// event at all rather than the passage of time.
-//
-// Each Register body is SCAFFOLD — hand-owned, kept by regeneration — and carries the decision table
-// plus a TODO(codegen) marker that codegen reports until it is gone. Worked implementations of all four
-// against one shared model: reference-implementations/automation/.
-SendEmailWakeup.RegisterServices(builder);
+// No automation slice is past in-design, so nothing needs waking.
 
 if (builder.Environment.IsDevelopment())
 {

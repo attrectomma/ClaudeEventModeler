@@ -20,6 +20,7 @@ needs a human to notice, which is the whole reason this file exists.
 | 12 | [A todo row that never completes](#12) | **no** |
 | 13 | [A rule added after the slice was built](#13) | yes — `codegen` reports `GWT WITHOUT A TEST` |
 | 14 | [An automation nothing ever runs](#14) | **no** — only starting the app and watching a second sweep |
+| 15 | [A view keyed on a time bucket the events do not carry](#15) | **no** |
 
 ---
 
@@ -271,3 +272,34 @@ guard fires on the *old* data. An automation demo looked broken for exactly this
 selects work from were never seeded, so there was nothing to do, so silence. `docker compose down -v`
 fixes it; the general point is #13's again — anything written once and then guarded needs a reason to be
 reconciled.
+
+---
+
+## 15. A view keyed on a time bucket the events do not carry <a id="15"></a>
+
+A read model whose grain is "per sender per month", "per account per day", "per campaign per week" — where
+the period is **not a field of any event feeding it**. Marten makes this easy: `Identity<IEvent<T>>` reaches
+the envelope, and `e.Timestamp` gives you a month.
+
+**Why it is a smell.** `IEvent.Timestamp` is stamped when the event is **appended**, and it ignores the
+payload entirely. So the view answers *"appended in month M"* while every reader will assume *"happened in
+month M"*. The two agree exactly as long as nothing is ever backfilled, imported, corrected late, or
+replayed into a fresh store — and the day one of those happens, a report silently moves rows into the wrong
+period. It cannot be spotted from the outside: the row exists, the count is a plausible number, and the
+tests pass, because a test written the same day appends and asserts within the same month.
+
+Found by running the app rather than by any test: seed data carrying `queuedAt = 2026-01-15` produced a row
+keyed `2026-08`. See `reference-implementations/state-view/`, finding #1.
+
+**The fix is almost always to use the payload.** If the events carry a business timestamp — and a model that
+declares `queuedAt` does — key on `e.Data.QueuedAt` and the envelope is not needed at all. Metadata keying is
+right only when the question genuinely is about the write, such as an ingest-throughput report.
+
+**What the model can do about it.** `identity=` on the read model is where the grain is declared, and a name
+in it that no feeding event supplies is exactly this situation. The kit already records it as
+`derived="month=<Event>"` — "computed from that event" — which is true and too weak to distinguish *which*
+of the event's two clocks was meant. Stating the intended source in the cell's `note=` costs nothing and is
+the only place a reader can find out.
+
+**Caught by:** *no*. `derived=` accepts it, the generator emits it, the projection compiles, the suite is
+green. Only a backfill, or someone reading the note, reveals it.

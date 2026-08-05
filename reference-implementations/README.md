@@ -17,10 +17,29 @@ reference-implementations/
   state-change/          the Command pattern on an EXISTING stream — the aggregate handler
     drafting/            the event model                     workflow, with and without HTTP
     generated/           both implementations
+  state-view/            the View pattern — six Marten read-model recipes, one model
+    campaigns/           the event model
+    generated/           the implementations
 ```
 
 Each folder has its own README with the measured comparison. Each is self-contained: its own model, its own
 project, readable without the other.
+
+## Read these WITH the library docs, never instead of them
+
+Every folder here answers the same question — *what did this choice cost?* — and none of them answers
+*what are the choices?* That set lives only in the libraries' own documentation, mirrored locally at
+`reference/llms/`, and it is always larger than what got built here. Marten has more read-model recipes
+than the six in `state-view/`; Wolverine has more handler shapes than the two in `state-change/`.
+
+So the order for an implementing agent is:
+
+1. **`reference/llms/<lib>/INDEX.md`** — what does the library offer for this shape of problem?
+2. **the matching folder here** — what did the near-miss cost, and which traps are already paid for?
+3. **compile**, because the docs are wrong too.
+
+An agent that skips step 1 because step 2 already shows working code has not made a decision; it has
+copied one. That is the specific failure the next section is about.
 
 ---
 
@@ -33,7 +52,7 @@ one automation — on a model whose triggers were all *foreign* events or the *p
 concluded that a clock-driven sweep of a materialised todo View was the only correct implementation, and
 wrote that into its own guidance. **That was a sampling error.** A sample of one model is not a pattern.
 
-The correction matters more than the mistake:
+The correction matters more than the mistake, and it generalises to all four patterns:
 
 > **The model constrains the contract, not the mechanism.**
 >
@@ -46,6 +65,21 @@ The correction matters more than the mistake:
 `PrepareEmail → EmailPrepared → [subscription] → SendEmail → EmailSent` is an automation. It is drawn
 `EmailPrepared → EmailsToSend → EmailProcessor → SendEmail`, and no `EmailsToSend` document has to exist
 for that drawing to be honest.
+
+### The same is true of the other three
+
+Written out once, so that no future folder here has to rediscover it:
+
+| `pattern=` | Same blocks on the canvas, genuinely different implementations |
+| --- | --- |
+| `command` | aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. Wolverine message; `StartStream` where the slice creates the stream. The transport is not in the model, so the transport must not change the behaviour — which is why `state-change/` asserts every GWT against both |
+| `view` | a green box says only "derived from these events". It may be a live fold with no table, a snapshot, a per-event transformation, a cross-stream rollup, or a SQL table. `state-view/` builds six |
+| `automation` | the four wakeup mechanisms above |
+| `translation` | the automation choice, plus how the foreign event lands |
+
+**Nothing catches a wrong choice.** Not the rule families, not the compiler, not a green suite. That is
+why each folder's job is to state what a choice costs, and why an implementing agent has to name the one
+it took.
 
 ## The decision table
 
@@ -195,12 +229,23 @@ the endpoint honours a supplied id and mints one only when it is absent.
 
 ## Status
 
-The model is built and validated, both deciders are green, and all four wakeup mechanisms are implemented
-and verified to fire unaided: **15 tests passing**, stable across repeated runs. The generator no longer chooses a mechanism
-— it emits the seam and reports `AUTOMATION NOT WOKEN` until a choice is made, which is the check that
-would have caught the original defect.
+| folder | pattern | what is built | tests |
+| --- | --- | --- | --- |
+| `automation/` | `automation` | all four wakeup mechanisms, each verified to fire unaided | **15** |
+| `state-change/` | `command` | both deciders — with and without Wolverine.HTTP — asserted against the same GWTs | **10** |
+| `state-view/` | `view` | six Marten read-model recipes over two stream types | **21** |
 
-All four mechanisms are built. What is *not* settled is whether the generator should offer a default — it
-currently offers none, and reports `AUTOMATION NOT WOKEN` until a choice is made.
+All three suites pass and are stable across repeated runs. Every folder has also been **run as an app**,
+because each pattern has at least one failure mode a green suite cannot see: an automation that nothing
+wakes, and an async projection that nothing processes.
+
+Each folder's own README carries its measured findings. Two are worth knowing before opening any of them:
+
+- **The generator does not choose a mechanism or a recipe.** For automations it emits the seam and reports
+  `AUTOMATION NOT WOKEN` until somebody chooses; for views it emits the default recipe into a **scaffold**
+  that regeneration keeps. Neither reports a choice that is merely *wrong*, and no checker can.
+- **Both of those seams exist because a choice was silently lost or silently absent once.** That is the
+  recurring shape here, and it is why every folder's job is to say what a choice costs rather than which one
+  to make.
 
 A claim without a measurement behind it does not belong in this file.

@@ -31,6 +31,18 @@ and inventing a domain fact to get past it is the one thing this kit exists to p
 pages you need. Their APIs move faster than model knowledge, so anything written from memory is
 subtly wrong.
 
+**And read the mirror even when a reference implementation already shows you an answer.**
+`reference-implementations/` holds *worked examples*, not the menu. Each one records the choices that
+were paid for on the model it was built against — which is exactly what makes it dangerous to copy
+blind, because your slice is a different model. Marten alone offers six distinct recipes for a read
+model and Wolverine several for a handler, and the reference implementation demonstrates one or two of
+each. Copying the shape without checking the library's own index for a closer fit is how a slice ends
+up with a hand-rolled fold where `FlatTableProjection` was the answer.
+
+So the order is: **the mirror first for what the library offers, the reference implementation for what
+it cost, then compile.** When they disagree, the library wins on API and the reference implementation
+wins on trap.
+
 **Then verify by compiling, because the docs are wrong too.** Each of these cost real time once:
 
 | Believed | Actually |
@@ -51,6 +63,25 @@ foreach (var t in asm.GetExportedTypes().Where(t => t.Name.Contains("Projection"
 ```
 
 `dotnet run probe.cs` — no project, no restore ceremony.
+
+## One pattern, many implementations — and that holds for all four
+
+`pattern=` on a slice cell names one of the cheat sheet's four shapes. **It is a contract, not an
+implementation.** It says which building blocks are connected and in which direction; it never says
+which library recipe realises them. The Event Model and its implementation are allowed to differ, and
+for three of the four patterns there is a real choice with real consequences:
+
+| `pattern=` | What is genuinely a choice |
+| --- | --- |
+| `command` | Wolverine aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. message handler; `StartStream` for a slice that creates. See `reference-implementations/state-change/` |
+| `view` | which of Marten's read-model recipes — live, single-stream, `EventProjection`, multi-stream, flat table, composite. See `reference-implementations/state-view/` |
+| `automation` | what wakes the trigger — forwarding, subscription, side effects, clock. See `reference-implementations/automation/` |
+| `translation` | the automation choice, plus how the foreign event lands |
+
+**No checker can see any of these.** The model validates, the code compiles, the tests pass, and the
+choice can still be wrong. So the rule is the same in every case: **look up what the library offers,
+pick deliberately, and say in your report which option you took and why.** A slice that does not state
+its choice has not finished.
 
 ## The shape of a slice
 
@@ -76,7 +107,8 @@ previous slice already wrote it — a shared gate type is reused across sibling 
 because the closed-month rule is the same rule.
 
 **Live on write, inline on read.** Nothing registered for a state type; every read model is
-`ProjectionLifecycle.Inline`, so a GWT's THEN is assertable the moment the request returns.
+`ProjectionLifecycle.Inline`, so a GWT's THEN is assertable the moment the request returns. That is a
+default, not a law — the View section below is where it stops holding.
 
 **A multi-stream projection with no `Identity<T>` rule is rejected at STARTUP.** That takes the host
 down and turns per-test failures into identical fixture errors. If a view has no derivable grouping,
@@ -85,6 +117,47 @@ leave its registration commented rather than breaking the host.
 **Per-slice folds duplicate.** Two slices asking the same questions of one stream produce two nearly
 identical state types. That is the design's known cost — do not "fix" it by sharing a fold across
 slices without saying so; report the duplication instead.
+
+## If the slice is a View, WHICH projection is the decision
+
+`pattern="view"` means `Event(s) → View`. That is the whole contract: this read model is derived from
+those events and from nothing else. It does **not** say the view is a `SingleStreamProjection`, and it
+does not even say a document exists — a live aggregation and a flat SQL table both satisfy the drawing.
+
+`identity=` on the read model says what one **row** is, and that is what narrows the choice. Read it
+against what Marten actually offers (`reference/llms/marten/events/projections/*`):
+
+| One row is | Recipe | Notes |
+| --- | --- | --- |
+| one stream, read by id, short stream | **live aggregation** — register nothing, `FetchLatest<T>` | no table, no staleness, no rebuild. Costs a fold per read |
+| one stream, read often or long stream | **`SingleStreamProjection<T, TId>`** / `Projections.Snapshot<T>` | the kit's default. `ShouldDelete` for rows that end |
+| **one event** — a log line, or one row per item inside an event | **`EventProjection`** | the only recipe that is not an aggregation. One event may write many documents, or none. Declare `Options.DeleteViewTypeOnTeardown<T>()` or a rebuild leaves stale rows |
+| a key **carried by events from several stream types** | **`MultiStreamProjection<T, TId>`** + `Identity<T>` per event type | async by default, and that default is a warning about write contention, not a formality |
+| a key **rolled up over many streams of one type** (per sender, per month) | same, with a composite `Identity<IEvent<T>>(e => $"{e.StreamId}:{e.Timestamp:yyyy-MM}")` | `IEvent<T>` is how you reach `StreamId` and `Timestamp`; the row's id is then a **string**, not a stream id |
+| a key the events **do not carry** | multi-stream + `CustomGrouping(IAggregateGrouper<TId>)` reading an **inline lookup** projection | a grouper must never query the projection it is building — see the docs' Pattern 2 vs 4. Prefer the batch-aware grouper |
+| rows to be queried with **SQL**, aggregated in the database | **`FlatTableProjection`** | not a document. Marten still owns the migration |
+| a view whose input is **another projection's output** | **composite / chained projections** (Marten 8.18+) | always async |
+| none of the above | **`IProjection`** raw | the escape hatch; you own everything |
+
+`Identities<T>` fans one event into many rows, `FanOut<T, TChild>` splits a collection member into
+child events, `RollUpByTenant()` keys by tenant. All three are additive to `Identity<T>`; a custom
+`IEventSlicer` replaces all of them.
+
+Measured comparisons — which of these force the async daemon, which survive a rebuild, and which are
+readable in the same transaction as the append — are in `reference-implementations/state-view/`. Read it
+**with** the Marten pages, not instead of them: it demonstrates six recipes and Marten offers more.
+
+**The generator only knows two of these recipes.** `tools/codegen.mjs` scaffolds every view as a
+single- or multi-stream projection registered `Inline`, because that is all `identity=` determines.
+The scaffold is yours: if the right answer is an `EventProjection` or a flat table, change the base
+class and the registration and **say so in your report** — the model is not wrong, the generator just
+has one default.
+
+**`Inline` is the kit's default for a reason, and multi-stream fights it.** Inline is what makes a
+GWT's THEN assertable the moment the request returns. A multi-stream projection registered `Inline`
+gives that up under load — Marten warns about "apparent event skipping" from concurrent writes
+stomping each other. When you take `Async`, the tests have to **wait** rather than assert, and you must
+turn on the daemon. Say which you chose.
 
 ## If the slice is an automation, the shape is different
 

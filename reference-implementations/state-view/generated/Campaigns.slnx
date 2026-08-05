@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Campaigns/Campaigns.csproj" />
+  <Project Path="tests/Campaigns.IntegrationTests/Campaigns.IntegrationTests.csproj" />
+</Solution>

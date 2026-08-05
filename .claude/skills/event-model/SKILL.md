@@ -240,6 +240,15 @@ Watch for the anti-pattern here: `Event -> Processor -> Event` is not an automat
 is a Trigger** — it watches a todo-list View and issues a Command. If there is no view and no
 conditional logic, it is not an automation at all, just a command emitting several events.
 
+**`pattern=` is a contract, not an implementation, and that is what keeps this phase in the business
+conversation.** Each of the four has several honest implementations on this stack — an automation can be
+woken four ways, a view can be any of six Marten recipes, a command can be an endpoint or a message —
+and *none of that belongs in the model*. So if the discussion turns to projections, daemons or
+transports, it has left modelling: note it in OPEN-QUESTIONS.md and hand it to `codegen`. What the model
+does owe the implementer is the information that narrows the choice — a stream's `identity=`, a view's
+`identity=` (what one **row** is), and `enforce=` on each GWT. Those are domain answers, and without
+them the implementer has to guess.
+
 **Gate:** `validate` reports no `slice/` findings.
 
 ## Phase 7 — the completeness check

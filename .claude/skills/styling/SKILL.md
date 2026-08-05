@@ -74,6 +74,18 @@ Mark every bound element so the check can see it:
 An element may carry two bindings where that is honest: a table cell *is* the project
 (`data-em="projectId"`) and shows its name (`data-em="projectName"` on the span inside).
 
+**The contract is `displays=` / `inputs=` — never how the data will be produced.** A slice's `pattern=`
+has several honest implementations, and the read model behind a screen may end up a live fold, a
+snapshot, a cross-stream rollup or a SQL table. None of that changes the field list, which is the whole
+point of the contract being fields. Two consequences worth designing for anyway, both cheap to add now
+and expensive to retrofit:
+
+- **a state for "not there yet".** Some read-model recipes are eventually consistent, so a value can be
+  legitimately absent for a moment after a write. A design with no empty / pending treatment forces the
+  frontend agent to invent one.
+- **a state for "no rows".** A view's `identity=` says what one row is; a screen showing a list of them
+  needs to look right at zero.
+
 ## 2. One token set per system
 
 `designs/<system>/tokens.css`. Every screen imports it and **nothing else defines colour or type**.

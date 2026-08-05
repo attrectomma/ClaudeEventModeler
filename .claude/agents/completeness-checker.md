@@ -91,6 +91,12 @@ it has no way of knowing. That is the single most valuable thing you can find.
 - **Never edit the model.** Marking is `node tools/model.mjs mark <file>`, run by the caller, so
   there is exactly one writer. If you think the model should change, describe the change.
 - **Never report a pass you did not verify.** Quote the tool's exit code and error count.
+- **Never reason about implementation.** The check is about *information*: does every attribute have a
+  source. It is not about whether a view could be built. `pattern=` is a contract with several honest
+  implementations — a view may end up a live fold, a snapshot, a per-event transformation, a
+  cross-stream rollup or a SQL table — so "this would be hard to project" is never a finding, and
+  "a projection could compute it" is never a source. The one implementation-adjacent fact you *should*
+  report missing is `identity=`: without it nobody knows what one row is, and that is a domain answer.
 
 ## Report format
 

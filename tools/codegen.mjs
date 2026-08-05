@@ -155,6 +155,37 @@ const allGuid = singleKeyed && keyedAggs.every((a) => (CS[identityFieldOf(a)?.ty
 const STREAM_ID = allGuid ? "Guid" : "string";
 const STREAM_IDENTITY = allGuid ? "AsGuid" : "AsString";
 
+// A VIEW's document id is not the stream id, and assuming it was emitted code that could not compile.
+// A read model rolled up over many streams is keyed by whatever its own identity= says — DeliveryLog is
+// per (messageId, recipient), SenderMonthly per (senderId, month) — and neither of those is a stream key.
+// Same rule as above, applied to the view's own grain:
+//
+//   identity= names ONE field  ->  that field's type, and Identity<T> is `e => e.Field` (no interpolation)
+//   identity= is composite     ->  string, and Identity<T> joins the parts with ':'
+//
+// Interpolating a single Guid key into $"{e.CampaignId}" is what broke: the lambda returns string while
+// the projection is declared MultiStreamProjection<T, Guid>. Silent in the model, a compile error in code.
+const fieldTypeOf = (name) => {
+  for (const e of ir.shared.events) {
+    const f = (e.fields ?? []).find((x) => x.name === name);
+    if (f) return type(f);
+  }
+  for (const a of ir.shared.aggregates) {
+    for (const c of a.commands ?? []) {
+      const f = (c.fields ?? []).find((x) => x.name === name);
+      if (f) return type(f);
+    }
+  }
+  for (const v of ir.shared.views) {
+    const f = (v.fields ?? []).find((x) => x.name === name);
+    if (f) return type(f);
+  }
+  return "string";
+};
+const viewIdType = (key) => (key.length === 1 ? fieldTypeOf(key[0]) : "string");
+const viewIdExpr = (key) =>
+  key.length === 1 ? `e => e.${pascal(key[0])}` : `e => $"${key.map((k) => `{e.${pascal(k)}}`).join(":")}"`;
+
 const files = [];
 const kept = [];
 // Fully derived: always overwritten, because the diff IS the review of a model change.
@@ -343,6 +374,9 @@ for (const v of ir.shared.views) {
   // silently is how a projection ends up grouping the wrong rows together.
   const KEY = v.identity?.length ? v.identity : SYS_KEY;
   const guessedKey = !v.identity?.length;
+  // A single-stream projection is keyed BY THE STREAM, so its document id is the stream id whatever the
+  // view's own identity= says. Only a multi-stream projection is free to be keyed by its own grain.
+  const VIEW_ID = multi ? viewIdType(KEY) : STREAM_ID;
   const sliceable = v.from.filter((l) => {
     const e = ir.shared.events.find((x) => x.label === l);
     return KEY.every((k) => e?.fields.some((f) => f.name === k));
@@ -362,7 +396,7 @@ namespace ${NS}.Views;
 /// </summary>
 public sealed record ${pascal(v.label)}
 {
-    public ${STREAM_ID} Id { get; init; }${STREAM_ID === "string" ? " = default!;" : ""}
+    public ${VIEW_ID} Id { get; init; }${VIEW_ID === "string" ? " = default!;" : ""}
 
 ${v.fields.map((f) => {
       const d = v.derived?.[f.name];
@@ -384,8 +418,8 @@ ${multi ? `///
 /// Grouped by ${KEY.join(" + ")}${guessedKey ? " — GUESSED from the system key, because this read model\n/// declares no identity=. Declare it: a wrong grain groups the wrong rows together." : " (declared on the read model)"}.` : ""}
 /// </summary>
 public sealed class ${pascal(v.label)}Projection : ${multi
-      ? `MultiStreamProjection<${pascal(v.label)}, ${STREAM_ID}>`
-      : `SingleStreamProjection<${pascal(v.label)}, ${STREAM_ID}>`}
+      ? `MultiStreamProjection<${pascal(v.label)}, ${VIEW_ID}>`
+      : `SingleStreamProjection<${pascal(v.label)}, ${VIEW_ID}>`}
 {
 ${multi ? `    public ${pascal(v.label)}Projection()
     {
@@ -393,7 +427,7 @@ ${v.from.map((l) => {
         const e = ir.shared.events.find((x) => x.label === l);
         const has = KEY.every((k) => e?.fields.some((f) => f.name === k));
         return has
-          ? `        Identity<${pascal(l)}>(e => $"${KEY.map((k) => `{e.${pascal(k)}}`).join(":")}");`
+          ? `        Identity<${pascal(l)}>(${viewIdExpr(KEY)});`
           : `        // TODO(codegen): ${pascal(l)} carries ${e?.fields.map((f) => f.name).join(", ") || "nothing"} —\n` +
             `        // not ${KEY.join(" + ")}, so how it groups into this view is a decision.\n` +
             `        // Identity<${pascal(l)}>(e => ...);`;
@@ -422,7 +456,13 @@ for (const s of ir.slices) {
   const fields = agg?.commands.find((c) => c.label === cmd)?.fields ?? [];
   emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}.cs`),
     `${banner(`${cmd} — the command as the model declares it`)}
-namespace ${NS}.Slices.${pascal(s.context)};
+${fields.some((f) => f.nullable) ? `// A nullable field means a '?' annotation, and the BANNER above makes this file auto-generated in the
+// compiler's eyes — so CS8669 says an explicit directive is required even though the csproj already sets
+// <Nullable>enable</Nullable>. Emitted only when a field actually needs it, because an unconditional
+// directive on 40 files that do not is noise.
+#nullable enable
+
+` : ""}namespace ${NS}.Slices.${pascal(s.context)};
 
 /// <summary>
 /// Slice: ${s.name}. Fields exactly as the model declares them: ${fields.map((f) => f.name).join(", ") || "none"}.
@@ -915,6 +955,65 @@ public sealed class GenesisData : IInitialData
 }
 `);
 
+// --- view registrations: the one file that decides WHICH recipe each read model is --------------
+//
+// This was inline in Program.cs, which is emit() and therefore overwritten — so every read-side
+// decision an implementer made was lost on the next regeneration. And the decisions are real:
+// `Event(s) -> View` narrows to six Marten recipes and no further, `Inline` is only the default for
+// two of them, and three of the six are not even the base class the view file was scaffolded with.
+// Registration is where all of that lands, so registration has to be scaffold().
+if (ir.shared.views.length) {
+  scaffold(join(APP, "Views", "ViewRegistrations.cs"),
+    `${banner("read-model registration — WHICH Marten recipe each view is")}
+using JasperFx.Events.Projections;
+using Marten;
+using ${NS}.Views;
+${automations.length ? `using ${NS}.Automation;   // a wakeup mechanism may override a todo View's lifecycle\n` : ""}
+namespace ${NS};
+
+/// <summary>
+/// Called once from Program.cs. Every line below is the DEFAULT, not the answer: single- or
+/// multi-stream, registered Inline. Marten also offers EventProjection (one event, many documents),
+/// FlatTableProjection (a SQL table, not a document), composite/chained projections and raw
+/// IProjection — see reference/llms/marten/events/projections/ and
+/// reference-implementations/state-view/.
+///
+/// Changing a line here is the supported way to choose. Regeneration KEEPS this file.
+///
+/// Two costs to know before moving anything off Inline:
+///   - Inline updates the view in the append's own transaction, so a GWT's THEN is assertable the
+///     moment the request returns. Async means tests must WAIT instead of assert.
+///   - Async needs the daemon: AddAsyncDaemon(DaemonMode.Solo) on the Marten chain, or nothing runs
+///     and Marten only warns.
+/// </summary>
+public static class ViewRegistrations
+{
+    public static void Register(StoreOptions opts)
+    {
+${ir.shared.views.map((v) => registerable.includes(v.label)
+      ? `        opts.Projections.Add<${pascal(v.label)}Projection>(${lifecycleFor(v)});`
+      : `        // TODO(codegen): ${pascal(v.label)}Projection groups events that do not carry
+        // ${SYS_KEY.join(" + ")}, so it has no slicing rule yet. Marten rejects a multi-stream
+        // projection with no rules AT STARTUP, so registering it now would take the host down.
+        // opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
+    ).join("\n")}
+    }
+
+    /// <summary>
+    /// The read side sometimes needs the STORE and not just its options. Any projection registered
+    /// Async — which is Marten's own default for multi-stream — runs in the async daemon, and without
+    /// the daemon nothing processes it and Marten only logs a warning at startup. Empty by default,
+    /// because every registration above is Inline.
+    ///
+    /// Solo rather than HotCold: one node, no leader election, much faster startup.
+    /// </summary>
+    public static void ConfigureStore(MartenServiceCollectionExtensions.MartenConfigurationExpression marten)
+    {
+    }
+}
+`);
+}
+
 emit(join(APP, "Program.cs"),
   `${banner("application bootstrapping")}
 using JasperFx;
@@ -957,16 +1056,11 @@ ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a
         // PascalCase and the front end silently reads undefined.
         opts.UseSystemTextJsonForSerialization(EnumStorage.AsString, Casing.CamelCase);
 
-        // Read side: every read model is an INLINE projection, updated in the same transaction as
-        // the append, so a GWT THEN can be asserted straight after the request returns.
-        // Write side registers NOTHING: the per-slice state types are folded live on demand.
-${ir.shared.views.map((v) => registerable.includes(v.label)
-      ? `        opts.Projections.Add<${pascal(v.label)}Projection>(${lifecycleFor(v)});`
-      : `        // TODO(codegen): ${pascal(v.label)}Projection groups events that do not carry
-        // ${SYS_KEY.join(" + ")}, so it has no slicing rule yet. Marten rejects a multi-stream
-        // projection with no rules AT STARTUP, so registering it now would take the host down.
-        // opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
-    ).join("\n")}
+        // Read side. WHICH recipe each read model uses is a decision this generator cannot make —
+        // identity= narrows it to one of Marten's six and no further — so the registrations live in a
+        // SCAFFOLD that regeneration keeps. Write side registers NOTHING: the per-slice state types
+        // are folded live on demand.
+        ViewRegistrations.Register(opts);
 ${automations.length === 0 ? "" : `
 ${automations.map((s) => `        ${pascal(s.name)}Wakeup.ConfigureMarten(opts);`).join("\n")}`}
     })
@@ -979,7 +1073,11 @@ ${automations.map((s) => `        ${pascal(s.name)}Wakeup.ConfigureIntegration(i
 // only, and idempotent, because Populate runs on every startup.
 if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
 
-${automations.length === 0 ? "" : `// A wakeup mechanism may need the STORE, not just its options — AddAsyncDaemon, for instance. A
+${ir.shared.views.length === 0 ? "" : `// The read side may need the STORE, not just its options: any projection registered Async runs in the
+// async daemon, and without the daemon nothing processes it and Marten only warns.
+ViewRegistrations.ConfigureStore(marten);
+
+`}${automations.length === 0 ? "" : `// A wakeup mechanism may need the STORE, not just its options — AddAsyncDaemon, for instance. A
 // subscription and an async projection both run in the daemon, and neither exists without it.
 ${automations.map((s) => `${pascal(s.name)}Wakeup.ConfigureStore(marten);`).join("\n")}
 

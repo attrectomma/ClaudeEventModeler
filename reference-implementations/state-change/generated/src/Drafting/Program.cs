@@ -36,10 +36,11 @@ var marten = builder.Services.AddMarten(opts =>
         // PascalCase and the front end silently reads undefined.
         opts.UseSystemTextJsonForSerialization(EnumStorage.AsString, Casing.CamelCase);
 
-        // Read side: every read model is an INLINE projection, updated in the same transaction as
-        // the append, so a GWT THEN can be asserted straight after the request returns.
-        // Write side registers NOTHING: the per-slice state types are folded live on demand.
-        opts.Projections.Add<MyDraftsProjection>(ProjectionLifecycle.Inline);
+        // Read side. WHICH recipe each read model uses is a decision this generator cannot make —
+        // identity= narrows it to one of Marten's six and no further — so the registrations live in a
+        // SCAFFOLD that regeneration keeps. Write side registers NOTHING: the per-slice state types
+        // are folded live on demand.
+        ViewRegistrations.Register(opts);
 
     })
     .IntegrateWithWolverine();
@@ -47,6 +48,10 @@ var marten = builder.Services.AddMarten(opts =>
 // Starting data for running the app by hand: membership, an open month, one booking. Development
 // only, and idempotent, because Populate runs on every startup.
 if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
+
+// The read side may need the STORE, not just its options: any projection registered Async runs in the
+// async daemon, and without the daemon nothing processes it and Marten only warns.
+ViewRegistrations.ConfigureStore(marten);
 
 builder.Services.AddResourceSetupOnStartup();
 

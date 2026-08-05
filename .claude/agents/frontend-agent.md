@@ -42,6 +42,23 @@ Where two affordances act on the same data, prefer **one form in two modes** ove
 is not a UI preference, it is the domain fact showing through: "booking the same day and project again
 is a correction, not a second booking" is *why* the screen must say which action it is offering.
 
+## The pattern does not choose the implementation — the read side least of all
+
+`pattern=` names a shape, not a mechanism. That matters to you in one specific way: **a green box on the
+model does not promise a queryable table, and it does not promise the data is there the instant a write
+returns.** The backend agent chooses from six Marten read-model recipes, and several of them are
+*eventually consistent* — a multi-stream projection is registered `Async` by default, and Marten's own
+docs recommend that default.
+
+So ask the backend agent, and put the answer in your report:
+
+- **is this view readable immediately after the write, or eventually?** If eventually, a page that
+  refetches straight after a successful POST will render stale data and look like a bug in your code.
+  Optimistic UI, or a refetch with a retry, is then a requirement rather than a polish item.
+- **what does one row of this view mean?** Its `identity=` may not be what the screen shows one of.
+
+Neither fact is in the model, neither is visible in the response shape, and nothing checks it.
+
 ## Reading the API
 
 The backend agent reports its contract — route, request shape, response codes, rule names. Use that
