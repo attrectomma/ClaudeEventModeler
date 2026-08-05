@@ -90,6 +90,8 @@ node tools/crop.mjs <file> <x0> <x1> <out>   # an x-window of a wide model, so i
 node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to end
 
 node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound wireframe cells
+node tools/design.mjs shot  <file.html>      # render one design page to PNG, per viewport
+node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
 
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate <dir>/   # a whole system: every model, plus the cross-model rules
@@ -321,6 +323,33 @@ displays= / inputs=   ↔   wireframe binds=   ↔   HTML data-em
 
 All three must agree on *which fields*. Layout and style are free to differ — that is the point of
 keeping them in separate artifacts.
+
+### A design nobody has looked at is worth exactly as much as unrendered XML
+
+*"Never hand over diagram XML you have not rendered"* applies unchanged to CSS. **A human cannot
+read a stylesheet and picture the result, and neither can Claude.** So the design gets the same
+closing loop the model has, via headless Chrome — already on this machine, no Playwright, no
+Puppeteer:
+
+```
+node tools/design.mjs sheet designs/<system>/
+```
+
+It produces three things, and each answers a different reviewer:
+
+| Artifact | For | Why it exists |
+| --- | --- | --- |
+| `_shots/<screen>-<viewport>.png` | the record | one file per screen per viewport, so a finding can name the one that broke |
+| `_shots/contact-sheet-<viewport>.png` | **looking** | every screen at **1:1** in one image. A folder of PNGs has the same defect as a folder of HTML — you open them one at a time |
+| `index.html` | the human | live iframes plus a full-size link. A screenshot cannot be hovered, tabbed through, or resized |
+
+**One sheet per viewport, at native width.** A 1440px shot scaled into a shared column is
+illegible, which defeats the point of looking; and the sheet is captured at whatever size fits all
+its rows, because a fixed height silently crops the last one. Both of those were real defects caught
+by rendering the sheet and looking at it.
+
+Always shoot at least a desktop and a mobile width. A single desktop screenshot hides half the
+problems.
 
 ## Many small models, one system
 
