@@ -225,6 +225,22 @@ reorder the columns. A vertical slice that isn't vertical isn't a slice.
 Every element geometrically inside a band must declare that `slice=`, and every element declaring
 it must be drawn inside. That is what stops the drawing and the data drifting apart.
 
+## Time runs left to right, and Event → View is the only way back
+
+*"The goal is to read the system from left to right. It should be a story that makes sense to
+everybody."* A connection pointing left is a connection nobody can read, so `flow/backward-connection`
+is an **error**.
+
+The single exception is **Event → View**. A read model is necessarily fed by events that occur
+after the point it is first drawn — `MyTimesheet` is fed by the `HoursCorrected` that the very next
+slice produces. The alternative is redrawing the View everywhere it is read, which is the canonical
+form but doubles the width of the model. The exception is deliberate; anything else pointing left
+is a layout bug, and the fix is to reorder the columns.
+
+In practice this bites where a **screen reads a View drawn to its right**. Put the View's column
+first: the screen feed then runs forward, and the event feeding the View runs back under the
+exception.
+
 ## Swimlanes: stream boundaries, not team boundaries
 
 A swimlane is **not** an org chart. *"Swimlanes define stream boundaries. Typically, all events in

@@ -11,6 +11,7 @@
 //   grammar      — does every connection belong to one of the four Event Modeling patterns
 //   completeness — does every attribute of every element have a source in a connected element
 //   gwt          — do the business rules name a Command and Events that actually exist
+//   flow         — does every connection point left to right, the one exception being Event -> View
 //   slice        — is each vertical slice a real, contiguous band whose declared pattern matches
 //                  what it is made of, and is its status= honest about the findings inside it
 //
@@ -753,6 +754,33 @@ function sliceRules(ir, priorFindings) {
   return d;
 }
 
+// --- flow: time runs left to right -------------------------------------------
+//
+// "The goal is to read the system from left to right. It should be a story that makes sense to
+// everybody." A connection pointing left is a connection you cannot read, so it is a defect.
+//
+// With ONE exception, ruled by the domain expert: Event -> View. A read model is necessarily
+// built from events that occur after the point it is first drawn — MyTimesheet is fed by the
+// HoursCorrected that the very next slice produces. The alternative is redrawing the View at
+// every point it is read, which is the canonical form but doubles the width of the model. The
+// exception is deliberate; everything else pointing left is reported.
+
+function flowRules(ir) {
+  const d = [];
+  const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  const isEvent = (k) => k === "event" || k === "external";
+  for (const c of ir.edges) {
+    const from = byId.get(c.source), to = byId.get(c.target);
+    if (!from?.geometry || !to?.geometry) continue;
+    if (to.geometry.x >= from.geometry.x) continue;                 // forward, fine
+    if (isEvent(from.kind) && to.kind === "readmodel") continue;    // the one exception
+    d.push({ family: "flow", severity: "error", rule: "backward-connection",
+      message: `${from.label} (${from.kind}) -> ${to.label} (${to.kind}) points backwards. Time runs left to right; only Event -> View may. Reorder the columns.`,
+      at: to.id, connections: [{ from: from.id, to: to.id }] });
+  }
+  return d;
+}
+
 // --- swimlanes: stream boundaries -------------------------------------------
 //
 // A swimlane is NOT a team boundary. "Swimlanes define stream boundaries. Typically, all events in
@@ -883,7 +911,7 @@ if (cmd === "clear") {
 const ir = buildIr(file);
 // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while its
 // own cells still carry errors.
-const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir)];
+const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir), ...flowRules(ir)];
 const findings = [...core, ...sliceRules(ir, core)];
 const errors = findings.filter((f) => f.severity === "error");
 
