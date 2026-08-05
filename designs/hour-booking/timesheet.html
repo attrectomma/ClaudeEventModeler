@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Timesheet — hour-booking</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="tokens.css">
+
+<!-- screen="timesheet". One page serves all three slices this screen appears in:
+     book-hours (the form), correct-hours and remove-booking (the row actions).
+     Every data-em / data-em-input / data-em-action here is checked against the model by
+     `node tools/design.mjs check diagrams/hour-booking/`. Sample values are illustrative. -->
+
+<header>
+  <h1>Timesheet</h1>
+  <span class="who">
+    <span data-em="employeeId">Ada Lovelace</span> &middot; <span data-em="month">August 2026</span>
+  </span>
+  <span class="status" data-em="monthStatus" data-state="open">Open</span>
+</header>
+
+<p class="summary">
+  <strong data-em="dayTotal">15.5</strong> hours booked on Mon 3 Aug. The daily cap is 18.
+</p>
+
+<table>
+  <caption>Bookings this month. Hover a row to correct or remove it.</caption>
+  <thead>
+    <tr>
+      <th scope="col">Date</th>
+      <th scope="col">Project</th>
+      <th scope="col" class="num">Hours</th>
+      <th scope="col">Note</th>
+      <th scope="col" class="num">Day total</th>
+      <th scope="col"><span class="visually-hidden">Actions</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr data-em="bookingId">
+      <td class="day" data-label="Date"><span data-em="date">Mon 3 Aug</span><small>week 32</small></td>
+      <td data-label="Project" data-em="projectId"><span data-em="projectName">Apollo</span></td>
+      <td class="num" data-label="Hours">
+        <span class="measure" style="--fill: 41.7%"><span data-em="hours">7.5</span></span>
+      </td>
+      <td class="note" data-label="Note"><span data-em="note">sprint planning</span></td>
+      <td class="num" data-label="Day total">15.5</td>
+      <td class="actions">
+        <button class="link" data-em-action="CorrectHours" data-em-input="bookingId">Correct</button>
+        <button class="link danger" data-em-action="RemoveBooking" data-em-input="bookingId">Remove</button>
+      </td>
+    </tr>
+    <tr>
+      <td class="day" data-label="Date">Mon 3 Aug<small>week 32</small></td>
+      <td data-label="Project">Gemini</td>
+      <td class="num" data-label="Hours">
+        <span class="measure" style="--fill: 44.4%"><span>8</span></span>
+      </td>
+      <td class="note" data-label="Note"></td>
+      <td class="num" data-label="Day total">15.5</td>
+      <td class="actions">
+        <button class="link" data-em-action="CorrectHours">Correct</button>
+        <button class="link danger" data-em-action="RemoveBooking">Remove</button>
+      </td>
+    </tr>
+    <tr>
+      <td class="day" data-label="Date">Tue 4 Aug<small>week 32</small></td>
+      <td data-label="Project">Apollo</td>
+      <td class="num" data-label="Hours">
+        <span class="measure" data-over="true" style="--fill: 100%"><span>18.5</span></span>
+      </td>
+      <td class="note" data-label="Note">migration weekend</td>
+      <td class="num" data-label="Day total">18.5</td>
+      <td class="actions">
+        <button class="link" data-em-action="CorrectHours">Correct</button>
+        <button class="link danger" data-em-action="RemoveBooking">Remove</button>
+      </td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td class="label" colspan="2">Booked in August</td>
+      <td class="num">160.5</td>
+      <td colspan="3"></td>
+    </tr>
+  </tfoot>
+</table>
+
+<form>
+  <h2>Book hours</h2>
+  <div>
+    <label for="f-date">Date</label>
+    <input id="f-date" type="date" value="2026-08-05" data-em-input="date">
+  </div>
+  <div>
+    <label for="f-project">Project</label>
+    <select id="f-project" data-em-input="projectId">
+      <option>Apollo</option>
+      <option>Gemini</option>
+    </select>
+  </div>
+  <div>
+    <label for="f-hours">Hours</label>
+    <input id="f-hours" class="num" value="8" inputmode="decimal" data-em-input="hours">
+  </div>
+  <div class="field-note">
+    <label for="f-note">Note <span style="text-transform:none">(optional)</span></label>
+    <input id="f-note" data-em-input="note">
+  </div>
+  <button class="primary" data-em-action="BookHours">Book hours</button>
+  <p class="hint">
+    Whole or half hours only, never zero. Booking the same day and project again is a correction,
+    not a second booking.
+  </p>
+</form>
+</html>

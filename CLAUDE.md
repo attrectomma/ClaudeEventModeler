@@ -92,6 +92,7 @@ node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to
 node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound wireframe cells
 node tools/design.mjs shot  <file.html>      # render one design page to PNG, per viewport
 node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
+node tools/design.mjs check <system-dir>     # the styled pages against the model's displays=/inputs=
 
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate <dir>/   # a whole system: every model, plus the cross-model rules
