@@ -3,9 +3,9 @@
 // </auto-generated-scaffold>
 #nullable enable
 using Marten;
-using Microsoft.AspNetCore.Mvc;
 using Wolverine.Http;
 using HourBooking.Contracts;
+using HourBooking.Slices;
 using HourBooking.Views;
 
 namespace HourBooking.Slices.Booking;
@@ -38,14 +38,14 @@ public static class BookHoursEndpoint
         var gate = await session.Events.FetchLatest<MonthGate>(
             MonthGate.StreamKey(employeeId, month), cancellation);
         if (gate?.IsClosed == true)
-            return Problem("MonthIsClosed", "A closed month cannot be booked into. Closed is closed.");
+            return Rejections.Problem("MonthIsClosed", "A closed month cannot be booked into. Closed is closed.");
 
         // NotAProjectMember. Membership is seeded from outside this system, so it is read from the
         // MyProjects view rather than from a stream we own.
         var member = await session.LoadAsync<MyProjects>(
             MyProjects.RowId(employeeId, command.ProjectId), cancellation);
         if (member is null || member.Left)
-            return Problem("NotAProjectMember",
+            return Rejections.Problem("NotAProjectMember",
                 "Hours cannot be booked to a project the employee has left, and nothing is persisted.");
 
         var stream = await session.Events.FetchForWriting<BookHoursState>(
@@ -56,7 +56,7 @@ public static class BookHoursEndpoint
         // again is a Correction" — so the screen has to offer the right action, and the API has to
         // refuse the wrong one.
         if (sheet.AlreadyBooked(command.Date, command.ProjectId))
-            return Problem("AlreadyBookedUseCorrection",
+            return Rejections.Problem("AlreadyBookedUseCorrection",
                 "This day and project are already booked. Correct the existing booking instead.");
 
         // DailyCapExceeded. Enforceable here, in the transaction, only because the stream is keyed
@@ -64,7 +64,7 @@ public static class BookHoursEndpoint
         // been a check against an eventually-consistent projection, where two concurrent bookings
         // both pass. See ANTI-PATTERNS.md #11.
         if (sheet.HoursOn(command.Date) + command.Hours > BookHoursState.DailyCap)
-            return Problem("DailyCapExceeded",
+            return Rejections.Problem("DailyCapExceeded",
                 $"At most {BookHoursState.DailyCap} hours can stand for one day.");
 
         stream.AppendOne(new HoursBooked(
@@ -75,18 +75,6 @@ public static class BookHoursEndpoint
         return Results.NoContent();
     }
 
-    /// <summary>
-    /// A rejected rule comes back as ProblemDetails, which is what Wolverine.HTTP uses for validation
-    /// failures too — so a GWT with then="error: RuleName" asserts the same shape whether the rule
-    /// was caught at the periphery or here. The rule's name is the machine-readable part.
-    /// </summary>
-    private static IResult Problem(string rule, string detail) =>
-        Results.Problem(new ProblemDetails
-        {
-            Title = rule,
-            Detail = detail,
-            Status = StatusCodes.Status400BadRequest,
-        });
 }
 
 /// <summary>

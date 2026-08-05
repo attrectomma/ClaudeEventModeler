@@ -114,6 +114,16 @@ if (cmd === "check") {
   const attrsOf = (html, name) =>
     new Set([...html.matchAll(new RegExp(`${name}="([^"]*)"`, "g"))].map((m) => m[1].trim()).filter(Boolean));
 
+  // Any ported implementation of the same screen. JSX writes data-em exactly as HTML does, so the
+  // same extraction works and the port is held to the model too — not just the static design.
+  const ports = [];
+  for (const web of readdirSync(".", { withFileTypes: true }).some((d) => d.name === "generated")
+    ? readdirSync("generated", { withFileTypes: true }).filter((d) => d.isDirectory())
+        .map((d) => join("generated", d.name, "web", "src")).filter(existsSync)
+    : []) {
+    for (const f of readdirSync(web)) if (f.endsWith(".tsx")) ports.push(join(web, f));
+  }
+
   const pageFiles = existsSync(designs)
     ? readdirSync(designs).filter((f) => f.endsWith(".html") && f !== "index.html" && !f.startsWith("_"))
     : [];
@@ -125,7 +135,12 @@ if (cmd === "check") {
         `screen "${slug}" has no styled page yet (expected ${relative(process.cwd(), file)}). The wireframe stands in until it does.`);
       continue;
     }
-    const html = readFileSync(file, "utf8");
+    // A port counts as the same screen when its file name matches the slug, case-insensitively.
+    const portFiles = ports.filter((p) =>
+      basename(p, ".tsx").toLowerCase() === slug.replace(/-/g, "").toLowerCase());
+    const html = [file, ...portFiles].map((f) => readFileSync(f, "utf8")).join("\n");
+    if (portFiles.length) push("info", "design-has-port",
+      `${slug} is also implemented at ${portFiles.map((p) => relative(process.cwd(), p)).join(", ")}, and its bindings are checked here too.`);
     const shown = attrsOf(html, "data-em");
     const typed = attrsOf(html, "data-em-input");
     const acted = attrsOf(html, "data-em-action");
