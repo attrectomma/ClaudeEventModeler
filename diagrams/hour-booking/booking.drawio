@@ -219,12 +219,12 @@
             <mxGeometry x="1060" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-book-hours-4" label="zero hours is not a booking — removal is the only way to take a line back&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="book-hours" rule="zero hours is not a booking — removal is the only way to take a line back" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours, so a HoursBooked with 0 hours would be a business rule violation&quot;">
+        <object id="gwt-book-hours-4" label="zero hours is not a booking — removal is the only way to take a line back&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="book-hours" rule="zero hours is not a booking — removal is the only way to take a line back" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours, so a HoursBooked with 0 hours would be a business rule violation&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1060" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-book-hours-5" label="hours are booked in whole or half hours only&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="book-hours" rule="hours are booked in whole or half hours only" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeWholeOrHalf" source="&quot;date + project + hours spend. Full hours or 0,5 hours.&quot;">
+        <object id="gwt-book-hours-5" label="hours are booked in whole or half hours only&#10;&#10;GIVEN BookingMonthStarted&#10;WHEN BookHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="book-hours" rule="hours are booked in whole or half hours only" given="BookingMonthStarted" when="BookHours" then="error: HoursMustBeWholeOrHalf" source="&quot;date + project + hours spend. Full hours or 0,5 hours.&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1060" y="2360" width="300" height="120" as="geometry" />
           </mxCell>
@@ -269,12 +269,12 @@
             <mxGeometry x="1380" y="2080" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-correct-hours-4" label="a correction cannot take the hours to zero — removal is the only way&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="correct-hours" rule="a correction cannot take the hours to zero — removal is the only way" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours&quot;">
+        <object id="gwt-correct-hours-4" label="a correction cannot take the hours to zero — removal is the only way&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeNonZero" em="gwt" slice="correct-hours" rule="a correction cannot take the hours to zero — removal is the only way" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeNonZero" source="&quot;employees may never book 0 hours&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1380" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="gwt-correct-hours-5" label="corrections are in whole or half hours only&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="correct-hours" rule="corrections are in whole or half hours only" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeWholeOrHalf" source="&quot;Full hours or 0,5 hours&quot;">
+        <object id="gwt-correct-hours-5" label="corrections are in whole or half hours only&#10;&#10;GIVEN HoursBooked&#10;WHEN CorrectHours&#10;THEN error: HoursMustBeWholeOrHalf" em="gwt" slice="correct-hours" rule="corrections are in whole or half hours only" given="HoursBooked" when="CorrectHours" then="error: HoursMustBeWholeOrHalf" source="&quot;Full hours or 0,5 hours&quot;" enforce="periphery">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="1380" y="2360" width="300" height="120" as="geometry" />
           </mxCell>

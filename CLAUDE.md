@@ -38,6 +38,49 @@ lives under `reference/`, which is **gitignored** — it is a regenerable build 
 `node_modules`, so a fresh clone must run `sync` once. `_manifest.json` records when it last ran so
 staleness is visible rather than assumed.
 
+## Codegen: what a script owns, and what needs judgement
+
+`tools/codegen.mjs` emits everything **mechanically derivable** from the IR — the solution, both
+projects, `Program.cs`, 16 event records, 4 aggregate folds, 10 view types, the validators, the Alba
+harness, and one test per GWT. It is total and idempotent, and its diff is how a model change gets
+reviewed. It emits **no business logic**, marking every hole `TODO(codegen)` for the `codegen` skill,
+which reads `reference/llms/` and fills them.
+
+Verified rather than assumed: `dotnet build` succeeds with 0 warnings, and `dotnet test` discovers
+and runs **55 tests, 55 failing** — one per GWT, against a real Testcontainers Postgres.
+
+The stack pattern, all of it read from the mirror:
+
+```csharp
+[WolverinePost("/timesheet/{employeeId}/{month}/book"), EmptyResponse]
+public static HoursBooked Book(BookHours cmd, [Aggregate] Timesheet sheet) => ...;
+```
+
+Static methods, no controllers. `[Aggregate]` resolves the stream from route args and applies Marten's
+transactional middleware; `[EmptyResponse]` makes the returned event get *appended* rather than
+serialised. **The endpoint is the decider** — so an aggregate is a pure `Create`/`Apply` fold with no
+rules in it. Streams are `StreamIdentity.AsString` because every key here is composite.
+
+### `enforce=` on a GWT — where a rule is checked
+
+`periphery` (FluentValidation, rejected before any stream is read) or `aggregate` (default, needs
+accumulated state). **This is declared, not derived.** The obvious heuristic — "no `given=` means the
+request alone settles it" — fails on a real model: almost every GWT carries a *context* `given=` like
+*"the month is open"*, so on `hour-booking` it found zero periphery rules out of four. The default is
+the safe one, because a state rule placed in a validator cannot enforce itself.
+
+### The mirror is not infallible either
+
+Two API facts the docs got wrong or never stated, both caught by compiling:
+
+- **`JasperFx.Resources` is a namespace, not a package.** Inferring a package id from a `using` in a
+  doc sample fails restore.
+- **`JasperFxEnvironment` is in `JasperFx.CommandLine`**, not `JasperFx` as the migration guide says.
+  Settled by reflecting over the assembly with a .NET 10 file-based app — that is the tiebreaker when
+  the docs and the compiler disagree.
+
+So: read the mirror first, then **compile**. The mirror removes most of the guessing, not all of it.
+
 ## Keep it simple, but prepare for evolution
 
 The standing principle for codegen, and the reason for several choices that would otherwise look
@@ -129,6 +172,7 @@ node tools/model.mjs validate <dir>/   # a whole system: every model, plus the c
 node tools/model.mjs map      <dir>/   # (re)generate <dir>/_context-map.drawio from the real edges
 node tools/model.mjs compile  <dir>/   # the system IR a generator reads -> build/<system>.ir.json
 node tools/docs.mjs sync               # mirror Marten/Wolverine/Alba docs into reference/llms/
+node tools/codegen.mjs        <dir>/   # the deterministic code -> generated/<System>/
 ```
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is

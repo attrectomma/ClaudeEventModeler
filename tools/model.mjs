@@ -176,7 +176,12 @@ function parseCells(body) {
       mappings: parseMappings(a.mappings),
       derived: parseDerived(a.derived),
       terminal: parseFields(a.terminal),
-      gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null },
+      gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null,
+              // Where this rule is enforced. A rule the request alone can settle belongs at the
+              // periphery; one needing accumulated state belongs where the stream is visible. NOT
+              // derivable from given= being empty: a context given= like "the month is open" is on
+              // almost every GWT, so this is declared.
+              enforce: a.enforce ?? "aggregate" },
       geometry: geometryOf(chunk),
     });
   };

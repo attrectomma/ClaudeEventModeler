@@ -60,8 +60,8 @@ The agreed order, and where it stands:
 | 1 | `llms.txt` mirror for Marten / Wolverine / Alba | **done** — 392 pages, `node tools/docs.mjs sync` |
 | 2 | system-level IR | **done** — `node tools/model.mjs compile diagrams/hour-booking/` |
 | 2b | stream identity — the gap step 3 hit immediately | **done**, see below |
-| 3 | contract generation: events, aggregates, projections, **and the failing Alba tests** | next |
-| 4 | `book-hours` end to end, one agent, sequential, until `dotnet test` is green | |
+| 3 | contract generation: events, aggregates, projections, **and the failing Alba tests** | **done** — builds clean, 55 tests fail |
+| 4 | `book-hours` end to end, one agent, sequential, until `dotnet test` is green | next |
 | 5 | docker-compose for the human demo, strictly separate from the test infrastructure | |
 | 6 | *then* the orchestrator and parallel fan-out | deferred on purpose |
 
@@ -90,6 +90,27 @@ concurrent bookings can both pass and exceed the cap.
 The cost, paid: **`month:string` added to all four Timesheet events and their four commands.** The key
 has to be on every event or the event cannot say which stream it belongs to. All four owned
 aggregates now resolve to `employeeId, month`.
+
+### Generated code: where it stands
+
+```
+node tools/codegen.mjs diagrams/hour-booking     -> generated/HourBooking/  (35 files)
+cd generated/HourBooking && dotnet build          -> 0 errors, 0 warnings
+                            dotnet test           -> 55 failed, 0 passed, 55 total
+```
+
+**55 failing tests is the deliverable**, not a defect: one per GWT, generated from the model rather
+than from the implementation, so they cannot be tautological. Each throws with the outcome it expects
+and the stream key it needs. `book-hours`' 10 are the ones step 4 turns green.
+
+Every `TODO(codegen)` is a hole a script should not fill: which event opens a stream, how each fold
+works, the arithmetic behind a derived field, and the example data a test needs. The model has names
+and types but no example values, which is why tests cannot be fully generated.
+
+**Decided:** `enforce="periphery"` on the four `HoursMustBeNonZero` / `HoursMustBeWholeOrHalf` GWTs.
+The rest default to `aggregate`. This is declared because the derivation I proposed — "empty `given=`
+means periphery" — found **zero of four** on this model: `BookingMonthStarted` appears as context on
+almost every GWT.
 
 ### Two decisions still open
 
