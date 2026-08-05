@@ -523,13 +523,32 @@ in the file.
 Keep the wireframe **low fidelity**: no colour, no type, no imagery. It stays legible at model scale,
 it cannot be mistaken for the design, and it does not fight the sticky-note grammar.
 
-### Three skills, and the line between them is what each may invent
+### Four skills, and the line between them is what each may invent
 
 | Skill | Scope | Invents | Gate |
 | --- | --- | --- | --- |
 | `event-model` | once per context | layout only — never a domain fact | the completeness check, deterministic |
+| `add-slice` | per slice | layout only — never a domain fact | the same check, plus the ripple reported |
 | `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |
 | `codegen` | per slice | nothing — it reads the compiled IR | tests pass |
+
+**`event-model` and `add-slice` are two directions into one artifact, not two stages.** `event-model`
+asks and the user answers — the exploratory path, eleven phases, a whole context. `add-slice`
+transcribes a brief the user dictates, one slice, into an empty folder or a model with N slices
+already in it. Neither owns the file and a model can alternate between them. What they share is the
+rule: **layout is invented, a domain fact never is.** `add-slice` keeps that honest with a **gap
+list** — every attribute must trace to a sentence in the brief or to an answer the user gave, and
+the remainder is asked, not filled.
+
+**Appending is not a local edit, and that is `add-slice`'s real content.** Ch. 14 of *Understanding
+EventSourcing* adds one slice and discovers a missing `aggregateId` that then has to be defined
+*"consistently throughout the Event Model"*; ch. 16 runs it backwards, a new View needing a field that
+must then be added to an existing event *and* its command. So the completeness check is the append's
+**engine**, not just its gate. The little book, ch. 12, gives the mechanic: *"I treat changes to
+existing Slices like new Slices… I typically make a screenshot and set it back to Status 'Created'.
+Also for example Read Models impacted by new Events. So one change could have impact on several
+Slices."* Here that means **an impacted slice past `in-design` goes back to `in-design`** — a View that
+gained a field is no longer the View that was signed off.
 
 **`styling` delegates aesthetic judgement to Anthropic's official `frontend-design` plugin** rather
 than reinventing design taste — install via `/plugin`. That plugin already supplies the token-system

@@ -414,13 +414,28 @@ their own `<model>.<flow>.drawio`.
 
 ## Where this skill stops
 
-Three skills, and the boundary between them is what each one is allowed to invent.
+Four skills, and the boundary between them is what each one is allowed to invent.
 
 | Skill | Scope | Invents | Gate |
 | --- | --- | --- | --- |
 | **event-model** | once per context | layout only — never a domain fact | the completeness check, deterministic |
+| **add-slice** | per slice | layout only — never a domain fact | the same check, plus the ripple reported |
 | **styling** | once per *system*, then per new screen | tokens, palette, spacing, components | the human likes it |
 | **codegen** | per slice | nothing — it reads the compiled IR | tests pass |
+
+**`add-slice` is the other direction into this same file, not a later stage.** Here you ask and the
+user answers; there the user dictates a brief and it gets transcribed, one slice, with everything the
+brief did not cover reported as a gap list rather than filled in. Use it when they already know the
+domain and want it drawn — and hand over to it once this model is established, because appending a
+slice does not need eleven phases. It can also start a model from nothing, so it is a legitimate
+alternative entry point rather than a continuation of this one. Neither skill owns the file; a model
+can alternate between them.
+
+**Where this skill's phase 7 is a gate, `add-slice` uses the same check as an engine.** Appending a
+slice reaches *backwards* into cells that already exist — the book's own worked examples are a new
+slice forcing a field onto an existing event and its command — so an impacted slice past `in-design`
+goes back to `in-design`. That ripple has no analogue in a first pass, which is why it lives there and
+not here.
 
 They are a **dependency graph, not a pipeline.** Styling gates only *frontend* codegen. A model with
 no screens — a notification-only context, say — is backend-only and can go straight to codegen with
