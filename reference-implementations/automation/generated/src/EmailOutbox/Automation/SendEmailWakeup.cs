@@ -3,6 +3,8 @@
 //   Scaffolded once by tools/codegen.mjs, then FILLED IN BY HAND — regeneration KEEPS this file.
 // </auto-generated-scaffold>
 #nullable enable
+using JasperFx.Events.Daemon;
+using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.Marten;
@@ -72,7 +74,7 @@ public static class SendEmailWakeup
     /// <summary>Hosted services and anything needing the app builder. The clock lives here.</summary>
     public static void RegisterServices(WebApplicationBuilder builder)
     {
-        if (Chosen is Mechanism.Subscription or Mechanism.SideEffects)
+        if (Chosen is Mechanism.Subscription)
             throw new NotSupportedException(
                 $"{Chosen} is not implemented yet in this reference. Failing loudly on purpose: a wakeup " +
                 "mechanism that silently does nothing is the exact defect this folder exists to document.");
@@ -80,6 +82,21 @@ public static class SendEmailWakeup
         if (Chosen == Mechanism.Sweep)
             builder.Services.AddSingleton<IHostedService>(sp => new SweepClock(sp));
     }
+
+    /// <summary>
+    /// The lifecycle of this slice's todo View.
+    ///
+    /// SIDE EFFECTS FORCE ASYNC, and that is the first real cost of mechanism C. Marten documents side
+    /// effects as built for continuous asynchronous projection processing: RaiseSideEffects is not called
+    /// for an Inline projection at all unless EnableSideEffectsOnInlineProjections is switched on, and the
+    /// docs describe that as a late addition for a single client. Async is the supported path.
+    ///
+    /// The consequence lands on everything downstream. The todo View stops being updated in the same
+    /// transaction as the append, so it is EVENTUALLY consistent — a test that reads it has to wait rather
+    /// than assert. Every other mechanism here keeps the view Inline and pays none of that.
+    /// </summary>
+    public static ProjectionLifecycle LifecycleOf(ProjectionLifecycle fallback) =>
+        Chosen == Mechanism.SideEffects ? ProjectionLifecycle.Async : fallback;
 
     /// <summary>Marten options: a projection lifecycle, a subscription registration.</summary>
     public static void ConfigureMarten(StoreOptions opts)
@@ -95,9 +112,12 @@ public static class SendEmailWakeup
     /// <summary>The store: AddAsyncDaemon, which a subscription and an async projection both need.</summary>
     public static void ConfigureStore(MartenServiceCollectionExtensions.MartenConfigurationExpression marten)
     {
-        // Subscription would need .AddAsyncDaemon(DaemonMode.Solo) here. Deliberately not switched on for
-        // the other three: the daemon is a background thread, and turning it on for mechanisms that do not
-        // use it would make their tests eventually-consistent for no reason.
+        // The daemon is what RUNS an async projection, and therefore what calls RaiseSideEffects at all.
+        // Switched on only for the mechanisms that need it: it is a background thread, and enabling it for
+        // the others would make their tests eventually-consistent for nothing.
+        //
+        // Solo rather than HotCold: one node, no leader election, much faster startup.
+        if (Chosen == Mechanism.SideEffects) marten.AddAsyncDaemon(DaemonMode.Solo);
     }
 
     /// <summary>

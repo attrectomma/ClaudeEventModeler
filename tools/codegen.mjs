@@ -84,6 +84,18 @@ const testName = (g, i) => {
 //
 // Every name in a swimlane's identity= is a stream key, so it is exactly what a test must be able to
 // refer to. Types come from the events that carry the field.
+// Inline by default: a read model updated in the same transaction as the append means a GWT's THEN is
+// assertable the moment the request returns. But a view that is an automation's TODO LIST may have to be
+// Async — projection side effects, one of the ways to wake a trigger, are documented as built for
+// asynchronous processing. So the owning automation is asked, and only it can override.
+const ownerOf = (v) => automations.find((s) => (s.views ?? []).includes(v.label));
+const lifecycleFor = (v) => {
+  const owner = ownerOf(v);
+  return owner
+    ? `${pascal(owner.name)}Wakeup.LifecycleOf(ProjectionLifecycle.Inline)`
+    : "ProjectionLifecycle.Inline";
+};
+
 const seedConstants = () => {
   const keys = [...new Set(ir.shared.aggregates.flatMap((a) => a.identity ?? []))];
   const typeOf = (name) => {
@@ -747,6 +759,7 @@ public static class ${a}
     scaffold(p,
       `${banner(`${s.name} — HOW this automation is woken. Choose one; regeneration keeps this file.`)}
 #nullable enable
+using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.Marten;
@@ -801,6 +814,12 @@ public static class ${pascal(s.name)}Wakeup
         // Until it is gone, codegen reports this slice under AUTOMATION NOT WOKEN — because an
         // automation nothing ever runs passes every test it has, and that is not hypothetical.
     }
+
+    /// <summary>
+    /// The lifecycle of this slice's todo View. Inline unless the chosen mechanism needs otherwise —
+    /// projection side effects are documented as built for ASYNC projection processing.
+    /// </summary>
+    public static ProjectionLifecycle LifecycleOf(ProjectionLifecycle fallback) => fallback;
 
     /// <summary>Marten options: a projection lifecycle, a subscription registration.</summary>
     public static void ConfigureMarten(StoreOptions opts) { }
@@ -903,7 +922,7 @@ ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a
         // the append, so a GWT THEN can be asserted straight after the request returns.
         // Write side registers NOTHING: the per-slice state types are folded live on demand.
 ${ir.shared.views.map((v) => registerable.includes(v.label)
-      ? `        opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
+      ? `        opts.Projections.Add<${pascal(v.label)}Projection>(${lifecycleFor(v)});`
       : `        // TODO(codegen): ${pascal(v.label)}Projection groups events that do not carry
         // ${SYS_KEY.join(" + ")}, so it has no slicing rule yet. Marten rejects a multi-stream
         // projection with no rules AT STARTUP, so registering it now would take the host down.

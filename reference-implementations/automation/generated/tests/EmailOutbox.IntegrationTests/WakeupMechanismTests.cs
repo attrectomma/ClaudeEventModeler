@@ -29,6 +29,21 @@ namespace EmailOutbox.IntegrationTests;
 /// host would append events into streams the other tests are asserting on, and every GIVEN would become a
 /// race. That is the real reason a clock must be absent in tests — not the timer itself.
 /// </summary>
+/// <remarks>
+/// IN THE SAME COLLECTION as every other test here, which serialises it against them — and that is a
+/// correctness requirement, not tidiness.
+///
+/// The chosen mechanism is static (the Configure hooks are static methods called from Program.cs, so there
+/// is no per-host instance to hang it on). Run in a PARALLEL collection, one of these hosts calls Choose()
+/// in between the shared host resolving its own choice and registering its projections — so the shared host
+/// built EmailsToSend as Async and every inline row assertion in the GWT tests failed. Two tests broke in a
+/// way that had nothing to do with what they were testing.
+///
+/// A real project never meets this: it picks ONE mechanism and deletes the rest, so nothing mutates. It is a
+/// cost of keeping four side by side in one project for comparison, and worth knowing before copying this
+/// shape into anything real.
+/// </remarks>
+[Collection("integration")]
 public sealed class WakeupMechanismTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
@@ -146,7 +161,32 @@ public sealed class WakeupMechanismTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// The other side of the boundary, and the one that makes the two above mean something: with no
+    /// C: PROJECTION SIDE EFFECTS. The todo View publishes the run message itself when a row turns Pending,
+    /// so the wakeup is a property of the read model rather than of anything outside it.
+    ///
+    /// Async, not Inline — Marten calls RaiseSideEffects only during continuous asynchronous projection
+    /// processing unless side effects on Inline projections are explicitly enabled, and documents that switch
+    /// as a late addition for one client. So this mechanism drags in the async daemon and makes the todo View
+    /// eventually consistent, which is why this test waits longer than the other two.
+    /// </summary>
+    [Fact]
+    public async Task SideEffectsWakeTheTrigger()
+    {
+        var emailId = Guid.NewGuid();
+        await using var host = await HostFor("sideeffects");
+
+        await Compose(host, emailId);
+
+        // Longer window on purpose: the append commits, the daemon then picks the event up, updates the row
+        // and publishes. Nothing here is in the request's transaction.
+        var sent = await WaitForSend(host, emailId, TimeSpan.FromSeconds(30));
+
+        sent.ShouldNotBeNull();
+        sent!.EmailId.ShouldBe(emailId);
+    }
+
+    /// <summary>
+    /// The other side of the boundary, and the one that makes the others mean something: with no
     /// mechanism selected, nothing sends anything. Without this, "forwarding works" could just as well be
     /// "something else in the host happens to run the trigger".
     /// </summary>
@@ -173,7 +213,6 @@ public sealed class WakeupMechanismTests : IAsyncLifetime
     /// </summary>
     [Theory]
     [InlineData("subscription")]
-    [InlineData("sideeffects")]
     public async Task UnimplementedMechanismsRefuseToStart(string mechanism)
     {
         var boot = async () => await HostFor(mechanism);

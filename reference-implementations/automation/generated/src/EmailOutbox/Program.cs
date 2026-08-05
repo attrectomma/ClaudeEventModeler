@@ -46,7 +46,7 @@ var marten = builder.Services.AddMarten(opts =>
         // Read side: every read model is an INLINE projection, updated in the same transaction as
         // the append, so a GWT THEN can be asserted straight after the request returns.
         // Write side registers NOTHING: the per-slice state types are folded live on demand.
-        opts.Projections.Add<EmailsToSendProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<EmailsToSendProjection>(SendEmailWakeup.LifecycleOf(ProjectionLifecycle.Inline));
 
         SendEmailWakeup.ConfigureMarten(opts);
     })

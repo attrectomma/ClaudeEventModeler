@@ -4,6 +4,9 @@
 //   Holes marked TODO(codegen) are yours to close; they are reported until you do.
 // </auto-generated-scaffold>
 
+using JasperFx.Events;
+using Marten;
+using EmailOutbox.Automation;
 using Marten.Events.Aggregation;   // SingleStreamProjection
 using Marten.Events.Projections;   // MultiStreamProjection
 using EmailOutbox.Contracts;
@@ -79,4 +82,36 @@ public sealed class EmailsToSendProjection : SingleStreamProjection<EmailsToSend
     {
         Status = EmailsToSend.Sent,
     };
+
+    /// <summary>
+    /// MECHANISM C: the projection wakes the trigger itself, the instant the todo row changes.
+    ///
+    /// This is the one wakeup mechanism that reaches INTO the read model, and that is its defining cost. The
+    /// other three are entirely outside this file — forwarding is a handler, a subscription is a registration,
+    /// a sweep is a clock — so the view stays a view. Here the view has to know that an automation exists, so
+    /// a read model becomes the thing that dispatches work. For a generated kit that is a genuine mark
+    /// against it: the file the generator scaffolds for a VIEW now carries transport.
+    ///
+    /// What it buys is precision. Forwarding fires on the event and then the trigger re-reads the View to find
+    /// out whether there is anything to do; this fires on the ROW, already knowing. Where "is there work?" is
+    /// exactly "did this row change into a pending state", nothing else expresses it as directly.
+    ///
+    /// Guarded on Pending for a reason: this projection also folds EmailSent, so an unguarded publish would
+    /// wake the trigger with its own completion — harmless, because the run would find nothing pending, but a
+    /// wasted round trip per send and one step from a loop if the guard were ever wrong.
+    ///
+    /// Marten note: events emitted or published here are NOT applied to the current snapshot, and
+    /// RaiseSideEffects is only called during continuous async processing unless side effects on Inline
+    /// projections are explicitly enabled. SendEmailWakeup.LifecycleOf makes this view Async for exactly that
+    /// reason.
+    /// </summary>
+    public override ValueTask RaiseSideEffects(IDocumentOperations operations, IEventSlice<EmailsToSend> slice)
+    {
+        if (SendEmailWakeup.Chosen != SendEmailWakeup.Mechanism.SideEffects) return new ValueTask();
+
+        if (slice.Snapshot?.Status == EmailsToSend.Pending)
+            slice.PublishMessage(new Contracts.RunSendEmail());
+
+        return new ValueTask();
+    }
 }

@@ -64,10 +64,10 @@ selected by `Automation:Wakeup`. In a real project you pick one and delete the r
 
 | | Implementation | State | Measured |
 | --- | --- | --- | --- |
-| **A** | event forwarding → doorbell handler | **works** | wakes in **~1s**, no daemon, no polling |
+| **A** | event forwarding → doorbell handler | **works** | **~1s.** No daemon, no polling. Only for events *we* append |
 | **B** | Marten `ISubscription` | not built | needs `AddAsyncDaemon`; fails loudly if selected |
-| **C** | projection `RaiseSideEffects` | not built | `Inline` vs `Async` still open; fails loudly if selected |
-| **D** | sweep on a clock | **works** | wakes within one interval (**~2s** at a 1s tick) |
+| **C** | projection `RaiseSideEffects` | **works, on Async** | **~4s.** Forces the view Async and drags in the daemon |
+| **D** | sweep on a clock | **works** | within one interval (**~2s** at a 1s tick). Works for *any* trigger |
 
 `WakeupMechanismTests` is the only test in the project that can tell any of this. Every other test drives
 `RunSendEmail` itself — correct, because that is the production path — but says nothing about whether
@@ -79,7 +79,34 @@ be "something else in the host happens to run the trigger".
 An unimplemented mechanism **throws on startup**. A wakeup that silently does nothing is the defect this
 folder documents, so a missing one must not resemble a working one.
 
-### What building two of them taught
+### C: it works, and the interesting part is what it costs
+
+**It had to be `Async`.** Marten calls `RaiseSideEffects` only during continuous asynchronous projection
+processing unless `EnableSideEffectsOnInlineProjections` is switched on — and the docs describe that switch
+as a late addition for a single client. Async is the supported path, so mechanism C takes it and the
+consequences cascade:
+
+- the todo View stops being updated in the same transaction as the append, so it is **eventually
+  consistent**. Its test waits where the others assert.
+- it pulls in the **async daemon**, a background thread nothing else here needs.
+- the projection **lifecycle is no longer a fixed property of the view** — the owning automation now
+  overrides it, which is why the generator emits `SendEmailWakeup.LifecycleOf(ProjectionLifecycle.Inline)`
+  rather than the literal.
+
+**And it is the only mechanism that reaches into the read model.** Forwarding is a handler, a subscription is
+a registration, a sweep is a clock — all outside the view. C puts a `PublishMessage` inside the projection,
+so a read model becomes the thing that dispatches work and has to know an automation exists. For a generated
+kit that is a mark against it: the file scaffolded for a *view* now carries transport.
+
+What it buys is precision. Forwarding fires on the *event* and the trigger then re-reads the View to discover
+whether there is anything to do; C fires on the *row*, already knowing. Where "is there work?" is exactly
+"did this row turn pending", nothing expresses it as directly.
+
+The guard matters: this projection also folds `EmailSent`, so an unguarded publish would wake the trigger
+with its own completion — harmless, since the run finds nothing pending, but a wasted round trip per send and
+one step from a loop if the guard were ever wrong.
+
+### What building them taught
 
 **Hook order is load-bearing, and getting it wrong fails silently.** A mechanism may need configuration in
 generated bootstrap code — forwarding sets a flag on `IntegrateWithWolverine`, a subscription needs
@@ -105,6 +132,14 @@ is how the forwarding test first passed *while printing what looked like a failu
 non-event. Worth stating plainly: **every mechanism here is at-least-once, so the decider must be
 idempotent, and idempotent means both guards.**
 
+**Static mechanism selection does not survive parallel hosts.** The `Configure*` hooks are static methods
+called from `Program.cs`, so the chosen mechanism has nowhere per-host to live and ends up static. Run in a
+parallel xUnit collection, one wakeup host called `Choose()` in between the shared host resolving its own
+choice and registering its projections — so the shared host built the view **Async** and every inline row
+assertion in the GWT tests failed, in a way that had nothing to do with what those tests were testing. Fixed
+by serialising the wakeup tests into the shared collection. A real project never meets this, because it picks
+one mechanism and deletes the rest; it is a cost of keeping four side by side.
+
 **Shared-schema isolation is a real limit.** Each mechanism gets its own host, but the generated
 `Program.cs` hard-codes `DatabaseSchemaName`, so `UseSetting` cannot separate them and rows accumulate
 across tests. The tests are made independent by naming their own `emailId` instead — which works because
@@ -112,14 +147,11 @@ the endpoint honours a supplied id and mints one only when it is absent.
 
 ## Status
 
-The model is built and validated. Both deciders are green, and two of four wakeup mechanisms are
-implemented and verified to fire unaided: **11 tests passing**. The generator no longer chooses a mechanism
+The model is built and validated. Both deciders are green, and three of four wakeup mechanisms are
+implemented and verified to fire unaided: **11 tests passing**, stable across repeated runs. The generator no longer chooses a mechanism
 — it emits the seam and reports `AUTOMATION NOT WOKEN` until a choice is made, which is the check that
 would have caught the original defect.
 
-**Still to do:** B (`ISubscription`) and C (`RaiseSideEffects`). C has an open question worth settling
-first — Marten documents side effects as built for *async* projection processing, with inline support added
-later for a single client, so if `EnableSideEffectsOnInlineProjections` proves unsound the projection moves
-to `Async` and that mechanism's tests become eventually-consistent. That cost is itself a finding.
+**Still to do:** B (`ISubscription`) — the only one left, and the only one that offers ordering and replay.
 
 A claim without a measurement behind it does not belong in this file.
