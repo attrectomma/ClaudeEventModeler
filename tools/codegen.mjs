@@ -79,7 +79,15 @@ const testName = (g, i) => {
 };
 
 const files = [];
+const kept = [];
+// Fully derived: always overwritten, because the diff IS the review of a model change.
 const emit = (p, body) => { write(p, body); files.push(p); };
+// Needs judgement: scaffolded once, then owned by whoever filled it in. Overwriting this would
+// silently delete the only part of the code a model cannot express.
+const scaffold = (p, body) => {
+  if (existsSync(p)) { kept.push(p); return; }
+  write(p, body); files.push(p);
+};
 
 // --- events -----------------------------------------------------------------------------------
 
@@ -123,7 +131,7 @@ for (const s of ir.slices) {
   if (!agg || !agg.events.length) continue;
   const evs = agg.events.map((l) => ir.shared.events.find((e) => e.label === l));
   const keyed = agg.identity;
-  emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${stateName(s)}.cs`),
+  scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${stateName(s)}.cs`),
     `${banner(`${s.name} — the state this slice folds to make its decision`)}
 using ${NS}.Contracts;
 
@@ -179,7 +187,7 @@ for (const v of ir.shared.views) {
     return KEY.every((k) => e?.fields.some((f) => f.name === k));
   });
   if (!multi || sliceable.length) registerable.push(v.label);
-  emit(join(APP, "Views", `${pascal(v.label)}.cs`),
+  scaffold(join(APP, "Views", `${pascal(v.label)}.cs`),
     `${banner(`${v.label} read model — fed by ${v.from.length} event type(s)`)}
 using Marten.Events.Aggregation;   // SingleStreamProjection
 using Marten.Events.Projections;   // MultiStreamProjection
@@ -249,7 +257,7 @@ for (const [s, gwts] of peripheryBySlice) {
   const cmd = s.commands[0];
   const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === cmd));
   const fields = agg?.commands.find((c) => c.label === cmd)?.fields ?? [];
-  emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}Validator.cs`),
+  scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}Validator.cs`),
     `${banner(`${cmd} — periphery validation for slice "${s.name}"`)}
 using FluentValidation;
 using ${NS}.Slices.${pascal(s.context)}.${pascal(s.name)};
@@ -282,6 +290,7 @@ emit(join(TESTS, "AppFixture.cs"),
 using Alba;
 using JasperFx.CommandLine;
 using Marten;
+using Marten.Schema;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Wolverine;
@@ -321,6 +330,10 @@ public sealed class AppFixture : IAsyncLifetime
                 services.RunWolverineInSoloMode();
                 // No broker in tests. Sends are still tracked, just not delivered.
                 services.DisableAllExternalWolverineTransports();
+
+                // Marten attaches any IInitialData in the container to StoreOptions, and
+                // ResetAllMartenDataAsync re-applies it — so every test starts in the same world.
+                services.AddSingleton<IInitialData, SeedData>();
             });
             builder.UseSetting("ConnectionStrings:Marten", _postgres.GetConnectionString());
         });
@@ -341,7 +354,7 @@ public sealed class IntegrationCollection : ICollectionFixture<AppFixture>;
 // Marten's IInitialData is the answer to "a test needs example data and the model has none". The
 // genesis events are seeded once with fixed ids, ResetAllData re-applies them, and every test then
 // starts from the same known world instead of inventing its own.
-emit(join(TESTS, "SeedData.cs"),
+scaffold(join(TESTS, "SeedData.cs"),
   `${banner("baseline data — one known world, re-applied before every test")}
 using Marten;
 using Marten.Schema;
@@ -449,7 +462,7 @@ for (const s of ir.slices) {
     ? `${stateName(s)}.StreamKey(/* ${agg.identity.join(", ")} */)`
     : "/* no command in this slice, so no stream is written */";
   gwtCount += s.gwts.length;
-  emit(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
+  scaffold(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
     `${banner(`slice "${s.name}" — ${s.gwts.length} GWT(s), one test each`)}
 using Alba;
 using ${NS}.Contracts;
@@ -614,7 +627,7 @@ emit(join(OUT, `${NS}.slnx`),
 </Solution>
 `);
 
-console.log(`${files.length} file(s) -> ${OUT}`);
+console.log(`${files.length} file(s) written, ${kept.length} kept (already filled in) -> ${OUT}`);
 console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, ${foreign.length} foreign)`);
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
