@@ -166,6 +166,9 @@ compiler disagree, and it takes about a minute.
 
 So: read the mirror first, then **compile**. The mirror removes most of the guessing, not all of it.
 
+Everything a generator cannot decide, and the traps found by running rather than reading, are in
+[.claude/skills/codegen/SKILL.md](.claude/skills/codegen/SKILL.md).
+
 **Smells the checker cannot see are catalogued in [ANTI-PATTERNS.md](ANTI-PATTERNS.md)**, with the
 tooling-catches-it column made explicit. Read it before trusting a green run.
 

@@ -235,7 +235,7 @@ bugs repeatedly, and it is the single most valuable habit in the kit.
 | --- | --- | --- | --- | --- |
 | `event-model` | once per context | layout only — **never a domain fact** | the completeness check | **built** |
 | `styling` | once per system, then per new screen | tokens, palette, spacing, components | zero `design/` findings, then the human likes it | **built** |
-| `codegen` | per slice | nothing — reads the compiled IR | tests pass | not built |
+| `codegen` | per slice | business rules, folds, test data — never a domain fact | `dotnet test` green, and you have looked at the page | **built** |
 
 **A dependency graph, not a pipeline.** Styling gates only *frontend* codegen. `notifications` has no
 screens, so it is backend-only and could go straight to codegen with no design in existence.
@@ -267,6 +267,20 @@ then what the command must have provided to persist the event.
 screen or stream boundary. It will ask. Anything it does have to guess is tagged `proposed=` on the
 cell so you can find it later — in the worked example, every screen and field name is tagged that
 way, because those were delegated deliberately.
+
+### `codegen` — built, exercised on one slice
+
+`book-hours` runs end to end: 10 GWT tests green against a real Testcontainers Postgres, plus a
+React page ported from the design and screenshotted. The skill is the reasoning that produced it —
+including the five API facts the docs got wrong, which cost real time and are now written down.
+
+```bash
+node tools/codegen.mjs diagrams/hour-booking      # 8 written, 35 kept
+cd generated/HourBooking && dotnet test           # 11 passed, 45 skipped
+```
+
+Skipped is not failure: a slice at `in-design` has its GWT tests generated but skipped, so green
+means the *claimed* slices pass and the skip count is what is left.
 
 ### `styling` — built, exercised on one screen
 
