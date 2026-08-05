@@ -3,7 +3,7 @@ name: codegen
 description: >-
   Implement one vertical slice of an event model as working, tested, full-stack code — .NET 10,
   Wolverine, Marten, FluentValidation, Postgres, Testcontainers, Alba, React + TypeScript. Use when
-  the user wants to build or implement a slice, says "implement X", "build the book-hours slice", or
+  the user wants to build or implement a slice, says "implement X", "build the <slice-name> slice", or
   invokes /codegen. Runs AFTER event-model, and after styling for any slice with a screen. Sequences
   the backend-agent and frontend-agent and enforces the gates; does not write the code itself.
 ---

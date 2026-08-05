@@ -25,74 +25,70 @@ needs a human to notice, which is the whole reason this file exists.
 
 ## 1. Two events can open one stream <a id="1"></a>
 
-**Live in `hour-booking`. Not fixed — see why below.**
-
-The `Timesheet` stream is keyed `(employeeId, month)` and can be opened by **either** `HoursBooked`
-(the employee books something) **or** `ZeroHoursFilled` (the employee left a project having booked
-nothing that month). Two possible first events.
+A stream keyed `(subject, period)` where **either** of two events can be the first one — in the worked
+case, one written when the subject acted and one written when the system filled in for them, and neither
+guaranteed to come first.
 
 **Why it is a smell.** A stream with one guaranteed opening event has a creation moment you can name,
 put invariants on, and attach metadata to. Two openers means there is no such moment — every
 consumer has to cope with a stream that might begin in either of two states, and the aggregate can
-never assume the month exists. Marten surfaces it directly: it needs a `Create` for the first event,
+never assume the period exists. Marten surfaces it directly: it needs a `Create` for the first event,
 and if you nominate the wrong one, live aggregation fails at runtime on the other path.
 
 **Three resolutions, and what each costs:**
 
-**(a) Emit a creation event from the existing automation — illegal here.** `start-month` already
-opens the month with `BookingMonthStarted`. Having its command also emit a `TimesheetOpened` breaks
-the little book's rule from ch. 11, enforced as an error: *"A single command should never interact
+**(a) Emit a creation event from an existing command — usually illegal.** If some other slice already
+opens a *neighbouring* stream, having its command also emit the creation event for this one breaks the
+little book's rule from ch. 11, enforced here as an error: *"A single command should never interact
 with multiple swimlanes or aggregates. The moment you do this, you introduce the need for a
 transactional boundary."*
 
-**(b) A second automation that opens the stream — the right answer, and a modelling task.**
-`BookingMonthStarted → a todo View of months with no timesheet → an automation → OpenTimesheet →
-TimesheetOpened`. Structurally clean and it is the standard shape. It requires **inventing five
-domain facts** — an event name and its fields, a command, a todo view and its fields, plus the GWTs —
-so it is a session with the domain expert, not a refactor. **Do this when the expert is available.**
+**(b) A dedicated automation that opens the stream — the right answer, and a modelling task.**
+`<upstream event> → a todo View of subjects with no stream → an automation → Open… → …Opened`.
+Structurally clean and it is the standard shape. It requires **inventing five domain facts** — an event
+name and its fields, a command, a todo view and its fields, plus the GWTs — so it is a session with the
+domain expert, not a refactor.
 
-**(c) Merge the two streams — tempting, and it unwinds something better.** `Timesheet` and
-`MonthClosure` are keyed identically (see #2), and merged they would read as one compelling narrative
-*and* make "a closed month cannot be booked into" a true in-aggregate invariant instead of needing a
-cross-stream `[ReadAggregate]`. But `Timesheet` lives in the `booking` context and `MonthClosure` in
-`month-closure`, so one stream would be **written by two contexts** — which breaks *"only an event
-crosses a model boundary"* far more seriously than the original smell. Fixing #1 this way would
-unwind the multi-model split.
+**(c) Merge the two streams — tempting, and it can unwind something better.** Where two streams are
+keyed identically (see #2), merging them would read as one narrative *and* turn a cross-stream check into
+a true in-aggregate invariant. But if the two live in **different contexts**, one stream would then be
+written by two contexts — which breaks *"only an event crosses a model boundary"* far more seriously than
+the original smell, and unwinds the multi-model split.
 
 **What was done instead.** No `Create` method at all: a no-arg constructor lets any event open the
 stream. Marten's own docs recommend exactly this — *"probably safest to have an empty, default
 constructor unless you can guarantee that a certain event type will always be first in the event
 stream."* It is correct and it is a workaround; the creation moment still does not exist.
 
-**Worth knowing:** "the first event drawn in the swimlane opens the stream" is a good rule that holds
-for 3 of the 4 bands here (`MonthClosure` is genuinely always opened by `BookingMonthStarted`, and the
-two single-event streams trivially). It is a useful default, not a safe dependency.
+**Worth knowing:** "the first event drawn in the swimlane opens the stream" is a good default that held
+for 3 of 4 bands in the worked model — the exception being exactly the band above. A useful default, not
+a safe dependency.
 
 ## 2. Two streams with identical identity <a id="2"></a>
 
-`Timesheet` and `MonthClosure` are both keyed `(employeeId, month)`. Two streams whose identity is
+Two streams both keyed `(subject, period)`. Two streams whose identity is
 the same are usually one stream, because identity is what a stream *is*.
 
-Here it is a consequence of the context split rather than a modelling error: the two contexts are
-genuinely separate readable stories, and the price of that is a shared key. But it is worth noticing,
-because it is also what makes #1 unfixable by merging, and what forces the closed-month rule to read
-across streams.
+It can be a consequence of a context split rather than a modelling error: two contexts are genuinely
+separate readable stories, and the price of that is a shared key. But it is worth noticing, because it is
+also what makes #1 unfixable by merging, and what forces a rule about one stream's state to be read
+across from the other.
 
 **The tooling cannot see this** — `identity=` is declared per band, and nothing compares bands across
 models. A rule for it would be cheap and is not written.
 
 ## 3. A view whose grain is undeclared <a id="3"></a>
 
-A read model's `fields=` say what a row holds and never what a **row is**. `MyTimesheet` is per
-booking; `MyProjects` is per (employee, project); `OpenMonths` is per (employee, month). Nothing said
-so until a projection needed to group events, at which point Marten rejected the projection at
-startup with *"no defined event slicing rules"* — and because that is a startup failure it took the
-whole host down and turned 55 individually-failing tests into 55 identical fixture errors.
+A read model's `fields=` say what a row holds and never what a **row is**. One view is per line item,
+another per (subject, category), a third per (subject, period) — and nothing says so until a projection
+needs to group events, at which point Marten rejects the projection at startup with *"no defined event
+slicing rules"*. Because that is a *startup* failure it takes the whole host down, which turned 55
+individually-failing tests into 55 identical fixture errors.
 
-`identity=` on the read model fixes it. In `hour-booking` **1 of 10 views declares it**; the other
-nine fall back to the system key, which the generated projection marks as `GUESSED`. That fallback is
-right for the month-scoped views and wrong for at least `MyTimesheet`, `Admins`, `WorkingDays` and
-`MonthStartTodo`.
+`identity=` on the read model fixes it. In the worked model **1 of 10 views declared it**; the other nine
+fell back to the system key, which the generated projection stamps `GUESSED`. That fallback was right for
+the period-scoped views and wrong for four of the rest — silently, because every attribute rule passes
+either way.
 
 ## 4. `Event → Processor → Event` <a id="4"></a>
 
@@ -124,11 +120,11 @@ context. Only a type mismatch is detectable — a same-typed lie still passes.
 
 *"I aim to capture one business context in each model, so I can read it from left to right without
 any visual interruptions."* If you reach for `crop.mjs` to look at a model, it is too big. The
-7760px original became three models of 1940–2960px.
+worked model started at 7760px and became three of 1940–2960px.
 
 ## 9. A screen that is a repeated label <a id="9"></a>
 
-`Timesheet` was three cells with `displays=` hand-copied between them and nothing comparing the
+One screen was three separate cells with `displays=` hand-copied between them and nothing comparing the
 copies — the same bug the slice cell fixed for slices. A slug plus one asymmetric rule (`displays=`
 must agree, `inputs=` may differ) makes it one screen with three affordances.
 
@@ -146,8 +142,8 @@ projection lets two concurrent bookings both pass.
 
 `enforce=` on the GWT declares where a rule lives, defaulting to `aggregate` because that is the safe
 direction. **It cannot be derived**: the obvious heuristic — "no `given=` means the request alone
-settles it" — found zero of four real periphery rules in `hour-booking`, because almost every GWT
-carries a *context* `given=` like *"the month is open"*.
+settles it" — found zero of four real periphery rules in the worked model, because almost every GWT
+carries a *context* `given=` like *"the period is still open"*.
 
 ## 12. A todo row that never completes <a id="12"></a>
 
@@ -155,14 +151,14 @@ An automation's View is a todo list: an event puts a row on it, the automation w
 resulting event ticks it off. The model says all of that — but it never says **what a finished row
 looks like**.
 
-`ZeroFillTodo` is one row per (employee, project) still to be zero-filled *to month end*. Deciding a
-row is done needs the calendar, and a projection cannot query another view. So rows accumulate: the
-work stops happening — each remaining day is refused as already filled — but the row stays pending
-forever.
+In the worked case a row was "one (subject, category) still to be filled in to period end". Deciding
+whether a row is *done* needed a second view — the calendar of eligible days — and **a projection cannot
+query another view**. So rows accumulated: the work stopped happening, because each remaining item was
+refused as already done, but the row stayed pending forever.
 
-**Resolved for `hour-booking` by asking**, and the answer was not a projection rule at all: a row is
-completed by a **person**. `ZeroFillTodo → an admin screen → FinishAdminTodo → AdminFinishedTodo`,
-which is an ordinary Command slice, and the tick-off is that event. Worth recording as the general
+**Resolved by asking**, and the answer was not a projection rule at all: a row is completed by a
+**person**. `<todo view> → an admin screen → Finish… → …Finished`, which is an ordinary Command slice,
+and the completion is that event. Worth recording as the general
 shape: when "is this row done?" needs judgement or data the projection cannot reach, completion is a
 command somebody issues, not a condition somebody computes. The automation and the completion are
 **two slices**, and only the second one closes the loop.
@@ -203,8 +199,16 @@ Tests were the first; they are unlikely to be the last.
 The Automation pattern says `Event(s) → View → Trigger → Command → Event(s)` and says nothing about what
 wakes the trigger — correctly, because that is transport. The trap is that "automatic" is the entire
 claim of the pattern, and **nothing in the grammar, the checker or the test suite notices when it is
-false.** `fill-zero-hours` passed six GWTs while the only thing that could ever run it was a human with
-`curl`.
+false.** One slice passed six GWTs while the only thing that could ever run it was a human with `curl`.
+
+**There is more than one right implementation, and choosing by habit is its own version of this bug.**
+Event forwarding, a Marten subscription, projection `RaiseSideEffects` and a clock-driven sweep are all
+valid; which is correct depends on whether the trigger event is ours, whether ordering matters, and
+whether the trigger is an event at all rather than the passage of time. The kit briefly asserted that a
+sweep was the only correct answer — generalised from a single model whose automations were all
+foreign- or time-triggered, which is a property of that model, not of the pattern. **A sample of one
+model is not a pattern.** The decision table lives in CLAUDE.md; what belongs here is that no tool can
+check it, so the slice has to say which choice it made and why.
 
 **Why a green suite cannot see it.** If the trigger is an HTTP endpoint, the *test seam and the
 production mechanism are the same thing*. The tests drive the only caller that exists, so they prove the
@@ -217,7 +221,7 @@ neither caught by any test:
 - **A trigger that returns its report.** Wolverine's rule is *"by returning another type, Wolverine
   treats the return value as a cascaded message to publish"*, and there is no opt-out attribute. Driven
   fire-and-forget there is no requester, so the returned report became an unroutable message —
-  `No routes can be determined for Envelope (ZeroFillRun)` — and that failure took the whole outgoing
+  `No routes can be determined for Envelope (<the report type>)` — and that failure took the whole outgoing
   batch with it. A fire-and-forget trigger must not return a message-shaped value.
 - **A sweep that logs only when it does something.** Then "alive with nothing to do" and "dead" produce
   byte-identical output. Log every sweep.
@@ -260,9 +264,10 @@ part of an automation a test must control rather than observe.
 What a test *can* assert is that **repeated sweeping is safe**, which is what makes the interval a free
 choice. Correctness must not depend on how often the clock ticks.
 
-**A related trap in the demo seed, same shape.** `GenesisData.Populate` is idempotent via
-`if (MyProjects.Any()) return;`. Add new genesis data later — a calendar, say — and it never lands on an
-existing demo database, because the guard fired on the *old* data. The zero-fill demo looked broken for
-exactly this reason: no `WorkingDayPublished` events, so nothing to fill, so silence. `docker compose
-down -v` fixes it, and the general point is #13's again: anything written once and then guarded needs a
-reason to be reconciled.
+**A related trap in the demo seed, same shape.** Development seed data (Marten `IInitialData`) must be
+idempotent, because `Populate` runs on every startup — so it is usually guarded with "if any row of view X
+exists, return". Add *new* seed data later and it never lands on an existing demo database, because the
+guard fires on the *old* data. An automation demo looked broken for exactly this reason: the events it
+selects work from were never seeded, so there was nothing to do, so silence. `docker compose down -v`
+fixes it; the general point is #13's again — anything written once and then guarded needs a reason to be
+reconciled.

@@ -1,12 +1,11 @@
 # Organizing many event models
 
 **Status: built.** The rules are in `CLAUDE.md`; this file keeps the research and the reasoning
-behind them. `diagrams/hour-booking/` is the worked example, and `tools/model.mjs` grew a `system`
-rule family and a folder-aware `validate`.
+behind them, learned by splitting one real monolithic model. `tools/model.mjs` grew a `system` rule
+family and a folder-aware `validate`.
 
 One thing changed on contact with the actual edges — the split came out as **three** contexts, not
-the four proposed. See "Where hour-booking split" below; it is the most useful finding in this
-document.
+the four proposed. See "A worked split" below; it is the most useful finding in this document.
 
 ## What the sources actually say
 
@@ -65,26 +64,26 @@ you never let another system rebuild your state from your internal events.
 The mechanism is a read model, an automation processor that translates, and a command that emits the
 external event into its own swimlane — i.e. the **Translation pattern** the kit already has.
 
-## The signal in hour-booking
+## The signals that say "split this"
 
-The book's own size test is the one this model fails. It is **7760px wide** and cannot be read in a
-single render — `tools/crop.mjs` exists precisely because you have to inspect it in windows. That is
-the literal opposite of *"read it from left to right without any visual interruptions."*
+These are the four that showed up on the model this kit was built against — a monolith that grew to
+**7760px wide** and could not be read in a single render. `tools/crop.mjs` exists precisely because you
+had to inspect it in windows, which is the literal opposite of *"read it from left to right without any
+visual interruptions."*
 
 Three more signals, all structural:
 
-**One swimlane is a junk drawer.** Four bands name one aggregate each — `Timesheet`, `MonthClosure`,
-`AdminNotification`, `Reminder`. The fifth declares `streams="Employee, Membership, Project,
-Calendar, Admin"`. Five aggregates in one band is not a stream boundary; it is everything that
-didn't fit the story.
+**One swimlane is a junk drawer.** Four bands each named a single aggregate. The fifth declared five at
+once — every piece of reference data that had to exist somewhere. Five aggregates in one band is not a
+stream boundary; it is everything that didn't fit the story.
 
 **The contexts are interleaved along the timeline.** Reading the 19 slices in x-order, reference-data
-slices (`working-days` at 2960, `admins` at 4560) sit in the middle of the booking and closure
-stories. Interleaving is what you get when several stories are forced onto one timeline.
+slices sat at x=2960 and x=4560 — in the middle of two unrelated stories. Interleaving is what you get
+when several stories are forced onto one timeline.
 
-**51 unverifiable notes.** The `external-terminal` notes on `EmployeeSeeded`, `ProjectCreated`,
-`AdminSeeded` and friends say "this arrives from outside and nothing can check it." Some of that is
-genuinely true. Some of it is only true because the producing context isn't modelled.
+**51 unverifiable notes.** Every `external-terminal` note says "this arrives from outside and nothing can
+check it." Some of that is genuinely true. Much of it was only true because the *producing context was
+not modelled* — splitting turns those into checkable imports.
 
 ## The architecture
 
@@ -101,12 +100,11 @@ Four levels. Only two of them are files.
 
 ```
 diagrams/
-  hour-booking/                       <- the system; the folder IS the system
-    reference-data.drawio
-    booking.drawio
-    month-closure.drawio
+  <system>/                           <- the system; the folder IS the system
+    ordering.drawio
+    fulfilment.drawio
     notifications.drawio
-    booking.errors.drawio             <- alternative flow of booking.drawio
+    ordering.errors.drawio            <- alternative flow of ordering.drawio
     _context-map.drawio               <- GENERATED, never hand-edited
   template.drawio
 ```
@@ -124,8 +122,8 @@ Same precedent as the slice cell: identity is a cell, not a string. This is Dilg
 Context note, and it renders as one.
 
 ```xml
-<object id="model-booking" label="Booking&#10;hour-booking · context"
-        em="model" context="booking" system="hour-booking">
+<object id="model-ordering" label="Ordering&#10;<system> · context"
+        em="model" context="ordering" system="<system>">
   <mxCell style="fillColor=#f8cecc;strokeColor=#b85450;..." vertex="1" parent="1">
     <mxGeometry x="-260" y="40" width="180" height="90" as="geometry" />
   </mxCell>
@@ -197,62 +195,51 @@ slices. The Jira mapping (chapter = epic, slice = ticket) is the reason to keep 
 
 ### Alternative flows
 
-A slice may carry `flows="booking.errors"`, rendering as Dilger's marker below the slice, linked to
+A slice may carry `flows="ordering.errors"`, rendering as Dilger's marker below the slice, linked to
 the sibling file. The error cases that are cheap stay as GWTs — the book says so explicitly; the ones
 that would *"disrupt the flow"* become their own model.
 
-## Where hour-booking split
+## A worked split, and what the edge list changed
 
-### The four-context proposal did not survive the edge list
+### A tidy-looking proposal did not survive the edge list
 
-The proposal was `reference-data` / `booking` / `month-closure` / `notifications`. Enumerating every
-edge that would cross those boundaries turned up exactly three that are **not events**:
+The first proposal was four contexts, one of them a `reference-data` model holding everything upstream.
+Enumerating every edge that would cross those boundaries turned up exactly **three that were not events** —
+each one a View reaching into another context.
 
-- `MyProjects` → the three Timesheet screens
-- `WorkingDays` → `ZeroFillProcessor`
-- `Admins` → `AdminNotifier`
+Under *"only an event crosses"* those are illegal, and the honest fix is the one ch. 15 gives: the consumer
+imports the *events* and builds its own projection. But then the reference-data context had no consumer of
+its own left — it became a model with no views, no commands and no screens, just genesis events. That is an
+integration surface, not a story you can read left to right, so it fails the one test the book actually
+gives for a model.
 
-All three are a View reaching into another context. Under "only an event crosses" they are illegal,
-and the honest fix is the one ch. 15 gives: the consumer imports the *events* and builds its own
-projection. But then `reference-data` has no consumer of its own left — it becomes a model with no
-views, no commands and no screens, just genesis events. That is an integration surface, not a story
-you can read left to right, so it fails the one test the book actually gives for a model.
+**Dissolving it removed all three problems at once.** Each upstream event is drawn in the context that
+consumes it, which is exactly what `em="external"` already meant. Where two contexts need the same
+foreign fact, both draw it — and that is not duplication: they are two contexts independently consuming an
+outside fact, which is what `origin=` records.
 
-**Dissolving it removes all three problems at once.** Each upstream event is drawn in the context
-that consumes it, exactly as `em="external"` already meant. Where two contexts need the same foreign
-fact — `EmployeeAssignedToProject`, `WorkingDayPublished` — both draw it, and that is not
-duplication: they are two contexts independently consuming an outside fact, which is what `origin=`
-records.
+The general lesson: **enumerate the crossing edges before committing to a boundary.** A context that only
+ever *publishes* is an integration surface wearing a model's clothes, and the tell is that nothing inside it
+reads anything.
 
-This is the concern the proposal already flagged as open question 2 (*"`reference-data` bundles five
-aggregates whose only shared property is being upstream, which is suspiciously like the junk-drawer
-swimlane it came from"*). The edge list settled it.
+### What the split produced
 
-### What was actually built
+19 slices in one 7760px model became 20 slices in three models of 1940–2960px — all under the 3200px
+budget and each legible in a single render. The extra slice is the `upstream-*` column each model needs
+for its imports.
 
-| Model | Slices | Width | Owner |
-| --- | --- | --- | --- |
-| `booking` | my-projects, upstream-month, my-timesheet, book-hours, correct-hours, remove-booking, working-days, fill-zero-hours | 2900px | both |
-| `month-closure` | start-month, upstream-timesheet, my-month-status, submit-closure, admin-month-review, reject-closure, complete-closure, close-month-directly | 2960px | both |
-| `notifications` | admins, upstream-closure, notify-admins, send-closing-reminder | 1940px | **backend-agent only** |
+Three slices merged along the way: what had been drawn as three adjacent view columns was really one view
+slice, which is what made it non-contiguous in spirit if not in geometry.
 
-All three under the 3200px budget and legible in a single render — 19 slices in one 7760px model
-became 20 in three, the extra one being the `upstream-*` column each model needs for its imports.
-
-Three slices were merged along the way: `upstream-membership`, `my-projects` and
-`upstream-left-project` were one view slice drawn as three columns, which is what made the original
-`my-projects` non-contiguous in spirit if not in geometry.
-
-**`notifications` is single-owner**, which is the Conway payoff: a whole context one agent can build
-end to end.
+**One of the three models came out single-owner**, which is the Conway payoff: a whole context one agent
+can build end to end, because it has no screens.
 
 ### The cycle the map found
 
-`booking` and `month-closure` each import the other's events — booking needs the closure events for
-`monthStatus`, month-closure needs the timesheet events for its totals. Legal (a projection may read
-many streams) and reported as `system/context-cycle`, because it is exactly the shape that means a
-boundary might be in the wrong place. Left as-is: for this domain the two really are distinct
-lifecycles that observe each other.
+Two of the three models each imported the other's events — one needed the other's status events for a
+field, the other needed the first's line-item events for its totals. Legal (a projection may read many
+streams) and reported as `system/context-cycle`, because it is exactly the shape that means a boundary
+might be in the wrong place. Left as-is: those two really were distinct lifecycles observing each other.
 
 ## What the tooling grew
 
@@ -281,8 +268,8 @@ is not a check.
 1. **Are those three contexts right?** They fall out of the aggregates and swimlanes, but stream
    boundaries were themselves a modelling decision. The book's validation test still applies: read
    each model's events left to right to someone from the business and see if the story holds.
-2. **Is hour-booking one system or several?** If `notifications` were ever a separate deployable,
-   its imports become full ch. 15 translations rather than declared direct consumption.
+2. **Is a folder one system or several?** If one context ever became a separate deployable, its imports
+   become full ch. 15 translations rather than declared direct consumption.
 3. **Nothing checks that a model is one *flow*.** The size budget and the import rules are
    structural; "one use case along a single timeline" is not something geometry can see.
 4. **`upstream-*` slices are a layout device, not a slice.** Each model needs one column to land its

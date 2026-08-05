@@ -72,7 +72,7 @@ optimistic concurrency, same live fold, honest about the key.
 **A cross-stream rule is a READ, never a second write.** One command, one stream: writing two needs a
 transactional boundary around two aggregates, which `swimlane/command-crosses-swimlane` forbids. Fold
 the smallest type that answers the question, not "the" other aggregate. Reuse an existing one if a
-previous slice already wrote it — `MonthGate` is shared by book-hours and correct-hours precisely
+previous slice already wrote it — a shared gate type is reused across sibling slices precisely
 because the closed-month rule is the same rule.
 
 **Live on write, inline on read.** Nothing registered for a state type; every read model is
@@ -100,67 +100,62 @@ then "an automation never appends" is a compile error rather than a convention.
 `IMessageBus.InvokeAsync<TOutcome>(...)`. Do **not** give the command an HTTP route — nobody types it,
 and inventing public surface for it is inventing a requirement.
 
-**The TRIGGER is also a message handler, and this is the part that is easy to get wrong.** An
-automation that runs when somebody POSTs a route is not an automation — it is a command with a gear
-drawn on it. Worse, if the trigger *is* an HTTP endpoint then the test seam and the production
-mechanism are the same thing, so "nothing ever wakes this in production" is invisible to a green suite.
+### There is no single implementation of an automation — pick one, and say why
 
-So the trigger handles a **sweep message**, `Run<Slice>`, and three senders wake it:
+**The model constrains the contract, not the mechanism.** `Event(s) → View → Trigger → Command` says what
+must be true: the trigger decides from *accumulated state*, not from one event's payload, and it issues a
+command rather than appending. **It does not say what wakes the trigger, and it does not require the View
+to be a materialised projection.** A subscription's checkpoint is a record of what has been worked; a
+durable inbox is a list of pending work. The green box on the diagram is the *concept*.
 
-| Sender | Purpose |
-| --- | --- |
-| `AutomationHeartbeat<Run<Slice>>` | **production.** Durable, self-rescheduling. Generated. |
-| `POST /automation/<slice>/run` | an operator forcing a run. One-shot. |
-| `bus.InvokeAsync` in a test | the test seam. No HTTP at all. |
+This is the standing point that the Event Model and the implementation are allowed to differ. Read
+`pattern="automation"` as "this slice reacts to accumulated state without a human", then choose:
 
-`Run<Slice>` carries nothing — every sender means "sweep once, now". **The generator emits the message,
-`AutomationHeartbeat` and the `Discovery.IncludeType(typeof(...))` registration** (conventional discovery
-only finds `*Handler`/`*Consumer`, and a processor named after its automation cell is neither). You write
-the handler. Two rules for it:
+| When | Implementation | Why |
+| --- | --- | --- |
+| the trigger event is **ours**, appended in our own transaction | **event forwarding → handler** | immediate, outbox-durable, no polling. The common case. |
+| ours, and **ordering or replay** matters | **Marten `ISubscription`** | ordered, durable checkpoint, runs in the async daemon |
+| ours, and the decision is a function of **the view row** | **projection `RaiseSideEffects`** | fires exactly when the row changes; needs `EnableSideEffectsOnInlineProjections` if inline |
+| the trigger event is **foreign** — we never append it | **sweep a todo View on a clock** | there is no transaction of ours to hook |
+| there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
 
-- **Return `Task`, never the run report.** Wolverine treats a handler's return value as a **cascading
+Say in your report which you chose and which row of that table you were in. Choosing wrong is not a
+compile error and no checker can see it.
+
+**Whatever wakes it, the trigger is a message handler and not an HTTP endpoint.** If the trigger *is* an
+endpoint then the test seam and the production mechanism are the same thing, and "nothing ever wakes this
+in production" becomes invisible to a green suite — which is exactly how one shipped once. Give it a
+message; let an operator route *send* that message if a manual run is useful.
+
+Rules that hold for every implementation:
+
+- **Return `Task`, never a run report.** Wolverine treats a handler's return value as a **cascading
   message**, with no opt-out. Fire-and-forget there is no requester, so a returned report is unroutable —
-  `No routes can be determined` — and that failure takes the whole outgoing batch with it. Put the sweep
-  in a plain method; let the operator route return the report (an HTTP return is a response body).
-- **Log every sweep, including one that did nothing**, or "alive with no work" and "dead" are identical.
+  `No routes can be determined` — and that failure takes the whole outgoing batch with it. Put the work
+  in a plain method; let an operator route return the report (an HTTP return is a response body).
+- **Log every run, including one that did nothing**, or "alive with no work" and "dead" are identical.
+- **Take `IQuerySession`, not `IDocumentSession`.** Then "a trigger never appends" is a compile error.
+  Note the cost: with no Marten transaction there is no outbox commit, which is what makes the next point
+  bite.
+- **Wolverine's conventional discovery only finds `*Handler` / `*Consumer`.** A processor named after the
+  model's automation cell is not found, and `IncludeType<T>()` cannot take a static class — use
+  `IncludeType(typeof(...))`.
 
-**Do NOT try to make the handler reschedule itself.** The clock belongs to `AutomationHeartbeat`. A
-durable self-rescheduling message is the obvious design and it silently does not work on this stack —
-six attempts, including the documented `OutgoingMessages.Delay()` idiom, all ending in Wolverine's own
-trace saying `Enqueued for sending` and then nothing persisted. Scheduling from *outside* a message
-context works; from *inside* a durable local-queue handler it does not.
+**If you choose the sweep, the clock is a loop and not a self-rescheduling message.** The obvious design —
+the handler schedules its own successor — silently does not work here. Six attempts including the
+documented `OutgoingMessages.Delay()` idiom, all ending in Wolverine's own trace saying
+`Enqueued for sending` and then nothing persisted. Scheduling from *outside* a message context works;
+from *inside* a durable local-queue handler it does not.
 
-That turned out not to matter: **a sweep needs no durable message**, because its work is recomputed from
-the todo View every time. The `Pending` rows are the durable queue. Durable scheduling is for deferred
-one-shot work, where losing the message loses the intent.
+It also turned out not to be needed: **a sweep needs no durable message**, because its work is recomputed
+from the todo View every time. Those pending rows *are* the durable queue. Durable scheduling is for
+deferred **one-shot** work, where losing the message loses the intent.
 
-**Assert that repeated sweeping is safe** — that is what a test can prove and what makes the interval a
-free choice. Sweep three times, assert the events are identical to after one. The clock itself is off in
-tests (`AppFixture` sets `Automation:Heartbeat=false`) because a sweep firing mid-test turns every other
-slice's GIVEN into a race.
-- **Wolverine's conventional discovery only finds `*Handler` / `*Consumer`.** A processor named after
-  the model's automation cell (`ZeroFillProcessor`) is not found, and `IncludeType<T>()` cannot take a
-  static class — the generated registration uses `IncludeType(typeof(...))`.
-
-**Why a periodic sweep and not a reaction to an event.** Event forwarding, Marten subscriptions and
-projection `RaiseSideEffects` are all real, and all of them fail here:
-
-- **the triggering event is often FOREIGN.** `fill-zero-hours` waits on `EmployeeRemovedFromProject`,
-  which we never append — so there is no transaction of ours to hang a doorbell on.
-- **some automations are triggered by TIME.** `send-closing-reminder` has `BeforeClosingDate` and
-  `TooSoonToRemind`; no event says "it is now three days before the closing date." Nothing
-  event-driven can ever wake it.
-
-3 of 4 automations in `hour-booking` are one of those. **A sweep is the guarantee; a doorbell could only
-ever be a latency optimisation.** Do not add one without saying why.
-
-**Never register a `PeriodicTimer` or `BackgroundService`.** Those start inside the test host too, and a
-sweep firing mid-test appends events into streams other slices are asserting on — every GIVEN in the
-suite becomes a race. A *scheduled message* is delayed, so a test that runs in seconds never trips it.
-
-**Wolverine has no cron.** `ScheduleAsync(msg, delay)` is one-shot and durable (Postgres
-`wolverine_incoming_envelopes`, polled on `Durability.ScheduledJobPollingTime`). A heartbeat is
-therefore a message whose handler schedules its successor.
+**A clock must be absent in tests.** A sweep firing mid-test appends events into streams other slices are
+asserting on and every GIVEN becomes a race — which is the real reason not to register a `PeriodicTimer`
+naked. Gate it on configuration and have tests send the message themselves, so the production path stays
+tested and only the clock is missing. What a test *can* assert is that **running twice is safe**, which is
+what makes the interval a free choice.
 
 **Not every GWT is enforced in the decider**, and the model tells you which side owns each:
 
@@ -169,32 +164,25 @@ therefore a message whose handler schedules its successor.
 - a GWT whose `then=` is **positive** has no rule name to reject with, which is a reliable tell that it
   is about which work gets selected rather than about refusing a request
 
-**The tick-off edge is completion, not supply.** The automation's own output event points back at the
-todo View. In the projection that means *tick the row off* — it must never create one. Getting this
-wrong makes the view sourced from its own output; see blind spot 5 in the system's OPEN-QUESTIONS.md.
+**The tick-off edge is completion, not supply.** Where the model draws the automation's own output event
+back at the todo View, that means *mark the row done* — it must never create one. Getting this wrong makes
+the view sourced from its own output, and the trigger then treats its own work as a fresh instruction.
 
-**Tests need two WHENs.** A *sweep* for rules about which work is selected, and a *direct command
-invoke* for the rejection — a GWT's `when=` names the command, and once the tick-off works the
-rejection is otherwise unreachable.
+**Tests need two WHENs.** A *trigger run* for rules about which work is selected, and a *direct command
+invoke* for the rejection — a GWT's `when=` names the command, and once completion works the rejection is
+otherwise unreachable.
 
-**Then run the app and look — no test can prove an automation runs.** Every heartbeat bug found on this
-slice survived a green suite. Unrendered CSS and an unrun automation fail the same way:
+**Then run the app and look — no test can prove an automation runs by itself.** Every waking bug found so
+far survived a green suite. Unrendered CSS and an unrun automation fail the same way: plausibly.
 
 ```bash
-docker compose down -v && docker compose up -d      # -v, or stale genesis data hides the work
-AUTOMATION_SWEEP_SECONDS=6 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/<Sys>
-# then: do MORE sweeps arrive, with nobody calling anything?
+docker compose down -v && docker compose up -d      # -v, or stale seed data hides the work
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/<Sys>
+# then: does it fire MORE than once, with nobody calling anything?
 ```
 
-What good output looks like — the second line onward is the whole point:
-
-```
-Automation heartbeat started for slice fill-zero-hours: RunFillZeroHours every 00:00:06.
-Zero-fill sweep: 21 filled, 0 skipped, across 1 pending row(s).
-Zero-fill sweep: 0 filled, 0 skipped, across 1 pending row(s).
-```
-
-A sweep that finds no work must still log, or silence is ambiguous between "working" and "dead".
+Two runs with nobody calling anything is the proof. One is not — a mechanism that fires at startup and
+then dies produces exactly one, and reads as success.
 
 ## Rejections
 
