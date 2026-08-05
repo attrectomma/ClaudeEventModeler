@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.Booking;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     public Task AnEmployeeCanRemoveTheirOwnBookingWhileTheMonthIsOpen()
         => throw new NotImplementedException(
             "TODO(codegen): expect BookingRemoved. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RemoveBookingState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // removal is the only way to take a day+project back to nothing
     //   GIVEN HoursBooked, HoursCorrected
@@ -37,7 +37,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     public Task RemovalIsTheOnlyWayToTakeADayProjectBackTo()
         => throw new NotImplementedException(
             "TODO(codegen): expect BookingRemoved. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RemoveBookingState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a booking already removed cannot be removed again
     //   GIVEN BookingRemoved
@@ -47,7 +47,7 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     public Task ABookingAlreadyRemovedCannotBeRemovedAgain()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for BookingNotFound. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RemoveBookingState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month cannot be edited — closed is closed
     //   GIVEN MonthClosed
@@ -57,5 +57,5 @@ public sealed class RemoveBookingTests(AppFixture fixture) : IntegrationContext(
     public Task AClosedMonthCannotBeEditedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RemoveBookingState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

@@ -58,8 +58,41 @@ public static HoursBooked Book(BookHours cmd, [Aggregate] Timesheet sheet) => ..
 
 Static methods, no controllers. `[Aggregate]` resolves the stream from route args and applies Marten's
 transactional middleware; `[EmptyResponse]` makes the returned event get *appended* rather than
-serialised. **The endpoint is the decider** — so an aggregate is a pure `Create`/`Apply` fold with no
-rules in it. Streams are `StreamIdentity.AsString` because every key here is composite.
+serialised. **The endpoint is the decider** — so a state type is a pure `Apply` fold with no rules in
+it. Streams are `StreamIdentity.AsString` because every key here is composite.
+
+### Live on the write side, inline on the read side
+
+| | Registered? | Why |
+| --- | --- | --- |
+| **write** — the state a slice folds to decide | **nothing** | live aggregation: `FetchForWriting` folds on demand |
+| **read** — every read model | **`ProjectionLifecycle.Inline`** | updated in the same transaction as the append, so a GWT's THEN can be asserted the moment the request returns |
+
+**There is no "the" aggregate.** Every state-change slice folds the stream into whatever shape *its*
+decision needs, so aggregates are **per slice**, not per stream — which also takes them out of the
+shared layer and makes slices more independent. Each folds *all* of its stream's events, because the
+daily cap needs the whole month, not just the booking being added.
+
+**No `Create` methods.** A no-arg constructor lets any event open the stream, and Marten's own docs
+say that is *"probably safest unless you can guarantee that a certain event type will always be first"*
+— which does not hold here. "First event drawn in the swimlane" is a good rule that covers 3 of 4
+bands: `MonthClosure` is genuinely always opened by `BookingMonthStarted`, but the `Timesheet` stream
+is opened by `HoursBooked` **or** `ZeroHoursFilled` depending on whether the employee booked anything
+before leaving a project. The leftmost event survives as a doc comment, not a dependency.
+
+**A projection with no slicing rule cannot be registered.** Marten rejects a multi-stream projection
+with no `Identity<T>` rules **at startup**, which takes the whole host down and costs you the
+per-test failure detail. `Identity` is derivable for any event carrying the whole system key; where
+it is not, the generator emits the projection but leaves its registration commented with the reason.
+In `hour-booking` that is `MyProjects`, whose events carry `employeeId + projectId` and never `month`.
+
+### Example data comes from `IInitialData`
+
+The model declares field names and types but **never example values**, which is why tests cannot be
+fully generated. Marten's `IInitialData` is the answer: seed the foreign/genesis events once with
+fixed ids, and `ResetAllMartenDataAsync()` re-applies them before every test. Values live in one
+`SeedData` class — `SeedData.EmployeeId`, `SeedData.Month`, `SeedData.WorkingDay` — so a GIVEN can
+name things and a failing test is reproducible.
 
 ### `enforce=` on a GWT — where a rule is checked
 
@@ -76,8 +109,13 @@ Two API facts the docs got wrong or never stated, both caught by compiling:
 - **`JasperFx.Resources` is a namespace, not a package.** Inferring a package id from a `using` in a
   doc sample fails restore.
 - **`JasperFxEnvironment` is in `JasperFx.CommandLine`**, not `JasperFx` as the migration guide says.
-  Settled by reflecting over the assembly with a .NET 10 file-based app — that is the tiebreaker when
-  the docs and the compiler disagree.
+- **The two projection base classes are in different namespaces**:
+  `Marten.Events.Aggregation.SingleStreamProjection<,>` but
+  `Marten.Events.Projections.MultiStreamProjection<,>`. No doc page states either.
+
+The last two were settled by **reflecting over the assembly with a .NET 10 file-based app**
+(`dotnet run probe.cs` with a `#:package` directive) — that is the tiebreaker when the docs and the
+compiler disagree, and it takes about a minute.
 
 So: read the mirror first, then **compile**. The mirror removes most of the guessing, not all of it.
 

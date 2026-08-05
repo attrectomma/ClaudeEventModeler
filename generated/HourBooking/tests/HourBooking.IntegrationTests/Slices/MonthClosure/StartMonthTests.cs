@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.MonthClosure;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class StartMonthTests(AppFixture fixture) : IntegrationContext(fix
     public Task EveryProjectMemberGetsABookingMonthOpenedForThem()
         => throw new NotImplementedException(
             "TODO(codegen): expect BookingMonthStarted. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: StartMonthState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a month is only started once per employee
     //   GIVEN BookingMonthStarted
@@ -37,5 +37,5 @@ public sealed class StartMonthTests(AppFixture fixture) : IntegrationContext(fix
     public Task AMonthIsOnlyStartedOncePerEmployee()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthAlreadyStarted. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: StartMonthState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.Booking;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task ACorrectionCarriesTheNewTOTALForTheDayNeverTheDifference()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursCorrected. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // the truth for a day+project is the last correction, or the booking if there was none
     //   GIVEN HoursBooked, HoursCorrected
@@ -37,7 +37,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task TheTruthForADayProjectIsTheLastCorrectionOrThe()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursCorrected. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // correcting a day+project that was never booked is not a correction
     //   GIVEN BookingMonthStarted
@@ -47,7 +47,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task CorrectingADayProjectThatWasNeverBookedIsNotACorrection()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for BookingNotFound. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a correction cannot take the hours to zero — removal is the only way
     //   GIVEN HoursBooked
@@ -58,7 +58,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task ACorrectionCannotTakeTheHoursToZeroRemovalIsTheOnly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for HoursMustBeNonZero. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // corrections are in whole or half hours only
     //   GIVEN HoursBooked
@@ -69,7 +69,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task CorrectionsAreInWholeOrHalfHoursOnly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for HoursMustBeWholeOrHalf. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a correction cannot push the day over 18 hours
     //   GIVEN HoursBooked
@@ -79,7 +79,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task ACorrectionCannotPushTheDayOver18Hours()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for DailyCapExceeded. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month cannot be corrected — closed is closed
     //   GIVEN MonthClosed
@@ -89,7 +89,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task AClosedMonthCannotBeCorrectedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a submitted month is still open, so it can still be corrected
     //   GIVEN MonthClosureSubmitted
@@ -99,5 +99,5 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     public Task ASubmittedMonthIsStillOpenSoItCanStillBeCorrected()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursCorrected. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CorrectHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

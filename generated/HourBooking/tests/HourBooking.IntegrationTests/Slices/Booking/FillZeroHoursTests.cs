@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.Booking;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     public Task LeavingAProjectFillsTheRestOfThatMonthWithZeroHours()
         => throw new NotImplementedException(
             "TODO(codegen): expect ZeroHoursFilled. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: FillZeroHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // only working days are filled — weekends and public holidays are not
     //   GIVEN EmployeeRemovedFromProject, WorkingDayPublished
@@ -37,7 +37,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     public Task OnlyWorkingDaysAreFilledWeekendsAndPublicHolidaysAreNot()
         => throw new NotImplementedException(
             "TODO(codegen): expect ZeroHoursFilled. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: FillZeroHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // the system may write a zero where an employee may not
     //   GIVEN EmployeeRemovedFromProject
@@ -47,7 +47,7 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     public Task TheSystemMayWriteAZeroWhereAnEmployeeMayNot()
         => throw new NotImplementedException(
             "TODO(codegen): expect ZeroHoursFilled. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: FillZeroHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a day already zero-filled is not filled twice
     //   GIVEN ZeroHoursFilled
@@ -57,5 +57,5 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
     public Task ADayAlreadyZeroFilledIsNotFilledTwice()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for AlreadyFilled. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: FillZeroHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

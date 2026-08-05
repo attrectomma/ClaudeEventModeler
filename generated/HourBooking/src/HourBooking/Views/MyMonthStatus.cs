@@ -4,6 +4,8 @@
 //   re-run codegen and the change is lost. Holes marked TODO(codegen) are for the codegen skill.
 // </auto-generated>
 
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using HourBooking.Contracts;
 
 namespace HourBooking.Views;
@@ -38,10 +40,71 @@ public sealed record MyMonthStatus
     public string? RejectionComment { get; init; } = default!;
 }
 
-// TODO(codegen): the projection. Events feeding it come from MORE THAN ONE stream, so this is a MultiStreamProjection grouped by the identity key.
 // 4 field(s) are derived and the model records their INPUTS, not the arithmetic:
 //   dayTotal <- hours
 //   projectTotals <- hours
 //   missingDays <- WorkingDayPublished + HoursBooked
 //   monthStatus <- BookingMonthStarted + MonthClosureSubmitted + MonthClosureRejected + MonthClosed
 // A human decides whether each is a sum, a count, a difference or a fold. See OPEN-QUESTIONS.md.
+
+/// <summary>
+/// Multi-stream projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
+///
+/// Fed from 3 streams (Timesheet, MonthClosure, Calendar), so events must be grouped explicitly.
+/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// </summary>
+public sealed class MyMonthStatusProjection : MultiStreamProjection<MyMonthStatus, string>
+{
+    public MyMonthStatusProjection()
+    {
+        Identity<HoursBooked>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<HoursCorrected>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<BookingRemoved>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<ZeroHoursFilled>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosureSubmitted>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosureRejected>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosed>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<BookingMonthStarted>(e => $"{e.EmployeeId}:{e.Month}");
+        // TODO(codegen): WorkingDayPublished carries date, month —
+        // not employeeId + month, so how it groups into this view is a decision.
+        // Identity<WorkingDayPublished>(e => ...);
+    }
+
+    public static MyMonthStatus Apply(HoursBooked e, MyMonthStatus current)
+        // TODO(codegen): fold HoursBooked into the row.
+        => current;
+
+    public static MyMonthStatus Apply(HoursCorrected e, MyMonthStatus current)
+        // TODO(codegen): fold HoursCorrected into the row.
+        => current;
+
+    public static MyMonthStatus Apply(BookingRemoved e, MyMonthStatus current)
+        // TODO(codegen): fold BookingRemoved into the row.
+        => current;
+
+    public static MyMonthStatus Apply(ZeroHoursFilled e, MyMonthStatus current)
+        // TODO(codegen): fold ZeroHoursFilled into the row.
+        => current;
+
+    public static MyMonthStatus Apply(MonthClosureSubmitted e, MyMonthStatus current)
+        // TODO(codegen): fold MonthClosureSubmitted into the row.
+        => current;
+
+    public static MyMonthStatus Apply(MonthClosureRejected e, MyMonthStatus current)
+        // TODO(codegen): fold MonthClosureRejected into the row.
+        => current;
+
+    public static MyMonthStatus Apply(MonthClosed e, MyMonthStatus current)
+        // TODO(codegen): fold MonthClosed into the row.
+        => current;
+
+    public static MyMonthStatus Apply(BookingMonthStarted e, MyMonthStatus current)
+        // TODO(codegen): fold BookingMonthStarted into the row.
+        => current;
+
+    public static MyMonthStatus Apply(WorkingDayPublished e, MyMonthStatus current)
+        // TODO(codegen): fold WorkingDayPublished into the row.
+        => current;
+}

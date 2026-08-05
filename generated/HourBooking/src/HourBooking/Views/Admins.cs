@@ -4,6 +4,8 @@
 //   re-run codegen and the change is lost. Holes marked TODO(codegen) are for the codegen skill.
 // </auto-generated>
 
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using HourBooking.Contracts;
 
 namespace HourBooking.Views;
@@ -24,5 +26,15 @@ public sealed record Admins
     public string AdminName { get; init; } = default!;
 }
 
-// TODO(codegen): the projection. Events feeding it come from a single stream, so a SingleStreamProjection or self-aggregating snapshot will do.
+/// <summary>
+/// Single-stream projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
 
+/// </summary>
+public sealed class AdminsProjection : SingleStreamProjection<Admins, string>
+{
+    public static Admins Apply(AdminSeeded e, Admins current)
+        // TODO(codegen): fold AdminSeeded into the row.
+        => current;
+}

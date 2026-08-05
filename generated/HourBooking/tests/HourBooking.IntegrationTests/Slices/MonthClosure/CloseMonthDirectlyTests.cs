@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.MonthClosure;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     public Task AnAdminCanCloseAMonthDirectlyWithoutWaitingForTheEmployee()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CloseMonthDirectlyState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // the closing note is optional
     //   GIVEN BookingMonthStarted
@@ -37,7 +37,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     public Task TheClosingNoteIsOptional()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CloseMonthDirectlyState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // the shortcut also works on a month that was submitted
     //   GIVEN MonthClosureSubmitted
@@ -47,7 +47,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     public Task TheShortcutAlsoWorksOnAMonthThatWasSubmitted()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CloseMonthDirectlyState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // only an admin may close a month directly
     //   GIVEN BookingMonthStarted
@@ -57,7 +57,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     public Task OnlyAnAdminMayCloseAMonthDirectly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NotAnAdmin. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CloseMonthDirectlyState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month cannot be closed again — closed is closed
     //   GIVEN MonthClosed
@@ -67,5 +67,5 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     public Task AClosedMonthCannotBeClosedAgainClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: CloseMonthDirectlyState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

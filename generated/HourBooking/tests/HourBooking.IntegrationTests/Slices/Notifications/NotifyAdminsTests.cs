@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.Notifications;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(f
     public Task SubmittingAClosureNotifiesTheAdminsAndThatIsRecordedAsA()
         => throw new NotImplementedException(
             "TODO(codegen): expect AdminsNotified. " +
-            "Stream key: AdminNotification.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: NotifyAdminsState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // every seeded admin is a recipient
     //   GIVEN MonthClosureSubmitted, AdminSeeded
@@ -37,7 +37,7 @@ public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(f
     public Task EverySeededAdminIsARecipient()
         => throw new NotImplementedException(
             "TODO(codegen): expect AdminsNotified. " +
-            "Stream key: AdminNotification.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: NotifyAdminsState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a submission is announced once, not on every pass of the processor
     //   GIVEN AdminsNotified
@@ -47,5 +47,5 @@ public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(f
     public Task ASubmissionIsAnnouncedOnceNotOnEveryPassOfTheProcessor()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for AlreadyNotified. " +
-            "Stream key: AdminNotification.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: NotifyAdminsState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

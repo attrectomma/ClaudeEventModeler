@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.Notifications;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     public Task AMonthStillOpenAfterItsClosingDateEarnsTheEmployeeA()
         => throw new NotImplementedException(
             "TODO(codegen): expect ClosingReminderSent. " +
-            "Stream key: Reminder.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SendClosingReminderState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // the reminder repeats every three days while the month stays open
     //   GIVEN ClosingReminderSent
@@ -37,7 +37,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     public Task TheReminderRepeatsEveryThreeDaysWhileTheMonthStaysOpen()
         => throw new NotImplementedException(
             "TODO(codegen): expect ClosingReminderSent. " +
-            "Stream key: Reminder.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SendClosingReminderState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // no reminder before the closing date, which is the last day of the month
     //   GIVEN BookingMonthStarted
@@ -47,7 +47,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     public Task NoReminderBeforeTheClosingDateWhichIsTheLastDayOf()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for BeforeClosingDate. " +
-            "Stream key: Reminder.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SendClosingReminderState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // no second reminder within three days of the last one
     //   GIVEN ClosingReminderSent
@@ -57,7 +57,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     public Task NoSecondReminderWithinThreeDaysOfTheLastOne()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for TooSoonToRemind. " +
-            "Stream key: Reminder.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SendClosingReminderState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month is never reminded about
     //   GIVEN MonthClosed
@@ -67,5 +67,5 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     public Task AClosedMonthIsNeverRemindedAbout()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: Reminder.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SendClosingReminderState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.MonthClosure;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     public Task AnyAdminCanRejectASubmittedClosureWhichSendsTheEmployeeBack()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureRejected. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RejectClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a rejection must carry a comment
     //   GIVEN MonthClosureSubmitted
@@ -37,7 +37,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     public Task ARejectionMustCarryAComment()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for RejectionCommentRequired. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RejectClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // the employee must be able to see that their closing attempt was rejected
     //   GIVEN MonthClosureSubmitted
@@ -47,7 +47,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     public Task TheEmployeeMustBeAbleToSeeThatTheirClosingAttemptWas()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureRejected. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RejectClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // only an admin may reject a closure
     //   GIVEN MonthClosureSubmitted
@@ -57,7 +57,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     public Task OnlyAnAdminMayRejectAClosure()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NotAnAdmin. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RejectClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // there is nothing to reject until the employee has submitted
     //   GIVEN BookingMonthStarted
@@ -67,7 +67,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     public Task ThereIsNothingToRejectUntilTheEmployeeHasSubmitted()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NoClosureSubmitted. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RejectClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month cannot be rejected — closed is closed
     //   GIVEN MonthClosed
@@ -77,5 +77,5 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     public Task AClosedMonthCannotBeRejectedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: RejectClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

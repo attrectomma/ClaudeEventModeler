@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.MonthClosure;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     public Task AnEmployeeClosesTheirOwnMonthWhichSubmitsItRatherThanClosing()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureSubmitted. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SubmitClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a rejected month can be fixed and submitted again
     //   GIVEN MonthClosureRejected
@@ -37,7 +37,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     public Task ARejectedMonthCanBeFixedAndSubmittedAgain()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureSubmitted. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SubmitClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a month already awaiting review cannot be submitted again
     //   GIVEN MonthClosureSubmitted
@@ -47,7 +47,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     public Task AMonthAlreadyAwaitingReviewCannotBeSubmittedAgain()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for ClosureAlreadySubmitted. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SubmitClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month cannot be submitted — closed is closed
     //   GIVEN MonthClosed
@@ -57,5 +57,5 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     public Task AClosedMonthCannotBeSubmittedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: MonthClosure.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: SubmitClosureState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

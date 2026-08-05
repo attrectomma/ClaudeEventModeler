@@ -7,12 +7,14 @@
 using JasperFx;
 using JasperFx.Resources;
 using JasperFx.Events;
+using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
 using Wolverine.Marten;
+using HourBooking.Views;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,8 +28,22 @@ builder.Services.AddMarten(opts =>
         //   employeeId + month
         opts.Events.StreamIdentity = StreamIdentity.AsString;
 
-        // TODO(codegen): register the projections from Views/. Which are single-stream and which
-        // are multi-stream is recorded in each view file.
+        // Read side: every read model is an INLINE projection, updated in the same transaction as
+        // the append, so a GWT THEN can be asserted straight after the request returns.
+        // Write side registers NOTHING: the per-slice state types are folded live on demand.
+        opts.Projections.Add<AdminEmployeeMonthProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<AdminsProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<ClosureNotificationTodoProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<MonthStartTodoProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<MyMonthStatusProjection>(ProjectionLifecycle.Inline);
+        // TODO(codegen): MyProjectsProjection groups events that do not carry
+        // employeeId + month, so it has no slicing rule yet. Marten rejects a multi-stream
+        // projection with no rules AT STARTUP, so registering it now would take the host down.
+        // opts.Projections.Add<MyProjectsProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<MyTimesheetProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<OpenMonthsProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<WorkingDaysProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<ZeroFillTodoProjection>(ProjectionLifecycle.Inline);
     })
     .IntegrateWithWolverine();
 

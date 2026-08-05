@@ -4,6 +4,8 @@
 //   re-run codegen and the change is lost. Holes marked TODO(codegen) are for the codegen skill.
 // </auto-generated>
 
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using HourBooking.Contracts;
 
 namespace HourBooking.Views;
@@ -24,5 +26,36 @@ public sealed record MonthStartTodo
     public string EmployeeName { get; init; } = default!;
 }
 
-// TODO(codegen): the projection. Events feeding it come from MORE THAN ONE stream, so this is a MultiStreamProjection grouped by the identity key.
+/// <summary>
+/// Multi-stream projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
+///
+/// Fed from 3 streams (Membership, Employee, MonthClosure), so events must be grouped explicitly.
+/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// </summary>
+public sealed class MonthStartTodoProjection : MultiStreamProjection<MonthStartTodo, string>
+{
+    public MonthStartTodoProjection()
+    {
+        // TODO(codegen): EmployeeAssignedToProject carries employeeId, projectId, projectName, assignedAt —
+        // not employeeId + month, so how it groups into this view is a decision.
+        // Identity<EmployeeAssignedToProject>(e => ...);
+        // TODO(codegen): EmployeeSeeded carries employeeId, employeeName —
+        // not employeeId + month, so how it groups into this view is a decision.
+        // Identity<EmployeeSeeded>(e => ...);
+        Identity<BookingMonthStarted>(e => $"{e.EmployeeId}:{e.Month}");
+    }
 
+    public static MonthStartTodo Apply(EmployeeAssignedToProject e, MonthStartTodo current)
+        // TODO(codegen): fold EmployeeAssignedToProject into the row.
+        => current;
+
+    public static MonthStartTodo Apply(EmployeeSeeded e, MonthStartTodo current)
+        // TODO(codegen): fold EmployeeSeeded into the row.
+        => current;
+
+    public static MonthStartTodo Apply(BookingMonthStarted e, MonthStartTodo current)
+        // TODO(codegen): fold BookingMonthStarted into the row.
+        => current;
+}

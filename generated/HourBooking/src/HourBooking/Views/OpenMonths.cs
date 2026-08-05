@@ -4,6 +4,8 @@
 //   re-run codegen and the change is lost. Holes marked TODO(codegen) are for the codegen skill.
 // </auto-generated>
 
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using HourBooking.Contracts;
 
 namespace HourBooking.Views;
@@ -30,7 +32,36 @@ public sealed record OpenMonths
     public DateTimeOffset? LastRemindedAt { get; init; } = default!;
 }
 
-// TODO(codegen): the projection. Events feeding it come from MORE THAN ONE stream, so this is a MultiStreamProjection grouped by the identity key.
 // 1 field(s) are derived and the model records their INPUTS, not the arithmetic:
 //   closingDate <- month
 // A human decides whether each is a sum, a count, a difference or a fold. See OPEN-QUESTIONS.md.
+
+/// <summary>
+/// Multi-stream projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
+///
+/// Fed from 2 streams (MonthClosure, Reminder), so events must be grouped explicitly.
+/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// </summary>
+public sealed class OpenMonthsProjection : MultiStreamProjection<OpenMonths, string>
+{
+    public OpenMonthsProjection()
+    {
+        Identity<BookingMonthStarted>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosed>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<ClosingReminderSent>(e => $"{e.EmployeeId}:{e.Month}");
+    }
+
+    public static OpenMonths Apply(BookingMonthStarted e, OpenMonths current)
+        // TODO(codegen): fold BookingMonthStarted into the row.
+        => current;
+
+    public static OpenMonths Apply(MonthClosed e, OpenMonths current)
+        // TODO(codegen): fold MonthClosed into the row.
+        => current;
+
+    public static OpenMonths Apply(ClosingReminderSent e, OpenMonths current)
+        // TODO(codegen): fold ClosingReminderSent into the row.
+        => current;
+}

@@ -4,6 +4,8 @@
 //   re-run codegen and the change is lost. Holes marked TODO(codegen) are for the codegen skill.
 // </auto-generated>
 
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using HourBooking.Contracts;
 
 namespace HourBooking.Views;
@@ -44,8 +46,62 @@ public sealed record MyTimesheet
     public decimal DayTotal { get; init; }
 }
 
-// TODO(codegen): the projection. Events feeding it come from MORE THAN ONE stream, so this is a MultiStreamProjection grouped by the identity key.
 // 2 field(s) are derived and the model records their INPUTS, not the arithmetic:
 //   dayTotal <- hours
 //   monthStatus <- BookingMonthStarted + MonthClosureSubmitted + MonthClosureRejected + MonthClosed
 // A human decides whether each is a sum, a count, a difference or a fold. See OPEN-QUESTIONS.md.
+
+/// <summary>
+/// Multi-stream projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
+///
+/// Fed from 2 streams (Timesheet, MonthClosure), so events must be grouped explicitly.
+/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// </summary>
+public sealed class MyTimesheetProjection : MultiStreamProjection<MyTimesheet, string>
+{
+    public MyTimesheetProjection()
+    {
+        Identity<HoursCorrected>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<BookingRemoved>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<ZeroHoursFilled>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosureSubmitted>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosureRejected>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<MonthClosed>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<BookingMonthStarted>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<HoursBooked>(e => $"{e.EmployeeId}:{e.Month}");
+    }
+
+    public static MyTimesheet Apply(HoursCorrected e, MyTimesheet current)
+        // TODO(codegen): fold HoursCorrected into the row.
+        => current;
+
+    public static MyTimesheet Apply(BookingRemoved e, MyTimesheet current)
+        // TODO(codegen): fold BookingRemoved into the row.
+        => current;
+
+    public static MyTimesheet Apply(ZeroHoursFilled e, MyTimesheet current)
+        // TODO(codegen): fold ZeroHoursFilled into the row.
+        => current;
+
+    public static MyTimesheet Apply(MonthClosureSubmitted e, MyTimesheet current)
+        // TODO(codegen): fold MonthClosureSubmitted into the row.
+        => current;
+
+    public static MyTimesheet Apply(MonthClosureRejected e, MyTimesheet current)
+        // TODO(codegen): fold MonthClosureRejected into the row.
+        => current;
+
+    public static MyTimesheet Apply(MonthClosed e, MyTimesheet current)
+        // TODO(codegen): fold MonthClosed into the row.
+        => current;
+
+    public static MyTimesheet Apply(BookingMonthStarted e, MyTimesheet current)
+        // TODO(codegen): fold BookingMonthStarted into the row.
+        => current;
+
+    public static MyTimesheet Apply(HoursBooked e, MyTimesheet current)
+        // TODO(codegen): fold HoursBooked into the row.
+        => current;
+}

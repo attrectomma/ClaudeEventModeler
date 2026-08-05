@@ -89,44 +89,63 @@ ${foreign.map((e) => `/// <summary>External — arrives from ${e.origin}. Termin
 public sealed record ${pascal(e.label)}(${params(e.fields)});`).join("\n\n")}
 `);
 
-// --- aggregates -------------------------------------------------------------------------------
+// --- per-slice aggregates ---------------------------------------------------------------------
 //
-// In Wolverine's aggregate handler workflow the ENDPOINT is the decider: it receives the aggregate
-// and returns events. So an aggregate is a pure left fold — Create/Apply and nothing else. No
-// business rules live here.
+// There is no such thing as "the" aggregate. Wolverine + Marten let every state-change slice fold
+// the stream into whatever shape ITS decision needs, and live aggregation means no projection is
+// registered for any of them — FetchForWriting folds on demand. So the aggregate is per SLICE, not
+// per stream, which also takes it out of the shared layer and makes slices that much more
+// independent.
+//
+// The endpoint is the decider: it receives the folded state and returns events. So a state type is
+// a pure left fold and holds no rules.
+//
+// No Create methods. Marten will build from a no-arg constructor, and its own docs say that is
+// "probably safest unless you can guarantee that a certain event type will always be first in the
+// event stream" — which does not hold here: the Timesheet stream is opened by HoursBooked or by
+// ZeroHoursFilled depending on whether the employee booked anything before leaving a project.
 
-for (const a of ir.shared.aggregates.filter((x) => x.events.length)) {
-  const evs = a.events.map((l) => ir.shared.events.find((e) => e.label === l));
-  const keyed = a.identity.length ? a.identity : null;
-  emit(join(APP, "Aggregates", `${pascal(a.name)}.cs`),
-    `${banner(`${a.name} aggregate — a left fold over the ${a.name} stream`)}
+const stateName = (s) => `${pascal(s.name)}State`;
+const streamOf = (s) => ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === s.commands[0]));
+
+for (const s of ir.slices) {
+  if (!s.generates || !s.commands.length) continue;
+  const agg = streamOf(s);
+  if (!agg || !agg.events.length) continue;
+  const evs = agg.events.map((l) => ir.shared.events.find((e) => e.label === l));
+  const keyed = agg.identity;
+  emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${stateName(s)}.cs`),
+    `${banner(`${s.name} — the state this slice folds to make its decision`)}
 using ${NS}.Contracts;
 
-namespace ${NS}.Aggregates;
+namespace ${NS}.Slices.${pascal(s.context)};
 
 /// <summary>
-/// Stream identity: ${keyed ? keyed.join(" + ") : "UNDECLARED — see identity= on the swimlane"}.
-/// Streams are string-keyed (Marten StreamIdentity.AsString) because the key is composite.
+/// Live aggregation over the ${agg.name} stream, keyed by ${keyed.join(" + ") || "an undeclared identity"}.
+/// Nothing registers a projection for this: Marten folds it on demand when the endpoint asks.
+///
+/// Folds every event of the stream, not only this slice's, because a decision may depend on any of
+/// them — the daily cap needs the whole month's bookings, not just the one being added.
+///
+/// The model draws ${evs[0].label} first in this stream, but there is deliberately no Create method:
+/// a no-arg constructor lets any event open the stream.
 /// </summary>
-public sealed record ${pascal(a.name)}
+public sealed record ${stateName(s)}
 {
     public string Id { get; init; } = default!;
 
-    /// <summary>Marten sets this by convention; the aggregate workflow uses it for optimistic concurrency.</summary>
+    /// <summary>Marten's convention. The aggregate workflow uses it for optimistic concurrency.</summary>
     public int Version { get; set; }
 
-${keyed ? `    public static string StreamKey(${keyed.map((k) => {
+${keyed.length ? `    public static string StreamKey(${keyed.map((k) => {
       const f = evs[0].fields.find((x) => x.name === k);
       return `${f ? type(f) : "string"} ${camel(k)}`;
     }).join(", ")})
-        => $"${camel(a.name)}:${keyed.map((k) => `{${camel(k)}}`).join(":")}";
+        => $"${camel(agg.name)}:${keyed.map((k) => `{${camel(k)}}`).join(":")}";
 ` : ""}
-    // TODO(codegen): which event opens this stream? Marten needs exactly one Create for the first
-    // event of a stream. Candidates, in the order the model draws them: ${a.events.join(", ")}.
-    // The model does not say, so it is not guessed here.
-
-${evs.map((e) => `    public static ${pascal(a.name)} Apply(${pascal(e.label)} e, ${pascal(a.name)} current)
-        // TODO(codegen): fold ${pascal(e.label)} into the aggregate. Carries: ${e.fields.map((f) => f.name).join(", ")}.
+${evs.map((e) => `    public static ${stateName(s)} Apply(${pascal(e.label)} e, ${stateName(s)} current)
+        // TODO(codegen): fold ${pascal(e.label)} into whatever ${pascal(s.commands[0])} needs to decide.
+        // Carries: ${e.fields.map((f) => f.name).join(", ")}.
         => current;`).join("\n\n")}
 }
 `);
@@ -134,10 +153,23 @@ ${evs.map((e) => `    public static ${pascal(a.name)} Apply(${pascal(e.label)} e
 
 // --- views ------------------------------------------------------------------------------------
 
+const SYS_KEY = [...new Set(ir.shared.aggregates.flatMap((a) => a.identity))];
+const registerable = [];   // views whose projection is valid enough to register inline
+
 for (const v of ir.shared.views) {
   const derived = Object.entries(v.derived ?? {});
+  const streams = [...new Set(v.from.map((l) => ir.shared.events.find((e) => e.label === l)?.aggregate).filter(Boolean))];
+  const multi = streams.length > 1;
+  // Identity is derivable only for events that carry the whole system key.
+  const sliceable = v.from.filter((l) => {
+    const e = ir.shared.events.find((x) => x.label === l);
+    return SYS_KEY.every((k) => e?.fields.some((f) => f.name === k));
+  });
+  if (!multi || sliceable.length) registerable.push(v.label);
   emit(join(APP, "Views", `${pascal(v.label)}.cs`),
     `${banner(`${v.label} read model — fed by ${v.from.length} event type(s)`)}
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using ${NS}.Contracts;
 
 namespace ${NS}.Views;
@@ -157,13 +189,39 @@ ${v.fields.map((f) => {
     }).join("\n\n")}
 }
 
-// TODO(codegen): the projection. Events feeding it come from ${
-      new Set(v.from.map((l) => ir.shared.events.find((e) => e.label === l)?.aggregate)).size > 1
-        ? "MORE THAN ONE stream, so this is a MultiStreamProjection grouped by the identity key"
-        : "a single stream, so a SingleStreamProjection or self-aggregating snapshot will do"}.
 ${derived.length ? `// ${derived.length} field(s) are derived and the model records their INPUTS, not the arithmetic:
 ${derived.map(([k, srcs]) => `//   ${k} <- ${srcs.join(" + ")}`).join("\n")}
-// A human decides whether each is a sum, a count, a difference or a fold. See OPEN-QUESTIONS.md.` : ""}
+// A human decides whether each is a sum, a count, a difference or a fold. See OPEN-QUESTIONS.md.
+` : ""}
+/// <summary>
+/// ${multi ? "Multi-stream" : "Single-stream"} projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
+${multi ? `///
+/// Fed from ${streams.length} streams (${streams.join(", ")}), so events must be grouped explicitly.
+/// Identity is derivable for any event carrying ${SYS_KEY.join(" + ")}; the rest need a decision.` : ""}
+/// </summary>
+public sealed class ${pascal(v.label)}Projection : ${multi
+      ? `MultiStreamProjection<${pascal(v.label)}, string>`
+      : `SingleStreamProjection<${pascal(v.label)}, string>`}
+{
+${multi ? `    public ${pascal(v.label)}Projection()
+    {
+${v.from.map((l) => {
+        const e = ir.shared.events.find((x) => x.label === l);
+        const has = SYS_KEY.every((k) => e?.fields.some((f) => f.name === k));
+        return has
+          ? `        Identity<${pascal(l)}>(e => $"${SYS_KEY.map((k) => `{e.${pascal(k)}}`).join(":")}");`
+          : `        // TODO(codegen): ${pascal(l)} carries ${e?.fields.map((f) => f.name).join(", ") || "nothing"} —\n` +
+            `        // not ${SYS_KEY.join(" + ")}, so how it groups into this view is a decision.\n` +
+            `        // Identity<${pascal(l)}>(e => ...);`;
+      }).join("\n")}
+    }
+
+` : ""}${v.from.map((l) => `    public static ${pascal(v.label)} Apply(${pascal(l)} e, ${pascal(v.label)} current)
+        // TODO(codegen): fold ${pascal(l)} into the row.
+        => current;`).join("\n\n")}
+}
 `);
 }
 
@@ -267,6 +325,50 @@ public sealed class AppFixture : IAsyncLifetime
 public sealed class IntegrationCollection : ICollectionFixture<AppFixture>;
 `);
 
+// Marten's IInitialData is the answer to "a test needs example data and the model has none". The
+// genesis events are seeded once with fixed ids, ResetAllData re-applies them, and every test then
+// starts from the same known world instead of inventing its own.
+emit(join(TESTS, "SeedData.cs"),
+  `${banner("baseline data — one known world, re-applied before every test")}
+using Marten;
+using Marten.Schema;
+using ${NS}.Contracts;
+
+namespace ${NS}.IntegrationTests;
+
+/// <summary>
+/// Fixed ids so a GIVEN can name things, and so a failing test is reproducible. The model declares
+/// field names and types but never example values — this is where the values live, once.
+///
+/// Seeds only the ${foreign.length} events nothing in this system produces (${foreign.map((e) => e.label).join(", ")}).
+/// Everything else is appended by the test's own GIVEN, because that is what a GIVEN is for.
+/// </summary>
+public sealed class SeedData : IInitialData
+{
+    public static readonly Guid EmployeeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    public static readonly Guid OtherEmployeeId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    public static readonly Guid ProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    public static readonly Guid OtherProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    public static readonly Guid AdminId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+    public const string Month = "2026-08";
+    public static readonly DateOnly WorkingDay = new(2026, 8, 3);
+    public static readonly DateOnly SecondWorkingDay = new(2026, 8, 4);
+    public static readonly DateTimeOffset SeededAt = new(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
+
+    public async Task Populate(IDocumentStore store, CancellationToken cancellation)
+    {
+        await using var session = store.LightweightSession();
+
+        // TODO(codegen): append the foreign events above onto whatever streams the model says they
+        // land in. They have origin=, not from=, so nothing here produces them — they are the world
+        // this system wakes up in.
+
+        await session.SaveChangesAsync(cancellation);
+    }
+}
+`);
+
 emit(join(TESTS, "IntegrationContext.cs"),
   `${banner("Base class for every GWT test")}
 using Alba;
@@ -330,13 +432,15 @@ let gwtCount = 0;
 for (const s of ir.slices) {
   if (!s.gwts.length) continue;
   const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => s.commands.includes(c.label)));
-  const key = agg?.identity.length ? `${pascal(agg.name)}.StreamKey(/* ${agg.identity.join(", ")} */)` : "/* stream key */";
+  const key = (s.commands.length && agg?.identity.length)
+    ? `${stateName(s)}.StreamKey(/* ${agg.identity.join(", ")} */)`
+    : "/* no command in this slice, so no stream is written */";
   gwtCount += s.gwts.length;
   emit(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
     `${banner(`slice "${s.name}" — ${s.gwts.length} GWT(s), one test each`)}
 using Alba;
-using ${NS}.Aggregates;
 using ${NS}.Contracts;
+using ${NS}.Slices.${pascal(s.context)};
 using Shouldly;
 using Xunit;
 
@@ -360,7 +464,7 @@ ${s.gwts.map((g, i) => {
     public Task ${testName(g, i)}()
         => throw new NotImplementedException(
             "TODO(codegen): ${err ? `expect a 400/ProblemDetails for ${ruleName(g)}` : `expect ${thens.join(", ") || "the modelled outcome"}`}. " +
-            "Stream key: ${key.replace(/"/g, "'")}. The model gives names and types but no example data, so a human supplies the values.");`;
+            "Stream key: ${key.replace(/"/g, "'")}. Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");`;
     }).join("\n\n")}
 }
 `);
@@ -373,12 +477,14 @@ emit(join(APP, "Program.cs"),
 using JasperFx;
 using JasperFx.Resources;
 using JasperFx.Events;
+using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
 using Wolverine.Marten;
+using ${NS}.Views;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -393,8 +499,16 @@ ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a
       .map((k) => `        //   ${k}`).join("\n")}
         opts.Events.StreamIdentity = StreamIdentity.AsString;
 
-        // TODO(codegen): register the projections from Views/. Which are single-stream and which
-        // are multi-stream is recorded in each view file.
+        // Read side: every read model is an INLINE projection, updated in the same transaction as
+        // the append, so a GWT THEN can be asserted straight after the request returns.
+        // Write side registers NOTHING: the per-slice state types are folded live on demand.
+${ir.shared.views.map((v) => registerable.includes(v.label)
+      ? `        opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
+      : `        // TODO(codegen): ${pascal(v.label)}Projection groups events that do not carry
+        // ${SYS_KEY.join(" + ")}, so it has no slicing rule yet. Marten rejects a multi-stream
+        // projection with no rules AT STARTUP, so registering it now would take the host down.
+        // opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
+    ).join("\n")}
     })
     .IntegrateWithWolverine();
 

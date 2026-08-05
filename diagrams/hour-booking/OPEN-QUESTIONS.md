@@ -103,9 +103,32 @@ cd generated/HourBooking && dotnet build          -> 0 errors, 0 warnings
 than from the implementation, so they cannot be tautological. Each throws with the outcome it expects
 and the stream key it needs. `book-hours`' 10 are the ones step 4 turns green.
 
-Every `TODO(codegen)` is a hole a script should not fill: which event opens a stream, how each fold
-works, the arithmetic behind a derived field, and the example data a test needs. The model has names
-and types but no example values, which is why tests cannot be fully generated.
+43 files: 16 event records, **per-slice** state types (live aggregation, nothing registered), 10 view
+types with **inline** projections, 2 validators, the Alba + Testcontainers harness, a `SeedData`
+baseline, and 55 tests.
+
+Every remaining `TODO(codegen)` is a hole a script should not fill: how each fold works, the
+arithmetic behind a derived field, the `Identity` rule for events that do not carry the system key,
+and the concrete values a given test needs.
+
+**Decided this round:**
+
+- **Live on write, inline on read.** No projection is registered for the state a slice folds; every
+  read model is `ProjectionLifecycle.Inline` so a GWT's THEN is assertable the moment the request
+  returns.
+- **No "the" aggregate.** Each state-change slice folds the stream into the shape *its* decision
+  needs, so aggregates left the shared layer entirely.
+- **No `Create` methods.** "First event in the swimlane opens the stream" covers 3 of 4 bands here,
+  but `Timesheet` is opened by `HoursBooked` **or** `ZeroHoursFilled`, so a no-arg constructor is used
+  instead — which is what Marten's docs recommend when ordering cannot be guaranteed.
+- **`IInitialData` is the example data.** Fixed ids in one `SeedData` class, re-applied by
+  `ResetAllMartenDataAsync()` before each test.
+
+**One thing to know:** a multi-stream projection with no `Identity<T>` rule is rejected by Marten **at
+startup**, which takes the host down and loses the per-test failure detail. `MyProjects` is in that
+state — its events carry `employeeId + projectId` and never `month` — so its registration is emitted
+commented out with the reason. How it groups is a modelling decision, and it is the next thing
+`book-hours` will need, since `NotAProjectMember` reads that view.
 
 **Decided:** `enforce="periphery"` on the four `HoursMustBeNonZero` / `HoursMustBeWholeOrHalf` GWTs.
 The rest default to `aggregate`. This is declared because the derivation I proposed — "empty `given=`

@@ -5,8 +5,8 @@
 // </auto-generated>
 
 using Alba;
-using HourBooking.Aggregates;
 using HourBooking.Contracts;
+using HourBooking.Slices.Booking;
 using Shouldly;
 using Xunit;
 
@@ -27,7 +27,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task HoursCanBeBookedOnAProjectTheEmployeeBelongsToIn()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursBooked. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a date in the future is allowed — employees may prefill
     //   GIVEN BookingMonthStarted
@@ -37,7 +37,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task ADateInTheFutureIsAllowedEmployeesMayPrefill()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursBooked. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a date in the past is allowed within the open month
     //   GIVEN BookingMonthStarted
@@ -47,7 +47,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task ADateInThePastIsAllowedWithinTheOpenMonth()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursBooked. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // zero hours is not a booking — removal is the only way to take a line back
     //   GIVEN BookingMonthStarted
@@ -58,7 +58,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task ZeroHoursIsNotABookingRemovalIsTheOnlyWayTo()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for HoursMustBeNonZero. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // hours are booked in whole or half hours only
     //   GIVEN BookingMonthStarted
@@ -69,7 +69,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task HoursAreBookedInWholeOrHalfHoursOnly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for HoursMustBeWholeOrHalf. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a closed month cannot be booked into — closed is closed
     //   GIVEN MonthClosed
@@ -79,7 +79,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task AClosedMonthCannotBeBookedIntoClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // hours cannot be booked to a project the employee has left, and NOTHING is persisted
     //   GIVEN EmployeeRemovedFromProject
@@ -89,7 +89,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task HoursCannotBeBookedToAProjectTheEmployeeHasLeftAnd()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NotAProjectMember. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // at most 18 hours can stand for one day
     //   GIVEN BookingMonthStarted
@@ -99,7 +99,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task AtMost18HoursCanStandForOneDay()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for DailyCapExceeded. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a day+project can only be BOOKED once — booking it again is a correction, not a booking
     //   GIVEN HoursBooked
@@ -109,7 +109,7 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task ADayProjectCanOnlyBeBOOKEDOnceBookingItAgainIs()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for AlreadyBookedUseCorrection. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 
     // a submitted month is still open, so it can still be booked into until an admin closes it
     //   GIVEN MonthClosureSubmitted
@@ -119,5 +119,5 @@ public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixt
     public Task ASubmittedMonthIsStillOpenSoItCanStillBeBooked()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursBooked. " +
-            "Stream key: Timesheet.StreamKey(/* employeeId, month */). The model gives names and types but no example data, so a human supplies the values.");
+            "Stream key: BookHoursState.StreamKey(/* employeeId, month */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
 }

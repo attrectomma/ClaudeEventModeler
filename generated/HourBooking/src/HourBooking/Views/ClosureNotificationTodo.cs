@@ -4,6 +4,8 @@
 //   re-run codegen and the change is lost. Holes marked TODO(codegen) are for the codegen skill.
 // </auto-generated>
 
+using Marten.Events.Aggregation;   // SingleStreamProjection
+using Marten.Events.Projections;   // MultiStreamProjection
 using HourBooking.Contracts;
 
 namespace HourBooking.Views;
@@ -27,5 +29,27 @@ public sealed record ClosureNotificationTodo
     public DateTimeOffset SubmittedAt { get; init; }
 }
 
-// TODO(codegen): the projection. Events feeding it come from MORE THAN ONE stream, so this is a MultiStreamProjection grouped by the identity key.
+/// <summary>
+/// Multi-stream projection, registered INLINE in Program.cs: read models are
+/// updated in the same transaction as the append, so a GWT's THEN can be asserted immediately.
+/// Contrast the write side, which registers nothing and folds live.
+///
+/// Fed from 2 streams (MonthClosure, AdminNotification), so events must be grouped explicitly.
+/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// </summary>
+public sealed class ClosureNotificationTodoProjection : MultiStreamProjection<ClosureNotificationTodo, string>
+{
+    public ClosureNotificationTodoProjection()
+    {
+        Identity<MonthClosureSubmitted>(e => $"{e.EmployeeId}:{e.Month}");
+        Identity<AdminsNotified>(e => $"{e.EmployeeId}:{e.Month}");
+    }
 
+    public static ClosureNotificationTodo Apply(MonthClosureSubmitted e, ClosureNotificationTodo current)
+        // TODO(codegen): fold MonthClosureSubmitted into the row.
+        => current;
+
+    public static ClosureNotificationTodo Apply(AdminsNotified e, ClosureNotificationTodo current)
+        // TODO(codegen): fold AdminsNotified into the row.
+        => current;
+}
