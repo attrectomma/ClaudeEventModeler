@@ -69,22 +69,18 @@ builder.Host.UseWolverine(opts =>
 
 builder.Services.AddWolverineHttp();
 
-// AUTOMATION HEARTBEATS — what makes an automation automatic.
+// HOW EACH AUTOMATION IS WOKEN — one hook per slice, and the generator deliberately does NOT choose.
 //
-// One clock per automation slice, each sending that slice's sweep message on an interval. The durable
-// state is the slice's todo View, not the clock: a sweep recomputes its work from Pending rows every
-// time, so a restart loses nothing. See AutomationHeartbeat for why a durable self-rescheduling message
-// was tried first, six ways, and abandoned.
+// The model constrains the contract, not the mechanism: it says the trigger decides from accumulated
+// state and issues a command, and says nothing about what wakes it. Event forwarding, a Marten
+// subscription, projection RaiseSideEffects and a clock-driven sweep are all valid; which is right
+// depends on whether the trigger event is ours, whether ordering matters, and whether the trigger is an
+// event at all rather than the passage of time.
 //
-// GATED OFF IN TESTS. The clock is the one part of an automation a test must control rather than
-// observe: a sweep firing mid-test appends events into streams other slices are asserting on, and every
-// GIVEN in the suite becomes a race. AppFixture sets Automation:Heartbeat=false; tests send the same
-// sweep message themselves, so the production path is still the tested path.
-if (builder.Configuration.GetValue("Automation:Heartbeat", true))
-{
-    builder.Services.AddSingleton<IHostedService>(sp =>
-        new AutomationHeartbeat<RunSendEmail>(sp, "send-email", new RunSendEmail()));
-}
+// Each Register body is SCAFFOLD — hand-owned, kept by regeneration — and carries the decision table
+// plus a TODO(codegen) marker that codegen reports until it is gone. Worked implementations of all four
+// against one shared model: reference-implementations/automation/.
+SendEmailWakeup.Register(builder);
 
 if (builder.Environment.IsDevelopment())
 {

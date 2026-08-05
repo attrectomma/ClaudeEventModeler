@@ -54,12 +54,13 @@ public sealed class AppFixture : IAsyncLifetime
             });
             builder.UseSetting("ConnectionStrings:Marten", _postgres.GetConnectionString());
 
-            // No automation clock in tests. A sweep firing on its own mid-test appends events into
-            // streams other slices are asserting on, and every GIVEN in the suite becomes a race. Tests
-            // send the sweep message themselves — the same message the heartbeat sends, to the same
-            // handler — so the production path is still the tested path. Only the clock is absent, and
-            // the clock is the one part of an automation a test must control rather than observe.
-            builder.UseSetting("Automation:Heartbeat", "false");
+            // No automation CLOCK in tests, whatever mechanism a slice chose. Anything firing on its own
+            // mid-test appends events into streams other slices are asserting on, and every GIVEN in the
+            // suite becomes a race. Tests send the Run<Slice> message themselves — the same message every
+            // mechanism ends up sending, to the same trigger — so the production path is still the tested
+            // path. Only the clock is absent, and a clock is the one part of an automation a test must
+            // control rather than observe.
+            builder.UseSetting("Automation:Wakeup", "false");
         });
     }
 
