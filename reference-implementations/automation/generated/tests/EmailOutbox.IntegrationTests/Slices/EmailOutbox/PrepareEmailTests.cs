@@ -3,41 +3,87 @@
 //   Scaffolded once by tools/codegen.mjs, then FILLED IN BY HAND — regeneration KEEPS this file.
 //   Holes marked TODO(codegen) are yours to close; they are reported until you do.
 // </auto-generated-scaffold>
-
+#nullable enable
 using Alba;
 using EmailOutbox.Contracts;
 using EmailOutbox.Slices.EmailOutbox;
+using EmailOutbox.Views;
+using Marten;
 using Shouldly;
 using Xunit;
 
 namespace EmailOutbox.IntegrationTests.Slices.EmailOutbox;
 
 /// <summary>
-/// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
-/// these tests mean anything. Pattern: command. Status: ready.
-/// LIVE: this slice is claimed, so every test here must pass.
-/// This slice needs backend-agent and frontend-agent, so these are the contract between them.
+/// The Command half of the model. It exists so <c>EmailPrepared</c> is genuinely OURS — appended in our own
+/// transaction — which is the fact that makes event forwarding and subscriptions available at all as ways to
+/// wake the send-email trigger. Without a slice that appends it, three of the four mechanisms compared in
+/// this folder could not be demonstrated.
 /// </summary>
 public sealed class PrepareEmailTests(AppFixture fixture) : IntegrationContext(fixture)
 {
+    private async Task<(IScenarioResult Result, EmailPrepared? Event)> Post(
+        string to, string subject = "Subject", string body = "Body")
+    {
+        var (_, result) = await WhenPosting(x =>
+        {
+            x.Post.Json(new PrepareEmail(Guid.Empty, to, subject, body))
+                .ToUrl(PrepareEmailEndpoint.Route);
+            x.IgnoreStatusCode();
+        });
+
+        // The endpoint mints the id, so the test cannot know it in advance — it has to be found. That is
+        // what terminal="emailId:generated" means in practice.
+        await using var session = Store.QuerySession();
+        var row = await session.Query<EmailsToSend>().FirstOrDefaultAsync();
+        if (row is null) return (result, null);
+
+        var events = await EventsFor(SendEmailState.StreamKey(row.EmailId));
+        return (result, events.OfType<EmailPrepared>().FirstOrDefault());
+    }
+
     // an email a human composed is queued, not sent
-    //   GIVEN (nothing)
+    //   GIVEN —
     //   WHEN  PrepareEmail
     //   THEN  EmailPrepared
     [Fact]
-    public Task AnEmailAHumanComposedIsQueuedNotSent()
-        => throw new NotImplementedException(
-            "TODO(codegen): expect EmailPrepared. " +
-            "Stream key: PrepareEmailState.StreamKey(/* emailId */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
+    public async Task AnEmailAHumanComposedIsQueuedNotSent()
+    {
+        var (result, prepared) = await Post("someone@example.com");
+
+        result.Context.Response.StatusCode.ShouldBe(204);   // [EmptyResponse]: the event is appended
+
+        prepared.ShouldNotBeNull();
+        prepared!.To.ShouldBe("someone@example.com");
+        prepared.EmailId.ShouldNotBe(Guid.Empty);
+
+        // QUEUED, NOT SENT — the whole reason composing and sending are two slices. Nothing has sent
+        // anything, and the todo row is what the automation will later pick up.
+        var events = await EventsFor(SendEmailState.StreamKey(prepared.EmailId));
+        events.OfType<EmailSent>().ShouldBeEmpty();
+
+        await using var session = Store.QuerySession();
+        var row = await session.LoadAsync<EmailsToSend>(SendEmailState.StreamKey(prepared.EmailId));
+        row!.Status.ShouldBe(EmailsToSend.Pending);
+    }
 
     // an email with no recipient is refused
-    //   GIVEN (nothing)
+    //   GIVEN —
     //   WHEN  PrepareEmail
     //   THEN  error: RecipientRequired
-    //   No GIVEN, so this is a periphery rule: expect 400 from the validator.
     [Fact]
-    public Task AnEmailWithNoRecipientIsRefused()
-        => throw new NotImplementedException(
-            "TODO(codegen): expect a 400/ProblemDetails for RecipientRequired. " +
-            "Stream key: PrepareEmailState.StreamKey(/* emailId */). Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");
+    public async Task AnEmailWithNoRecipientIsRefused()
+    {
+        var (result, _) = await Post("");
+
+        // enforce="periphery": rejected by the FluentValidation middleware before any stream is read, so
+        // this is a 400 and not an outcome object. The rule NAME is the machine-readable part.
+        result.Context.Response.StatusCode.ShouldBe(400);
+        (await result.ReadAsTextAsync()).ShouldContain("RecipientRequired");
+
+        // The other side of the boundary, and the only thing that proves it was refused rather than merely
+        // unasserted: nothing was appended and no todo row exists.
+        await using var session = Store.QuerySession();
+        (await session.Query<EmailsToSend>().AnyAsync()).ShouldBeFalse();
+    }
 }

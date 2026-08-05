@@ -3,20 +3,21 @@
 //   Scaffolded once by tools/codegen.mjs, then FILLED IN BY HAND — regeneration KEEPS this file.
 //   Holes marked TODO(codegen) are yours to close; they are reported until you do.
 // </auto-generated-scaffold>
-
+#nullable enable
 using EmailOutbox.Contracts;
 
 namespace EmailOutbox.Slices.EmailOutbox;
 
 /// <summary>
-/// Live aggregation over the Email stream, keyed by emailId.
-/// Nothing registers a projection for this: Marten folds it on demand when the endpoint asks.
+/// Live aggregation over the Email stream, keyed by emailId. Nothing registers a projection for this:
+/// Marten folds it on demand when the decider asks, so there is no staleness to reason about and the fold
+/// happens inside the same transaction as the append.
 ///
-/// Folds every event of the stream, not only this slice's, because a decision may depend on any of
-/// them — the daily cap needs the whole month's bookings, not just the one being added.
+/// It folds EVERY event of the stream, not only the ones this slice emits, because a decision may depend on
+/// any of them — here <c>EmailSent</c> is what makes "already sent" answerable at all.
 ///
-/// The model draws EmailPrepared first in this stream, but there is deliberately no Create method:
-/// a no-arg constructor lets any event open the stream.
+/// No <c>Create</c> method, deliberately: a no-arg constructor lets any event open the stream. "The first
+/// event drawn in the swimlane" is a good default and not a guarantee — ANTI-PATTERNS.md #1.
 /// </summary>
 public sealed record SendEmailState
 {
@@ -25,16 +26,40 @@ public sealed record SendEmailState
     /// <summary>Marten's convention. The aggregate workflow uses it for optimistic concurrency.</summary>
     public int Version { get; set; }
 
-    public static string StreamKey(Guid emailId)
-        => $"email:{emailId}";
+    /// <summary>
+    /// False until an <c>EmailPrepared</c> arrives, which is what makes <c>NotPrepared</c> a real invariant
+    /// rather than a guess: an empty stream folds to a default instance, so "nobody prepared this" and "this
+    /// email does not exist" are the same state — and both must be refused.
+    /// </summary>
+    public bool Prepared { get; init; }
 
-    public static SendEmailState Apply(EmailPrepared e, SendEmailState current)
-        // TODO(codegen): fold EmailPrepared into whatever SendEmail needs to decide.
-        // Carries: emailId, to, subject, body, preparedAt.
-        => current;
+    /// <summary>
+    /// The reason the command carries only an emailId. The trigger says *which* email to send; the content
+    /// comes from the stream, so a trigger cannot send something the stream never prepared.
+    /// </summary>
+    public string? To { get; init; }
 
-    public static SendEmailState Apply(EmailSent e, SendEmailState current)
-        // TODO(codegen): fold EmailSent into whatever SendEmail needs to decide.
-        // Carries: emailId, providerMessageId, sentAt.
-        => current;
+    public string? Subject { get; init; }
+    public string? Body { get; init; }
+
+    /// <summary>
+    /// Set by the automation's own output event. Every wakeup mechanism compared in this folder is
+    /// at-least-once, so this flag is not a nicety — it is what makes all of them safe to run twice.
+    /// </summary>
+    public bool Sent { get; init; }
+
+    public static string StreamKey(Guid emailId) => $"email:{emailId}";
+
+    public static SendEmailState Apply(EmailPrepared e, SendEmailState current) => current with
+    {
+        Prepared = true,
+        To = e.To,
+        Subject = e.Subject,
+        Body = e.Body,
+    };
+
+    public static SendEmailState Apply(EmailSent e, SendEmailState current) => current with
+    {
+        Sent = true,
+    };
 }

@@ -25,8 +25,16 @@ public sealed class PrepareEmailValidator : AbstractValidator<PrepareEmail>
 {
     public PrepareEmailValidator()
     {
-        // RecipientRequired: an email with no recipient is refused
-        // TODO(codegen): RuleFor(x => x.?).Must(...).WithMessage("RecipientRequired");
+        // RecipientRequired: an email with no recipient is refused.
+        //
+        // The one genuinely periphery rule in this model, and it is periphery for a reason worth stating:
+        // nothing about prior events changes the answer. A blank recipient is refusable from the request
+        // alone, before any stream is read.
+        //
+        // The message is the RULE NAME, not prose. UseFluentValidationProblemDetailMiddleware turns a
+        // failure into a 400 whose errors carry these strings, so the name is what a caller can act on —
+        // the same contract a decider keeps by putting the rule name in Title.
+        RuleFor(x => x.To).NotEmpty().WithMessage("RecipientRequired");
     }
 }
 

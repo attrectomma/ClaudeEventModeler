@@ -28,13 +28,17 @@ public sealed record PrepareEmailState
     public static string StreamKey(Guid emailId)
         => $"email:{emailId}";
 
-    public static PrepareEmailState Apply(EmailPrepared e, PrepareEmailState current)
-        // TODO(codegen): fold EmailPrepared into whatever PrepareEmail needs to decide.
-        // Carries: emailId, to, subject, body, preparedAt.
-        => current;
+    // BOTH FOLDS ARE DELIBERATELY EMPTY, and this file is really a finding rather than code.
+    //
+    // prepare-email mints a NEW emailId, so its stream cannot exist yet: there is no accumulated state for
+    // a decision to depend on. Its only rule (RecipientRequired) is periphery. So this slice needs no fold
+    // at all, and the generator emits one anyway because it emits a state type per slice unconditionally.
+    //
+    // Left in place, empty and labelled, rather than deleted — deleting it means the next regeneration
+    // scaffolds it back and the next reader wonders what it was for. The general point: a state type is
+    // dead weight for any slice whose rules are all periphery, and nothing detects that.
 
-    public static PrepareEmailState Apply(EmailSent e, PrepareEmailState current)
-        // TODO(codegen): fold EmailSent into whatever PrepareEmail needs to decide.
-        // Carries: emailId, providerMessageId, sentAt.
-        => current;
+    public static PrepareEmailState Apply(EmailPrepared e, PrepareEmailState current) => current;
+
+    public static PrepareEmailState Apply(EmailSent e, PrepareEmailState current) => current;
 }

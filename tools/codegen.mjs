@@ -78,6 +78,42 @@ const testName = (g, i) => {
   return pascal(base.replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).slice(0, 12).join(" ")) || `Rule${i + 1}`;
 };
 
+// The fixed values a GIVEN needs to name things. Derived, because hard-coding them leaked one retired
+// domain's vocabulary — EmployeeId, ProjectId, Month, WorkingDay — into every project the generator has
+// ever produced, where those names mean nothing.
+//
+// Every name in a swimlane's identity= is a stream key, so it is exactly what a test must be able to
+// refer to. Types come from the events that carry the field.
+const seedConstants = () => {
+  const keys = [...new Set(ir.shared.aggregates.flatMap((a) => a.identity ?? []))];
+  const typeOf = (name) => {
+    for (const e of ir.shared.events) {
+      const f = (e.fields ?? []).find((x) => x.name === name);
+      if (f) return CS[f.type] ?? f.type;
+    }
+    return "string";
+  };
+  const hex = (n) => String(n % 10).repeat(8) + "-" + String(n % 10).repeat(4) + "-" +
+    String(n % 10).repeat(4) + "-" + String(n % 10).repeat(4) + "-" + String(n % 10).repeat(12);
+  const lines = keys.map((k, i) => {
+    const t = typeOf(k);
+    const N = pascal(k);
+    if (t === "Guid") return `    public static readonly Guid ${N} = Guid.Parse("${hex(i + 1)}");`;
+    if (t === "DateOnly") return `    public static readonly DateOnly ${N} = new(2026, 1, ${(i % 28) + 1});`;
+    if (t === "DateTimeOffset") return `    public static readonly DateTimeOffset ${N} = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);`;
+    if (t === "int" || t === "long") return `    public const ${t} ${N} = ${i + 1};`;
+    if (t === "decimal") return `    public const decimal ${N} = ${i + 1}m;`;
+    if (t === "bool") return `    public const bool ${N} = true;`;
+    return `    public const string ${N} = "${k}-1";`;
+  });
+  if (!keys.length)
+    lines.push("    // No band declares identity=, so there are no stream keys to name. Add identity= first.");
+  lines.push("");
+  lines.push("    /// <summary>One fixed instant, so a seeded timestamp is assertable.</summary>");
+  lines.push("    public static readonly DateTimeOffset SeededAt = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);");
+  return lines.join("\n");
+};
+
 const files = [];
 const kept = [];
 // Fully derived: always overwritten, because the diff IS the review of a model change.
@@ -478,16 +514,7 @@ namespace ${NS}.IntegrationTests;
 /// </summary>
 public sealed class SeedData : IInitialData
 {
-    public static readonly Guid EmployeeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    public static readonly Guid OtherEmployeeId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    public static readonly Guid ProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    public static readonly Guid OtherProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    public static readonly Guid AdminId = Guid.Parse("55555555-5555-5555-5555-555555555555");
-
-    public const string Month = "2026-08";
-    public static readonly DateOnly WorkingDay = new(2026, 8, 3);
-    public static readonly DateOnly SecondWorkingDay = new(2026, 8, 4);
-    public static readonly DateTimeOffset SeededAt = new(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
+${seedConstants()}
 
     public async Task Populate(IDocumentStore store, CancellationToken cancellation)
     {
@@ -599,7 +626,9 @@ ${s.gwts.map((g, i) => {
     public Task ${testName(g, i)}()
         => throw new NotImplementedException(
             "TODO(codegen): ${err ? `expect a 400/ProblemDetails for ${ruleName(g)}` : `expect ${thens.join(", ") || "the modelled outcome"}`}. " +
-            "Stream key: ${key.replace(/"/g, "'")}. Use SeedData.EmployeeId / SeedData.Month / SeedData.ProjectId / SeedData.WorkingDay for values.");`;
+            "Stream key: ${key.replace(/"/g, "'")}. Fixed values for every stream key are on SeedData: ${
+      [...new Set(ir.shared.aggregates.flatMap((a) => a.identity ?? []))].map((k) => `SeedData.${pascal(k)}`).join(", ") || "none — no band declares identity="
+    }.");`;
     }).join("\n\n")}
 }
 `);

@@ -19,16 +19,10 @@ namespace EmailOutbox.IntegrationTests;
 /// </summary>
 public sealed class SeedData : IInitialData
 {
-    public static readonly Guid EmployeeId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    public static readonly Guid OtherEmployeeId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-    public static readonly Guid ProjectId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-    public static readonly Guid OtherProjectId = Guid.Parse("44444444-4444-4444-4444-444444444444");
-    public static readonly Guid AdminId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+    public static readonly Guid EmailId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    public const string Month = "2026-08";
-    public static readonly DateOnly WorkingDay = new(2026, 8, 3);
-    public static readonly DateOnly SecondWorkingDay = new(2026, 8, 4);
-    public static readonly DateTimeOffset SeededAt = new(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
+    /// <summary>One fixed instant, so a seeded timestamp is assertable.</summary>
+    public static readonly DateTimeOffset SeededAt = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     public async Task Populate(IDocumentStore store, CancellationToken cancellation)
     {

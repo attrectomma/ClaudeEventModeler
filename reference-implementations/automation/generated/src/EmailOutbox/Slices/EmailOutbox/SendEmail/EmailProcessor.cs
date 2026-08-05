@@ -38,17 +38,32 @@ public static class EmailProcessor
         ILogger logger,
         CancellationToken cancellation)
     {
-        // TODO(codegen): read the slice's View for outstanding work, and issue its Command per item.
-        //
-        //   var work = await session.Query<SomeTodoView>().Where(r => r.IsPending).ToListAsync(cancellation);
-        //   foreach (var row in work) await bus.InvokeAsync(new SomeCommand(row.Id), cancellation);
-        //
-        // Two things that are not optional:
-        //   * the run must be safe to REPEAT. At-least-once is the normal case for every wakeup mechanism,
-        //     so correctness cannot depend on how often this fires.
-        //   * log every run, including one that did nothing — otherwise "alive with no work" and "dead"
-        //     produce identical output, and that ambiguity has hidden a broken wakeup before.
-        await Task.CompletedTask;
-        logger.LogInformation("send-email: nothing implemented yet.");
+        // THE WORK SELECTION. Read the View, issue the Command per pending row. Nothing here knows or
+        // cares what woke it — that is the whole point of the Run message being the seam.
+        var pending = await session.Query<EmailsToSend>()
+            .Where(r => r.Status == EmailsToSend.Pending)
+            .OrderBy(r => r.Id)
+            .ToListAsync(cancellation);
+
+        var sent = 0;
+        var refused = new List<string>();
+
+        foreach (var row in pending)
+        {
+            // InvokeAsync, not PublishAsync: the trigger wants the outcome back so a refusal is visible
+            // rather than silently dropped. The decider is what actually holds the rules.
+            var outcome = await bus.InvokeAsync<SendOutcome>(new SendEmail(row.EmailId), cancellation);
+
+            if (outcome.WasSent) sent++;
+            else refused.Add(outcome.Rule!);
+        }
+
+        // ALWAYS log, including a run that did nothing. A trigger is silent whenever there is no work, so
+        // logging only the interesting case makes "alive with nothing to do" and "dead" byte-identical —
+        // and that ambiguity has already hidden one broken wakeup mechanism in this kit.
+        logger.LogInformation(
+            "send-email run: {Pending} pending, {Sent} sent, {Refused} refused{Rules}.",
+            pending.Count, sent, refused.Count,
+            refused.Count == 0 ? "" : $" ({string.Join(", ", refused.Distinct())})");
     }
 }

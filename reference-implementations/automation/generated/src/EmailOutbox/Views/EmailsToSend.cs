@@ -31,8 +31,18 @@ public sealed record EmailsToSend
     /// <summary>Carried by an upstream event.</summary>
     public string Body { get; init; } = default!;
 
-    /// <summary>Computed from EmailPrepared + EmailSent — not carried by any event.</summary>
+    /// <summary>
+    /// derived="status=EmailPrepared+EmailSent". A fold over event PRESENCE, not a rename of anything: its
+    /// Pending value is the ABSENCE of a send, which no mapping could ever produce. That is exactly the
+    /// distinction the model draws between mappings=, derived= and terminal=.
+    /// </summary>
     public string Status { get; init; } = default!;
+
+    public const string Pending = "Pending";
+    public const string Sent = "Sent";
+
+    /// <summary>What the trigger selects on. One place, so the trigger and the view cannot disagree.</summary>
+    public bool IsPending => Status == Pending;
 }
 
 // 1 field(s) are derived and the model records their INPUTS, not the arithmetic:
@@ -47,11 +57,26 @@ public sealed record EmailsToSend
 /// </summary>
 public sealed class EmailsToSendProjection : SingleStreamProjection<EmailsToSend, string>
 {
-    public static EmailsToSend Apply(EmailPrepared e, EmailsToSend current)
-        // TODO(codegen): fold EmailPrepared into the row.
-        => current;
+    /// <summary>
+    /// Puts the row on the list. The only event here that means "there is work to do".
+    /// </summary>
+    public static EmailsToSend Apply(EmailPrepared e, EmailsToSend current) => current with
+    {
+        EmailId = e.EmailId,
+        To = e.To,
+        Subject = e.Subject,
+        Body = e.Body,
+        Status = EmailsToSend.Pending,
+    };
 
-    public static EmailsToSend Apply(EmailSent e, EmailsToSend current)
-        // TODO(codegen): fold EmailSent into the row.
-        => current;
+    /// <summary>
+    /// COMPLETION, never supply. This is the automation own output coming back, so it must only mark the
+    /// row done — if it also filled in EmailId/To/Subject it could MATERIALISE a row from a send that no
+    /// prepare preceded, and the trigger would then treat its own output as fresh work. That is the loop
+    /// the todo list exists to prevent, reappearing inside the todo list.
+    /// </summary>
+    public static EmailsToSend Apply(EmailSent e, EmailsToSend current) => current with
+    {
+        Status = EmailsToSend.Sent,
+    };
 }
