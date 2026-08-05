@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/EmailOutbox/EmailOutbox.csproj" />
+  <Project Path="tests/EmailOutbox.IntegrationTests/EmailOutbox.IntegrationTests.csproj" />
+</Solution>

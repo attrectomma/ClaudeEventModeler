@@ -40,8 +40,8 @@ Four levels. Only two of them are files.
 
 | Level | Is | Where it lives |
 | --- | --- | --- |
-| **System** | a product, a deployable whole | a folder: `diagrams/hour-booking/` |
-| **Model** | one business context, one flow | one file: `booking.drawio` |
+| **System** | a product, a deployable whole | a folder: `diagrams/<system>/` |
+| **Model** | one business context, one flow | one file: `ordering.drawio` |
 | **Slice** | the unit of work — one branch, one ticket | a dashed pink rectangle drawn around its columns |
 | **Element** | a screen, command, event, view, automation | one cell |
 
@@ -75,8 +75,9 @@ into one swimlane per stream), and a **GWT band** below everything holding the b
 stacked under the slice each belongs to. The gaps between bands are not empty — they are routing
 corridors, so long edges never cut through a box.
 
-Start here: open [diagrams/hour-booking/booking.png](diagrams/hour-booking/booking.png). That is a
-whole business context in one picture — 8 slices, 3 screens, the rules underneath.
+There is deliberately **no worked example in the repo** — see §11. `diagrams/template.drawio` is an empty
+model with the lanes and bands already laid out, and `tools/fixtures/` holds three tiny models the checker
+tests itself against, including one built to fail.
 
 ---
 
@@ -85,10 +86,10 @@ whole business context in one picture — 8 slices, 3 screens, the rules underne
 ```bash
 npm install                                        # only needed for the MCP server
 
-# Look at the worked example.
-node tools/drawio.mjs render diagrams/hour-booking/booking.drawio
-node tools/model.mjs validate diagrams/hour-booking/
-node tools/model.mjs map      diagrams/hour-booking/    # regenerates the context map
+# See the checker pass and fail on purpose.
+node tools/model.mjs validate tools/fixtures/resolved.drawio    # 0 / 0 / 0
+node tools/model.mjs validate tools/fixtures/gaps.drawio        # errors, on purpose
+node tools/drawio.mjs render  diagrams/template.drawio
 ```
 
 Then, in order:
@@ -97,9 +98,8 @@ Then, in order:
 2. **Open the `.drawio` in VS Code** (the Draw.io Integration extension). Click a cell, press
    **Ctrl+M** — *Edit Data*. Those attributes are the specification. This is the whole trick.
 3. **Read a `validate` run.** 0 errors is the gate; the notes are claims to disagree with (§7).
-4. **Read [diagrams/hour-booking/OPEN-QUESTIONS.md](diagrams/hour-booking/OPEN-QUESTIONS.md)** —
-   especially the last section, which lists twelve things the checker structurally *cannot* see. A
-   green run does not mean the model is right.
+4. **Read [ANTI-PATTERNS.md](ANTI-PATTERNS.md)** — especially the "Caught by" column, where every **no**
+   is something only a human notices. A green run does not mean the model is right.
 
 To model something of your own, say *"let's model X"* to Claude and it runs the `event-model` skill
 (§8). You supply the domain knowledge; it asks the questions and does all the drawing.
@@ -167,8 +167,8 @@ really their sum — a lie a generator would act on, so it is warned about.
 ## 7. Reading a `validate` run
 
 ```
-node tools/model.mjs validate diagrams/hour-booking/     # a whole system
-node tools/model.mjs validate diagrams/hour-booking/booking.drawio   # one model
+node tools/model.mjs validate diagrams/<system>/                  # a whole system
+node tools/model.mjs validate diagrams/<system>/ordering.drawio   # one model
 ```
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is
@@ -213,15 +213,14 @@ screen → command → event crosses by definition.
 
 ### What the checker cannot see
 
-Twelve things, listed in full in
-[OPEN-QUESTIONS.md](diagrams/hour-booking/OPEN-QUESTIONS.md#what-the-deterministic-checker-cannot-see--do-not-trust-a-green-run-alone).
-The three that bite hardest:
+Catalogued in [ANTI-PATTERNS.md](ANTI-PATTERNS.md) — every row whose "Caught by" is **no**. The three that
+bite hardest:
 
 - **Missing edges.** The rules find unsourced *attributes*, never absent *connections*.
 - **Which event creates a view's rows.** Sources are unioned, so an attribute from event A on a row
   created by event B is a runtime null and a black arrow.
-- **Delete versus upsert.** `EmployeeRemovedFromProject → MyProjects` means *delete the row*; the
-  checker reads it as supply. A delete supplies nothing.
+- **Delete versus upsert.** An event drawn into a view may mean *delete the row*; the checker reads every
+  edge as supply. A delete supplies nothing.
 
 **So: always render and look.** `node tools/drawio.mjs render <file>`, then actually open the PNG.
 Layout defects and missing edges are invisible in XML and obvious in a picture. This has caught real
@@ -237,8 +236,8 @@ bugs repeatedly, and it is the single most valuable habit in the kit.
 | `styling` | once per system, then per new screen | tokens, palette, spacing, components | zero `design/` findings, then the human likes it | **built** |
 | `codegen` | per slice | business rules, folds, test data — never a domain fact | `dotnet test` green, and you have looked at the page | **built** |
 
-**A dependency graph, not a pipeline.** Styling gates only *frontend* codegen. `notifications` has no
-screens, so it is backend-only and could go straight to codegen with no design in existence.
+**A dependency graph, not a pipeline.** Styling gates only *frontend* codegen. A context with no screens is
+backend-only and can go straight to codegen with no design in existence.
 
 ### `event-model` — eleven phases, in order
 
@@ -265,18 +264,19 @@ then what the command must have provided to persist the event.
 
 **The rule Claude will not break:** *never invent a domain fact.* Not an event, attribute, rule,
 screen or stream boundary. It will ask. Anything it does have to guess is tagged `proposed=` on the
-cell so you can find it later — in the worked example, every screen and field name is tagged that
-way, because those were delegated deliberately.
+cell so you can find it later. Screen and field names are the usual candidates, because they are the ones
+most often delegated rather than dictated.
 
-### `codegen` — built, exercised on one slice
+### `codegen` — built, and exercised on four slices
 
-`book-hours` runs end to end: 10 GWT tests green against a real Testcontainers Postgres, plus a
-React page ported from the design and screenshotted. The skill is the reasoning that produced it —
-including the five API facts the docs got wrong, which cost real time and are now written down.
+Four slices went end to end on the now-archived example: three Command-pattern and one Automation, with
+GWT tests green against a real Testcontainers Postgres and a React page ported from the design and
+screenshotted. The skill is the reasoning that produced them — including the API facts the docs got wrong,
+which cost real time and are now written down.
 
 ```bash
-node tools/codegen.mjs diagrams/hour-booking      # 8 written, 35 kept
-cd generated/HourBooking && dotnet test           # 11 passed, 45 skipped
+node tools/codegen.mjs diagrams/<system>/          # N written, M kept
+cd generated/<System> && dotnet test
 ```
 
 Skipped is not failure: a slice at `in-design` has its GWT tests generated but skipped, so green
@@ -356,32 +356,30 @@ exactly.
 
 ## 11. Where things stand
 
-**The worked example is a throwaway POC.** `hour-booking` (employees book hours against projects,
-admins close months) exists to prove the *tooling*, not to be a timesheet product. Phases 0–2 and
-every business rule are the domain expert's own words, quoted in `source=` on each cell. Screens and
-field names were delegated to Claude and are marked `proposed=`.
+**There is no worked example in the repo, on purpose.** One was built — a timesheet domain, three models,
+20 slices, four of them generated full stack — and it has been **archived out of the repo** rather than
+kept. Two reasons:
 
-```
-node tools/model.mjs validate diagrams/hour-booking/
-  ->  0 errors, 0 warnings, 108 notes    3 models / 20 slices / 192 elements
-```
+1. Its domain rules were deliberately half-finished, which makes it a bad thing to copy in a repo whose
+   whole premise is *"never invent a domain fact."*
+2. **It biased the kit.** All of its automations happened to be triggered by *foreign* events or by the
+   *passage of time*, and generalising from that produced a rule saying a polling sweep was the only
+   correct implementation of an automation. That is wrong — event forwarding, Marten subscriptions and
+   projection side effects are all valid, and the right choice depends on the slice. A sample of one model
+   is not a pattern.
 
-| | Slices | GWTs | Width | Needs |
-| --- | --- | --- | --- | --- |
-| `booking` | 8 | 26 | 2900px | frontend + backend |
-| `month-closure` | 8 | 21 | 2960px | frontend + backend |
-| `notifications` | 4 | 8 | 1940px | **backend only** |
+What survives is everything the kit learned, with the domain specifics rewritten out. Where a rule cites a
+number — *"found zero of four periphery rules"*, *"1 of 10 views declared its grain"* — that number came
+from the archived model, and it is kept because a measurement is what makes a rule believable rather than
+merely asserted.
 
-**Built:** the full method including both halves of step 7 (stream boundaries and Conway), slice
-cells, screen identity, wireframes bound to the model, multi-model systems with checked cross-model
-imports, the generated context map, and the `event-model` skill.
+**Built:** the full method including both halves of step 7 (stream boundaries and Conway), slice cells,
+screen identity, wireframes bound to the model, multi-model systems with checked cross-model imports, the
+generated context map, all three skills (`event-model`, `styling`, `codegen`), the frontend/backend agent
+split, and the deterministic generator.
 
-**Not built:** the `styling` skill, and code generation. Codegen has a known blocker — the enforced
-stack is .NET 10 / Postgres / Wolverine / Marten / Alba / Testcontainers, and Wolverine, Marten and
-Alba all move faster than model knowledge, so anything generated against remembered API shapes will
-be subtly wrong. They publish `llms.txt`; mirroring it locally is a prerequisite and is not done.
-
----
+**In progress:** domain-free reference implementations of the building-block patterns — starting with
+Automation, which has more than one valid implementation and is where the kit was most wrong.
 
 ## 12. Further reading
 
@@ -390,7 +388,6 @@ be subtly wrong. They publish `llms.txt`; mirroring it locally is a prerequisite
 | [CLAUDE.md](CLAUDE.md) | the same knowledge for the agent. **The authority when docs disagree** |
 | [MODEL-ORGANIZATION.md](MODEL-ORGANIZATION.md) | why many small models, and how they may reference each other |
 | [ANTI-PATTERNS.md](ANTI-PATTERNS.md) | smells met while building the kit, and **which of them nothing automatic catches** |
-| [diagrams/hour-booking/OPEN-QUESTIONS.md](diagrams/hour-booking/OPEN-QUESTIONS.md) | state of the worked example, and what the checker cannot see |
 | [.claude/skills/event-model/SKILL.md](.claude/skills/event-model/SKILL.md) | the eleven phases in full |
 | [reference/](reference/) | both books as greppable text — every rule here is traceable to them |
 

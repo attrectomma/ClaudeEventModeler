@@ -16,9 +16,10 @@ diagrams/.verify-tmp.drawio
 build/
 
 # .NET build output. The generated *.cs files ARE committed: their diff is how a model
-# change gets reviewed.
-generated/**/bin/
-generated/**/obj/
+# change gets reviewed. Not anchored to generated/ — reference-implementations/ has its own
+# projects, and a root-relative pattern silently missed them.
+**/bin/
+**/obj/
 
 # Generated design previews — regenerate with tools/design.mjs sheet
 designs/*/index.html

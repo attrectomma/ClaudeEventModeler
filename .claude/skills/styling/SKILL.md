@@ -36,7 +36,7 @@ a list of AI-default looks to avoid. Do not re-derive any of that here.
 
 Brief it with the things it cannot know:
 
-- **What the thing is.** *"An internal timesheet an employee opens every morning and leaves open all
+- **What the thing is.** *"An internal tool somebody opens every morning and leaves open all
   day"* is a brief. *"A web app"* is not. Ground it in the subject, as that skill asks.
 - **The field contract** for each screen (below). These are not suggestions — a page that shows a
   field the model does not declare is a hard error.
@@ -59,8 +59,8 @@ Commands it points at. **The unit of design is the slug, not the cell.** One pag
 slug already carries the fact.
 
 That matters because a screen appears in every slice that triggers from it, and **the page must
-carry all of their affordances**. In `hour-booking`, `timesheet` appears in three slices, so
-`timesheet.html` needs a booking form *and* per-row correct *and* remove. `displays` is identical
+carry all of their affordances**. Where one screen appears in three slices, its single HTML file needs
+all three — an add form *and* per-row correct *and* remove. `displays` is identical
 across those cells by rule; `inputs` and the commands are the union.
 
 Mark every bound element so the check can see it:

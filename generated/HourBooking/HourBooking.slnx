@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="src/HourBooking/HourBooking.csproj" />
-  <Project Path="tests/HourBooking.IntegrationTests/HourBooking.IntegrationTests.csproj" />
-</Solution>

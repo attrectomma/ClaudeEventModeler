@@ -27,8 +27,11 @@ if (!/<mxGraphModel/.test(xml)) {
 }
 
 // <object>…</object> wrappers and bare <mxCell>…</mxCell>, but never the id="0"/"1" roots.
+// The line ending must be \r?\n, not \n: on Windows these files are CRLF, and anchoring on a bare
+// \n matched ZERO blocks and cropped to an empty page — a silent failure of the render-and-look
+// loop, which is the one check that catches layout defects XML cannot show.
 const blocks = [...xml.matchAll(
-  /        <object [\s\S]*?<\/object>\n|        <mxCell id="(?!0"|1")[\s\S]*?<\/mxCell>\n/g)]
+  /        <object [\s\S]*?<\/object>\r?\n|        <mxCell id="(?!0"|1")[\s\S]*?<\/mxCell>\r?\n/g)]
   .map((m) => m[0]);
 
 const keep = [];
@@ -55,7 +58,7 @@ const pruned = keep
   .map((b) => b.replace(/<mxPoint x="(\d+)"/g, (_, px) => `<mxPoint x="${+px - x0 + 40}"`));
 
 xml = xml
-  .replace(/(<root>\n)[\s\S]*?(      <\/root>)/,
+  .replace(/(<root>\r?\n)[\s\S]*?(      <\/root>)/,
     `$1        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${pruned.join("")}$2`)
   .replace(/pageWidth="\d+"/, `pageWidth="${x1 - x0 + 80}"`);
 

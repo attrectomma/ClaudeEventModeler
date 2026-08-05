@@ -72,7 +72,7 @@ optimistic concurrency, same live fold, honest about the key.
 **A cross-stream rule is a READ, never a second write.** One command, one stream: writing two needs a
 transactional boundary around two aggregates, which `swimlane/command-crosses-swimlane` forbids. Fold
 the smallest type that answers the question, not "the" other aggregate. Reuse an existing one if a
-previous slice already wrote it — `MonthGate` is shared by book-hours and correct-hours precisely
+previous slice already wrote it — a shared gate type is reused across sibling slices precisely
 because the closed-month rule is the same rule.
 
 **Live on write, inline on read.** Nothing registered for a state type; every read model is
@@ -86,19 +86,124 @@ leave its registration commented rather than breaking the host.
 identical state types. That is the design's known cost — do not "fix" it by sharing a fold across
 slices without saying so; report the duplication instead.
 
+## If the slice is an automation, the shape is different
+
+`pattern="automation"` means `Event(s) → View (a todo list) → Automated Trigger → Command → Event(s)`,
+and almost everything above assumed screen → command → event. What changes:
+
+**An automation is a TRIGGER, not an event handler.** It is a peer of a person at a screen: it *looks
+at a View* and *issues a Command*. It never takes an event as input and never appends one.
+`Event → Processor → Event` is the classic anti-pattern. Take `IQuerySession`, not `IDocumentSession` —
+then "an automation never appends" is a compile error rather than a convention.
+
+**The decider is a Wolverine message handler, not an endpoint.** The trigger issues the command with
+`IMessageBus.InvokeAsync<TOutcome>(...)`. Do **not** give the command an HTTP route — nobody types it,
+and inventing public surface for it is inventing a requirement.
+
+### There is no single implementation of an automation — pick one, and say why
+
+**The model constrains the contract, not the mechanism.** `Event(s) → View → Trigger → Command` says what
+must be true: the trigger decides from *accumulated state*, not from one event's payload, and it issues a
+command rather than appending. **It does not say what wakes the trigger, and it does not require the View
+to be a materialised projection.** A subscription's checkpoint is a record of what has been worked; a
+durable inbox is a list of pending work. The green box on the diagram is the *concept*.
+
+This is the standing point that the Event Model and the implementation are allowed to differ. Read
+`pattern="automation"` as "this slice reacts to accumulated state without a human", then choose:
+
+| When | Implementation | Why |
+| --- | --- | --- |
+| the trigger event is **ours**, appended in our own transaction | **event forwarding → handler** | immediate, outbox-durable, no polling. The common case. |
+| ours, and **ordering or replay** matters | **Marten `ISubscription`** | ordered, durable checkpoint, runs in the async daemon |
+| ours, and the decision is a function of **the view row** | **projection `RaiseSideEffects`** | fires exactly when the row changes; needs `EnableSideEffectsOnInlineProjections` if inline |
+| the trigger event is **foreign** — we never append it | **sweep a todo View on a clock** | there is no transaction of ours to hook |
+| there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
+
+Say in your report which you chose and which row of that table you were in. Choosing wrong is not a
+compile error and no checker can see it.
+
+**Whatever wakes it, the trigger is a message handler and not an HTTP endpoint.** If the trigger *is* an
+endpoint then the test seam and the production mechanism are the same thing, and "nothing ever wakes this
+in production" becomes invisible to a green suite — which is exactly how one shipped once. Give it a
+message; let an operator route *send* that message if a manual run is useful.
+
+Rules that hold for every implementation:
+
+- **Return `Task`, never a run report.** Wolverine treats a handler's return value as a **cascading
+  message**, with no opt-out. Fire-and-forget there is no requester, so a returned report is unroutable —
+  `No routes can be determined` — and that failure takes the whole outgoing batch with it. Put the work
+  in a plain method; let an operator route return the report (an HTTP return is a response body).
+- **Log every run, including one that did nothing**, or "alive with no work" and "dead" are identical.
+- **Take `IQuerySession`, not `IDocumentSession`.** Then "a trigger never appends" is a compile error.
+  Note the cost: with no Marten transaction there is no outbox commit, which is what makes the next point
+  bite.
+- **Wolverine's conventional discovery only finds `*Handler` / `*Consumer`.** A processor named after the
+  model's automation cell is not found, and `IncludeType<T>()` cannot take a static class — use
+  `IncludeType(typeof(...))`.
+
+**If you choose the sweep, the clock is a loop and not a self-rescheduling message.** The obvious design —
+the handler schedules its own successor — silently does not work here. Six attempts including the
+documented `OutgoingMessages.Delay()` idiom, all ending in Wolverine's own trace saying
+`Enqueued for sending` and then nothing persisted. Scheduling from *outside* a message context works;
+from *inside* a durable local-queue handler it does not.
+
+It also turned out not to be needed: **a sweep needs no durable message**, because its work is recomputed
+from the todo View every time. Those pending rows *are* the durable queue. Durable scheduling is for
+deferred **one-shot** work, where losing the message loses the intent.
+
+**A clock must be absent in tests.** A sweep firing mid-test appends events into streams other slices are
+asserting on and every GIVEN becomes a race — which is the real reason not to register a `PeriodicTimer`
+naked. Gate it on configuration and have tests send the message themselves, so the production path stays
+tested and only the clock is missing. What a test *can* assert is that **running twice is safe**, which is
+what makes the interval a free choice.
+
+**Not every GWT is enforced in the decider**, and the model tells you which side owns each:
+
+- the model draws a View into the **processor** → the rule belongs in the trigger's *work selection*
+- the model draws it into the **command** → the rule belongs in the decider
+- a GWT whose `then=` is **positive** has no rule name to reject with, which is a reliable tell that it
+  is about which work gets selected rather than about refusing a request
+
+**The tick-off edge is completion, not supply.** Where the model draws the automation's own output event
+back at the todo View, that means *mark the row done* — it must never create one. Getting this wrong makes
+the view sourced from its own output, and the trigger then treats its own work as a fresh instruction.
+
+**Tests need two WHENs.** A *trigger run* for rules about which work is selected, and a *direct command
+invoke* for the rejection — a GWT's `when=` names the command, and once completion works the rejection is
+otherwise unreachable.
+
+**Then run the app and look — no test can prove an automation runs by itself.** Every waking bug found so
+far survived a green suite. Unrendered CSS and an unrun automation fail the same way: plausibly.
+
+```bash
+docker compose down -v && docker compose up -d      # -v, or stale seed data hides the work
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/<Sys>
+# then: does it fire MORE than once, with nobody calling anything?
+```
+
+Two runs with nobody calling anything is the proof. One is not — a mechanism that fires at startup and
+then dies produces exactly one, and reads as success.
+
 ## Rejections
 
 Return `ProblemDetails` with the **rule's name as `Title`**, via the shared `Rejections.Problem`
 helper. A GWT says `then="error: RuleName"`, so the name is the machine-readable part.
 
-The periphery and the decider do **not** produce the same shape, and that is not yours to fix:
+There are **three** shapes, not one, and none of them is yours to unify:
 
 ```
-periphery (FluentValidation middleware) -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
-the decider (Rejections.Problem)        -> { title: "DailyCapExceeded", detail: "..." }
+periphery (FluentValidation middleware)  -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
+an HTTP decider (Rejections.Problem)     -> { title: "DailyCapExceeded", detail: "..." }
+an automation's decider (an outcome type)-> { rule: "AlreadyFilled", detail: "..." }
 ```
 
-Say so in your report, because the frontend has to read both.
+The third exists because an automation has **no HTTP caller** to hand a `ProblemDetails` to, so the
+handler returns an outcome the trigger reads. The invariant across all three is that the **rule name is
+the machine-readable part**. Say in your report which shapes this slice can produce, because the
+frontend has to read whichever reach it.
+
+Small one: Alba's `ReadAsJsonAsync<T>` depends on the app's formatters. With Wolverine HTTP it is safer
+to read the text and `JsonSerializer.Deserialize<T>(body, new(JsonSerializerDefaults.Web))`.
 
 ## Tests
 

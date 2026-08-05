@@ -132,7 +132,7 @@ as `identity=` on the band, and expect to have to add a field to some events to 
 
 This matters more than it looks and it is a **domain** question, not a technical one. Marten keys a
 stream, so without `identity=` nothing can append to it — and the choice decides which business rules
-are real invariants. A timesheet keyed per booking cannot enforce "at most 18 hours in a day"; keyed
+are real invariants. A stream keyed per line item cannot enforce "at most N per day"; keyed
 per employee-month it can. Ask which rules must always hold, then pick the key that makes them
 holdable. `band-needs-identity` reports the fields every event in the band already carries, so the
 candidates are on screen.
@@ -173,7 +173,7 @@ For each screen ask two things, which map onto the book's two highlight colours:
 Record displayed data as `displays=` and anything typed as `inputs=`.
 
 **A screen is a thing, not a label.** The same screen appears in every slice that triggers from it,
-so give it a slug: `screen="timesheet"`. Then `displays=` **must agree** across cells sharing the
+so give it a slug: `screen="entries"`. Then `displays=` **must agree** across cells sharing the
 slug — what a screen shows is a property of the screen — while `inputs=` **may differ**, because
 the same screen legitimately offers different actions in different slices. Set the slug now; the
 check needs it and you will not remember later.
@@ -313,7 +313,7 @@ screen doesn't declare is an **error** (the design shows data the system cannot 
 attribute the wireframe never draws is a **warning** (its View is over-specified).
 
 The action button is the point of the phase, not decoration. It is why one screen appears in three
-slices — *"there may be only one HoursBooked per day+project, so booking again is a Correction"* is
+slices — *"there may be only one entry per day+category, so adding again is a Correction"* is
 a domain fact about affordances, and the button is where it becomes visible.
 
 **Styling is not this skill's job and must not leak into this phase.** No colours, no fonts, no
@@ -414,7 +414,7 @@ Three skills, and the boundary between them is what each one is allowed to inven
 | **codegen** | per slice | nothing — it reads the compiled IR | tests pass |
 
 They are a **dependency graph, not a pipeline.** Styling gates only *frontend* codegen. A model with
-no screens — `notifications` in `hour-booking` — is backend-only and can go straight to codegen with
+no screens — a notification-only context, say — is backend-only and can go straight to codegen with
 no design in existence. Same for any View or Automation slice. Do not make anyone wait on a design
 their slice never needed.
 
