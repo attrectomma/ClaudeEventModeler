@@ -79,7 +79,7 @@
             <mxGeometry x="2000" y="120" width="220" height="1410" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-progress" em="group" slice="fill-zero-hours" pattern="automation" status="in-progress" owner="backend-agent">
+        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-review" em="group" slice="fill-zero-hours" pattern="automation" status="in-review" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="2320" y="120" width="540" height="1410" as="geometry" />
           </mxCell>
