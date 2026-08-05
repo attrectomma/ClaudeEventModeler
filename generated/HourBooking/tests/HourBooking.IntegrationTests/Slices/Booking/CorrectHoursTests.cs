@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.Booking;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN HoursBooked
     //   WHEN  CorrectHours
     //   THEN  HoursCorrected
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task ACorrectionCarriesTheNewTOTALForTheDayNeverTheDifference()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursCorrected. " +
@@ -33,7 +34,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN HoursBooked, HoursCorrected
     //   WHEN  CorrectHours
     //   THEN  HoursCorrected
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task TheTruthForADayProjectIsTheLastCorrectionOrThe()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursCorrected. " +
@@ -43,7 +44,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN BookingMonthStarted
     //   WHEN  CorrectHours
     //   THEN  error: BookingNotFound
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task CorrectingADayProjectThatWasNeverBookedIsNotACorrection()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for BookingNotFound. " +
@@ -54,7 +55,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   WHEN  CorrectHours
     //   THEN  error: HoursMustBeNonZero
     //   No GIVEN, so this is a periphery rule: expect 400 from the validator.
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task ACorrectionCannotTakeTheHoursToZeroRemovalIsTheOnly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for HoursMustBeNonZero. " +
@@ -65,7 +66,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   WHEN  CorrectHours
     //   THEN  error: HoursMustBeWholeOrHalf
     //   No GIVEN, so this is a periphery rule: expect 400 from the validator.
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task CorrectionsAreInWholeOrHalfHoursOnly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for HoursMustBeWholeOrHalf. " +
@@ -75,7 +76,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN HoursBooked
     //   WHEN  CorrectHours
     //   THEN  error: DailyCapExceeded
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task ACorrectionCannotPushTheDayOver18Hours()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for DailyCapExceeded. " +
@@ -85,7 +86,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN MonthClosed
     //   WHEN  CorrectHours
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthCannotBeCorrectedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +
@@ -95,7 +96,7 @@ public sealed class CorrectHoursTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN MonthClosureSubmitted
     //   WHEN  CorrectHours
     //   THEN  HoursCorrected
-    [Fact]
+    [Fact(Skip = "slice correct-hours is in-design — nobody has claimed these rules yet")]
     public Task ASubmittedMonthIsStillOpenSoItCanStillBeCorrected()
         => throw new NotImplementedException(
             "TODO(codegen): expect HoursCorrected. " +

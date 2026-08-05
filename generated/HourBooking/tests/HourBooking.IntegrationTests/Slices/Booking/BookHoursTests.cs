@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.Booking;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: ready.
+/// LIVE: this slice is claimed, so every test here must pass.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class BookHoursTests(AppFixture fixture) : IntegrationContext(fixture)

@@ -63,6 +63,15 @@ const banner = (what) =>
 // periphery rules out of four. Declared instead, and defaulting to the safe answer (the aggregate,
 // where the stream is visible). A misplaced rule in a validator cannot enforce itself.
 const isPeriphery = (g) => (g.enforce ?? "aggregate") === "periphery";
+
+// A slice nobody has started yet still gets its tests generated — they document the rules — but
+// skipped, so `dotnet test` going green means the slices that ARE claimed actually pass. The skip
+// count is then the honest measure of what is left.
+const CLAIMED = new Set(["ready", "in-progress", "in-review", "closed"]);
+const isClaimed = (s) => CLAIMED.has(s.status ?? "in-design");
+const factAttr = (s) => isClaimed(s)
+  ? "[Fact]"
+  : `[Fact(Skip = ${JSON.stringify(`slice ${s.name} is ${s.status ?? "in-design"} — nobody has claimed these rules yet`)})]`;
 const ruleName = (g) => pascal((/^error:\s*(.+)$/i.exec((g.then ?? "").trim())?.[1] ?? g.rule ?? g.id).trim());
 const testName = (g, i) => {
   const base = (g.rule || g.label || g.id).replace(/\s*\n[\s\S]*$/, "");
@@ -453,6 +462,7 @@ namespace ${NS}.IntegrationTests.Slices.${pascal(s.context)};
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: ${s.pattern}. Status: ${s.status}.
+/// ${isClaimed(s) ? "LIVE: this slice is claimed, so every test here must pass." : "SKIPPED: promote the slice past in-design to turn these on."}
 /// ${s.owners.length > 1 ? `This slice needs ${s.owners.join(" and ")}, so these are the contract between them.` : `Owned by ${s.owner ?? "nobody in particular"}.`}
 /// </summary>
 public sealed class ${pascal(s.name)}Tests(AppFixture fixture) : IntegrationContext(fixture)
@@ -464,7 +474,7 @@ ${s.gwts.map((g, i) => {
     //   GIVEN ${g.given || "(nothing)"}
     //   WHEN  ${g.when || "(nothing)"}
     //   THEN  ${g.then || "(nothing)"}${isPeriphery(g) ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
-    [Fact]
+    ${factAttr(s)}
     public Task ${testName(g, i)}()
         => throw new NotImplementedException(
             "TODO(codegen): ${err ? `expect a 400/ProblemDetails for ${ruleName(g)}` : `expect ${thens.join(", ") || "the modelled outcome"}`}. " +

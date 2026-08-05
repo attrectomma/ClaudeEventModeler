@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.MonthClosure;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosureSubmitted
     //   WHEN  RejectMonthClosure
     //   THEN  MonthClosureRejected
-    [Fact]
+    [Fact(Skip = "slice reject-closure is in-design — nobody has claimed these rules yet")]
     public Task AnyAdminCanRejectASubmittedClosureWhichSendsTheEmployeeBack()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureRejected. " +
@@ -33,7 +34,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosureSubmitted
     //   WHEN  RejectMonthClosure
     //   THEN  error: RejectionCommentRequired
-    [Fact]
+    [Fact(Skip = "slice reject-closure is in-design — nobody has claimed these rules yet")]
     public Task ARejectionMustCarryAComment()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for RejectionCommentRequired. " +
@@ -43,7 +44,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosureSubmitted
     //   WHEN  RejectMonthClosure
     //   THEN  MonthClosureRejected
-    [Fact]
+    [Fact(Skip = "slice reject-closure is in-design — nobody has claimed these rules yet")]
     public Task TheEmployeeMustBeAbleToSeeThatTheirClosingAttemptWas()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureRejected. " +
@@ -53,7 +54,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosureSubmitted
     //   WHEN  RejectMonthClosure
     //   THEN  error: NotAnAdmin
-    [Fact]
+    [Fact(Skip = "slice reject-closure is in-design — nobody has claimed these rules yet")]
     public Task OnlyAnAdminMayRejectAClosure()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NotAnAdmin. " +
@@ -63,7 +64,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN BookingMonthStarted
     //   WHEN  RejectMonthClosure
     //   THEN  error: NoClosureSubmitted
-    [Fact]
+    [Fact(Skip = "slice reject-closure is in-design — nobody has claimed these rules yet")]
     public Task ThereIsNothingToRejectUntilTheEmployeeHasSubmitted()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NoClosureSubmitted. " +
@@ -73,7 +74,7 @@ public sealed class RejectClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosed
     //   WHEN  RejectMonthClosure
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice reject-closure is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthCannotBeRejectedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +

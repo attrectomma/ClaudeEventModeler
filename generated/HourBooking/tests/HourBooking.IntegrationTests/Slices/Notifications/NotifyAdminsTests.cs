@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.Notifications;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: automation. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// Owned by backend-agent.
 /// </summary>
 public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN MonthClosureSubmitted
     //   WHEN  NotifyAdmins
     //   THEN  AdminsNotified
-    [Fact]
+    [Fact(Skip = "slice notify-admins is in-design — nobody has claimed these rules yet")]
     public Task SubmittingAClosureNotifiesTheAdminsAndThatIsRecordedAsA()
         => throw new NotImplementedException(
             "TODO(codegen): expect AdminsNotified. " +
@@ -33,7 +34,7 @@ public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN MonthClosureSubmitted, AdminSeeded
     //   WHEN  NotifyAdmins
     //   THEN  AdminsNotified
-    [Fact]
+    [Fact(Skip = "slice notify-admins is in-design — nobody has claimed these rules yet")]
     public Task EverySeededAdminIsARecipient()
         => throw new NotImplementedException(
             "TODO(codegen): expect AdminsNotified. " +
@@ -43,7 +44,7 @@ public sealed class NotifyAdminsTests(AppFixture fixture) : IntegrationContext(f
     //   GIVEN AdminsNotified
     //   WHEN  NotifyAdmins
     //   THEN  error: AlreadyNotified
-    [Fact]
+    [Fact(Skip = "slice notify-admins is in-design — nobody has claimed these rules yet")]
     public Task ASubmissionIsAnnouncedOnceNotOnEveryPassOfTheProcessor()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for AlreadyNotified. " +

@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.MonthClosure;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN BookingMonthStarted
     //   WHEN  SubmitMonthClosure
     //   THEN  MonthClosureSubmitted
-    [Fact]
+    [Fact(Skip = "slice submit-closure is in-design — nobody has claimed these rules yet")]
     public Task AnEmployeeClosesTheirOwnMonthWhichSubmitsItRatherThanClosing()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureSubmitted. " +
@@ -33,7 +34,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosureRejected
     //   WHEN  SubmitMonthClosure
     //   THEN  MonthClosureSubmitted
-    [Fact]
+    [Fact(Skip = "slice submit-closure is in-design — nobody has claimed these rules yet")]
     public Task ARejectedMonthCanBeFixedAndSubmittedAgain()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosureSubmitted. " +
@@ -43,7 +44,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosureSubmitted
     //   WHEN  SubmitMonthClosure
     //   THEN  error: ClosureAlreadySubmitted
-    [Fact]
+    [Fact(Skip = "slice submit-closure is in-design — nobody has claimed these rules yet")]
     public Task AMonthAlreadyAwaitingReviewCannotBeSubmittedAgain()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for ClosureAlreadySubmitted. " +
@@ -53,7 +54,7 @@ public sealed class SubmitClosureTests(AppFixture fixture) : IntegrationContext(
     //   GIVEN MonthClosed
     //   WHEN  SubmitMonthClosure
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice submit-closure is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthCannotBeSubmittedClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +

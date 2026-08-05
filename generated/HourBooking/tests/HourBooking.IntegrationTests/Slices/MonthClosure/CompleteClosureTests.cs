@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.MonthClosure;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class CompleteClosureTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class CompleteClosureTests(AppFixture fixture) : IntegrationContex
     //   GIVEN MonthClosureSubmitted
     //   WHEN  CompleteMonthClosure
     //   THEN  MonthClosed
-    [Fact]
+    [Fact(Skip = "slice complete-closure is in-design — nobody has claimed these rules yet")]
     public Task AnyAdminCanCompleteASubmittedClosureWhichClosesTheMonth()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
@@ -33,7 +34,7 @@ public sealed class CompleteClosureTests(AppFixture fixture) : IntegrationContex
     //   GIVEN MonthClosureSubmitted
     //   WHEN  CompleteMonthClosure
     //   THEN  error: NotAnAdmin
-    [Fact]
+    [Fact(Skip = "slice complete-closure is in-design — nobody has claimed these rules yet")]
     public Task OnlyAnAdminMayCompleteAClosure()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NotAnAdmin. " +
@@ -43,7 +44,7 @@ public sealed class CompleteClosureTests(AppFixture fixture) : IntegrationContex
     //   GIVEN BookingMonthStarted
     //   WHEN  CompleteMonthClosure
     //   THEN  error: NoClosureSubmitted
-    [Fact]
+    [Fact(Skip = "slice complete-closure is in-design — nobody has claimed these rules yet")]
     public Task ThereIsNothingToCompleteUntilTheEmployeeHasSubmitted()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NoClosureSubmitted. " +
@@ -53,7 +54,7 @@ public sealed class CompleteClosureTests(AppFixture fixture) : IntegrationContex
     //   GIVEN MonthClosed
     //   WHEN  CompleteMonthClosure
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice complete-closure is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthCannotBeClosedAgainClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +

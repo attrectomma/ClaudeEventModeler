@@ -96,6 +96,17 @@ Declare `identity=` on the read model. Where it is missing the generator falls b
 and stamps the projection `GUESSED`, because silently grouping the wrong rows together is worse than
 saying so. **Only 1 of 10 views in `hour-booking` declares it** — see ANTI-PATTERNS.md #3.
 
+### `status=` decides which tests run
+
+A slice at `in-design` has not been claimed, so its GWT tests are generated but **skipped**. From
+`ready` onward somebody is answerable for them and they run. Without this, one finished slice is
+invisible — 55 failures look identical whether nothing is built or everything but one thing is — and
+the skip count becomes the honest measure of what is left.
+
+```
+Failed: 10, Passed: 0, Skipped: 45, Total: 55     # book-hours claimed, the rest documentation
+```
+
 ### Example data comes from `IInitialData`
 
 The model declares field names and types but **never example values**, which is why tests cannot be

@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.Notifications;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: automation. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// Owned by backend-agent.
 /// </summary>
 public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     //   GIVEN BookingMonthStarted
     //   WHEN  SendClosingReminder
     //   THEN  ClosingReminderSent
-    [Fact]
+    [Fact(Skip = "slice send-closing-reminder is in-design — nobody has claimed these rules yet")]
     public Task AMonthStillOpenAfterItsClosingDateEarnsTheEmployeeA()
         => throw new NotImplementedException(
             "TODO(codegen): expect ClosingReminderSent. " +
@@ -33,7 +34,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     //   GIVEN ClosingReminderSent
     //   WHEN  SendClosingReminder
     //   THEN  ClosingReminderSent
-    [Fact]
+    [Fact(Skip = "slice send-closing-reminder is in-design — nobody has claimed these rules yet")]
     public Task TheReminderRepeatsEveryThreeDaysWhileTheMonthStaysOpen()
         => throw new NotImplementedException(
             "TODO(codegen): expect ClosingReminderSent. " +
@@ -43,7 +44,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     //   GIVEN BookingMonthStarted
     //   WHEN  SendClosingReminder
     //   THEN  error: BeforeClosingDate
-    [Fact]
+    [Fact(Skip = "slice send-closing-reminder is in-design — nobody has claimed these rules yet")]
     public Task NoReminderBeforeTheClosingDateWhichIsTheLastDayOf()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for BeforeClosingDate. " +
@@ -53,7 +54,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     //   GIVEN ClosingReminderSent
     //   WHEN  SendClosingReminder
     //   THEN  error: TooSoonToRemind
-    [Fact]
+    [Fact(Skip = "slice send-closing-reminder is in-design — nobody has claimed these rules yet")]
     public Task NoSecondReminderWithinThreeDaysOfTheLastOne()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for TooSoonToRemind. " +
@@ -63,7 +64,7 @@ public sealed class SendClosingReminderTests(AppFixture fixture) : IntegrationCo
     //   GIVEN MonthClosed
     //   WHEN  SendClosingReminder
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice send-closing-reminder is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthIsNeverRemindedAbout()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +

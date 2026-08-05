@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.MonthClosure;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: command. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// This slice needs backend-agent and frontend-agent, so these are the contract between them.
 /// </summary>
 public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     //   GIVEN BookingMonthStarted
     //   WHEN  CloseMonthDirectly
     //   THEN  MonthClosed
-    [Fact]
+    [Fact(Skip = "slice close-month-directly is in-design — nobody has claimed these rules yet")]
     public Task AnAdminCanCloseAMonthDirectlyWithoutWaitingForTheEmployee()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
@@ -33,7 +34,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     //   GIVEN BookingMonthStarted
     //   WHEN  CloseMonthDirectly
     //   THEN  MonthClosed
-    [Fact]
+    [Fact(Skip = "slice close-month-directly is in-design — nobody has claimed these rules yet")]
     public Task TheClosingNoteIsOptional()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
@@ -43,7 +44,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     //   GIVEN MonthClosureSubmitted
     //   WHEN  CloseMonthDirectly
     //   THEN  MonthClosed
-    [Fact]
+    [Fact(Skip = "slice close-month-directly is in-design — nobody has claimed these rules yet")]
     public Task TheShortcutAlsoWorksOnAMonthThatWasSubmitted()
         => throw new NotImplementedException(
             "TODO(codegen): expect MonthClosed. " +
@@ -53,7 +54,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     //   GIVEN BookingMonthStarted
     //   WHEN  CloseMonthDirectly
     //   THEN  error: NotAnAdmin
-    [Fact]
+    [Fact(Skip = "slice close-month-directly is in-design — nobody has claimed these rules yet")]
     public Task OnlyAnAdminMayCloseAMonthDirectly()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for NotAnAdmin. " +
@@ -63,7 +64,7 @@ public sealed class CloseMonthDirectlyTests(AppFixture fixture) : IntegrationCon
     //   GIVEN MonthClosed
     //   WHEN  CloseMonthDirectly
     //   THEN  error: MonthIsClosed
-    [Fact]
+    [Fact(Skip = "slice close-month-directly is in-design — nobody has claimed these rules yet")]
     public Task AClosedMonthCannotBeClosedAgainClosedIsClosed()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthIsClosed. " +

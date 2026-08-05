@@ -15,6 +15,7 @@ namespace HourBooking.IntegrationTests.Slices.MonthClosure;
 /// <summary>
 /// Generated from the model's GWT cells, NOT from the implementation — which is the only reason
 /// these tests mean anything. Pattern: automation. Status: in-design.
+/// SKIPPED: promote the slice past in-design to turn these on.
 /// Owned by backend-agent.
 /// </summary>
 public sealed class StartMonthTests(AppFixture fixture) : IntegrationContext(fixture)
@@ -23,7 +24,7 @@ public sealed class StartMonthTests(AppFixture fixture) : IntegrationContext(fix
     //   GIVEN EmployeeAssignedToProject
     //   WHEN  StartBookingMonth
     //   THEN  BookingMonthStarted
-    [Fact]
+    [Fact(Skip = "slice start-month is in-design — nobody has claimed these rules yet")]
     public Task EveryProjectMemberGetsABookingMonthOpenedForThem()
         => throw new NotImplementedException(
             "TODO(codegen): expect BookingMonthStarted. " +
@@ -33,7 +34,7 @@ public sealed class StartMonthTests(AppFixture fixture) : IntegrationContext(fix
     //   GIVEN BookingMonthStarted
     //   WHEN  StartBookingMonth
     //   THEN  error: MonthAlreadyStarted
-    [Fact]
+    [Fact(Skip = "slice start-month is in-design — nobody has claimed these rules yet")]
     public Task AMonthIsOnlyStartedOncePerEmployee()
         => throw new NotImplementedException(
             "TODO(codegen): expect a 400/ProblemDetails for MonthAlreadyStarted. " +
