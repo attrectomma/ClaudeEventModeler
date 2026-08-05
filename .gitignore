@@ -23,3 +23,7 @@ generated/**/obj/
 # Generated design previews — regenerate with tools/design.mjs sheet
 designs/*/index.html
 designs/*/_shots/
+
+# Vite build output and installed packages under generated/
+generated/**/web/dist/
+generated/**/web/.vite/

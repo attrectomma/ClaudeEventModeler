@@ -504,18 +504,21 @@ emit(join(APP, "Program.cs"),
 using JasperFx;
 using JasperFx.Resources;
 using JasperFx.Events;
+using Weasel.Core;
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
+using Marten.Schema;
 using Wolverine.Marten;
+using ${NS};
 using ${NS}.Views;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddMarten(opts =>
+var marten = builder.Services.AddMarten(opts =>
     {
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
         opts.DatabaseSchemaName = "${camel(ir.system)}";
@@ -525,6 +528,11 @@ builder.Services.AddMarten(opts =>
 ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a.identity.join(" + ")))]
       .map((k) => `        //   ${k}`).join("\n")}
         opts.Events.StreamIdentity = StreamIdentity.AsString;
+
+        // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's
+        // camelCase policy entirely. Set the casing here or every read endpoint quietly returns
+        // PascalCase and the front end silently reads undefined.
+        opts.UseSystemTextJsonForSerialization(EnumStorage.AsString, Casing.CamelCase);
 
         // Read side: every read model is an INLINE projection, updated in the same transaction as
         // the append, so a GWT THEN can be asserted straight after the request returns.
@@ -539,6 +547,10 @@ ${ir.shared.views.map((v) => registerable.includes(v.label)
     })
     .IntegrateWithWolverine();
 
+// Starting data for running the app by hand: membership, an open month, one booking. Development
+// only, and idempotent, because Populate runs on every startup.
+if (builder.Environment.IsDevelopment()) marten.InitializeWith(new GenesisData());
+
 builder.Services.AddResourceSetupOnStartup();
 
 builder.Host.UseWolverine(opts =>
@@ -550,7 +562,18 @@ builder.Host.UseWolverine(opts =>
 
 builder.Services.AddWolverineHttp();
 
+if (builder.Environment.IsDevelopment())
+{
+    // The Vite dev server is a different origin. Development only — never a wildcard in production.
+    builder.Services.AddCors(o => o.AddDefaultPolicy(p => p
+        .WithOrigins("http://localhost:5173")
+        .AllowAnyHeader()
+        .AllowAnyMethod()));
+}
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment()) app.UseCors();
 
 app.MapWolverineEndpoints(opts =>
 {
@@ -563,7 +586,7 @@ return await app.RunJasperFxCommands(args);
 
 emit(join(APP, "appsettings.json"),
   JSON.stringify({
-    ConnectionStrings: { Marten: "Host=localhost;Port=5432;Database=" + camel(ir.system) + ";Username=postgres;Password=postgres" },
+    ConnectionStrings: { Marten: "Host=localhost;Port=5433;Database=" + camel(ir.system).toLowerCase() + ";Username=postgres;Password=postgres" },
     Logging: { LogLevel: { Default: "Information", "Microsoft.AspNetCore": "Warning" } },
   }, null, 2) + "\n");
 
