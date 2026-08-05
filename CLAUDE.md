@@ -225,6 +225,33 @@ reorder the columns. A vertical slice that isn't vertical isn't a slice.
 Every element geometrically inside a band must declare that `slice=`, and every element declaring
 it must be drawn inside. That is what stops the drawing and the data drifting apart.
 
+## Conway: who can actually build a slice
+
+The other half of step 7, and the one a swimlane is *not* about.
+
+> *"Ideally, each Slice should be owned by a single team… What if the UI and backend are owned by
+> different teams? … An Event Model often exposes organizational challenges — this is Conway's Law
+> in action. If it's not possible to assign a Slice to a single team, that's a direct result of the
+> company's structure."* — Understanding EventSourcing, ch. 43
+
+`owner=` goes **on the lane**, because the usual fault line is UI vs backend. An element may
+override its lane; a slice cell may declare `owner=` for accountability and `owners="a, b"` to
+acknowledge a genuine split. The rule then **computes** which slices need more than one owner
+rather than trusting a label.
+
+This does not forbid a split — the book says it is often unavoidable. It makes you say so out
+loud, because discovering it during implementation costs far more than during modelling. An
+unacknowledged split is a **warning**; an acknowledged one is a note.
+
+Here `owner` is the **agent** that generates the slice, not a human team: `frontend-agent` on the
+UI lane, `backend-agent` on Commands and Event Stream. **The GWT band is deliberately unowned** —
+the business rules are the contract *between* the two, and belong to neither.
+
+The result is structural rather than accidental: **every State Change slice crosses the line and
+no other slice does.** A State Change slice is screen → command → event by definition, while Views
+and Automations never touch a screen. So in this model 7 of 19 slices need both agents, and the
+7 are exactly the command-pattern slices.
+
 ## Time runs left to right, and Event → View is the only way back
 
 *"The goal is to read the system from left to right. It should be a story that makes sense to

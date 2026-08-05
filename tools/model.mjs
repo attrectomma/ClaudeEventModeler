@@ -12,6 +12,7 @@
 //   completeness — does every attribute of every element have a source in a connected element
 //   gwt          — do the business rules name a Command and Events that actually exist
 //   flow         — does every connection point left to right, the one exception being Event -> View
+//   conway       — can each slice actually be built by one team, or does it span the org chart
 //   slice        — is each vertical slice a real, contiguous band whose declared pattern matches
 //                  what it is made of, and is its status= honest about the findings inside it
 //
@@ -134,6 +135,10 @@ function parseCells(body) {
       status: a.status ?? null,
       // Only on a swimlane band: which aggregates' events live in this stream.
       streams: a.streams ?? null,
+      // Conway. On a lane: which team does work in it. On a slice cell: who is accountable, and
+      // `owners` acknowledges a slice that genuinely needs more than one team.
+      owner: a.owner ?? null,
+      owners: a.owners ?? null,
       aggregate: a.aggregate ?? null,
       fields: parseFields(a.fields),
       // On a screen: what it shows (the book marks these green on the wireframe) and what the
@@ -230,7 +235,7 @@ function buildIr(file) {
   return {
     source: file.replace(/\\/g, "/"),
     page: name,
-    lanes: lanes.map(({ id, label }) => ({ id, label })),
+    lanes: lanes.map(({ id, label, owner }) => ({ id, label, owner: owner ?? null })),
     slices,
     sliceCells,
     swimlanes,
@@ -754,6 +759,53 @@ function sliceRules(ir, priorFindings) {
   return d;
 }
 
+// --- conway: who can actually build this slice ------------------------------
+//
+// The other half of step 7. "Ideally, each Slice should be owned by a single team — this is key to
+// realizing the full benefits of this approach during implementation… What if the UI and backend
+// are owned by different teams? … An Event Model often exposes organizational challenges — this is
+// Conway's Law in action. If it's not possible to assign a Slice to a single team, that's a direct
+// result of the company's structure." — Understanding EventSourcing, ch. 43
+//
+// So this does not forbid a split slice; the book says it is often unavoidable. It COMPUTES which
+// slices need more than one team and makes you say so out loud, because the cost of discovering it
+// during implementation is much higher than during modelling.
+//
+// A team is declared per lane (`owner=` on the lane), because the usual fault line is UI vs
+// backend. An element may override its lane. A slice cell may acknowledge a genuine split with
+// `owners="a, b"`, which downgrades the finding to a note.
+
+function conwayRules(ir) {
+  const d = [];
+  const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  const laneOwner = new Map(ir.lanes.filter((l) => l.owner).map((l) => [l.id, l.owner]));
+  if (!laneOwner.size) return d;                   // nobody has declared ownership yet
+  const push = (severity, rule, message, at) => d.push({ family: "conway", severity, rule, message, at });
+
+  for (const s of ir.slices) {
+    const cell = ir.sliceCells.find((c) => c.id === s.cells[0]);
+    const members = [...s.screens, ...s.commands, ...s.events, ...s.readModels, ...s.automations]
+      .map((id) => byId.get(id)).filter(Boolean);
+    const teams = [...new Set(members.map((m) => m.owner ?? laneOwner.get(m.lane)).filter(Boolean))].sort();
+    if (!teams.length) continue;
+
+    if (teams.length > 1) {
+      const ack = (cell?.owners ?? "").split(",").map((x) => x.trim()).filter(Boolean).sort();
+      const acknowledged = ack.length === teams.length && ack.every((t, i) => t === teams[i]);
+      push(acknowledged ? "info" : "warn", "slice-crosses-teams",
+        `slice "${s.name}" needs ${teams.length} teams: ${teams.join(", ")}.` +
+        (acknowledged
+          ? " Acknowledged — it cannot be handed to one team, and its GWTs are the contract between them."
+          : ` No single team can build it. Say so with owners="${teams.join(", ")}" on the slice cell, or move the boundary.`),
+        cell?.id ?? s.commands[0]);
+    } else if (cell && !cell.owner) {
+      push("info", "slice-owner-derived",
+        `slice "${s.name}" is entirely ${teams[0]}. Consider owner="${teams[0]}" on the slice cell.`, cell.id);
+    }
+  }
+  return d;
+}
+
 // --- flow: time runs left to right -------------------------------------------
 //
 // "The goal is to read the system from left to right. It should be a story that makes sense to
@@ -911,7 +963,7 @@ if (cmd === "clear") {
 const ir = buildIr(file);
 // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while its
 // own cells still carry errors.
-const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir), ...flowRules(ir)];
+const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir), ...flowRules(ir), ...conwayRules(ir)];
 const findings = [...core, ...sliceRules(ir, core)];
 const errors = findings.filter((f) => f.severity === "error");
 

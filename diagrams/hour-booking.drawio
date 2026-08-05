@@ -4,15 +4,21 @@
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="lane-ui" value="UI / Wireframes" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="40" width="7340" height="180" as="geometry" />
-        </mxCell>
-        <mxCell id="lane-cmd" value="Commands / Views / Automation" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="220" width="7340" height="180" as="geometry" />
-        </mxCell>
-        <mxCell id="lane-evt" value="Event Stream" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="540" width="7340" height="565" as="geometry" />
-        </mxCell>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="40" width="7340" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="220" width="7340" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="540" width="7340" height="565" as="geometry" />
+          </mxCell>
+        </object>
         <object id="swim-timesheet" label="Timesheet stream" em="lane" streams="Timesheet">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="40" y="565" width="7340" height="95" as="geometry" />
@@ -38,100 +44,102 @@
             <mxGeometry x="40" y="945" width="7340" height="160" as="geometry" />
           </mxCell>
         </object>
-        <mxCell id="lane-gwt" value="Given / When / Then — one cell per business rule, stacked under its slice" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1345" width="7340" height="1460" as="geometry" />
-        </mxCell>
-        <object id="slice-upstream-membership" label="upstream-membership&#10;upstream · in-design" em="group" slice="upstream-membership" pattern="upstream" status="in-design">
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1345" width="7340" height="1460" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-upstream-membership" label="upstream-membership&#10;upstream · in-design" em="group" slice="upstream-membership" pattern="upstream" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="80" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-my-projects" label="my-projects&#10;view · in-design" em="group" slice="my-projects" pattern="view" status="in-design">
+        <object id="slice-my-projects" label="my-projects&#10;view · in-design" em="group" slice="my-projects" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="400" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-start-month" label="start-month&#10;automation · in-design" em="group" slice="start-month" pattern="automation" status="in-design">
+        <object id="slice-start-month" label="start-month&#10;automation · in-design" em="group" slice="start-month" pattern="automation" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="720" y="0" width="540" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-my-timesheet" label="my-timesheet&#10;view · in-design" em="group" slice="my-timesheet" pattern="view" status="in-design">
+        <object id="slice-my-timesheet" label="my-timesheet&#10;view · in-design" em="group" slice="my-timesheet" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="1360" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-book-hours" label="book-hours&#10;command · ready" em="group" slice="book-hours" pattern="command" status="ready">
+        <object id="slice-book-hours" label="book-hours&#10;command · ready" em="group" slice="book-hours" pattern="command" status="ready" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="1680" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-correct-hours" label="correct-hours&#10;command · in-design" em="group" slice="correct-hours" pattern="command" status="in-design">
+        <object id="slice-correct-hours" label="correct-hours&#10;command · in-design" em="group" slice="correct-hours" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="2000" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-remove-booking" label="remove-booking&#10;command · in-design" em="group" slice="remove-booking" pattern="command" status="in-design">
+        <object id="slice-remove-booking" label="remove-booking&#10;command · in-design" em="group" slice="remove-booking" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="2320" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-upstream-left-project" label="upstream-left-project&#10;upstream · in-design" em="group" slice="upstream-left-project" pattern="upstream" status="in-design">
+        <object id="slice-upstream-left-project" label="upstream-left-project&#10;upstream · in-design" em="group" slice="upstream-left-project" pattern="upstream" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="2640" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-working-days" label="working-days&#10;view · in-design" em="group" slice="working-days" pattern="view" status="in-design">
+        <object id="slice-working-days" label="working-days&#10;view · in-design" em="group" slice="working-days" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="2960" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-design" em="group" slice="fill-zero-hours" pattern="automation" status="in-design">
+        <object id="slice-fill-zero-hours" label="fill-zero-hours&#10;automation · in-design" em="group" slice="fill-zero-hours" pattern="automation" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="3280" y="0" width="540" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-my-month-status" label="my-month-status&#10;view · in-design" em="group" slice="my-month-status" pattern="view" status="in-design">
+        <object id="slice-my-month-status" label="my-month-status&#10;view · in-design" em="group" slice="my-month-status" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="3920" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-submit-closure" label="submit-closure&#10;command · in-design" em="group" slice="submit-closure" pattern="command" status="in-design">
+        <object id="slice-submit-closure" label="submit-closure&#10;command · in-design" em="group" slice="submit-closure" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="4240" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-admins" label="admins&#10;view · in-design" em="group" slice="admins" pattern="view" status="in-design">
+        <object id="slice-admins" label="admins&#10;view · in-design" em="group" slice="admins" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="4560" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-notify-admins" label="notify-admins&#10;automation · in-design" em="group" slice="notify-admins" pattern="automation" status="in-design">
+        <object id="slice-notify-admins" label="notify-admins&#10;automation · in-design" em="group" slice="notify-admins" pattern="automation" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="4880" y="0" width="540" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-admin-month-review" label="admin-month-review&#10;view · in-design" em="group" slice="admin-month-review" pattern="view" status="in-design">
+        <object id="slice-admin-month-review" label="admin-month-review&#10;view · in-design" em="group" slice="admin-month-review" pattern="view" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="5520" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-reject-closure" label="reject-closure&#10;command · in-design" em="group" slice="reject-closure" pattern="command" status="in-design">
+        <object id="slice-reject-closure" label="reject-closure&#10;command · in-design" em="group" slice="reject-closure" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="5840" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-complete-closure" label="complete-closure&#10;command · in-design" em="group" slice="complete-closure" pattern="command" status="in-design">
+        <object id="slice-complete-closure" label="complete-closure&#10;command · in-design" em="group" slice="complete-closure" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="6160" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-close-month-directly" label="close-month-directly&#10;command · in-design" em="group" slice="close-month-directly" pattern="command" status="in-design">
+        <object id="slice-close-month-directly" label="close-month-directly&#10;command · in-design" em="group" slice="close-month-directly" pattern="command" status="in-design" owners="backend-agent, frontend-agent" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="6480" y="0" width="220" height="1105" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-send-closing-reminder" label="send-closing-reminder&#10;automation · in-design" em="group" slice="send-closing-reminder" pattern="automation" status="in-design">
+        <object id="slice-send-closing-reminder" label="send-closing-reminder&#10;automation · in-design" em="group" slice="send-closing-reminder" pattern="automation" status="in-design" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;fontColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="1">
             <mxGeometry x="6800" y="0" width="540" height="1105" as="geometry" />
           </mxCell>
