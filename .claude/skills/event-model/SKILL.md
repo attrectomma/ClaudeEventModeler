@@ -302,8 +302,14 @@ The action button is the point of the phase, not decoration. It is why one scree
 slices — *"there may be only one HoursBooked per day+project, so booking again is a Correction"* is
 a domain fact about affordances, and the button is where it becomes visible.
 
-**Gate:** no `screen/` findings, and you have looked at the render. Ask whether the arrangement
-matches what they had in mind — this is the first phase where their answer is about design.
+**Styling is not this skill's job and must not leak into this phase.** No colours, no fonts, no
+components, no token talk. If the user starts describing how it should *look*, note it and say it
+belongs to the `styling` skill, which runs after this one. The wireframe's only claims are *which
+fields are shown, which are typed, and which action is offered* — all three are business
+information. Everything else is preference and lives elsewhere.
+
+**Gate:** no `screen/` findings, and you have looked at the render. Ask whether the *fields and the
+action* are right — not whether it looks good.
 
 ## Phase 9 — GWTs
 
@@ -382,6 +388,34 @@ their own `<model>.<flow>.drawio`.
 - Add a column by widening the page and every lane. Never stack a second row into a routing band.
 - Read the grid off the model rather than trusting a remembered number — the y values move whenever
   a swimlane is added or the UI lane grows.
+
+## Where this skill stops
+
+Three skills, and the boundary between them is what each one is allowed to invent.
+
+| Skill | Scope | Invents | Gate |
+| --- | --- | --- | --- |
+| **event-model** | once per context | layout only — never a domain fact | the completeness check, deterministic |
+| **styling** | once per *system*, then per new screen | tokens, palette, spacing, components | the human likes it |
+| **codegen** | per slice | nothing — it reads the compiled IR | tests pass |
+
+They are a **dependency graph, not a pipeline.** Styling gates only *frontend* codegen. A model with
+no screens — `notifications` in `hour-booking` — is backend-only and can go straight to codegen with
+no design in existence. Same for any View or Automation slice. Do not make anyone wait on a design
+their slice never needed.
+
+The styled design is found **by convention, not by an attribute**: `designs/<screen-slug>.html`. The
+screen slug already exists, so a `design=` attribute would be a second place the same fact lives.
+The event model never needs to know the HTML exists.
+
+That gives a three-way check, which is `styling`'s to run and not this skill's:
+
+```
+displays= / inputs=   ↔   wireframe binds=   ↔   HTML data-em
+```
+
+All three must agree on *which fields*. Layout and style are free to differ — that is the whole
+point of keeping them in different artifacts.
 
 ## Resuming
 

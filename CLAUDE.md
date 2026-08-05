@@ -292,8 +292,35 @@ afterwards. It is a tool rather than a hand edit because it touches every y and 
 in the file.
 
 Keep the wireframe **low fidelity**: no colour, no type, no imagery. It stays legible at model scale,
-it cannot be mistaken for the design, and it does not fight the sticky-note grammar. The styled
-design is a separate artifact and does not live in the `.drawio`.
+it cannot be mistaken for the design, and it does not fight the sticky-note grammar.
+
+### Three skills, and the line between them is what each may invent
+
+| Skill | Scope | Invents | Gate |
+| --- | --- | --- | --- |
+| `event-model` | once per context | layout only — never a domain fact | the completeness check, deterministic |
+| `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |
+| `codegen` | per slice | nothing — it reads the compiled IR | tests pass |
+
+The wireframe belongs to `event-model`, and the boundary is not obvious: `binds=` and `em="action"`
+carry **business information** — which fields a screen shows, which are typed, and which action it
+offers. That last one is a domain fact, not decoration. Colour, type, spacing and components carry
+none, so they live in `styling`.
+
+**A dependency graph, not a pipeline.** Styling gates only *frontend* codegen. A model with no
+screens is backend-only and can go straight to codegen with no design in existence — `notifications`
+is exactly that today. Same for any View or Automation slice.
+
+The styled design is found **by convention, not by an attribute**: `designs/<screen-slug>.html`. The
+slug already exists, so a `design=` attribute would be a second place the same fact lives — the thing
+this kit refuses everywhere else. That gives a three-way check, which is `styling`'s to run:
+
+```
+displays= / inputs=   ↔   wireframe binds=   ↔   HTML data-em
+```
+
+All three must agree on *which fields*. Layout and style are free to differ — that is the point of
+keeping them in separate artifacts.
 
 ## Many small models, one system
 

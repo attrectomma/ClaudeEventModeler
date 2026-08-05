@@ -41,15 +41,23 @@ Why three and not the four originally proposed, and what the tooling grew: see
 
 ## Next session starts here
 
-**The styled design, and codegen.**
+**Build the `styling` skill.** Decided: styling is its own skill, not part of `event-model`, because
+it holds no business information — and because its scope is per *system* while `event-model`'s is per
+*context*. See the three-skill table in `CLAUDE.md`.
 
-1. **Style/tokens skill** → `designs/tokens.css` from a human's words, 2–3 variants to choose from.
-2. **Per-screen HTML** → `designs/<screen>.html`, elements tagged `data-em="<field>"`, so the same
-   two-directional check that runs against the wireframe can run against the styled design. The
-   model gets a `design=` link, never an embedded image. This makes it a **three-way** check:
-   `displays=`/`inputs=` ↔ wireframe `binds=` ↔ HTML `data-em`.
-3. **Codegen is NOT started**, and its blocker is unchanged — Wolverine/Marten/Alba move faster than
-   model knowledge and the local `llms.txt` mirror is still unbuilt.
+1. **Tokens** → `designs/tokens.css` from the human's words, 2–3 variants to choose from.
+2. **Per-screen HTML** → `designs/<screen-slug>.html`, found by convention rather than a `design=`
+   attribute, with elements tagged `data-em="<field>"`.
+3. **The three-way check**, owned by `styling` and not by `event-model`:
+   `displays=`/`inputs=` ↔ wireframe `binds=` ↔ HTML `data-em`. All three agree on *which fields*;
+   layout and style are free to differ.
+
+**Then codegen.** Not started, and its blocker is unchanged — Wolverine/Marten/Alba move faster than
+model knowledge and the local `llms.txt` mirror is still unbuilt.
+
+Note the order is a **dependency, not a pipeline**: styling gates only *frontend* codegen.
+[notifications](notifications.drawio) has no screens, so it is backend-only and could go to codegen
+today with no design in existence.
 
 ## Provenance
 
