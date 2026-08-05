@@ -124,11 +124,20 @@ and the concrete values a given test needs.
 - **`IInitialData` is the example data.** Fixed ids in one `SeedData` class, re-applied by
   `ResetAllMartenDataAsync()` before each test.
 
-**One thing to know:** a multi-stream projection with no `Identity<T>` rule is rejected by Marten **at
-startup**, which takes the host down and loses the per-test failure detail. `MyProjects` is in that
-state — its events carry `employeeId + projectId` and never `month` — so its registration is emitted
-commented out with the reason. How it groups is a modelling decision, and it is the next thing
-`book-hours` will need, since `NotAProjectMember` reads that view.
+**`MyProjects` is grained `(employeeId, projectId)`** — the expert's ruling, now `identity=` on the
+read model. All 10 projections register. `ProjectCreated` still has no grouping rule there, correctly:
+a project existing is not per-employee, so how it lands in a per-(employee, project) view is a
+separate decision.
+
+**Nine of ten views still declare no `identity=`.** The generator falls back to the system key and
+stamps those projections `GUESSED`, which is right for the month-scoped views and wrong for at least
+`MyTimesheet` (per booking), `Admins` (per admin), `WorkingDays` (per date) and `MonthStartTodo` (per
+employee). Declaring them is a short session with the expert.
+
+**The `Timesheet` stream has two possible opening events** and that is a modelling smell rather than a
+codegen problem — see [ANTI-PATTERNS.md](../../ANTI-PATTERNS.md) #1 for the three resolutions and why
+none of them was seamless. The recommended fix is a second automation that opens the stream with a
+creation event, which needs five invented domain facts and therefore a session with the expert.
 
 **Decided:** `enforce="periphery"` on the four `HoursMustBeNonZero` / `HoursMustBeWholeOrHalf` GWTs.
 The rest default to `aggregate`. This is declared because the derivation I proposed — "empty `given=`

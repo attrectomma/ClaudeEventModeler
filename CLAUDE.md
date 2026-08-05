@@ -80,11 +80,21 @@ bands: `MonthClosure` is genuinely always opened by `BookingMonthStarted`, but t
 is opened by `HoursBooked` **or** `ZeroHoursFilled` depending on whether the employee booked anything
 before leaving a project. The leftmost event survives as a doc comment, not a dependency.
 
+### `identity=` on a read model — what one ROW is
+
+A view's `fields=` say what a row holds and never what a row **is**. `MyTimesheet` is per booking,
+`MyProjects` per (employee, project), `OpenMonths` per (employee, month) — and nothing said so until
+a projection had to group events.
+
 **A projection with no slicing rule cannot be registered.** Marten rejects a multi-stream projection
-with no `Identity<T>` rules **at startup**, which takes the whole host down and costs you the
-per-test failure detail. `Identity` is derivable for any event carrying the whole system key; where
-it is not, the generator emits the projection but leaves its registration commented with the reason.
-In `hour-booking` that is `MyProjects`, whose events carry `employeeId + projectId` and never `month`.
+with no `Identity<T>` rules **at startup**, so the whole host goes down and you lose the per-test
+failure detail — 55 individual failures become 55 identical fixture errors. `Identity` is derivable
+for any event carrying the view's whole key; where it is not, the generator emits the projection but
+leaves the registration commented with the reason.
+
+Declare `identity=` on the read model. Where it is missing the generator falls back to the system key
+and stamps the projection `GUESSED`, because silently grouping the wrong rows together is worse than
+saying so. **Only 1 of 10 views in `hour-booking` declares it** — see ANTI-PATTERNS.md #3.
 
 ### Example data comes from `IInitialData`
 
@@ -118,6 +128,9 @@ The last two were settled by **reflecting over the assembly with a .NET 10 file-
 compiler disagree, and it takes about a minute.
 
 So: read the mirror first, then **compile**. The mirror removes most of the guessing, not all of it.
+
+**Smells the checker cannot see are catalogued in [ANTI-PATTERNS.md](ANTI-PATTERNS.md)**, with the
+tooling-catches-it column made explicit. Read it before trusting a green run.
 
 ## Keep it simple, but prepare for evolution
 

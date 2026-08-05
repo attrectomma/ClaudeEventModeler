@@ -160,10 +160,14 @@ for (const v of ir.shared.views) {
   const derived = Object.entries(v.derived ?? {});
   const streams = [...new Set(v.from.map((l) => ir.shared.events.find((e) => e.label === l)?.aggregate).filter(Boolean))];
   const multi = streams.length > 1;
-  // Identity is derivable only for events that carry the whole system key.
+  // A row of THIS view, not of the system. Declared on the read model where the grain is known;
+  // where it is not, fall back to the system key and say so, because guessing a view's grain
+  // silently is how a projection ends up grouping the wrong rows together.
+  const KEY = v.identity?.length ? v.identity : SYS_KEY;
+  const guessedKey = !v.identity?.length;
   const sliceable = v.from.filter((l) => {
     const e = ir.shared.events.find((x) => x.label === l);
-    return SYS_KEY.every((k) => e?.fields.some((f) => f.name === k));
+    return KEY.every((k) => e?.fields.some((f) => f.name === k));
   });
   if (!multi || sliceable.length) registerable.push(v.label);
   emit(join(APP, "Views", `${pascal(v.label)}.cs`),
@@ -199,7 +203,7 @@ ${derived.map(([k, srcs]) => `//   ${k} <- ${srcs.join(" + ")}`).join("\n")}
 /// Contrast the write side, which registers nothing and folds live.
 ${multi ? `///
 /// Fed from ${streams.length} streams (${streams.join(", ")}), so events must be grouped explicitly.
-/// Identity is derivable for any event carrying ${SYS_KEY.join(" + ")}; the rest need a decision.` : ""}
+/// Grouped by ${KEY.join(" + ")}${guessedKey ? " — GUESSED from the system key, because this read model\n/// declares no identity=. Declare it: a wrong grain groups the wrong rows together." : " (declared on the read model)"}.` : ""}
 /// </summary>
 public sealed class ${pascal(v.label)}Projection : ${multi
       ? `MultiStreamProjection<${pascal(v.label)}, string>`
@@ -209,11 +213,11 @@ ${multi ? `    public ${pascal(v.label)}Projection()
     {
 ${v.from.map((l) => {
         const e = ir.shared.events.find((x) => x.label === l);
-        const has = SYS_KEY.every((k) => e?.fields.some((f) => f.name === k));
+        const has = KEY.every((k) => e?.fields.some((f) => f.name === k));
         return has
-          ? `        Identity<${pascal(l)}>(e => $"${SYS_KEY.map((k) => `{e.${pascal(k)}}`).join(":")}");`
+          ? `        Identity<${pascal(l)}>(e => $"${KEY.map((k) => `{e.${pascal(k)}}`).join(":")}");`
           : `        // TODO(codegen): ${pascal(l)} carries ${e?.fields.map((f) => f.name).join(", ") || "nothing"} —\n` +
-            `        // not ${SYS_KEY.join(" + ")}, so how it groups into this view is a decision.\n` +
+            `        // not ${KEY.join(" + ")}, so how it groups into this view is a decision.\n` +
             `        // Identity<${pascal(l)}>(e => ...);`;
       }).join("\n")}
     }

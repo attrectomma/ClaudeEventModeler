@@ -52,7 +52,8 @@ public sealed record AdminEmployeeMonth
 /// Contrast the write side, which registers nothing and folds live.
 ///
 /// Fed from 2 streams (Timesheet, MonthClosure), so events must be grouped explicitly.
-/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// Grouped by employeeId + month — GUESSED from the system key, because this read model
+/// declares no identity=. Declare it: a wrong grain groups the wrong rows together..
 /// </summary>
 public sealed class AdminEmployeeMonthProjection : MultiStreamProjection<AdminEmployeeMonth, string>
 {

@@ -36,10 +36,7 @@ builder.Services.AddMarten(opts =>
         opts.Projections.Add<ClosureNotificationTodoProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<MonthStartTodoProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<MyMonthStatusProjection>(ProjectionLifecycle.Inline);
-        // TODO(codegen): MyProjectsProjection groups events that do not carry
-        // employeeId + month, so it has no slicing rule yet. Marten rejects a multi-stream
-        // projection with no rules AT STARTUP, so registering it now would take the host down.
-        // opts.Projections.Add<MyProjectsProjection>(ProjectionLifecycle.Inline);
+        opts.Projections.Add<MyProjectsProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<MyTimesheetProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<OpenMonthsProjection>(ProjectionLifecycle.Inline);
         opts.Projections.Add<WorkingDaysProjection>(ProjectionLifecycle.Inline);

@@ -1345,6 +1345,9 @@ function buildSystemIr(models, system) {
     for (const v of m.ir.elements.filter((e) => e.kind === "readmodel")) {
       views.push({
         label: v.label, context: ctx, slice: v.slice, fields: v.fields,
+        // What one ROW of this view is. Undeclared for most views, which is a real gap — a
+        // projection cannot group events without it. See OPEN-QUESTIONS.md.
+        identity: (v.identity ?? "").split(",").map((x) => x.trim()).filter(Boolean),
         derived: v.derived, mappings: v.mappings,
         from: [...new Set(v.upstream.map((id) => byId.get(id)?.label).filter(Boolean))],
         // A todo-list View is the thing an automation works through, and it needs the tick-off

@@ -37,21 +37,17 @@ public sealed record MyProjects
 /// Contrast the write side, which registers nothing and folds live.
 ///
 /// Fed from 2 streams (Membership, Project), so events must be grouped explicitly.
-/// Identity is derivable for any event carrying employeeId + month; the rest need a decision.
+/// Grouped by employeeId + projectId (declared on the read model).
 /// </summary>
 public sealed class MyProjectsProjection : MultiStreamProjection<MyProjects, string>
 {
     public MyProjectsProjection()
     {
-        // TODO(codegen): EmployeeAssignedToProject carries employeeId, projectId, projectName, assignedAt —
-        // not employeeId + month, so how it groups into this view is a decision.
-        // Identity<EmployeeAssignedToProject>(e => ...);
+        Identity<EmployeeAssignedToProject>(e => $"{e.EmployeeId}:{e.ProjectId}");
         // TODO(codegen): ProjectCreated carries projectId, projectName —
-        // not employeeId + month, so how it groups into this view is a decision.
+        // not employeeId + projectId, so how it groups into this view is a decision.
         // Identity<ProjectCreated>(e => ...);
-        // TODO(codegen): EmployeeRemovedFromProject carries employeeId, projectId, effectiveFrom, removedAt —
-        // not employeeId + month, so how it groups into this view is a decision.
-        // Identity<EmployeeRemovedFromProject>(e => ...);
+        Identity<EmployeeRemovedFromProject>(e => $"{e.EmployeeId}:{e.ProjectId}");
     }
 
     public static MyProjects Apply(EmployeeAssignedToProject e, MyProjects current)

@@ -375,6 +375,7 @@ be subtly wrong. They publish `llms.txt`; mirroring it locally is a prerequisite
 | --- | --- |
 | [CLAUDE.md](CLAUDE.md) | the same knowledge for the agent. **The authority when docs disagree** |
 | [MODEL-ORGANIZATION.md](MODEL-ORGANIZATION.md) | why many small models, and how they may reference each other |
+| [ANTI-PATTERNS.md](ANTI-PATTERNS.md) | smells met while building the kit, and **which of them nothing automatic catches** |
 | [diagrams/hour-booking/OPEN-QUESTIONS.md](diagrams/hour-booking/OPEN-QUESTIONS.md) | state of the worked example, and what the checker cannot see |
 | [.claude/skills/event-model/SKILL.md](.claude/skills/event-model/SKILL.md) | the eleven phases in full |
 | [reference/](reference/) | both books as greppable text — every rule here is traceable to them |
