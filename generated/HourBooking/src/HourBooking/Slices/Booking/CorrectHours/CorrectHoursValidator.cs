@@ -36,4 +36,5 @@ public sealed class CorrectHoursValidator : AbstractValidator<CorrectHours>
 /// the screen was looking at, which is the OTHER meaning of bookingId that book-hours had to treat as
 /// terminal="generated". Same name, opposite direction, and here it really is the row.
 /// </summary>
-public sealed record CorrectHours(Guid BookingId, Guid EmployeeId, string Month, decimal Hours, string? Note);
+
+// The CorrectHours record is emitted per command by codegen, next door in CorrectHours.cs.

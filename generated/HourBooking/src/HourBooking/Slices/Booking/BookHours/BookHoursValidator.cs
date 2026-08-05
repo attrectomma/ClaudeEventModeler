@@ -38,5 +38,5 @@ public sealed class BookHoursValidator : AbstractValidator<BookHours>
 /// bookingId (the row being looked at) while creating a booking needs a NEW one, which is the same
 /// name meaning the opposite thing and why a name match cannot be trusted here.
 /// </summary>
-public sealed record BookHours(
-    Guid BookingId, Guid EmployeeId, string Month, Guid ProjectId, DateOnly Date, decimal Hours, string? Note);
+
+// The BookHours record is emitted per command by codegen, next door in BookHours.cs.

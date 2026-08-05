@@ -4,8 +4,10 @@
 // data-em attributes come across too, so `node tools/design.mjs check diagrams/hour-booking/` keeps
 // this page honest against the model exactly as it kept the static page honest.
 //
-// screen="timesheet" appears in three slices — book-hours, correct-hours, remove-booking. Only
-// book-hours is claimed, so only its affordance is wired; the other two render disabled and say why.
+// screen="timesheet" appears in three slices — book-hours, correct-hours, remove-booking. All three
+// are now in-progress, so all three affordances on this screen are live. Nothing here is disabled for
+// "not built yet" any more; the only disabling left is domain truth (a closed month) or a request in
+// flight.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -13,6 +15,7 @@ import {
   correctHours,
   getProjects,
   getTimesheet,
+  removeBooking,
   type Project,
   type Rejection,
   type Timesheet as Sheet,
@@ -32,6 +35,9 @@ export default function Timesheet() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [rejection, setRejection] = useState<Rejection | null>(null);
   const [busy, setBusy] = useState(false);
+  // Which row's removal is in flight. A bookingId rather than a boolean, so the pending label lands on
+  // the button that was actually pressed.
+  const [removing, setRemoving] = useState<string | null>(null);
 
   // One form, two modes — which IS the domain fact. "There may be only one HoursBooked per
   // day+project, so booking again is a Correction", so the screen must say which action it offers.
@@ -62,6 +68,10 @@ export default function Timesheet() {
 
   const editable = sheet?.monthStatus === "Open" || sheet?.monthStatus === "Submitted";
 
+  // One request at a time. The three affordances share one `rejection` slot, so letting two overlap
+  // would leave the page showing a rule name without saying which action it refused.
+  const pending = busy || removing !== null;
+
   function startCorrecting(line: TimesheetLine) {
     setCorrecting(line);
     setRejection(null);
@@ -75,6 +85,24 @@ export default function Timesheet() {
     setCorrecting(null);
     setRejection(null);
     setNote("");
+  }
+
+  // The third affordance, and the only one that sends nothing: the route carries all three of
+  // RemoveBooking's fields. `MyTimesheet` is an inline projection, so the reload below already sees the
+  // row gone the moment the 204 returns — no polling, no optimistic delete.
+  async function remove(line: TimesheetLine) {
+    setRemoving(line.bookingId);
+    setRejection(null);
+
+    const problem = await removeBooking(EMPLOYEE_ID, MONTH, line.bookingId);
+    setRejection(problem);
+
+    // Removal is not idempotent, so `BookingNotFound` means this page was stale — somebody else took
+    // the row, or this tab has been open across it. Reloading is the answer either way, which is why
+    // it runs whether the removal was accepted or refused.
+    if (correcting?.bookingId === line.bookingId) setCorrecting(null);
+    await load();
+    setRemoving(null);
   }
 
   async function submit(e: React.FormEvent) {
@@ -149,11 +177,13 @@ export default function Timesheet() {
       {rejection && (
         <p className="summary" role="alert" style={{ borderLeft: "3px solid var(--warn)", paddingLeft: 10 }}>
           <strong>{rejection.title}</strong> &mdash; {rejection.detail}
+          {rejection.title === "BookingNotFound" && " The list below has been reloaded."}
         </p>
       )}
 
       <table>
-        <caption>Bookings this month.</caption>
+        {/* The design's caption. It said "correct or remove" all along; now both are true. */}
+        <caption>Bookings this month. Hover a row to correct or remove it.</caption>
         <thead>
           <tr>
             <th scope="col">Date</th>
@@ -187,11 +217,13 @@ export default function Timesheet() {
               <td className="actions">
                 <button className="link" data-em-action="CorrectHours" data-em-input="bookingId"
                         onClick={() => startCorrecting(l)}
-                        disabled={!editable || correcting?.bookingId === l.bookingId}>Correct</button>
-                {/* remove-booking is still in-design. Shown disabled rather than omitted: the model
-                    says this screen offers the affordance, and hiding it would lie about the screen. */}
+                        disabled={!editable || pending || correcting?.bookingId === l.bookingId}>Correct</button>
                 <button className="link danger" data-em-action="RemoveBooking" data-em-input="bookingId"
-                        disabled title="remove-booking is not built yet">Remove</button>
+                        onClick={() => void remove(l)}
+                        disabled={!editable || pending}
+                        title={editable ? undefined : "This month is closed, so it can no longer be edited."}>
+                  {removing === l.bookingId ? "Removing…" : "Remove"}
+                </button>
               </td>
             </tr>
           ))}
@@ -237,15 +269,15 @@ export default function Timesheet() {
         </div>
         {correcting ? (
           <>
-            <button className="primary" data-em-action="CorrectHours" disabled={busy || !editable}>
+            <button className="primary" data-em-action="CorrectHours" disabled={pending || !editable}>
               {busy ? "Saving…" : "Save correction"}
             </button>
-            <button type="button" className="link" onClick={cancelCorrecting} disabled={busy}>
+            <button type="button" className="link" onClick={cancelCorrecting} disabled={pending}>
               Cancel
             </button>
           </>
         ) : (
-          <button className="primary" data-em-action="BookHours" disabled={busy || !editable}>
+          <button className="primary" data-em-action="BookHours" disabled={pending || !editable}>
             {busy ? "Booking…" : "Book hours"}
           </button>
         )}

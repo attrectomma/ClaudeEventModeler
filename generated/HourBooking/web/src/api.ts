@@ -71,6 +71,11 @@ const post = async (url: string, body: unknown): Promise<Rejection | null> => {
   return res.status === 204 ? null : readRejection(res);
 };
 
+const del = async (url: string): Promise<Rejection | null> => {
+  const res = await fetch(url, { method: "DELETE" });
+  return res.status === 204 ? null : readRejection(res);
+};
+
 // --- reads ----------------------------------------------------------------------------------------
 
 export const getTimesheet = (employeeId: string, month: string) =>
@@ -116,3 +121,19 @@ export const correctHours = (employeeId: string, month: string, command: Correct
     `/timesheet/${employeeId}/${month}/bookings/${command.bookingId}/corrections`,
     command,
   );
+
+// --- remove-booking -------------------------------------------------------------------------------
+
+/**
+ * The third affordance of the SAME screen, and the only one that sends no body: RemoveBooking's three
+ * declared fields (bookingId, employeeId, month) ARE the route, so a body would state the same facts
+ * twice. There is no validator on this route either, so a rejection only ever arrives in the
+ * { title, detail } shape — readRejection handles both regardless.
+ *
+ * Deliberately NOT idempotent: a second DELETE is 400 BookingNotFound, not 204. That is a feature —
+ * a screen offering a row that is no longer there is stale, and the user is told rather than shown a
+ * silent success. BookingNotFound covers "already removed" and "never existed" alike; the stream
+ * cannot tell them apart, so neither can this.
+ */
+export const removeBooking = (employeeId: string, month: string, bookingId: string) =>
+  del(`/timesheet/${employeeId}/${month}/bookings/${bookingId}`);
