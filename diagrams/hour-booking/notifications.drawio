@@ -24,12 +24,12 @@
             <mxGeometry x="40" y="660" width="1900" height="545" as="geometry" />
           </mxCell>
         </object>
-        <object id="swim-0" label="AdminNotification stream — a process of its own" em="lane" streams="AdminNotification">
+        <object id="swim-0" label="AdminNotification stream — a process of its own" em="lane" streams="AdminNotification" identity="employeeId, month">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="40" y="685" width="1900" height="95" as="geometry" />
           </mxCell>
         </object>
-        <object id="swim-1" label="Reminder stream — a process of its own" em="lane" streams="Reminder">
+        <object id="swim-1" label="Reminder stream — a process of its own" em="lane" streams="Reminder" identity="employeeId, month">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="40" y="780" width="1900" height="95" as="geometry" />
           </mxCell>

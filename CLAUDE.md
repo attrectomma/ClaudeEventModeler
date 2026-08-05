@@ -512,11 +512,33 @@ band per business capability, drawn **inside** the Event Stream lane, declaring 
 it holds:
 
 ```xml
-<object id="swim-timesheet" label="Timesheet stream" em="lane" streams="Timesheet">
+<object id="swim-timesheet" label="Timesheet stream" em="lane"
+        streams="Timesheet" identity="employeeId, month">
 ```
 
 An event's **y is its stream**, not its column. Its `aggregate=` must match the band it is drawn
 in, and an event drawn in no band has an undefined stream — both are errors.
+
+### `identity=` — what keys ONE stream, and why it is a domain question
+
+Marten keys a stream. Without `identity=` a generator has nothing to append to, and every attribute
+rule can pass while the model stays silent about it — which is exactly what happened here, right up
+to the point of writing code.
+
+`identity=` is **required on any band holding events we write** (`band-needs-identity`), and every
+name in it must appear on **every** owned event in that band (`identity-not-on-every-event`). Bands
+holding only imports or foreign events are exempt: we project from those streams, never append.
+
+The choice decides **which business rules are real invariants**, so it is not a technical detail:
+
+| Timesheet keyed by | *"at most 18 hours in a day"* is |
+| --- | --- |
+| `bookingId` | not an invariant — a check against an eventually-consistent projection, and two concurrent bookings can both pass |
+| `employeeId, month` | a true aggregate invariant, enforced inside the transaction |
+
+`hour-booking` chose `employeeId, month`, which **required adding `month:string` to all four
+Timesheet events and their commands** — the key has to be on every event or the event cannot say
+which stream it belongs to. Expect that ripple; it is the normal cost of the decision.
 
 The rule worth enforcing is the little book's, ch. 11:
 

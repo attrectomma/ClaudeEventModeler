@@ -140,8 +140,11 @@ function parseCells(body) {
       // sits in the implementation workflow.
       pattern: a.pattern ?? null,
       status: a.status ?? null,
-      // Only on a swimlane band: which aggregates' events live in this stream.
+      // Only on a swimlane band: which aggregates' events live in this stream, and what identifies
+      // one stream of it. `identity` is what a generator needs to append to the right stream at
+      // all — Marten keys a stream, and nothing else in the model says by what.
       streams: a.streams ?? null,
+      identity: a.identity ?? null,
       // Only on a model cell: this model's identity within its system. Dilger's pink "Model
       // Context" note — "I use a pink sticky note placed on the left side of each model to
       // properly name it."
@@ -234,7 +237,8 @@ function buildIr(file) {
   // stream boundaries. Typically, all events in one swimlane end up in a physical stream."
   const swimlanes = swimlaneNodes
     .map((n) => ({ id: n.id, label: n.label, geometry: n.geometry,
-                   streams: n.streams.split(",").map((s) => s.trim()).filter(Boolean) }));
+                   streams: n.streams.split(",").map((s) => s.trim()).filter(Boolean),
+                   identity: (n.identity ?? "").split(",").map((s) => s.trim()).filter(Boolean) }));
 
   const sliceNames = [...new Set([
     ...elements.map((e) => e.slice).filter(Boolean),
@@ -916,6 +920,40 @@ function swimlaneRules(ir) {
     }
   }
 
+  // What identifies ONE stream of this band. Marten keys a stream, and until this exists a
+  // generator has nothing to append to — it is the last thing the model was silent about before
+  // code, and the silence was invisible because every attribute rule passed.
+  //
+  // Only bands we WRITE need it. A band holding nothing but imports or foreign events is exempt:
+  // we never start those streams, we only project from them.
+  for (const band of ir.swimlanes) {
+    const owned = ir.elements.filter((e) =>
+      e.kind === "event" && e.geometry &&
+      e.geometry.y + e.geometry.h / 2 >= band.geometry.y &&
+      e.geometry.y + e.geometry.h / 2 <= band.geometry.y + band.geometry.h);
+    if (!owned.length) continue;
+    if (!band.identity.length) {
+      push("error", "band-needs-identity",
+        `the "${band.label}" band holds ${owned.length} event(s) we write but declares no identity=. ` +
+        `Nothing says what one stream of ${band.streams.join("/")} is keyed by, so nothing can append to it. ` +
+        `Candidates carried by every one of its events: ${
+          owned.map((e) => e.fields.map((f) => f.name))
+            .reduce((a, b) => a.filter((n) => b.includes(n)))
+            .join(", ") || "(none — the events share no field)"}.`,
+        band.id);
+      continue;
+    }
+    for (const key of band.identity) {
+      const missing = owned.filter((e) => !e.fields.some((f) => f.name === key));
+      if (missing.length) {
+        push("error", "identity-not-on-every-event",
+          `the "${band.label}" band is identified by "${key}", but ${
+            missing.map((e) => e.label).join(", ")} do not carry it. An event that cannot say which stream it belongs to cannot be appended.`,
+          missing[0].id);
+      }
+    }
+  }
+
   for (const e of ir.elements) {
     if (e.kind !== "command") continue;
     const emitted = e.downstream.map((id) => byId.get(id))
@@ -1264,10 +1302,17 @@ function buildSystemIr(models, system) {
 
   // --- aggregates: the transactional boundary, and every command that writes to it
   const aggregates = new Map();
+  // identity comes off the swimlane that declares the stream, so a generator knows the stream key.
+  const identityOf = new Map();
+  for (const m of models)
+    for (const b of m.ir.swimlanes)
+      if (b.identity.length) for (const s of b.streams) identityOf.set(s, b.identity);
+
   for (const rec of events.values()) {
     if (!rec.aggregate) continue;
     if (!aggregates.has(rec.aggregate)) {
-      aggregates.set(rec.aggregate, { name: rec.aggregate, ownedBy: rec.ownedBy, events: [], commands: [] });
+      aggregates.set(rec.aggregate, { name: rec.aggregate, ownedBy: rec.ownedBy,
+                                      identity: identityOf.get(rec.aggregate) ?? [], events: [], commands: [] });
     }
     const a = aggregates.get(rec.aggregate);
     a.ownedBy ??= rec.ownedBy;

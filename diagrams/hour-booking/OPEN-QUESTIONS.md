@@ -59,6 +59,7 @@ The agreed order, and where it stands:
 | --- | --- | --- |
 | 1 | `llms.txt` mirror for Marten / Wolverine / Alba | **done** — 392 pages, `node tools/docs.mjs sync` |
 | 2 | system-level IR | **done** — `node tools/model.mjs compile diagrams/hour-booking/` |
+| 2b | stream identity — the gap step 3 hit immediately | **done**, see below |
 | 3 | contract generation: events, aggregates, projections, **and the failing Alba tests** | next |
 | 4 | `book-hours` end to end, one agent, sequential, until `dotnet test` is green | |
 | 5 | docker-compose for the human demo, strictly separate from the test infrastructure | |
@@ -71,14 +72,35 @@ The IR for this system: **16 events, 9 aggregates, 10 views, 4 screens, 17 of 20
 from the model, not from the code, so tests built from them cannot be tautological — and it makes the
 GWT band's role as the unowned contract between frontend and backend literal.
 
-Two decisions still open, both flagged during the concept review:
+### Stream identity: the last thing the model was silent about
+
+Reading the Wolverine docs for `[Aggregate]` surfaced it immediately — Marten keys a stream, and
+**nothing in the model said what a `Timesheet` stream is keyed by.** Every attribute rule passed
+while that was missing, which is why it survived to the edge of codegen.
+
+Now `identity=` on the swimlane band, checked two ways: required on any band holding events we write
+(`band-needs-identity`), and every name in it must appear on every owned event
+(`identity-not-on-every-event`). Bands of imports and foreign events are exempt.
+
+**The domain decision: `Timesheet` is keyed by `employeeId, month`** — because that makes *"at most 18
+hours can stand for one day"* and *"a closed month cannot be booked into"* true aggregate invariants.
+Keyed per booking they would have been checks against an eventually-consistent projection, where two
+concurrent bookings can both pass and exceed the cap.
+
+The cost, paid: **`month:string` added to all four Timesheet events and their four commands.** The key
+has to be on every event or the event cannot say which stream it belongs to. All four owned
+aggregates now resolve to `employeeId, month`.
+
+### Two decisions still open
 
 - **FluentValidation vs aggregate rules.** A GWT with an empty `given` is *input* validation (hours
   must be whole or half); a GWT whose `given` names events is a *state* decision (a closed month
   cannot be booked into) and belongs on the aggregate, where it can see the stream. Getting this
   wrong puts business rules in validators that cannot enforce them.
 - **One Postgres, not N.** Testcontainers per agent would be one container per agent. One instance per
-  test assembly with schema isolation is the answer.
+  test assembly with schema isolation is the answer. Note: **Testcontainers is not in the doc mirror**
+  — zero mentions across all 392 pages — so that part is written from its own API, not from a source
+  this kit can check.
 
 Note the skill order is a **dependency, not a pipeline**: styling gates only *frontend* codegen.
 [notifications](notifications.drawio) has no screens, so it is backend-only and could go to codegen
