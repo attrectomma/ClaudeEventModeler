@@ -18,6 +18,7 @@ needs a human to notice, which is the whole reason this file exists.
 | 10 | [A GWT that is right and useless](#10) | **no** |
 | 11 | [A state rule enforced at the periphery](#11) | **no** |
 | 12 | [A todo row that never completes](#12) | **no** |
+| 13 | [A rule added after the slice was built](#13) | yes — `codegen` reports `GWT WITHOUT A TEST` |
 
 ---
 
@@ -136,28 +137,6 @@ must agree, `inputs=` may differ) makes it one screen with three affordances.
 identical to a complete one. *"Don't save on GWTs"* is advice no checker can enforce. Ask for the
 failure cases explicitly, every time.
 
-## 12. A todo row that never completes <a id="12"></a>
-
-**Live in `hour-booking`.** An automation's View is a todo list: an event puts a row on it, the
-automation works the row, the resulting event ticks it off. The model says all of that — but it never
-says **what a finished row looks like**.
-
-`ZeroFillTodo` is one row per (employee, project) still to be zero-filled *to month end*. Deciding a
-row is done needs the calendar, and a projection cannot query another view. So rows accumulate: the
-work stops happening — each remaining day is refused as already filled — but the row stays pending
-forever.
-
-Two smaller versions of the same gap, both found on the first automation slice:
-
-- **A todo view needs state the model does not list.** `fields=` gives what a reader sees; the tick-off
-  needs bookkeeping — which days are done, whether the row is still pending — which is the pattern's
-  machinery and is invisible on the canvas.
-- **`terminal="...:const"` carries no value.** The grammar can say a value arrives as a constant and
-  cannot say *which* constant. Here the event's own `source=` supplied it ("0 hours booked per day"),
-  which is luck rather than design.
-
-Nothing automatic catches any of this, because every attribute rule passes.
-
 ## 11. A state rule enforced at the periphery <a id="11"></a>
 
 A rule needing accumulated state, put in a validator that cannot see the stream, is a rule that
@@ -168,3 +147,52 @@ projection lets two concurrent bookings both pass.
 direction. **It cannot be derived**: the obvious heuristic — "no `given=` means the request alone
 settles it" — found zero of four real periphery rules in `hour-booking`, because almost every GWT
 carries a *context* `given=` like *"the month is open"*.
+
+## 12. A todo row that never completes <a id="12"></a>
+
+An automation's View is a todo list: an event puts a row on it, the automation works the row, the
+resulting event ticks it off. The model says all of that — but it never says **what a finished row
+looks like**.
+
+`ZeroFillTodo` is one row per (employee, project) still to be zero-filled *to month end*. Deciding a
+row is done needs the calendar, and a projection cannot query another view. So rows accumulate: the
+work stops happening — each remaining day is refused as already filled — but the row stays pending
+forever.
+
+**Resolved for `hour-booking` by asking**, and the answer was not a projection rule at all: a row is
+completed by a **person**. `ZeroFillTodo → an admin screen → FinishAdminTodo → AdminFinishedTodo`,
+which is an ordinary Command slice, and the tick-off is that event. Worth recording as the general
+shape: when "is this row done?" needs judgement or data the projection cannot reach, completion is a
+command somebody issues, not a condition somebody computes. The automation and the completion are
+**two slices**, and only the second one closes the loop.
+
+Two smaller versions of the same gap, both found on the first automation slice and both still open:
+
+- **A todo view needs state the model does not list.** `fields=` gives what a reader sees; the tick-off
+  needs bookkeeping — which days are done, whether the row is still pending — which is the pattern's
+  machinery and is invisible on the canvas.
+- **`terminal="...:const"` carries no value.** The grammar can say a value arrives as a constant and
+  cannot say *which* constant. Here the event's own `source=` supplied it ("0 hours booked per day"),
+  which is luck rather than design.
+
+Nothing automatic catches any of this, because every attribute rule passes.
+
+## 13. A rule added after the slice was built <a id="13"></a>
+
+The gate the whole kit rests on is *"the slice's tests are live, not skipped."* A GWT added to a slice
+that is **already implemented** passes that gate while having no test at all — because the test file is
+`scaffold`: written once, then hand-owned, and regeneration deliberately keeps it. Nothing fails,
+nothing is skipped, and the run is green.
+
+This is the ordinary case, not an edge one: it is what happens every time the domain expert answers an
+open question about a slice that is already green. Two rules arrived in `fill-zero-hours` exactly that
+way.
+
+Now caught. Every generated test carries its rule text as a comment, so `codegen` compares the model's
+GWTs against a kept test file and prints `GWT WITHOUT A TEST` with the rules that are missing. It
+**reports rather than repairs** — appending into a file somebody else owns is how a generator destroys
+hand-written work.
+
+The general lesson is about the `emit` / `scaffold` split itself: a file that is written once and then
+owned can go stale against the model silently, and every such file needs its own staleness check.
+Tests were the first; they are unlikely to be the last.

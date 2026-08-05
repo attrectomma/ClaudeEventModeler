@@ -207,4 +207,94 @@ public sealed class FillZeroHoursTests(AppFixture fixture) : IntegrationContext(
         run.Filled.ShouldContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.SecondWorkingDay);
         run.Skipped.ShouldBeEmpty();
     }
+
+    // a day that already carries booked hours is left alone
+    //   GIVEN HoursBooked
+    //   WHEN  FillZeroHours
+    //   THEN  error: AlreadyBooked
+    //
+    // Added AFTER this slice was implemented and green — the domain expert, asked whether a zero may be
+    // written over hand-booked hours, said no. The test file is scaffold, so no test was generated for
+    // it; codegen reported it as a GWT WITHOUT A TEST instead. See ANTI-PATTERNS.md #13.
+    [Fact]
+    public async Task ADayThatAlreadyCarriesBookedHoursIsLeftAlone()
+    {
+        // GIVEN a hand booking on one day of SeedData's pending row. Appended straight to the stream:
+        // a GIVEN is history, not a request to replay — and a person could not have posted this one
+        // anyway, because they have left LeftProjectId and NotAProjectMember would refuse it.
+        await Given(Timesheet(SeedData.EmployeeId), new HoursBooked(
+            Guid.NewGuid(), SeedData.EmployeeId, SeedData.Month, SeedData.LeftProjectId,
+            SeedData.WorkingDay, 8m, null, SeedData.SeededAt));
+
+        var outcome = await Invoke(new FillZeroHours(
+            Guid.NewGuid(), SeedData.EmployeeId, SeedData.Month, SeedData.LeftProjectId,
+            SeedData.WorkingDay, 0m));
+
+        outcome.WasFilled.ShouldBeFalse();
+
+        // AlreadyBooked, NOT AlreadyFilled. Splitting those two names is the whole point of this rule:
+        // a caller that cannot tell "I already did this" from "a human already did this" cannot act
+        // differently on them, and before the split both cases returned AlreadyFilled.
+        outcome.Rule.ShouldBe("AlreadyBooked");
+
+        // The person's 8 hours still stand, and no zero was written beside them.
+        (await Filled(SeedData.EmployeeId, SeedData.LeftProjectId))
+            .ShouldNotContain(e => e.Date == SeedData.WorkingDay);
+
+        var booked = (await EventsFor(Timesheet(SeedData.EmployeeId))).OfType<HoursBooked>().ToList();
+        booked.ShouldHaveSingleItem().Hours.ShouldBe(8m);
+
+        // The accepted side of the boundary. Without it, "left alone" could equally mean "never fills",
+        // and the day-by-day nature matters: only the booked day is refused, and the rest of the month
+        // fills as normal.
+        var run = await Tick();
+        run.Filled.ShouldNotContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.WorkingDay);
+        run.Filled.ShouldContain(d => d.ProjectId == SeedData.LeftProjectId && d.Date == SeedData.SecondWorkingDay);
+    }
+
+    // a closed month is not zero-filled either
+    //   GIVEN MonthClosed
+    //   WHEN  FillZeroHours
+    //   THEN  error: MonthIsClosed
+    //
+    // Also added after the fact, from the expert's "yes" to whether a closed month blocks a zero-fill.
+    // The automation is not privileged: it meets the same gate book-hours, correct-hours and
+    // remove-booking meet.
+    [Fact]
+    public async Task AClosedMonthIsNotZeroFilledEither()
+    {
+        // The accepted side FIRST, on the same fixture, because it is the only thing that proves the
+        // refusal below comes from the closure rather than from the fill never working here at all.
+        await Given(MonthClosure, MonthOpened);
+
+        var opened = await Invoke(new FillZeroHours(
+            Guid.NewGuid(), SeedData.EmployeeId, SeedData.Month, SeedData.LeftProjectId,
+            SeedData.WorkingDay, 0m));
+        opened.WasFilled.ShouldBeTrue();
+        opened.Rule.ShouldBeNull();
+
+        // GIVEN the month is then closed. MonthClosed lives in the MonthClosure stream — a different
+        // stream from Timesheet, keyed the same (employeeId, month). Appending it to the Timesheet
+        // stream would leave the gate unable to see it and the test would pass for the wrong reason.
+        await Given(MonthClosure, new MonthClosed(
+            SeedData.EmployeeId, SeedData.Month, SeedData.AdminId, null, SeedData.SeededAt));
+
+        var closed = await Invoke(new FillZeroHours(
+            Guid.NewGuid(), SeedData.EmployeeId, SeedData.Month, SeedData.LeftProjectId,
+            SeedData.SecondWorkingDay, 0m));
+
+        closed.WasFilled.ShouldBeFalse();
+        closed.Rule.ShouldBe("MonthIsClosed");
+
+        // Nothing was appended for the refused day, and the day filled before the closure still stands.
+        var filled = await Filled(SeedData.EmployeeId, SeedData.LeftProjectId);
+        filled.ShouldNotContain(e => e.Date == SeedData.SecondWorkingDay);
+        filled.ShouldContain(e => e.Date == SeedData.WorkingDay);
+
+        // And the automation's own tick writes nothing into a closed month either — the rule holds on
+        // the path that actually runs in production, not only on a direct invoke.
+        var before = (await Filled(SeedData.EmployeeId, SeedData.LeftProjectId)).Count;
+        await Tick();
+        (await Filled(SeedData.EmployeeId, SeedData.LeftProjectId)).Count.ShouldBe(before);
+    }
 }

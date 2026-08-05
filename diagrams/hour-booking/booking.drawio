@@ -334,6 +334,16 @@
             <mxGeometry x="2340" y="2220" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
+        <object id="gwt-fill-zero-hours-5" label="a day that already carries booked hours is left alone&#10;&#10;GIVEN HoursBooked&#10;WHEN FillZeroHours&#10;THEN error: AlreadyBooked" em="gwt" slice="fill-zero-hours" rule="a day that already carries booked hours is left alone" given="HoursBooked" when="FillZeroHours" then="error: AlreadyBooked" enforce="aggregate" source="domain expert, asked whether a zero may be written over hand-booked hours: &quot;no&quot;. A distinct rule from AlreadyFilled — that one is the processor working a row twice, this one is the automation refusing to overwrite a person's own booking.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="2360" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-fill-zero-hours-6" label="a closed month is not zero-filled either&#10;&#10;GIVEN MonthClosed&#10;WHEN FillZeroHours&#10;THEN error: MonthIsClosed" em="gwt" slice="fill-zero-hours" rule="a closed month is not zero-filled either" given="MonthClosed" when="FillZeroHours" then="error: MonthIsClosed" enforce="aggregate" source="domain expert, asked whether a closed month blocks a zero-fill: &quot;yes&quot;. The same rule book-hours and correct-hours enforce, so the automation is not privileged here — a closed month is closed to the system too.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="2500" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
         <mxCell id="e-evt-employee-assigned--rm-my-projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitDx=0;exitDy=0;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-employee-assigned" target="rm-my-projects">
           <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="58" y="1410" /><mxPoint x="58" y="640" /></Array></mxGeometry>
         </mxCell>

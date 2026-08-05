@@ -67,12 +67,20 @@ whole model.
 | | Must be true |
 | --- | --- |
 | Backend | `dotnet test` green, and the slice's tests **LIVE not skipped** |
+| Coverage | `codegen` prints no `GWT WITHOUT A TEST` — see below, this one is not implied by green |
 | Reads | anything the screen `displays=` can actually be fetched |
 | Frontend | `tsc` clean, `design.mjs check` clean, and **the render has been looked at** |
 | Model | `model.mjs validate` still zero errors — implementing must not have needed a model change nobody made |
 
 Verify these yourself. An agent reporting success is a claim, and the whole kit is built on not taking
 claims for verification.
+
+**A green run does not mean every rule has a test.** Test files are `scaffold` — written once, then
+hand-owned — so a GWT added to a slice that is *already implemented* gets no test, fails nothing, and
+is skipped by nothing. That is the normal case whenever the domain expert answers an open question
+about a slice that is already green. `codegen` compares the model's GWTs against the kept test file and
+lists the missing ones; the fix is to write them by hand, because a generator must not append into a
+file somebody else owns. ANTI-PATTERNS.md #13.
 
 Then promote the slice past `in-progress` and **stop**. Do not start a second slice in the same
 session: the point of one-at-a-time is that the second one tells you what the first cost.

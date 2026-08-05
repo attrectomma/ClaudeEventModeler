@@ -89,6 +89,21 @@ const scaffold = (p, body) => {
   write(p, body); files.push(p);
 };
 
+// A GWT added to a slice that is ALREADY implemented gets no test, because the test file is
+// scaffold — written once, then hand-owned, and regeneration keeps it. Nothing failed, nothing was
+// skipped, and the rule simply had no test. That defeats the one gate the whole kit rests on: "the
+// slice's tests are live, not skipped."
+//
+// Every generated test carries its rule text as a comment, so a kept file can be checked for
+// coverage without parsing C#. Reported rather than repaired: appending into a file somebody else
+// owns is how a generator destroys hand-written work.
+const untested = [];
+const checkGwtCoverage = (p, gwts) => {
+  if (!existsSync(p)) return;
+  const src = readFileSync(p, "utf8");
+  for (const g of gwts) if (!src.includes(g.rule)) untested.push({ path: p, rule: g.rule });
+};
+
 // --- events -----------------------------------------------------------------------------------
 
 const owned = ir.shared.events.filter((e) => e.ownedBy);
@@ -176,16 +191,28 @@ const registerable = [];   // views whose projection is valid enough to register
 for (const v of ir.shared.views) {
   const derived = Object.entries(v.derived ?? {});
   const streams = [...new Set(v.from.map((l) => ir.shared.events.find((e) => e.label === l)?.aggregate).filter(Boolean))];
-  // One row is one stream only when the view is keyed exactly as its single feeding stream is.
-  // Anything else — several streams, or a finer grain than the stream — needs the multi-stream base
-  // class, whatever the stream count says.
+  // One row is one stream only when the view is keyed as its single feeding stream is. Stream COUNT
+  // alone does not say that: WorkingDays is fed from one stream and keyed by date, so one stream holds
+  // many rows and the single-stream base class cannot express it.
+  //
+  // But an undeclared grain is not evidence of a finer one. A view that declares no identity= is
+  // assumed to be one row per stream, which is what it was before anyone asked — demanding a match
+  // there dropped `Admins` (one row per admin, fed by one stream, grain never declared) to
+  // multi-stream with no slicing rule, and the generator then commented its registration out
+  // entirely. A stricter check that silently stops projecting a working view is worse than the bug it
+  // fixed.
+  //
+  // So the multi-stream base class is used when there is real evidence of it: several feeding
+  // streams, or a declared grain that the single feeding stream's key does not match.
   const streamKey = streams.length === 1
     ? (ir.shared.aggregates.find((a) => a.name === streams[0])?.identity ?? [])
     : [];
-  const ownKey = v.identity?.length ? v.identity : SYS_KEY;
-  const rowIsStream = streams.length === 1 && streamKey.length > 0 &&
-    streamKey.length === ownKey.length && streamKey.every((k) => ownKey.includes(k));
+  const declared = v.identity?.length ? v.identity : null;
+  const rowIsStream = streams.length === 1 && (
+    declared === null ||
+    (streamKey.length === declared.length && streamKey.every((k) => declared.includes(k))));
   const multi = !rowIsStream;
+  const ownKey = declared ?? SYS_KEY;
   // A row of THIS view, not of the system. Declared on the read model where the grain is known;
   // where it is not, fall back to the system key and say so, because guessing a view's grain
   // silently is how a projection ends up grouping the wrong rows together.
@@ -489,6 +516,7 @@ for (const s of ir.slices) {
     ? `${stateName(s)}.StreamKey(/* ${agg.identity.join(", ")} */)`
     : "/* no command in this slice, so no stream is written */";
   gwtCount += s.gwts.length;
+  checkGwtCoverage(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`), s.gwts);
   scaffold(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
     `${banner(`slice "${s.name}" — ${s.gwts.length} GWT(s), one test each`)}
 using Alba;
@@ -683,5 +711,17 @@ console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, $
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
 console.log(`  ${gwtCount} GWT test(s) across ${ir.slices.filter((s) => s.gwts.length).length} slice(s)`);
+
+if (untested.length) {
+  console.log(`\nGWT WITHOUT A TEST — ${untested.length}. These rules are in the model and in no test file,`);
+  console.log(`because the test file was scaffolded before the GWT was added and is now hand-owned.`);
+  console.log(`A green run does NOT cover them. Add each by hand, next to the tests already there:`);
+  let last = null;
+  for (const u of untested) {
+    if (u.path !== last) { console.log(`  ${u.path.replace(OUT, "").replace(/^[\\/]/, "")}`); last = u.path; }
+    console.log(`    - ${u.rule}`);
+  }
+}
+
 console.log(`\nNOTE: Testcontainers is not in reference/llms/ — that harness is the one part written`);
 console.log(`      from unverifiable knowledge. Everything else cites a mirrored page.`);

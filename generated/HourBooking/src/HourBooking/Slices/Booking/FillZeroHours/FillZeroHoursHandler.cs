@@ -36,17 +36,42 @@ public static class FillZeroHoursHandler
         IDocumentSession session,
         CancellationToken cancellation)
     {
+        // MonthIsClosed. GWT 6: "a closed month is not zero-filled either" — the automation is not
+        // privileged, so it meets the same gate book-hours, correct-hours and remove-booking meet.
+        //
+        // MonthClosed lives in the MonthClosure stream, not this one, so this is a cross-stream READ and
+        // never a second write. One command, one stream: writing both would need a transactional
+        // boundary around two aggregates, which swimlane/command-crosses-swimlane forbids.
+        //
+        // MonthGate is the same fold the three HTTP deciders use, reused unchanged. FetchLatest is on
+        // IDocumentSession.Events — there is no such method on IQuerySession.Events.
+        var gate = await session.Events.FetchLatest<MonthGate>(
+            MonthGate.StreamKey(command.EmployeeId, command.Month), cancellation);
+        if (gate?.IsClosed == true)
+            return ZeroFillOutcome.Rejected("MonthIsClosed",
+                "A closed month is not zero-filled either. Closed is closed, for the system as well as for a person.");
+
         var stream = await session.Events.FetchForWriting<FillZeroHoursState>(
             FillZeroHoursState.StreamKey(command.EmployeeId, command.Month), cancellation);
         var sheet = stream.Aggregate ?? new FillZeroHoursState();
 
-        // AlreadyFilled. The todo list already stops the processor working a row twice; this is the
-        // rule enforced in the transaction, where a concurrent tick or a hand booking is visible.
+        // Two DIFFERENT rules, distinguished by who put the line there. Both are enforced in the
+        // transaction, where a concurrent tick or a hand booking is visible — and both carry their own
+        // name, because the name is the machine-readable half. A caller that cannot tell "I already did
+        // this" from "a human already did this" cannot act differently on them.
         var standing = sheet.Standing(command.Date, command.ProjectId);
+
+        // AlreadyFilled — GWT 4. The processor working the same row twice. The todo list's tick-off
+        // already stops this cheaply; this is the rule that actually holds.
+        if (standing is { ZeroFilled: true })
+            return ZeroFillOutcome.Rejected("AlreadyFilled",
+                $"{command.Date:yyyy-MM-dd} is already zero-filled for this project.");
+
+        // AlreadyBooked — GWT 5. The automation refusing to overwrite a person's own booking. Asked
+        // whether a zero may be written over hand-booked hours, the domain expert said no.
         if (standing is not null)
-            return ZeroFillOutcome.Rejected("AlreadyFilled", standing.ZeroFilled
-                ? $"{command.Date:yyyy-MM-dd} is already zero-filled for this project."
-                : $"{command.Date:yyyy-MM-dd} already carries booked hours for this project, and only one line may stand per day+project.");
+            return ZeroFillOutcome.Rejected("AlreadyBooked",
+                $"{command.Date:yyyy-MM-dd} already carries booked hours for this project, and a zero-fill does not overwrite them.");
 
         stream.AppendOne(new ZeroHoursFilled(
             command.BookingId, command.EmployeeId, command.Month, command.ProjectId, command.Date,
