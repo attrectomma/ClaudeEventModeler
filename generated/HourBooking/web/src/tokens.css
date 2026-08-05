@@ -160,10 +160,18 @@ button.primary:hover { background: #17493b; }
   .link { margin-left: var(--s2); display: block; text-align: right; margin-top: 2px; }
   tfoot td { padding-top: var(--s3); }
 
-  form { flex-direction: column; align-items: stretch; }
-  form > div, .field-note, button.primary { width: 100%; }
-  input, select { width: 100%; }
-  input.num { width: 100%; text-align: left; }
+  /* The form stops being a flex container at all. Two attempts at fixing it AS flex both still
+     overflowed the viewport — a wrapping column container, percentage widths resolving against the
+     wrong box, take your pick. Block layout has none of those failure modes: a block child is
+     auto-width, which IS the containing block. Diagnosed by outlining the boxes in a screenshot,
+     twice, because the first diagnosis was wrong. */
+  form { display: block; }
+  form > div { margin-bottom: var(--s3); }
+  form h2 { margin-bottom: var(--s3); }
+  input, select, button.primary { display: block; width: 100%; }
+  input.num { text-align: left; }
+  .hint { margin-top: var(--s3); }
+
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

@@ -253,6 +253,25 @@ for (const s of ir.slices) {
   const p = s.gwts.filter(isPeriphery);
   if (p.length && s.commands.length) peripheryBySlice.set(s, p);
 }
+// One command record per command, always. Derived from the IR, so emit() and not scaffold().
+for (const s of ir.slices) {
+  if (!s.generates || !s.commands.length) continue;
+  const cmd = s.commands[0];
+  const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === cmd));
+  const fields = agg?.commands.find((c) => c.label === cmd)?.fields ?? [];
+  emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}.cs`),
+    `${banner(`${cmd} — the command as the model declares it`)}
+namespace ${NS}.Slices.${pascal(s.context)};
+
+/// <summary>
+/// Slice: ${s.name}. Fields exactly as the model declares them: ${fields.map((f) => f.name).join(", ") || "none"}.
+/// Emitted for every command, whether or not the slice has periphery rules — a validator-free
+/// command still needs a type.
+/// </summary>
+public sealed record ${pascal(cmd)}(${params(fields)});
+`);
+}
+
 for (const [s, gwts] of peripheryBySlice) {
   const cmd = s.commands[0];
   const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === cmd));
@@ -278,8 +297,7 @@ ${gwts.map((g) => `        // ${ruleName(g)}: ${(g.rule ?? "").replace(/\s+/g, "
     }
 }
 
-/// <summary>The command as the model declares it. Fields: ${fields.map((f) => f.name).join(", ") || "none"}.</summary>
-public sealed record ${pascal(cmd)}(${params(fields)});
+// The ${pascal(cmd)} record itself is emitted next door, per command rather than per validator.
 `);
 }
 
