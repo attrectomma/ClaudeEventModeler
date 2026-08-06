@@ -857,6 +857,20 @@ while asserting a fiction:
 A label may legitimately contain parentheses — the book's own model writes `Inventory Changed (external)` —
 so **parentheses alone do not make example data; an `=` inside them does.**
 
+**`derived-without-example` warns where a derived field has no worked example** anywhere in its slice. It is
+a warning and not yet an error only because models written before the notation existed do not carry
+examples; promoting it is a one-word change and the intent is to promote it.
+
+Two things it found immediately, both in this kit's own reference implementations:
+
+- **`MessageStatus` said "3 recipients" in its GWT label and the implemented test asserted 2.** Prose in a
+  label is not checked, so the model and the code it produced had drifted and stayed green. That single case
+  is the argument for structured examples over prose.
+- **A todo View on an automation or translation slice cannot carry one at all** — `then=` must name an Event
+  where the slice has a Command, so `then="EmailsToSend(status=…)"` is rejected. The rule says so rather
+  than recommending it, because advice a validator refuses is how a checker stops being read. Whether the
+  `then=` rule should relax for a todo View is an open decision, not an oversight.
+
 **And a `when=` is now checked on every pattern.** It used to be validated only on `command` slices, so an
 automation, translation or view could name a command that does not exist and hear nothing. Unchecked is not
 the same as optional: the WHEN may be *omitted* on those patterns — that is the GT shape — but a WHEN that

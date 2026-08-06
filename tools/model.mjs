@@ -992,6 +992,47 @@ function gwtRules(ir) {
         }
       }
     }
+
+    // A DERIVED FIELD WITH NO WORKED EXAMPLE IS AN UNANSWERED QUESTION, and the whole reason example data
+    // exists. `derived="total=price"` names the inputs and never the formula, so two implementers can read
+    // one model and write folds that behave differently — both satisfying it, one of them wrong.
+    //
+    // Measured, on this kit's own translation reference: StockNoticesToApply.status is
+    // derived="status=StockNoticed+StockLevelSet". One reading is "outstanding until what we accepted
+    // catches up", another is "outstanding until any StockLevelSet exists". They differ on a redelivery —
+    // the second re-opens the row and the trigger issues a doomed command on every wakeup for ever. The
+    // model determined neither. The decision ended up in a code comment inside a scaffold, which is exactly
+    // where this kit says decisions must not live.
+    //
+    // WARN, NOT ERROR, and deliberately for now: every model written before example data existed carries
+    // derived= fields with no examples, so an error would fail work that was correct under the rules it was
+    // written to. Promoting it is a one-word change once the models carry their examples, and it is worth
+    // doing — the standing instruction is to prefer loosening a rule later to living with a bad model.
+    const exampled = new Set();
+    for (const g of s.gwts) {
+      for (const st of [...g.givenSteps, ...g.whenSteps, ...g.thenSteps]) {
+        for (const key of Object.keys(st.example ?? {})) exampled.add(`${st.label} ${key}`);
+      }
+    }
+    for (const id of [...s.commands, ...s.readModels, ...s.events]) {
+      const el = byId.get(id);
+      for (const target of Object.keys(el?.derived ?? {})) {
+        if (exampled.has(`${el.label} ${target}`)) continue;
+
+        // AND THE ADVICE MUST BE POSSIBLE TO FOLLOW. On a slice that HAS a command, then= must name an
+        // Event — a read-model outcome is accepted only where there is no command. So telling somebody to
+        // write then="TodoView(status=…)" on an automation or translation slice recommends exactly what the
+        // validator rejects two rules later. The first version of this check said precisely that to
+        // EmailsToSend.status and StockNoticesToApply.status — the two cases that motivated the rule.
+        const inexpressible = el.kind === "readmodel" && s.commands.length > 0;
+        push("warn", "derived-without-example",
+          `${el.label}.${target} is derived from ${el.derived[target].join(" + ")}, and no GWT in slice "${s.name}" shows what it works out to. derived= records the INPUTS, never the formula, so two implementers can read it differently and both claim they matched the model. ` +
+          (inexpressible
+            ? `NO GWT CAN STATE IT TODAY: this is a View on a slice that has a Command, where then= must name an Event. Either its semantics belong on the events it folds, or the then= rule needs relaxing for a todo View — a decision to take, not an oversight to fix.`
+            : `Add one worked example, e.g. then="${el.label}(${target}=…)".`),
+          el.id);
+      }
+    }
   }
 
   return d;

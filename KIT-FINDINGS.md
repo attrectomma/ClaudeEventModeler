@@ -330,13 +330,33 @@ fixture, because the book's own event is labelled `Inventory Changed (external)`
 Parentheses alone no longer make example data; an `=` inside them does. A false positive is worse than a
 missing rule, because it teaches people to stop reading the output.
 
-**Still open, and it is the reason this matters more than the notation:** nothing yet *requires* an example
-where one is needed. `StockNoticesToApply.status` is declared `derived="status=StockNoticed+StockLevelSet"`,
-and two implementers can satisfy that model with folds that behave differently on a redelivery — one settles
-the row, the other re-opens it and the trigger issues a doomed command for ever. I chose one and wrote the
-reasoning in a code comment, which is exactly where the kit says decisions must not live. A
-`derived-without-example` warning is the next step; promoting it to an error is a one-word change once the
-existing models carry their examples.
+### T10b — `derived-without-example`, and what it found on the first run
+
+The follow-up: nothing *required* an example where one was needed. Now `derived-without-example` warns when a
+`derived=` field has no worked example anywhere in its slice. It found 17 in the models this kit owns, and two
+of them were real:
+
+- **`MessageStatus`'s GWT label said "3 recipients"; the implemented test asserts 2.** The model and the code
+  generated from it had drifted, and the suite stayed green — because the numbers were **prose in a label**,
+  which nothing checks. One case, and it is the entire argument for structured example data over description.
+- **A todo View on an automation or translation slice cannot carry an example at all.** `then=` must name an
+  Event where the slice has a Command, so `then="EmailsToSend(status=…)"` is rejected two rules later. The
+  first version of the check recommended exactly that — to `EmailsToSend.status` and
+  `StockNoticesToApply.status`, *the two cases that motivated the whole rule*. It now says the truth instead:
+  no GWT can state this today, and whether `then=` should relax for a todo View is a decision to take.
+
+**Backfilled 15 of 17**, all of `campaigns/` — every value taken from the implemented, passing tests rather
+than invented, and every one of them cleared the strict type and field checks on the first run. That model
+went from 15 warnings to 0.
+
+**Not promoted to error, and here is exactly what blocks it:** the two todo Views above (needs the `then=`
+decision) and three in `tools/fixtures/cart/` (the book's own model, which states no example data — inventing
+values there would be inventing domain facts). Promotion is a one-word change once those five are settled.
+
+**And a bug worth recording about the tooling rather than the kit:** the first implementation wrote a NUL byte
+instead of a space into a template literal, so the "has this field got an example?" key never matched and the
+rule would have fired on every derived field, including ones with examples. It surfaced as `grep` reporting
+`model.mjs` as a binary file. Caught by checking why, rather than working around it.
 
 ### T1 — The generator emits no ingest seam for a foreign event · **GAP**
 
