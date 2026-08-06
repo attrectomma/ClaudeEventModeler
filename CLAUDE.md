@@ -272,24 +272,47 @@ and therefore stays invisible to plain Read.
   directly. The package is a devDependency — run `npm install` if `node_modules` is missing.
 - **drawio.com's MCP docs are stale.** They describe the server as generation-only. v1.5.0 ships
   `list_pages` / `get_page` / `set_page` against local files. Trust `tools/list` over the docs.
-- **The link is save-triggered, not push-live.** Claude sees changes when the file reaches disk,
-  not as the cursor moves. Push-live would need the third-party `lgazo/drawio-mcp-server`
-  WebSocket bridge; deliberately not installed.
-- **An open draw.io tab is a stale snapshot, and saving it destroys Claude's work.** The extension
-  reads the whole diagram into memory on open and only writes on save — it never notices the file
-  changing underneath it. So after Claude edits, that tab still holds the *old* diagram, and on
-  close it offers to "save changes" you never made. **Answer no, then close and reopen.** The tell
-  is the editor disagreeing with a freshly rendered PNG. Recovery if it does get saved:
-  `git checkout -- <file>` — which is the real reason to commit the model at every milestone.
-  Before a hand-off, say explicitly whether the file changed on disk.
+- **Claude → editor is already live. Measured, not assumed.** An earlier version of this file said an
+  open draw.io tab was a stale snapshot that never noticed the file changing underneath it, and that
+  saving it destroyed Claude's work — so the rule was *answer no, then close and reopen*. **That is
+  wrong on `hediet.vscode-drawio` as installed here.** The three-part probe, run against
+  `diagrams/cart/cart.drawio`: a cell written by plain `Edit` **appeared in the open tab with no
+  reload and no prompt**; the tab did **not** go falsely dirty
+  ([issue #215](https://github.com/hediet/vscode-drawio/issues/215) is fixed); and closing afterwards
+  did **not** offer to save anything. The extension uses draw.io's merge API on external change.
+- **A merge flushes the human's unsaved edit to disk too.** With a genuinely dirty tab — a box moved
+  and recoloured, never saved — an external write from Claude landed, and the file on disk then held
+  **both** changes. No autoSave is configured at either project or user level, so the merge itself
+  writes. The practical consequence is the good one: **concurrent editing does not lose either side**,
+  so Claude no longer has to ask the human to close the tab before it edits.
+- **Still save-triggered in the other direction.** Claude sees the human's changes when they reach
+  disk, not as the cursor moves — and per the bullet above, a Claude write is one of the things that
+  makes them reach disk. True push-live would need `lgazo/drawio-mcp-server`, which is **browser-only**
+  (Chrome/Firefox extension or its own hosted editor; its README rules out the VS Code extension and
+  documents no local-file round-trip). Adopting it would cost both the VS Code surface and
+  file-is-truth, to buy a direction we already have. Not installed, and now for a stated reason.
+  [`abossard/drawio-mcp`](https://github.com/abossard/drawio-mcp) is the VS-Code-shaped alternative if
+  one is ever wanted — but its live update *is* plain file writes plus the merge proved above, so it
+  adds tooling, not capability.
+- **The human is a read-only observer, and that is a deliberate division of labour.** The draw.io tab
+  is open to *watch* Claude edit, not to edit alongside it — so the live direction that matters is
+  disk → editor, and it works. Claude owns every write to the `.drawio`.
+- **A human Ctrl+S would reformat the whole file** — latent, not a current problem, because of the
+  bullet above. draw.io's serializer rewrites every line: 2-space → 4-space indent, attributes
+  reordered with `id=` moved last, `/>` self-closing, `host="Electron"` → `host="<hash>"`. Six lines
+  of content measured **479 insertions / 473 deletions**, so *"fully diffable"* holds only while the
+  human does not save. If hand-editing ever starts, canonicalising both serializers is the fix; until
+  then `git checkout -- <file>` reverts an accidental save, which is the standing reason to commit the
+  model at every milestone.
 - **MCP and memory are both cwd-scoped.** A session started outside this folder sees neither
   `.mcp.json` nor this project's memory. Durable knowledge belongs in this file.
 - **`code <folder>` hijacks an empty VS Code window.** Pass `--new-window` when the current
   window holds a live conversation.
 
-Open question: does the VS Code draw.io extension save compressed or uncompressed? Only a real
-human Ctrl+S answers it. Check with `node tools/drawio.mjs check <file>` after the first save; if
-compressed, `inflate` it. The MCP path works either way, so nothing is blocked on it.
+**Answered: the VS Code extension saves uncompressed.** This was an open question here until a real
+human Ctrl+S settled it — the saved file was plain, readable mxGraph XML, so the default plain-file
+path survives a human edit and no `inflate` step is needed. `node tools/drawio.mjs check <file>` is
+still the way to confirm for a file of unknown provenance.
 
 ## Always close the loop by looking at the diagram
 
