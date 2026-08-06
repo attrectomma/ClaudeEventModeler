@@ -314,6 +314,135 @@ human Ctrl+S settled it — the saved file was plain, readable mxGraph XML, so t
 path survives a human edit and no `inflate` step is needed. `node tools/drawio.mjs check <file>` is
 still the way to confirm for a file of unknown provenance.
 
+## Driving the kit by voice
+
+**The human dictates and does not type; the diagram is watched, not edited.** Both halves are
+deliberate. Combined with the live merge above, the loop is *voice in, picture out*: talk, and watch
+the draw.io tab redraw. It also makes the kit demoable — push-to-talk means the mic is open only while
+the key is down, so what is said to a room stays off the wire.
+
+**This is native, and MCP is the wrong layer for it.** An MCP server is called *by* Claude during a
+turn; it cannot start one. A `listen()` tool would only work inside an already-running turn, which
+inverts control, cannot be interrupted, and bills every round trip. The STT MCP servers that exist
+work around this with a terminal keybinding that types into the input — bypassing MCP for the part
+that matters. It is a client concern and lives in the client.
+
+### The surface is the VS Code panel, and it is not the one the docs describe
+
+**This kit is driven from the Claude Code VS Code extension panel — never the terminal TUI.** That is
+a standing decision, and it decides everything below, because *the two surfaces have completely
+different voice implementations and share no configuration.*
+
+| | Terminal TUI | **VS Code panel** ← ours |
+| --- | --- | --- |
+| Turned on by | `/voice [hold\|tap\|off]`, persisted to settings.json | **nothing — it is on whenever it can be** |
+| Config key | `voice: { enabled, mode }` (and a mirrored `voiceEnabled`) | **none. Both keys are ignored** |
+| Trigger | a rebindable key, `Space` by default | **the mic button, or `Ctrl+D` (`⌘D` on Mac)** |
+| hold vs tap | a mode you must choose | **both, always, no setting** |
+
+So **`/voice` does not exist here** and neither does `~/.claude/settings.json`'s `voice` block — a
+correct-looking one can sit in that file doing nothing, which is exactly how this was mis-documented
+for a while. Read from the shipped extension bundle, the whole gate is:
+
+```js
+isSpeechToTextEnabled() {
+  if (vscode.env.remoteName) return false;                       // no SSH / devcontainer / web
+  if (auth.getAuthStatus()?.authMethod !== "claudeai") return false;
+  return nativeAudioModuleLoads() || hasRecOrArecordOnPath();
+}
+```
+
+Nothing else. If the mic icon is missing from the right-hand edge of the input box, it is one of those
+three — not a setting you forgot.
+
+### `Ctrl+D` is push-to-talk and tap-to-toggle at once
+
+One key, and which one you get is decided by how long you hold it — there is no mode to pick:
+
+- **Hold past a short threshold, release → stops.** True push-to-talk: the mic is open only while the
+  key is down, which is the property that makes the kit demoable in a room.
+- **Tap and release quickly → latched.** Tap again, or click the mic, to stop.
+- **The panel losing focus stops recording**, so alt-tabbing cannot leave the mic open.
+
+**Neither path submits.** The transcript lands in the input and the human presses Enter — the pause is
+the proofread, and here it is free rather than something `autoSubmit: false` has to buy. (The TUI's tap
+mode *does* auto-submit with no opt-out; that is a TUI problem, and one more reason not to use it.)
+
+`Ctrl+D` is a webview key listener, not a VS Code keybinding — so it fires only while the Claude panel
+has focus, there is no `keybindings.json` entry to write, and it does not collide with the editor's own
+`Ctrl+D`, whose `when` clause is `editorTextFocus`.
+
+### Auto-post: asked for, investigated, deliberately not built
+
+**There is no auto-submit on this surface and no setting that adds one.** `autoSubmit` occurs zero times
+in the webview bundle; the `voice.autoSubmit` key in the settings schema is the TUI's, and the extension
+host *defines* that schema without ever reading it. The stop path calls `stopSpeechToText()` and nothing
+else. So this is not a configuration question and there is nothing to search for again.
+
+**And a naive workaround is worse than it looks.** `stopSpeechToText()` flips the UI out of recording
+**synchronously**, but the transcript keeps arriving on the channel until the *host* closes it. The STT
+stream runs with `endpointing_ms: 300` and `utterance_end_ms: 1000`, so the tail of the last sentence can
+land up to about a second after the key comes up. An Enter fired on release — by a macro or by a fast
+human — submits a **truncated prompt that looks complete**. Any real implementation would have to hook
+the channel closing, not a timer.
+
+The two ways to get it were priced and declined: an AutoHotkey macro (a guessed delay, and it would fire
+after the first tap in tap-mode too), or patching `webview/index.js` (correct timing, but it modifies a
+signed extension that VS Code silently overwrites — 2.1.215 → 2.1.223 inside one day).
+
+**The pause is load-bearing, which is the actual reason** — and the next section is what it is guarding
+against. Enter is where a mis-heard *type* gets caught; `add-slice`'s gap list is the second net, not
+the first.
+
+### What voice gets wrong here, and why it mostly does not matter
+
+Transcription is tuned for coding vocabulary and auto-adds exactly two recognition hints: **the project
+name and the git branch**. There is **no user-configurable vocabulary** — no dictionary, no term list.
+So this kit's own jargon is unhinted: `aggregateId`, `swimlane`, `GWT`, `em=`, `binds=`, `.drawio`, and
+the unfortunate one — **`Marten` transcribes as `Martin`**, which is also the maintainer's name.
+
+It matters less than it would in an editor, because **Claude is the error-correcting layer**: the
+vocabulary is small and closed, so "cart items read model" resolves to `rm-cart-items` and "Martin" in
+a sentence about projections is obviously the library.
+
+**The exception is where precision *is* the content** — `fields="aggregateId:UUID, price:Double"`. A
+mis-heard *type* is a silent domain error that reaches generated code and compiles. This is exactly
+what `add-slice`'s gap list is for: every attribute must trace to a sentence in the brief, and the
+remainder is asked rather than filled. Under dictation that discipline stops being bureaucracy.
+
+### Requirements, and the one that is a policy question
+
+Needs a **Claude.ai account** — unavailable on a raw Anthropic API key, Bedrock, Vertex or Foundry —
+an organisation **without HIPAA compliance enabled**, and a **local window**: `vscode.env.remoteName`
+being set disables it outright, so Remote-SSH, Dev Containers, WSL-remote and Claude Code for web all
+lose dictation regardless of whether a microphone exists.
+
+Capture is a **native module the extension ships**, at
+`resources/audio-capture/<arch>-<platform>/audio-capture.node`, with `rec`/`arecord` on `PATH` as the
+only fallback — neither of which exists on Windows. So on this machine the native module loading *is*
+the audio backend: if a future extension update ships without the `x64-win32` build, the mic silently
+disappears and no setting will bring it back.
+
+**Audio is streamed to Anthropic's servers and is not processed locally**, which is the fact to weigh
+before dictating client-confidential domain detail. Transcription consumes no tokens and does not count
+toward `/usage`.
+
+Dictation language follows the `language` setting and falls back to English — **unverified on this
+surface**, since the panel streams audio from the extension host rather than through the CLI.
+**Hungarian is not among the 20 supported languages** either way; dictate in English.
+
+### When it stops working, in the order worth checking
+
+1. **Reload the window.** The extension updates itself in place while VS Code is running, so an old
+   extension host keeps serving the old webview. This is the most likely cause of "it worked yesterday".
+2. **Look for the mic icon** at the right edge of the input box. Absent means the gate above failed;
+   present but disabled means the OS denied the microphone, and the tooltip says which settings panel
+   to fix it in.
+3. **`Claude Code: Show Logs`** from the command palette. There is no `/voice` to interrogate, so this
+   is the only place a reason is written down.
+4. **Do not go editing `~/.claude/settings.json`.** Nothing in it affects this surface, and a `voice`
+   block there is inert — the reason this section exists.
+
 ## Always close the loop by looking at the diagram
 
 Never hand over diagram XML you have not rendered. Layout bugs — edges crossing through
