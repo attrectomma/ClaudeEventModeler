@@ -22,19 +22,19 @@ one layer across many slices.
 
 ## Before delegating anything
 
-1. **`node tools/model.mjs validate diagrams/<system>/` at zero errors.** Implementing against a
+1. **`node tools/model.mjs validate` at zero errors.** Implementing against a
    model that has not passed its own gate is building on a guess.
 2. **`node tools/docs.mjs status`** — all three libraries mirrored. `sync` if not. The backend agent
    depends on this and cannot fix it.
 3. **Pick the slice with the furthest `status=`** — `ready` if one exists. Set it to `in-progress` and
    **work on its own branch**: `status` is advisory, a branch is the only exclusion git offers.
-4. **`node tools/codegen.mjs diagrams/<system>/`** — reports `N written, M kept`. `kept` files are
+4. **`node tools/codegen.mjs`** — reports `N written, M kept`. `kept` files are
    hand-owned and will not be clobbered.
 5. **Read the slice's contract out of the IR** and hand it over rather than making each agent
    rediscover it:
 
 ```bash
-node tools/model.mjs compile diagrams/<system>/    # -> build/<system>.ir.json
+node tools/model.mjs compile    # -> build/<system>.ir.json
 ```
 
 The slice's `commands`, `emits`, `screen`, and its GWTs with their `enforce=` — plus the stream's

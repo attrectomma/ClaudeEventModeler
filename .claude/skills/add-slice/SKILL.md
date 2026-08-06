@@ -60,8 +60,9 @@ questions defeats it.
 ## 1 — locate or create the model
 
 ```
+node tools/project.mjs where                # which project this kit copy writes to
 node tools/drawio.mjs check <file>          # compressed? inflate before any plain read
-node tools/model.mjs validate diagrams/<system>/
+node tools/model.mjs validate               # the project's diagrams/, and the cross-model rules
 node tools/drawio.mjs render <file>         # then Read the PNG
 ```
 
@@ -74,8 +75,10 @@ with different fields (`event-shape-disagrees`).
 snapshot from when it was opened, and saving it silently overwrites your work. Answer no to "save
 changes", close, reopen.
 
-**If there is no model yet**, this skill starts one: copy `diagrams/template.drawio` to
-`diagrams/<system>/<context>.drawio`, rename the model cell, and set `context=` to the file name. The
+**If there is no model yet**, this skill starts one: copy the kit's `templates/template.drawio` to
+`<project>/diagrams/<context>.drawio`, rename the model cell, and set `context=` to the file name.
+If there is no *project* yet either, stop and run `node tools/project.mjs init --project <path>` —
+a model drawn inside the kit copy is in the wrong place and nothing downstream will find it. The
 first swimlane's `streams=` and `identity=` are **domain answers** and belong in the gap list — do not
 name a stream from a guess about the aggregate.
 
@@ -211,7 +214,7 @@ ones would cut through the ones above. Send them out the left edge and up a corr
 
 > Specified in `tools/slice.spec.md` and exercised by `tools/fixtures/cart-replay.mjs`, which builds
 > the cart model of *Understanding EventSourcing* ch. 12–17 as the nine appends those chapters are —
-> including the insert-at-position-0 that ch. 16 demands. `diagrams/cart/` is the result. If you think
+> including the insert-at-position-0 that ch. 16 demands. `tools/fixtures/cart/` is the result. If you think
 > the tool has a geometry bug, reproduce it there first: that fixture is the regression suite.
 
 ### Writing the cells
@@ -230,7 +233,7 @@ ones would cut through the ones above. Send them out the left edge and up a corr
 ## 5 — validate, check, mark, render, look
 
 ```
-node tools/model.mjs validate diagrams/<system>/       # the FOLDER, always
+node tools/model.mjs validate                          # the FOLDER, always
 ```
 
 Validate the folder rather than the file: a single file cannot see whether an imported event is
@@ -302,7 +305,7 @@ list; the fix is to write those tests by hand, because a generator must not appe
 somebody else owns:
 
 ```
-node tools/codegen.mjs diagrams/<system>/     # reports N written, M kept, and GWT WITHOUT A TEST
+node tools/codegen.mjs                     # reports N written, M kept, and GWT WITHOUT A TEST
 ```
 
 **A new event feeding an existing View updates the view *type* but not the projection.** View types are

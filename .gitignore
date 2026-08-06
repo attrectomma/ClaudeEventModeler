@@ -1,19 +1,23 @@
 node_modules/
 
+# Which project THIS copy of the kit writes to. Machine-specific by definition — an absolute path
+# on someone else's disk. Every copy configures its own:
+#   node tools/project.mjs init --project <path>
+project.json
+
 # Purchased books — reference material, never committed. Includes text extracted
 # from them by tools/pdf-text.mjs.
 *.pdf
 *.epub
 reference/
 
-# Rendered previews are build output — regenerate with tools/drawio.mjs render
+# Rendered previews are build output — regenerate with tools/drawio.mjs render.
+# tools/fixtures/cart/cart.drawio is NOT covered by this and is committed on purpose:
+# "byte-identical on re-run" is the assertion cart-replay.mjs makes.
 *.png
 
 # verifier scratch
-diagrams/.verify-tmp.drawio
-
-# derived IR — regenerate with tools/model.mjs compile
-build/
+templates/.verify-tmp.drawio
 
 # .NET build output. The generated *.cs files ARE committed: their diff is how a model
 # change gets reviewed. Not anchored to generated/ — reference-implementations/ has its own
@@ -21,10 +25,7 @@ build/
 **/bin/
 **/obj/
 
-# Generated design previews — regenerate with tools/design.mjs sheet
-designs/*/index.html
-designs/*/_shots/
-
-# Vite build output and installed packages under generated/
-generated/**/web/dist/
-generated/**/web/.vite/
+# NOTHING ELSE BELONGS HERE. diagrams/, designs/, build/ and generated/ are the PROJECT's, not the
+# kit's: they live under the project root, covered by the .gitignore that `project.mjs init` writes
+# there. If one of them ever appears in this folder, some tool resolved a path against the kit
+# instead of the project — which is a bug to fix, not something to ignore.

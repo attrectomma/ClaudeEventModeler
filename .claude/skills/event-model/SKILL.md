@@ -22,7 +22,7 @@ stop.
 
 | # | Phase | Produces | Gate |
 | --- | --- | --- | --- |
-| 0 | Scope | a system folder and one context file | they agree what is in and out |
+| 0 | Scope | the inbox read back, and one context file | they agree what is in and out |
 | 1 | Brainstorm events | orange cells, any order | "what's missing?" |
 | 2 | Storyboard | one left-to-right timeline | they can read the story back |
 | 3 | Stream boundaries | swimlane bands, `aggregate=` | each band is a narrative on its own |
@@ -55,15 +55,51 @@ If the user gives you information belonging to a later phase, note it and stay w
 
 ## Phase 0 — scope, no modelling
 
-Ask for the loose requirement list, in their words. Nothing else. The book starts here
-deliberately: *"The only thing we have right now is a loose set of requirements… We will start by
-simply trying to list the facts we know about the system."*
+**First, check there is a project to write into.** This kit copy serves exactly one project, and
+everything you draw or generate lands there rather than in the kit:
 
-Then settle **scope**, because it decides the file layout:
+```
+node tools/project.mjs where          # the configured project, or a clear error
+node tools/project.mjs init --project <path>   # if there is none yet
+```
 
-- **A folder is a system. A `.drawio` in it is one business context, one flow.** Create
-  `diagrams/<system>/<context>.drawio` by copying `diagrams/template.drawio`, and rename the model
-  cell — `context=` must match the file name.
+Do not start modelling without one. There is nowhere for the file to go, and scattering diagrams
+into the kit folder is precisely what the project split exists to prevent.
+
+### Read the inbox before asking anything
+
+`<project>/inbox/` is the **baseline specification**: whatever the developer already had — a brief,
+a requirements list, an exported mail thread, a screenshot, a signed-off PDF. It exists so phase 0
+does not start from a blank prompt.
+
+```
+node tools/project.mjs inbox          # what is there, and what cannot be read
+```
+
+Read every file it lists as readable. Then **report back what you found before asking your own
+questions** — a summary of the requirements you extracted, in your words, for them to correct. That
+report is the phase-0 gate, and under dictation it is also where a mis-transcription gets caught.
+
+Three rules about the inbox, and they matter more than they look:
+
+- **It is raw input, not truth.** A sentence in a PDF is a claim someone made, not a domain fact.
+  Nothing enters the model until the user has confirmed it — the never-invent rule applies to
+  documents exactly as it applies to your own guesses.
+- **Anything reported `BLOCKED` is not in the baseline.** `.docx`, `.xlsx`, `.msg` and archives
+  cannot be read as-is. Say so out loud and ask for a converted copy. Silently skipping one means a
+  requirement is missing and nobody knows.
+- **An empty inbox is fine.** Then phase 0 is the conversation it always was.
+
+If there is no inbox at all, ask for the loose requirement list in their words, exactly as the book
+does: *"The only thing we have right now is a loose set of requirements… We will start by simply
+trying to list the facts we know about the system."*
+
+### Then settle scope, because it decides the file layout
+
+- **The project is the system. A `.drawio` in `<project>/diagrams/` is one business context, one
+  flow.** Create it by copying the kit's `templates/template.drawio` to
+  `<project>/diagrams/<context>.drawio`, and rename the model cell — `context=` must match the file
+  name.
 - If the requirements clearly span several capabilities, say so and **model one**. The book picks
   one part — "the shopping process" — and works it. Do not model two contexts in one file to save
   a decision.
@@ -382,9 +418,12 @@ Validate the **folder**, not the file — a single file cannot see whether an im
 published anywhere:
 
 ```
-node tools/model.mjs validate diagrams/<system>/     # every model + the cross-model rules
-node tools/model.mjs map      diagrams/<system>/     # regenerate the context map
+node tools/model.mjs validate     # every model + the cross-model rules
+node tools/model.mjs map          # regenerate the context map
 ```
+
+Both default to `<project>/diagrams/`, so there is no path to get wrong. Pass one explicitly only
+to work on something outside the configured project.
 
 **Only an event crosses a model boundary.** A model's only public surface is an event marked
 `public="true"`; a consumer imports it as a yellow external with `from="<context>"`. No read model,
@@ -398,7 +437,11 @@ their own `<model>.<flow>.drawio`.
 
 ## Drawing mechanics
 
-- Copy `diagrams/template.drawio`; never model into it. Rename the model cell.
+- Copy the kit's `templates/template.drawio` into `<project>/diagrams/`; never model into the
+  template itself. Rename the model cell.
+- **Everything you create belongs to the project, not to this kit copy.** Diagrams, designs,
+  renders, the IR and generated code all live under the project root. If you are about to write a
+  path that starts `diagrams/` or `generated/` relative to the kit, it is wrong.
 - One `<object>` cell per element so the semantics ride along.
 - Stable meaningful ids: `evt-item-added`, `cmd-remove-item`, `rm-cart-contents`, `ui-cart`,
   `gwt-cart-max-items`. Never `node7`.

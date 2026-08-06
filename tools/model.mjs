@@ -31,6 +31,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync } from "node:fs";
 import { inflateRawSync } from "node:zlib";
 import { resolve, join, basename, dirname } from "node:path";
+import { tryProjectRoot, projectRoot, projectName } from "./project.mjs";
 
 // Fallback classification, so a model is checkable before anyone annotates em=.
 // Matches the palette table in CLAUDE.md.
@@ -1366,8 +1367,10 @@ function buildSystemIr(models, system) {
     for (const s of m.ir.elements.filter((e) => e.kind === "screen")) {
       const slug = s.screen ?? s.label;
       if (!screens.has(slug)) {
+        // Project-relative, and with no <system> level: the styled page for a screen is found by
+        // convention at designs/<slug>.html, never by an attribute on a cell.
         screens.set(slug, { slug, label: s.label, displays: s.displays, inputs: [], commands: [],
-                            contexts: [], slices: [], design: `designs/${system}/${slug}.html` });
+                            contexts: [], slices: [], design: `designs/${slug}.html` });
       }
       const rec = screens.get(slug);
       for (const f of s.inputs) if (!rec.inputs.some((x) => x.name === f.name)) rec.inputs.push(f);
@@ -1548,9 +1551,18 @@ function markerCells(ir, findings) {
 
 // --- cli ---------------------------------------------------------------------
 
-const [cmd, target, ...rest] = process.argv.slice(2);
+// The target is optional. One kit copy serves one project, so "the models" is never ambiguous —
+// defaulting to <project>/diagrams/ removes the commonest way to get this wrong, which is typing a
+// path that resolves relative to the kit instead of the project.
+const argvAll = process.argv.slice(2);
+const cmd = argvAll[0];
+const explicit = argvAll[1] && !argvAll[1].startsWith("--") ? argvAll[1] : null;
+const rest = explicit ? argvAll.slice(2) : argvAll.slice(1);
+const target = explicit ?? (tryProjectRoot(rest) ? join(tryProjectRoot(rest).root, "diagrams") : null);
+
 if (!cmd || !target) {
-  console.error("usage: node tools/model.mjs <compile|validate|mark|clear|map> <file.drawio | system-dir/> [--json] [--out f]");
+  console.error("usage: node tools/model.mjs <compile|validate|mark|clear|map> [file.drawio | dir/] [--json] [--out f] [--project p]\n" +
+    "       the target defaults to <project>/diagrams/ — configure it with: node tools/project.mjs init --project <path>");
   process.exit(2);
 }
 const file = resolve(target);
@@ -1581,7 +1593,12 @@ if (isSystem) {
     console.error(`${target}: no models found.`);
     process.exit(1);
   }
-  const system = models.find((m) => m.ir.model?.system)?.ir.model.system ?? basename(file);
+  // The <system> folder level is gone: one kit copy serves one project, and the project IS the
+  // system. So a model cell's system= still wins, the project name is the fallback, and
+  // basename(dir) — which would now say "diagrams" — is only the last resort for a bare folder
+  // validated with no project configured, such as the cart fixture.
+  const system = models.find((m) => m.ir.model?.system)?.ir.model.system
+    ?? projectName(rest) ?? basename(file);
 
   if (cmd === "map") {
     const out = join(file, "_context-map.drawio");
@@ -1593,7 +1610,13 @@ if (isSystem) {
     const ir = buildSystemIr(models, system);
     const json = JSON.stringify(ir, null, 2);
     const i = rest.indexOf("--out");
-    const out = i >= 0 && rest[i + 1] ? resolve(rest[i + 1]) : resolve("build", `${system}.ir.json`);
+    // The IR is derived output and belongs to the project. With no project and no --out there is
+    // nowhere honest to put it: falling back to a kit-local build/ would drop generated output into
+    // the kit, which is the exact failure the project split exists to prevent. --stdout and --out
+    // both still work with no project, which is what the fixtures and design.mjs use.
+    const out = i >= 0 && rest[i + 1]
+      ? resolve(rest[i + 1])
+      : join(projectRoot(rest), "build", `${system}.ir.json`);
     if (i >= 0 || !rest.includes("--stdout")) {
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(out, json + "\n", "utf8");

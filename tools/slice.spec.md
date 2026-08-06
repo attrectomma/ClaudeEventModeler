@@ -281,7 +281,7 @@ diff needs to know what to expect before reading it.
 
 ## 7 — Acceptance
 
-Replay the nine appends into a fresh copy of `diagrams/template.drawio`, from a script under
+Replay the nine appends into a fresh copy of `templates/template.drawio`, from a script under
 `tools/fixtures/`, and assert after **each** round:
 
 1. `node tools/model.mjs validate` — no `flow/`, `slice/` or `swimlane/` findings. Completeness findings
@@ -295,7 +295,7 @@ Replay the nine appends into a fresh copy of `diagrams/template.drawio`, from a 
 Then the regression that matters most: `git diff` between rounds touches only cells that had to move.
 A round that reformats the file has failed even if the picture is right.
 
-**Built.** `tools/slice.mjs`, `tools/fixtures/cart-replay.mjs`, and the model at `diagrams/cart/`.
+**Built.** `tools/slice.mjs`, `tools/fixtures/cart-replay.mjs`, and the model at `tools/fixtures/cart/`.
 The replay reaches **0 errors, 1 warning** (`model-too-wide`, asserted) at every round, and a
 re-run of any command is byte-identical.
 

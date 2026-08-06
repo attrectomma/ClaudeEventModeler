@@ -15,8 +15,11 @@ import { dirname, join, resolve } from "node:path";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SERVER = join(ROOT, "node_modules", "@drawio", "mcp", "src", "index.js");
-const SOURCE = join(ROOT, "diagrams", "order-flow.drawio");
-const TMP = join(ROOT, "diagrams", ".verify-tmp.drawio");
+// Kit-local on purpose. This proves the MCP link, which is a property of the kit — it must not
+// need a project to exist, and it must not write into one. It used to read diagrams/order-flow.drawio,
+// a file that has not existed for some time, so the check could only ever fail at step one.
+const SOURCE = join(ROOT, "templates", "template.drawio");
+const TMP = join(ROOT, "templates", ".verify-tmp.drawio");
 
 const ok = (m) => console.log(`  PASS  ${m}`);
 const die = (m) => { console.error(`  FAIL  ${m}`); cleanup(); process.exit(1); };

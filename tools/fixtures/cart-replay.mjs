@@ -27,13 +27,23 @@
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
 
-const OUT = "diagrams/cart";
-const FILE = `${OUT}/cart.drawio`;
+// Kit-local, and anchored to this file rather than to cwd. The fixture is the kit's regression
+// suite, not anybody's project: it must run with no project configured and must never write into
+// one. Its output IS committed - "byte-identical on re-run" is the assertion.
+const HERE = dirname(fileURLToPath(import.meta.url));
+const KIT = resolve(HERE, "..", "..");
+const OUT = join(HERE, "cart");
+const FILE = join(OUT, "cart.drawio");
+const TEMPLATE = join(KIT, "templates", "template.drawio");
+const SLICE = join(KIT, "tools", "slice.mjs");
+const MODEL = join(KIT, "tools", "model.mjs");
 const keep = process.argv.includes("--keep");
 
 const run = (args, quiet) => {
-  const out = execFileSync("node", ["tools/slice.mjs", ...args], { encoding: "utf8" });
+  const out = execFileSync("node", [SLICE, ...args], { encoding: "utf8" });
   if (!quiet) process.stdout.write(out.replace(/^/gm, "    "));
   return out;
 };
@@ -121,7 +131,7 @@ function statusPattern(name) {
 
 function validate(round) {
   let out = "";
-  try { out = execFileSync("node", ["tools/model.mjs", "validate", `${OUT}/`], { encoding: "utf8" }); }
+  try { out = execFileSync("node", [MODEL, "validate", `${OUT}/`], { encoding: "utf8" }); }
   catch (e) { out = (e.stdout ?? "") + (e.stderr ?? ""); }
   const bad = out.split("\n").filter((l) => /^\s*(ERROR)\s/.test(l));
   const blockers = bad.filter((l) => /\b(flow|slice|swimlane)\//.test(l));
@@ -134,7 +144,7 @@ function validate(round) {
 
 if (existsSync(OUT) && !keep) rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
-copyFileSync("diagrams/template.drawio", FILE);
+copyFileSync(TEMPLATE, FILE);
 edit({
   "model-rename": {
     id: "model-cart",
@@ -395,7 +405,7 @@ edit(Object.fromEntries(["add-item", "remove-item", "clear-cart", "submit-cart"]
   .map((n) => [`slice-${n}`, { owners: "backend-agent, frontend-agent" }])));
 console.log("    4 command slice(s) acknowledged as crossing the UI/backend line");
 
-execFileSync("node", ["tools/slice.mjs", "reflow", FILE], { encoding: "utf8" });
+execFileSync("node", [SLICE, "reflow", FILE], { encoding: "utf8" });
 console.log("\n=== after reflow ===");
 const final = validate("final");
 

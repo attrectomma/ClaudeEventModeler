@@ -46,7 +46,7 @@ construction; across a folder the producer is present, so an import nobody publi
 So ask which one it is, and if it is `from=`:
 
 ```
-node tools/model.mjs validate diagrams/<system>/     # the folder — the file alone cannot see this
+node tools/model.mjs validate     # the folder — the file alone cannot see this
 ```
 
 Expect one of:
@@ -76,7 +76,7 @@ declared is a note on the context map. So if the brief describes direct consumpt
 you did, rather than dressing it as a translation.
 
 ```
-node tools/model.mjs map diagrams/<system>/     # regenerate the context map from the real edges
+node tools/model.mjs map          # regenerate the context map from the real edges
 ```
 
 Never hand-edit `_context-map.drawio`; it is generated, and the leading `_` excludes it from validation.

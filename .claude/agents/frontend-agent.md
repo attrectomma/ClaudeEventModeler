@@ -15,14 +15,14 @@ rendered page**.
 
 ## You are porting, not designing
 
-`designs/<system>/<screen-slug>.html` already exists and has been reviewed by a human. Your job is to
+`<project>/designs/<screen-slug>.html` already exists and has been reviewed by a human. Your job is to
 port it: same markup, same class names, `tokens.css` imported **unedited**.
 
 **If the design is wrong, say so and stop.** Changing it is a `styling` session, not yours. Silently
 improving it means the reviewed artifact and the app disagree, and nobody knows which is right.
 
 Carry **every `data-em` attribute across**. JSX writes them exactly as HTML does, and
-`node tools/design.mjs check diagrams/<system>/` reads your `.tsx` as well as the static page — so a
+`node tools/design.mjs check` reads your `.tsx` as well as the static page — so a
 field you show that the model does not declare is a hard error, and one you drop is a warning. That
 check is the only thing keeping the page honest about what the system can supply.
 
@@ -110,7 +110,7 @@ Do not add a browser-driving dependency to get around this without being asked.
 
 ## Known drift
 
-`web/src/tokens.css` is a **copy** of `designs/<system>/tokens.css`. If you change the design's
+`web/src/tokens.css` is a **copy** of `<project>/designs/tokens.css`. If you change the design's
 tokens, re-copy. The real fix is a Vite alias to the one file; it is not yours to decide.
 
 ## Report back

@@ -34,14 +34,46 @@ The method is Martin Dilger's, from *Understanding EventSourcing*; the full text
 
 ---
 
-## 2. The mental model, in one minute
+## 2. Getting started: one kit copy per project
+
+**This folder is the kit, not your project.** Clone it once; copy the folder — **without `.git`** —
+for each project you work on. Then point the copy at where the work should go:
+
+```bash
+npm install
+node tools/project.mjs init --project /path/to/my-project
+```
+
+That scaffolds the project and remembers the path in `project.json`, so no command you run
+afterwards needs to mention it again.
+
+```
+my-project/                  <- your git repo. Nothing in it refers back to the kit.
+  inbox/                     <- drop briefs, mail threads, screenshots, PDFs here FIRST
+  diagrams/                  <- the models
+  designs/                   <- one styled page per screen
+  build/                     <- derived, gitignored
+  generated/                 <- code and tests, committed
+```
+
+**Put whatever you already have into `inbox/` before the first session.** It is the baseline
+specification: phase 0 reads it and hands you back a summary to correct, instead of starting from a
+blank page. `node tools/project.mjs inbox` shows what is readable — and tells you about `.docx`,
+`.xlsx` and `.msg` files it cannot read, rather than skipping them silently.
+
+Open the **kit** folder in VS Code, not the project. That is what gives Claude the skills, the
+agents and the drawio MCP server; the project is where the output lands.
+
+---
+
+## 3. The mental model, in one minute
 
 Four levels. Only two of them are files.
 
 | Level | Is | Where it lives |
 | --- | --- | --- |
-| **System** | a product, a deployable whole | a folder: `diagrams/<system>/` |
-| **Model** | one business context, one flow | one file: `ordering.drawio` |
+| **System** | a product, a deployable whole | your project folder — one kit copy, one system |
+| **Model** | one business context, one flow | one file: `diagrams/ordering.drawio` |
 | **Slice** | the unit of work — one branch, one ticket | a dashed pink rectangle drawn around its columns |
 | **Element** | a screen, command, event, view, automation | one cell |
 
@@ -54,7 +86,7 @@ is three files and not one. If you find yourself cropping a model to look at it,
 
 ---
 
-## 3. What you are looking at
+## 4. What you are looking at
 
 Colours are the book's, not ours. They are preset in `.vscode/settings.json`, so the same swatches
 appear in draw.io's colour picker in this order.
@@ -75,13 +107,13 @@ into one swimlane per stream), and a **GWT band** below everything holding the b
 stacked under the slice each belongs to. The gaps between bands are not empty — they are routing
 corridors, so long edges never cut through a box.
 
-There is deliberately **no worked example in the repo** — see §11. `diagrams/template.drawio` is an empty
+There is deliberately **no worked example in the repo** — see §12. `templates/template.drawio` is an empty
 model with the lanes and bands already laid out, and `tools/fixtures/` holds three tiny models the checker
 tests itself against, including one built to fail.
 
 ---
 
-## 4. Your first hour
+## 5. Your first hour
 
 ```bash
 npm install                                        # only needed for the MCP server
@@ -89,7 +121,7 @@ npm install                                        # only needed for the MCP ser
 # See the checker pass and fail on purpose.
 node tools/model.mjs validate tools/fixtures/resolved.drawio    # 0 / 0 / 0
 node tools/model.mjs validate tools/fixtures/gaps.drawio        # errors, on purpose
-node tools/drawio.mjs render  diagrams/template.drawio
+node tools/drawio.mjs render  templates/template.drawio
 ```
 
 Then, in order:
@@ -97,16 +129,16 @@ Then, in order:
 1. **Open the PNG**, not the XML. The picture is the point.
 2. **Open the `.drawio` in VS Code** (the Draw.io Integration extension). Click a cell, press
    **Ctrl+M** — *Edit Data*. Those attributes are the specification. This is the whole trick.
-3. **Read a `validate` run.** 0 errors is the gate; the notes are claims to disagree with (§7).
+3. **Read a `validate` run.** 0 errors is the gate; the notes are claims to disagree with (§8).
 4. **Read [ANTI-PATTERNS.md](ANTI-PATTERNS.md)** — especially the "Caught by" column, where every **no**
    is something only a human notices. A green run does not mean the model is right.
 
 To model something of your own, say *"let's model X"* to Claude and it runs the `event-model` skill
-(§8). You supply the domain knowledge; it asks the questions and does all the drawing.
+(§9). You supply the domain knowledge; it asks the questions and does all the drawing.
 
 ---
 
-## 5. The grammar: four blocks, four patterns
+## 6. The grammar: four blocks, four patterns
 
 This is the whole language. **A connection that is not part of one of these four patterns is a bug**,
 and the checker will say so.
@@ -133,7 +165,7 @@ Two consequences that catch people out:
 
 ---
 
-## 6. The vocabulary you will actually type
+## 7. The vocabulary you will actually type
 
 Attributes you set through *Edit Data* (Ctrl+M). The full list is in [CLAUDE.md](CLAUDE.md); these
 are the ones that come up daily.
@@ -164,11 +196,11 @@ really their sum — a lie a generator would act on, so it is warned about.
 
 ---
 
-## 7. Reading a `validate` run
+## 8. Reading a `validate` run
 
 ```
-node tools/model.mjs validate diagrams/<system>/                  # a whole system
-node tools/model.mjs validate diagrams/<system>/ordering.drawio   # one model
+node tools/model.mjs validate                                    # the whole project
+node tools/model.mjs validate <project>/diagrams/ordering.drawio  # one model
 ```
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is
@@ -228,7 +260,7 @@ bugs repeatedly, and it is the single most valuable habit in the kit.
 
 ---
 
-## 8. The three skills, and the order
+## 9. The three skills, and the order
 
 | Skill | Scope | Invents | Gate | Status |
 | --- | --- | --- | --- | --- |
@@ -275,7 +307,7 @@ screenshotted. The skill is the reasoning that produced them — including the A
 which cost real time and are now written down.
 
 ```bash
-node tools/codegen.mjs diagrams/<system>/          # N written, M kept
+node tools/codegen.mjs                            # N written, M kept
 cd generated/<System> && dotnet test
 ```
 
@@ -294,7 +326,7 @@ Because **a design nobody has looked at is worth exactly as much as unrendered X
 cannot read a stylesheet and picture the result:
 
 ```bash
-node tools/design.mjs sheet designs/<system>/
+node tools/design.mjs sheet
 ```
 
 That renders every screen at desktop and mobile widths using headless Chrome (already on your
@@ -307,7 +339,7 @@ Figma was evaluated and **deliberately dropped** for the POC — see the reasoni
 
 ---
 
-## 9. The tools
+## 10. The tools
 
 | Command | Does |
 | --- | --- |
@@ -336,7 +368,7 @@ exactly.
 
 ---
 
-## 10. Gotchas that will cost you time
+## 11. Gotchas that will cost you time
 
 - **⚠️ Never save a draw.io tab that was open before Claude edited the file.** The extension reads
   the whole diagram into memory when you open it and only writes on save — it never notices the file
@@ -354,7 +386,7 @@ exactly.
 
 ---
 
-## 11. Where things stand
+## 12. Where things stand
 
 **There is no worked example in the repo, on purpose.** One was built — a timesheet domain, three models,
 20 slices, four of them generated full stack — and it has been **archived out of the repo** rather than
@@ -381,7 +413,7 @@ split, and the deterministic generator.
 **In progress:** domain-free reference implementations of the building-block patterns — starting with
 Automation, which has more than one valid implementation and is where the kit was most wrong.
 
-## 12. Further reading
+## 13. Further reading
 
 | | |
 | --- | --- |

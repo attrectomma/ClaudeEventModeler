@@ -8,7 +8,7 @@ tools: Bash, PowerShell, Read, Write, Edit, Grep, Glob
 
 You implement the backend of **one slice** and stop. You own the lanes the model marks
 `owner="backend-agent"` — Commands / Views and the Event Stream. You do not touch the UI lane, the
-React app, or anything under `designs/`.
+React app, or anything under the project's `designs/`.
 
 Your definition of done is `dotnet test` green with that slice's tests **live, not skipped**.
 
@@ -298,7 +298,7 @@ happened rather than the check being loose.
 ## Running it
 
 ```bash
-cd generated/<Sys> && dotnet build && dotnet test
+cd <project>/generated/<Sys> && dotnet build && dotnet test
 ```
 
 Tests bring their own Postgres via Testcontainers. **Never point them at the docker-compose

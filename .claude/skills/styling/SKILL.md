@@ -19,7 +19,7 @@ cardinal sin. What you may **not** invent is a *field* — see the contract belo
 
 ## Prerequisites, checked before anything else
 
-1. **The model's completeness check passes.** `node tools/model.mjs validate diagrams/<system>/`
+1. **The model's completeness check passes.** `node tools/model.mjs validate`
    must be at zero errors. Styling a screen whose fields have no source means redoing the design
    when the model changes. Stop and say so if it fails.
 2. **The screens have wireframes.** Phase 8 of `event-model`. The wireframe is the structural
@@ -50,12 +50,12 @@ available here — see §4. Use them.
 ## 1. The contract: read it from the model, never from memory
 
 ```
-node tools/model.mjs compile diagrams/<system>/<model>.drawio
+node tools/model.mjs compile <project>/diagrams/<model>.drawio
 ```
 
 For each `em="screen"` cell, the IR gives you `screen` (the slug), `displays`, `inputs`, and the
 Commands it points at. **The unit of design is the slug, not the cell.** One page per slug, at
-`designs/<system>/<slug>.html`, found by convention — there is no `design=` attribute, because the
+`<project>/designs/<slug>.html`, found by convention — there is no `design=` attribute, because the
 slug already carries the fact.
 
 That matters because a screen appears in every slice that triggers from it, and **the page must
@@ -88,7 +88,7 @@ and expensive to retrofit:
 
 ## 2. One token set per system
 
-`designs/<system>/tokens.css`. Every screen imports it and **nothing else defines colour or type**.
+`<project>/designs/tokens.css`. Every screen imports it and **nothing else defines colour or type**.
 Keep it to what `frontend-design` specifies: 4–6 named colours, two type roles, one spacing scale,
 and one signature element where boldness is spent.
 
@@ -111,7 +111,7 @@ their wireframe stands in.
 governs the model governs the design.
 
 ```
-node tools/design.mjs sheet designs/<system>/ --widths 1440,390 --height <fits the tallest>
+node tools/design.mjs sheet --widths 1440,390 --height <fits the tallest>
 ```
 
 Then **Read the contact sheet PNG** and fix what you see. Three artifacts, three readers:
@@ -135,7 +135,7 @@ much less CSS.
 ## 5. Check the design against the model
 
 ```
-node tools/design.mjs check diagrams/<system>/
+node tools/design.mjs check
 ```
 
 This is the third leg of the three-way check —

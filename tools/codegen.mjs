@@ -24,24 +24,40 @@
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { projectRoot } from "./project.mjs";
 
-const [target, ...rest] = process.argv.slice(2);
+const argvAll = process.argv.slice(2);
+const explicit = argvAll[0] && !argvAll[0].startsWith("--") ? argvAll[0] : null;
+const rest = explicit ? argvAll.slice(1) : argvAll;
 const flag = (n, d) => { const i = rest.indexOf(`--${n}`); return i >= 0 && rest[i + 1] ? rest[i + 1] : d; };
-if (!target) {
-  console.error("usage: node tools/codegen.mjs <system-dir> [--out generated/<System>]");
-  process.exit(2);
-}
 
 // --- the IR is the only input -----------------------------------------------------------------
+//
+// Compile to stdout and let the IR name itself. The old code guessed the filename from the target
+// directory's basename, which only worked while that directory was named after the system — with
+// the <system> level dropped it is now literally "diagrams". Guessing the project name instead
+// would be worse than wrong: a model cell's system= legitimately differs from the project folder,
+// so codegen and a standalone `compile` would each write a differently-named copy of one artifact.
+// Reading stdout and writing it here means there is exactly one IR file and nobody guesses.
 
-const irPath = join("build", `${resolve(target).split(/[\\/]/).pop()}.ir.json`);
-execFileSync(process.execPath, [join("tools", "model.mjs"), "compile", target], { stdio: "pipe" });
-const ir = JSON.parse(readFileSync(irPath, "utf8"));
+const PROJECT = projectRoot(rest);
+const target = explicit ?? join(PROJECT, "diagrams");
+const MODEL = fileURLToPath(new URL("model.mjs", import.meta.url));
+// Forward --project and nothing else. codegen's own --out names the GENERATED directory; passing
+// rest wholesale would hand that value to compile, which reads --out as the IR's path.
+const pass = flag("project", null) ? ["--project", flag("project", null)] : [];
+const ir = JSON.parse(
+  execFileSync(process.execPath, [MODEL, "compile", target, "--stdout", ...pass],
+               { encoding: "utf8", maxBuffer: 1 << 28 }));
+const irPath = join(PROJECT, "build", `${ir.system}.ir.json`);
+mkdirSync(dirname(irPath), { recursive: true });
+writeFileSync(irPath, JSON.stringify(ir, null, 2) + "\n", "utf8");
 
 const pascal = (s) => s.replace(/(^|[^a-zA-Z0-9])([a-z])/g, (_, a, b) => b.toUpperCase()).replace(/[^a-zA-Z0-9]/g, "");
 const camel = (s) => { const p = pascal(s); return p[0].toLowerCase() + p.slice(1); };
 const NS = pascal(ir.system);
-const OUT = resolve(flag("out", join("generated", NS)));
+const OUT = resolve(PROJECT, flag("out", join("generated", NS)));
 const APP = join(OUT, "src", NS);
 const TESTS = join(OUT, "tests", `${NS}.IntegrationTests`);
 

@@ -4,6 +4,52 @@ Event Modeling diagrams in draw.io, edited by both a human (visually, in VS Code
 (as XML). The `.drawio` file is the single source of truth — there is no database and no
 export step to keep in sync.
 
+## This folder is the KIT. The work goes somewhere else.
+
+**One copy of the kit serves one project.** The kit is cloned once from GitHub; a developer then
+copies the folder — **without `.git`** — as many times as they have projects. Each copy is
+configured with the path of the project it writes to:
+
+```
+node tools/project.mjs init --project C:/Repos/acme-shop
+node tools/project.mjs where          # what this copy is pointed at
+```
+
+| | Lives in the **kit** (here) | Lives in the **project** |
+| --- | --- | --- |
+| skills, agents, `.mcp.json`, this file | ✅ | |
+| `tools/`, `templates/`, `reference-implementations/` | ✅ | |
+| `reference/llms/` — the docs mirror | ✅ regenerable, gitignored | |
+| `tools/fixtures/` — the kit's own regression suite | ✅ | |
+| `inbox/` — raw input, the phase-0 baseline | | ✅ |
+| `diagrams/*.drawio` | | ✅ |
+| `designs/<slug>.html` | | ✅ |
+| `build/` — derived IR | | ✅ gitignored |
+| `generated/<System>/` — code and tests | | ✅ committed |
+
+**The project has no trace of the kit in it.** Its own git history, its own `.gitignore`, no
+submodule, no path back. That is deliberate: the project outlives whichever copy of the kit built
+it, and can be handed to someone who does not have the kit at all.
+
+**Why copies rather than one shared install.** Everything Claude Code gives an agent — this file,
+`.claude/skills/`, `.claude/agents/`, `.mcp.json`, per-project memory — is scoped to the **working
+directory**. Keeping cwd inside the kit is what makes all of it resolve with no plugin, no
+`${CLAUDE_PLUGIN_ROOT}`, and no installation step. The output is what moves, not the agent surface.
+
+**So never write a kit-relative output path.** `diagrams/`, `designs/`, `build/` and `generated/`
+under this folder are all wrong. The tools resolve them for you:
+
+```
+--project <path>   beats   $EM_PROJECT   beats   project.json   beats   a clear error
+```
+
+`project.json` is configuration, not a manifest. The no-manifest rule below is about **domain
+facts**, which belong on cells; an absolute path to an output directory is not one and could not be
+drawn on a diagram if we tried.
+
+**`validate`, `map`, `compile`, `codegen`, `design check` and `design sheet` all default to the
+project's own folders**, so the common case has no path in it at all.
+
 ## Enforced tech stack
 
 Generated code and any reference implementation target exactly this. Not a default to be
@@ -276,7 +322,7 @@ and therefore stays invisible to plain Read.
   open draw.io tab was a stale snapshot that never noticed the file changing underneath it, and that
   saving it destroyed Claude's work — so the rule was *answer no, then close and reopen*. **That is
   wrong on `hediet.vscode-drawio` as installed here.** The three-part probe, run against
-  `diagrams/cart/cart.drawio`: a cell written by plain `Edit` **appeared in the open tab with no
+  `tools/fixtures/cart/cart.drawio`: a cell written by plain `Edit` **appeared in the open tab with no
   reload and no prompt**; the tab did **not** go falsely dirty
   ([issue #215](https://github.com/hediet/vscode-drawio/issues/215) is fixed); and closing afterwards
   did **not** offer to save anything. The extension uses draw.io's merge API on external change.
@@ -449,7 +495,7 @@ Never hand over diagram XML you have not rendered. Layout bugs — edges crossin
 boxes, overlapping labels, nodes outside their lane — are invisible in XML and obvious in a PNG.
 
 ```
-node tools/drawio.mjs render diagrams/order-flow.drawio   # -> order-flow.png
+node tools/drawio.mjs render <project>/diagrams/ordering.drawio   # -> ordering.png
 ```
 
 Then Read the PNG. Fix what you see. Re-render. This caught two bad edge routes while this
@@ -477,17 +523,22 @@ node tools/design.mjs shot  <file.html>      # render one design page to PNG, pe
 node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
 node tools/design.mjs check <system-dir>     # the styled pages against the model's displays=/inputs=
 
+node tools/project.mjs init --project <path>   # scaffold a project; point this kit copy at it
+node tools/project.mjs where           # which project this copy writes to
+node tools/project.mjs inbox           # what is in the baseline, and what cannot be read
+
 node tools/model.mjs validate <file>   # one model
-node tools/model.mjs validate <dir>/   # a whole system: every model, plus the cross-model rules
-node tools/model.mjs map      <dir>/   # (re)generate <dir>/_context-map.drawio from the real edges
-node tools/model.mjs compile  <dir>/   # the system IR a generator reads -> build/<system>.ir.json
+node tools/model.mjs validate          # every model in the project, plus the cross-model rules
+node tools/model.mjs map               # (re)generate diagrams/_context-map.drawio from the real edges
+node tools/model.mjs compile           # the system IR a generator reads -> <project>/build/<system>.ir.json
 node tools/docs.mjs sync               # mirror Marten/Wolverine/Alba docs into reference/llms/
-node tools/codegen.mjs        <dir>/   # the deterministic code -> generated/<System>/
+node tools/codegen.mjs                 # the deterministic code -> <project>/generated/<System>/
 ```
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is
-actually published anywhere; only the system run can. `compile`, `mark` and `clear` still take one
-file.
+actually published anywhere; only the whole-project run can. `compile`, `mark` and `clear` still
+take one file. With no argument the folder commands mean `<project>/diagrams/`, which is the only
+thing they could sensibly mean when one kit copy serves one project.
 
 A real model runs thousands of pixels wide, and a whole-model PNG downscaled to fit a screen is
 too mushy to spot layout defects in — which defeats the point of rendering. `crop` writes a
@@ -755,7 +806,7 @@ closing loop the model has, via headless Chrome — already on this machine, no 
 Puppeteer:
 
 ```
-node tools/design.mjs sheet designs/<system>/
+node tools/design.mjs sheet
 ```
 
 It produces three things, and each answers a different reviewer:
@@ -781,24 +832,36 @@ problems.
 > capture one business context in each model, so I can read it from left to right without any
 > visual interruptions."* — Understanding EventSourcing, ch. 18
 
-Four levels, only two of them files. A **system** is a folder under `diagrams/`. A **model** is one
-`.drawio` in it: one business context, one flow. A **slice** is a slice cell, as always. *Chapters*
-(Dilger's blue arrows grouping slices inside a model) are the fourth, and deliberately not built —
-they solve the same problem as splitting at a smaller scale, so **prefer splitting.**
+Four levels, only two of them files. **The project is the system** — one kit copy, one project, one
+system, so there is no `<system>` folder to name and nothing repeats the project's own name. A
+**model** is one `.drawio` in `<project>/diagrams/`: one business context, one flow. A **slice** is a
+slice cell, as always. *Chapters* (Dilger's blue arrows grouping slices inside a model) are the
+fourth, and deliberately not built — they solve the same problem as splitting at a smaller scale, so
+**prefer splitting.**
 
 ```
-diagrams/<system>/                <- the folder IS the system
-  ordering.drawio                 <- one business context
-  fulfilment.drawio
-  notifications.drawio
-  ordering.errors.drawio          <- an alternative flow of ordering.drawio
-  _context-map.drawio             <- GENERATED. Never hand-edit; leading _ excludes it from validate
+acme-shop/                        <- the PROJECT is the system, and its own git repo
+  inbox/                          <- raw input: briefs, mail, screenshots. The phase-0 baseline
+  diagrams/
+    ordering.drawio               <- one business context
+    fulfilment.drawio
+    notifications.drawio
+    ordering.errors.drawio        <- an alternative flow of ordering.drawio
+    _context-map.drawio           <- GENERATED. Never hand-edit; leading _ excludes it from validate
+  designs/<slug>.html
+  build/                          <- derived IR, gitignored
+  generated/<System>/             <- code and tests, committed
   OPEN-QUESTIONS.md
 ```
 
+A project that genuinely grows a second, independently-deployable system gets a **second project
+folder and a second kit copy**. Splitting one project's diagrams into two systems inside one folder
+is not supported, and should not be needed before the point where they want separate repos anyway.
+
 **No manifest file.** No `system.yml`, no index. The diagram is the single source of truth; a
-manifest would be a second place facts live. The folder is the system, every fact sits on a cell,
-and anything system-wide is *derived*.
+manifest would be a second place facts live. Every fact sits on a cell and anything system-wide is
+*derived*. (The kit's `project.json` is not a counter-example: it holds a filesystem path, not a
+domain fact, and lives in the kit rather than the project.)
 
 **Each model names itself with a model cell** — `em="model"`, `context=`, `system=`. This is
 Dilger's pink "Model Context" sticky, drawn top-left above the lanes. Same precedent as the slice

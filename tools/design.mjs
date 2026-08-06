@@ -18,6 +18,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve, join, basename, dirname, relative } from "node:path";
+import { tryProjectRoot } from "./project.mjs";
 
 const BROWSERS = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -28,19 +29,27 @@ const BROWSERS = [
 const BROWSER = BROWSERS.find((p) => existsSync(p));
 
 const args = process.argv.slice(2);
-const [cmd, target] = args;
+const cmd = args[0];
 const flag = (name, dflt) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1] : dflt;
 };
+// `shot` needs a file, but `sheet` and `check` have exactly one sensible target in a one-project
+// kit: the project's designs/ and diagrams/. Defaulting removes the kit-relative-path mistake.
+const explicit = args[1] && !args[1].startsWith("--") ? args[1] : null;
+const PROJ = tryProjectRoot(args)?.root ?? null;
+const target = explicit ??
+  (cmd === "sheet" && PROJ ? join(PROJ, "designs")
+   : cmd === "check" && PROJ ? join(PROJ, "diagrams") : null);
 const WIDTHS = flag("widths", "1440,390").split(",").map((n) => +n.trim()).filter(Boolean);
 const HEIGHT = +flag("height", "1200");
 
 if (!cmd || !target || !["shot", "sheet", "check"].includes(cmd)) {
   console.error("usage:\n" +
-    "  node tools/design.mjs shot  <file.html>   [--widths 1440,390] [--height 1200]\n" +
-    "  node tools/design.mjs sheet <designs-dir> [--widths 1440,390] [--height 1200]\n" +
-    "  node tools/design.mjs check <system-dir>  [--designs designs/<system>]");
+    "  node tools/design.mjs shot  <file.html>    [--widths 1440,390] [--height 1200]\n" +
+    "  node tools/design.mjs sheet [designs-dir]  [--widths 1440,390] [--height 1200]\n" +
+    "  node tools/design.mjs check [diagrams-dir] [--designs <dir>] [--project <path>]\n" +
+    "       sheet and check default to the project's designs/ and diagrams/");
   process.exit(2);
 }
 if (!BROWSER && cmd !== "check") {
@@ -52,6 +61,15 @@ if (!existsSync(path)) {
   console.error(`not found: ${path}`);
   process.exit(1);
 }
+
+// Report paths relative to the PROJECT, not to the kit. cwd is the kit copy and the project lives
+// somewhere else entirely, so relative(cwd, …) produces ..\..\..\Users\… — technically correct and
+// unreadable in a finding.
+const rel = (p) => {
+  const base = PROJ ?? process.cwd();
+  const r = relative(base, p);
+  return r.startsWith("..") ? p : r;
+};
 
 // A name a width can be talked about by, so a finding can say WHICH viewport broke.
 const label = (w) => (w < 500 ? "mobile" : w < 900 ? "tablet" : "desktop");
@@ -71,7 +89,11 @@ const label = (w) => (w < 500 ? "mobile" : w < 900 ? "tablet" : "desktop");
 
 if (cmd === "check") {
   const systemDir = path;
-  const designs = resolve(flag("designs", join("designs", basename(systemDir))));
+  // Designs are project output, and with the <system> level dropped they sit flat: one page per
+  // screen slug at <project>/designs/<slug>.html. Falling back to the diagrams folder's sibling
+  // keeps this usable on a bare folder with no project configured.
+  const PROJECT = PROJ ?? dirname(systemDir);
+  const designs = resolve(PROJECT, flag("designs", "designs"));
   const models = readdirSync(systemDir)
     .filter((f) => f.endsWith(".drawio") && !f.startsWith("_"))
     .map((f) => join(systemDir, f));
@@ -117,9 +139,10 @@ if (cmd === "check") {
   // Any ported implementation of the same screen. JSX writes data-em exactly as HTML does, so the
   // same extraction works and the port is held to the model too — not just the static design.
   const ports = [];
-  for (const web of readdirSync(".", { withFileTypes: true }).some((d) => d.name === "generated")
-    ? readdirSync("generated", { withFileTypes: true }).filter((d) => d.isDirectory())
-        .map((d) => join("generated", d.name, "web", "src")).filter(existsSync)
+  const genRoot = join(PROJECT, "generated");
+  for (const web of existsSync(genRoot)
+    ? readdirSync(genRoot, { withFileTypes: true }).filter((d) => d.isDirectory())
+        .map((d) => join(genRoot, d.name, "web", "src")).filter(existsSync)
     : []) {
     for (const f of readdirSync(web)) if (f.endsWith(".tsx")) ports.push(join(web, f));
   }
@@ -132,7 +155,7 @@ if (cmd === "check") {
     const file = join(designs, `${slug}.html`);
     if (!existsSync(file)) {
       push("info", "design-not-drawn",
-        `screen "${slug}" has no styled page yet (expected ${relative(process.cwd(), file)}). The wireframe stands in until it does.`);
+        `screen "${slug}" has no styled page yet (expected ${rel(file)}). The wireframe stands in until it does.`);
       continue;
     }
     // A port counts as the same screen when its file name matches the slug, case-insensitively.
@@ -140,7 +163,7 @@ if (cmd === "check") {
       basename(p, ".tsx").toLowerCase() === slug.replace(/-/g, "").toLowerCase());
     const html = [file, ...portFiles].map((f) => readFileSync(f, "utf8")).join("\n");
     if (portFiles.length) push("info", "design-has-port",
-      `${slug} is also implemented at ${portFiles.map((p) => relative(process.cwd(), p)).join(", ")}, and its bindings are checked here too.`);
+      `${slug} is also implemented at ${portFiles.map((p) => rel(p)).join(", ")}, and its bindings are checked here too.`);
     const shown = attrsOf(html, "data-em");
     const typed = attrsOf(html, "data-em-input");
     const acted = attrsOf(html, "data-em-action");
@@ -195,7 +218,7 @@ if (cmd === "check") {
   const icon = { error: "ERROR", warn: " WARN", info: " INFO" };
   const rank = { error: 0, warn: 1, info: 2 };
   d.sort((a, b) => rank[a.severity] - rank[b.severity] || a.rule.localeCompare(b.rule));
-  console.log(`${basename(systemDir)} — ${screens.size} screen(s), ${pageFiles.length} styled page(s) in ${relative(process.cwd(), designs)}\n`);
+  console.log(`${basename(systemDir)} — ${screens.size} screen(s), ${pageFiles.length} styled page(s) in ${rel(designs)}\n`);
   for (const f of d) console.log(`  ${icon[f.severity]}  [design/${f.rule}] ${f.message}`);
   const errors = d.filter((f) => f.severity === "error").length;
   console.log(`\n${errors} error(s), ${d.filter((f) => f.severity === "warn").length} warning(s), ${d.filter((f) => f.severity === "info").length} note(s)`);
@@ -336,6 +359,6 @@ ${WIDTHS.map((w) => `    <div class="frame"><span>${label(w)} · ${w}px</span><i
 `;
 writeFileSync(join(path, "index.html"), indexHtml, "utf8");
 
-console.log(`${shots.length} shot(s) of ${pages.length} screen(s) in ${relative(process.cwd(), shotDir)}`);
-for (const s of sheets) console.log(`  look at this: ${relative(process.cwd(), s.out)}  (${s.sheetW}x${s.sheetH})`);
-console.log(`give the human this: ${relative(process.cwd(), join(path, "index.html"))}`);
+console.log(`${shots.length} shot(s) of ${pages.length} screen(s) in ${rel(shotDir)}`);
+for (const s of sheets) console.log(`  look at this: ${rel(s.out)}  (${s.sheetW}x${s.sheetH})`);
+console.log(`give the human this: ${rel(join(path, "index.html"))}`);

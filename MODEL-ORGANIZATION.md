@@ -91,27 +91,36 @@ Four levels. Only two of them are files.
 
 | Level | Is | Lives in |
 | --- | --- | --- |
-| **System** | a product / deployable whole | a folder under `diagrams/` |
-| **Model** | one business context, one flow | one `.drawio` file |
+| **System** | a product / deployable whole | **the project folder** — one kit copy, one project, one system |
+| **Model** | one business context, one flow | one `.drawio` file in `<project>/diagrams/` |
 | **Chapter** | a group of slices inside a model | an attribute (deferred — see below) |
 | **Slice** | the unit of work; one branch, one ticket | a slice cell, as today |
 
 ### Folder structure
 
 ```
-diagrams/
-  <system>/                           <- the system; the folder IS the system
+<project>/                            <- the system IS the project, and its own git repo
+  inbox/                              <- raw input; the phase-0 baseline
+  diagrams/
     ordering.drawio
     fulfilment.drawio
     notifications.drawio
     ordering.errors.drawio            <- alternative flow of ordering.drawio
     _context-map.drawio               <- GENERATED, never hand-edited
-  template.drawio
 ```
+
+The kit keeps `templates/template.drawio` and its own `tools/fixtures/`; neither is a model of
+anyone's system.
+
+**There is no `<system>` folder level.** There was, when one repo held every system. Once a kit copy
+serves exactly one project, that level only ever repeated the project's own name —
+`acme-shop/diagrams/acme-shop/` — so it was dropped. A project that genuinely grows a second
+independently-deployable system gets a second project folder and a second kit copy, which is the
+same answer the book gives for when to split anything.
 
 **No manifest file.** No `system.yml`, no index. The kit's founding bet is that the diagram is the
 single source of truth; a manifest would be a second place facts live and a second thing to keep in
-sync. The folder is the system, every fact sits on a cell, and anything system-wide is *derived*.
+sync. Every fact sits on a cell, and anything system-wide is *derived*.
 
 **Alternative flows are named `<model>.<flow>.drawio`** so they sort adjacent to their parent and the
 parent is obvious from the name.
