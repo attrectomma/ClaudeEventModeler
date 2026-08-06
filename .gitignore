@@ -29,3 +29,6 @@ templates/.verify-tmp.drawio
 # kit's: they live under the project root, covered by the .gitignore that `project.mjs init` writes
 # there. If one of them ever appears in this folder, some tool resolved a path against the kit
 # instead of the project — which is a bug to fix, not something to ignore.
+
+# Derived IR for the reference implementations — regenerable, same as a project's build/.
+reference-implementations/*/build/

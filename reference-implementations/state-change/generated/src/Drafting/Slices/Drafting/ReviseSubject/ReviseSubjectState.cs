@@ -3,6 +3,11 @@
 //   Scaffolded once by tools/codegen.mjs, then FILLED IN BY HAND — regeneration KEEPS this file.
 //   Holes marked TODO(codegen) are yours to close; they are reported until you do.
 // </auto-generated-scaffold>
+// Required because a generated-code banner puts this file OUTSIDE the nullable context, so the string?
+// below would warn CS8669. The generator now stamps this on every file it writes; this one predates that
+// and is a scaffold, so regeneration kept it and the line had to be added by hand — which is exactly what
+// "scaffold" is supposed to mean.
+#nullable enable
 
 using Drafting.Contracts;
 

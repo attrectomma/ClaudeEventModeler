@@ -46,8 +46,9 @@ namespace EmailOutbox.IntegrationTests;
 [Collection("integration")]
 public sealed class WakeupMechanismTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
+    // The image goes in the CONSTRUCTOR: the parameterless PostgreSqlBuilder() is obsolete (CS0618).
+    // Hand-written file, so the generator's own fix does not reach it.
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:16-alpine")
         .WithDatabase("emailOutbox_wakeup")
         .Build();
 
