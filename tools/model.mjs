@@ -82,12 +82,43 @@ const geometryOf = (chunk) => {
 };
 
 // "orderId:Guid, note:string?" -> [{name,type,nullable}]
+// "orderId:Guid, total:decimal?, lines:OrderLine[]"
+//
+// `[]` means MANY OF THESE, NOT ONE — a repeated group inside one row. It is the answer to the one
+// thing a flat comma-separated list cannot say, and the reason a detail screen showing a header plus
+// its line items needed two read models before this existed. The group's own shape is declared
+// separately, in children= below, because a name:Type list has nowhere to nest one.
 const parseFields = (spec) =>
   !spec ? [] : spec.split(",").map((s) => s.trim()).filter(Boolean).map((entry) => {
     const [name, raw] = entry.split(":").map((s) => s?.trim());
-    const type = raw || "string";
-    return { name, type: type.replace(/\?$/, ""), nullable: type.endsWith("?") };
+    let type = raw || "string";
+    const collection = /\[\]\??$/.test(type);
+    type = type.replace(/\[\]/, "");
+    return { name, type: type.replace(/\?$/, ""), nullable: type.endsWith("?"), collection };
   });
+
+// "OrderLine: sku:string, qty:int; Discount: code:string, pct:decimal"
+//
+// The shape of a repeated group referenced by a `Type[]` field. Same name:Type grammar as fields=, so
+// there is nothing new to learn beyond the brackets; `;` separates one group from the next.
+//   -> { OrderLine: [{name:"sku",...},{name:"qty",...}], Discount: [...] }
+const parseChildren = (spec) =>
+  !spec ? {} : Object.fromEntries(spec.split(";").map((part) => {
+    const i = part.indexOf(":");
+    if (i < 0) return null;
+    const name = part.slice(0, i).trim();
+    return name ? [name, parseFields(part.slice(i + 1))] : null;
+  }).filter(Boolean));
+
+// `recipients:string[]` is a list of PRIMITIVES and needs no shape declaring — it already is the
+// attribute, and asking for children="string: ..." would be nonsense. Only a list of a named group
+// needs children=. Getting this wrong broke the state-view reference implementation with 12 errors,
+// because every `recipients` reference stopped resolving.
+const PRIMITIVE = new Set([
+  "string", "int", "long", "short", "byte", "decimal", "double", "float", "bool",
+  "Guid", "UUID", "DateOnly", "DateTime", "DateTimeOffset", "TimeOnly", "TimeSpan", "Double",
+]);
+// A collection field is a GROUP only when a shape is declared for it. Anything else is a plain list.
 
 // "total=totalAmount, qty=quantity" -> { total: "totalAmount" }
 // A RENAME, and only a rename: the checker substitutes the name and looks it up. A sum, a fold or
@@ -170,6 +201,9 @@ function parseCells(body) {
       owners: a.owners ?? null,
       aggregate: a.aggregate ?? null,
       fields: parseFields(a.fields),
+      // The shape of any repeated group a `Type[]` field references. On a read model this is what lets
+      // ONE view hold a header and its line items, instead of the two views that shape used to need.
+      children: parseChildren(a.children),
       // On a screen: what it shows (the book marks these green on the wireframe) and what the
       // user types into it. `displays` must be sourced from a View; `inputs` is a terminal source.
       displays: parseFields(a.displays),
@@ -304,6 +338,28 @@ function grammar(ir) {
   for (const e of ir.elements) {
     if (e.kind === "gwt") continue;
 
+    // A repeated group and its shape have to agree, or the completeness check silently decides the group
+    // supplies nothing — which reads as "this view is missing every ingredient field" and sends you
+    // hunting in entirely the wrong place.
+    const declared = Object.keys(e.children ?? {});
+    const referenced = [...e.fields, ...e.displays, ...e.inputs].filter((f) => f.collection).map((f) => f.type);
+    for (const t of new Set(referenced)) {
+      // A list of primitives needs no shape — `recipients:string[]` is already the attribute. Only a
+      // list of a NAMED group does, and an unknown name is far more likely a typo than a new primitive.
+      if (!declared.includes(t) && !PRIMITIVE.has(t)) {
+        push("child-not-declared",
+          `${e.label || e.id} has a field of type ${t}[] but declares no shape for it. Add children="${t}: name:Type, ..." — a repeated group's own fields have nowhere else to live. (A list of primitives such as string[] needs no children=.)`,
+          e.id);
+      }
+    }
+    for (const t of declared) {
+      if (!referenced.includes(t)) {
+        d.push({ family: "grammar", severity: "warn", rule: "child-unused",
+          message: `${e.label || e.id} declares children="${t}: ..." but no field is of type ${t}[]. Either reference it or drop it.`,
+          at: e.id });
+      }
+    }
+
     if (e.kind === "event" || e.kind === "external") {
       for (const u of e.upstream) {
         if (kindOf(u) === "event" || kindOf(u) === "external") {
@@ -384,12 +440,31 @@ function completeness(ir) {
   //   command.fields   <- the triggering screen's displays + inputs, or an automation's todo View
   //   event.fields     <- the Command that triggers it
   //   readmodel.fields <- the Events feeding it
+  // A repeated group is transparent to this check, in BOTH directions, and that symmetry is the whole
+  // trick:
+  //
+  //   * asking side — a read model declaring `ingredients:IngredientLine[]` is really asking for
+  //     ingredientName, amount and unit, because that is what an IngredientAdded event can supply. The
+  //     collection field itself has no source and never could.
+  //   * supplying side — a screen displaying `ingredientName` is satisfied by a view offering
+  //     `ingredients:IngredientLine[]`, because the name is in there.
+  //
+  // Flatten on both sides and the group stops needing any special case downstream: mappings=, derived=,
+  // terminal= and mapping-crosses-types all keep working on flat names.
+  const flatten = (el, fields) => fields.flatMap((f) => {
+    const shape = el?.children?.[f.type];
+    // A list of PRIMITIVES stays itself: `recipients:string[]` IS the attribute `recipients`, and
+    // expanding it would make every reference to it stop resolving. Only a declared group flattens.
+    if (!f.collection || !shape) return [f];
+    return shape;
+  });
+
   const supplyFor = (e) => {
     const sources = [];
     const supply = new Map(); // attribute name -> [source labels]
     const types = new Map();  // attribute name -> the type the source declares
     const offer = (src, fields) => {
-      for (const f of fields) {
+      for (const f of flatten(src, fields)) {
         if (!supply.has(f.name)) supply.set(f.name, []);
         supply.get(f.name).push(src.label || src.id);
         if (!types.has(f.name)) types.set(f.name, f.type);
@@ -435,8 +510,10 @@ function completeness(ir) {
 
   for (const e of ir.elements) {
     if (e.kind === "gwt") continue;
-    // A screen is judged on what it displays; everything else on its own attributes.
-    const attributes = e.kind === "screen" ? e.displays : e.fields;
+    // A screen is judged on what it displays; everything else on its own attributes. Flattened, so a
+    // `Type[]` group is checked as the fields it actually contains — the collection name itself is not
+    // an attribute anything upstream could ever supply.
+    const attributes = flatten(e, e.kind === "screen" ? e.displays : e.fields);
     if (!attributes.length) continue;
 
     const { sources, supply, types } = supplyFor(e);
@@ -623,13 +700,27 @@ function gwtRules(ir) {
   const push = (severity, rule, message, at) => d.push({ family: "gwt", severity, rule, message, at });
 
   for (const s of ir.slices) {
-    // Required on State Change slices, where the business rules live. Optional on State View
-    // slices, where a GWT is really "GIVEN events THEN this view shows".
+    // Asked for on State Change AND State View slices, for different reasons and in different shapes.
+    //
+    // A State Change slice takes a GWT: GIVEN events, WHEN a command, THEN events or an error.
+    // A State View slice takes a GT — a GWT with no when= — because a read model only ever reads events
+    // that already exist, so there is no command to be the WHEN. Understanding EventSourcing ch.3: "you
+    // typically do not use GWTs but GTs (Given - Then). Read Models only rely on previously stored
+    // events, so there is no 'When' part necessary." The little book is blunter: for a State View,
+    // "Scenario is always a 'Given / Then' (skipping the 'When' Part)".
+    //
+    // View slices used to be exempt from this warning, and that is exactly how one reached in-review
+    // with no specifications at all: everything downstream was happy to generate nothing. Nothing else
+    // asks, so this is the only prompt there is.
     if (!s.gwts.length) {
       if (s.kind === "state-change") {
         push("warn", "slice-needs-gwt",
           `slice "${s.name}" has no GWT. Business rules are invisible without one, and the book is explicit: "Don't save on GWTs."`,
           s.commands[0]);
+      } else if (s.pattern === "view") {
+        push("warn", "slice-needs-gwt",
+          `slice "${s.name}" has no GIVEN/THEN. A View is specified as "GIVEN a set of events, THEN the read model shows this" — a gwt cell with given= and then= and NO when=, because a read model has no command to be the WHEN. Without one, nothing states what this view is for and nothing is generated to check it.`,
+          s.readModels[0]);
       }
       continue;
     }
@@ -1346,6 +1437,8 @@ function buildSystemIr(models, system) {
     for (const v of m.ir.elements.filter((e) => e.kind === "readmodel")) {
       views.push({
         label: v.label, context: ctx, slice: v.slice, fields: v.fields,
+        // The shape of any repeated group the fields reference, so a generator can emit the child type.
+        children: v.children ?? {},
         // What one ROW of this view is. Undeclared for most views, which is a real gap — a
         // projection cannot group events without it. See OPEN-QUESTIONS.md.
         identity: (v.identity ?? "").split(",").map((x) => x.trim()).filter(Boolean),
