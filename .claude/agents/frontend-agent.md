@@ -91,16 +91,35 @@ npx tsc -b                                        # typecheck first, it is cheap
 npx vite --port 5173                              # with the API already running
 ```
 
-Then screenshot with headless Chrome and **Read the PNG**:
+Then shoot the running app with the kit's tool — **not** raw Chrome — and **Read the PNGs**:
 
 ```bash
-"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu \
-  --hide-scrollbars --no-sandbox --virtual-time-budget=6000 \
-  --screenshot=shot.png --window-size=1440,600 "http://localhost:5173"
+node <kit>/tools/review.mjs shot http://localhost:5173/ --screen <slug>
+node <kit>/tools/review.mjs shot "http://localhost:5173/?state=rejected" --screen <slug> --state rejected
+node <kit>/tools/review.mjs sheet
 ```
 
-**Always desktop and mobile.** Responsive layout is where CSS silently fails — on the first slice the
-desktop view was perfect while the mobile view ran off the right edge with content cut off.
+**Use this rather than calling Chrome yourself, for two reasons that are not stylistic.**
+
+1. **A raw `--window-size=390` screenshot is a lie on this machine.** Chrome reports
+   `innerWidth=500`, because Windows will not make a window narrower than ~500px — so it lays out at
+   500 and crops the image to 390. It invents right-edge clipping that is not there and hides clipping
+   that is. It cost a previous slice a wrong diagnosis and two rounds of CSS "fixes" to a page that was
+   already correct. `review.mjs` renders through an iframe, which gets a real layout viewport.
+2. **The shots have to survive the session.** They land in `<project>/review/`, and
+   `review/index.html` puts the **agreed design beside the built software** at the same width, 1:1 —
+   which is what the human actually reviews the slice against. Shots dumped in a temp folder are
+   thrown away, and then the one artifact review needs is the one that was discarded.
+
+`--screen` must be the model's `screen=` slug, or the shot cannot be paired with its design.
+`--state` names anything with no design counterpart: `rejected`, `pending`, `empty`, `page2`.
+
+**Always desktop and mobile** — that is the default. Responsive layout is where CSS silently fails.
+
+**Shoot every state you can reach, and say which you could not.** On a real slice that meant the
+populated list, both sort directions, page 2, the last page, empty, loading, and the modal open over the
+list. A state reachable only by clicking is unverified visually — say so in your report rather than
+implying you saw it.
 
 Known limitation, and do not pretend otherwise: headless Chrome screenshots a **URL**, it does not
 click. A mode you can only reach by clicking is unverified visually. Say that in your report rather

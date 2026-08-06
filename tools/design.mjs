@@ -19,14 +19,9 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { spawnSync } from "node:child_process";
 import { resolve, join, basename, dirname, relative } from "node:path";
 import { tryProjectRoot } from "./project.mjs";
+import { BROWSER, browserHelp, capture, captureHtml } from "./shoot.mjs";
 
-const BROWSERS = [
-  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-];
-const BROWSER = BROWSERS.find((p) => existsSync(p));
+const BROWSERS = [];   // kept only so the old help text below still has something to print
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -53,7 +48,7 @@ if (!cmd || !target || !["shot", "sheet", "check"].includes(cmd)) {
   process.exit(2);
 }
 if (!BROWSER && cmd !== "check") {
-  console.error(`no Chrome or Edge found. Looked in:\n  ${BROWSERS.join("\n  ")}`);
+  console.error(browserHelp());
   process.exit(1);
 }
 const path = resolve(target);
@@ -225,20 +220,13 @@ if (cmd === "check") {
   process.exit(errors ? 1 : 0);
 }
 
+// Delegates to tools/shoot.mjs, which is where the sub-500px viewport bug is dealt with. This used to
+// call Chrome directly with --window-size=<width>, and on Windows that silently produced a CROP OF A
+// 500px LAYOUT for any mobile width — inventing clipping that did not exist. See shoot.mjs for the
+// measurement. Sharing the capture path also means a design shot and a tools/review.mjs shot of the
+// built page are taken identically, which is the only thing that makes them comparable.
 function shoot(htmlPath, outPath, width) {
-  mkdirSync(dirname(outPath), { recursive: true });
-  const r = spawnSync(BROWSER, [
-    "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox",
-    "--force-device-scale-factor=1", "--default-background-color=ffffffff",
-    `--screenshot=${outPath}`, `--window-size=${width},${HEIGHT}`,
-    `file:///${htmlPath.replace(/\\/g, "/")}`,
-  ], { encoding: "utf8" });
-  if (!existsSync(outPath)) {
-    console.error(`screenshot failed for ${basename(htmlPath)} @ ${width}px`);
-    if (r.stderr) console.error(r.stderr.split("\n").slice(0, 5).join("\n"));
-    return null;
-  }
-  return outPath;
+  return capture({ url: htmlPath, out: outPath, width, height: HEIGHT });
 }
 
 if (cmd === "shot") {
@@ -305,16 +293,13 @@ ${mine.map((s) => `  <figure><figcaption>${s.stem} <span>· ${w}px</span></figca
   const sp = join(shotDir, `_sheet-${label(w)}.html`);
   writeFileSync(sp, html, "utf8");
   const out = join(shotDir, `contact-sheet-${label(w)}.png`);
-  // The sheet gets its own viewport, independent of --height, so nothing is cropped.
-  const saved = HEIGHT;
-  const r = spawnSync(BROWSER, [
-    "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox",
-    "--force-device-scale-factor=1", "--default-background-color=ffffffff",
-    `--screenshot=${out}`, `--window-size=${sheetW},${sheetH}`,
-    `file:///${sp.replace(/\\/g, "/")}`,
-  ], { encoding: "utf8" });
-  if (existsSync(out)) sheets.push({ label: label(w), out, sheetW, sheetH });
-  else console.error(`contact sheet failed for ${label(w)}: ${(r.stderr ?? "").split("\n")[0]}`);
+  // The sheet gets its own viewport, independent of --height, so nothing is cropped. It is always wide,
+  // so it never hits the narrow-window problem the individual shots do.
+  if (captureHtml({ html, out, width: sheetW, height: sheetH })) {
+    sheets.push({ label: label(w), out, sheetW, sheetH });
+  } else {
+    console.error(`contact sheet failed for ${label(w)}`);
+  }
 }
 
 // A third reader: VS Code. Markdown preview (Ctrl+Shift+V) renders these inline, so the whole set is

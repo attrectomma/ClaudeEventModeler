@@ -299,6 +299,10 @@ build/
 designs/index.html
 designs/_shots/
 
+# Screenshots of the BUILT software — regenerate with the kit's tools/review.mjs sheet.
+# Evidence for a human reviewing a slice, not source: re-run the tool rather than committing PNGs.
+review/
+
 # .NET build output. The generated *.cs files ARE committed: their diff is how a model change
 # gets reviewed.
 **/bin/
