@@ -733,9 +733,27 @@ function gwtRules(ir) {
           ?? all(g.when).find((e) => e.kind === "command")
           ?? all(g.when)[0] ?? null;
 
-      if (s.commands.length) {
+      // A MISSING when= IS ONLY AN ERROR ON A STATE CHANGE SLICE.
+      //
+      // This used to be gated on `s.commands.length`, which was right for a View — no command, so no
+      // WHEN — and wrong for everything else. An automation and a translation slice both HAVE a command,
+      // and both are specified in two halves:
+      //
+      //   the infrastructure half   GIVEN these events, THEN that event    (nobody issues anything;
+      //                                                                     the processor reacts)
+      //   the domain half           GIVEN ..., WHEN the command, THEN ...
+      //
+      // The little book gives exactly that split — "Test Automation using Given / Then... Given these 2
+      // Events, we expect the automation to run automatically, make the external API Call and result in
+      // another Event", alongside "Test the state change slices using Given / When / Then". ch.13 of
+      // Understanding EventSourcing says the same: "For read model AND AUTOMATION tests, the 'When' step
+      // is typically omitted."
+      //
+      // So the kit documented a shape it then rejected, which is worse than not documenting it. Caught by
+      // modelling ch.16 of the book, where the translation's infrastructure half is exactly this.
+      if (s.pattern === "command") {
         if (!g.when) {
-          push("error", "gwt-needs-when", `GWT "${g.rule || g.label || g.id}" has no when=, so it names no Command.`, g.id);
+          push("error", "gwt-needs-when", `GWT "${g.rule || g.label || g.id}" has no when=, so it names no Command. A State Change slice's scenarios are always GIVEN/WHEN/THEN; only a View, Automation or Translation may omit the WHEN.`, g.id);
         } else if (!cmd || cmd.kind !== "command") {
           push("error", "gwt-unknown-command", `GWT "${g.rule || g.id}" names when="${g.when}", which is not a Command in this model.`, g.id);
         } else if (!s.commands.includes(cmd.id)) {

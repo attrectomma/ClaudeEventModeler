@@ -1,6 +1,14 @@
-# Kit findings — the CPOC01 run
+# Kit findings
 
-Everything the kit got wrong, everything the run taught, and every decision parked for the human.
+Everything the kit got wrong, everything the runs taught, and every decision parked for the human.
+
+**Two runs so far.** The first (CPOC01, *Recipe Box*) took a business brief through the whole workflow to
+a clickable Docker app. The second (CPOC02, the book's shopping cart) was a deliberate verification on a
+domain the kit had never generated from, chosen so that the **book** supplies every domain answer and the
+kit can be scored against a documented expected outcome.
+
+The second run is first below, because its findings are sharper: a fresh domain exercises paths a
+familiar one cannot, and three of its four `BROKEN` findings had been latent since the kit was written.
 
 **Where this came from.** One session, 2026-08-06: the *Recipe Box* brief in `CPOC01/inbox/` taken
 through all eleven `event-model` phases, then `styling`, then `codegen` for two slices — `create-recipe`
@@ -21,7 +29,167 @@ to end first, so the artifact under test does not change while it is being measu
 
 ---
 
-## A. Findings
+---
+
+# The second run — the book's cart, ch. 12 and 16 (CPOC02)
+
+A whole-workflow verification on a domain the kit had never generated from: the shopping cart of
+*Understanding EventSourcing*, modelled from **the book** rather than from the kit's own `slice.mjs`
+fixture, with the book playing the domain expert. Backend only, by agreement — the frontend paths had
+just been exercised twice, and the backend is where modelling decisions become irreversible.
+
+**Why this example.** Neither book has a second worked domain, and that turned out to be an argument
+*for* the cart rather than against: the book also *implements* it (ch. 21–28), so there is a reference
+answer for the backend and not only for the model. Ch. 16 is a **Translation** — external event →
+view → automation → command → internal event — which codegen had never seen outside a reference
+implementation. And ch. 16 exists precisely to demonstrate the completeness check finding a gap, which
+gives a documented expected outcome to score the kit against.
+
+**What was run:** `project.mjs init`, a two-file inbox with chapter provenance, phases 1–10, `slice.mjs`
+for all geometry, `compile`, `codegen`, `dotnet build`, `dotnet test`, and an agent implementing the
+translation slice against real Postgres.
+
+## B0 — THE HEADLINE: the kit passed a model the book says is incomplete
+
+Ch. 16's whole purpose is this discovery:
+
+> *"**We haven't modelled the 'product-id' in the system yet. This is important.** What we've just
+> discovered is a mismatch in the information available long before starting the implementation. That's
+> one of the major benefits of using Event Modeling!"*
+
+Ch. 12 was modelled faithfully — **without** `productId`, which is the state the book's model is in at
+that point. Then ch. 16 was appended. The kit reported **0 errors**. The book's fix was then applied —
+`productId` onto the read model, the event and the command — and it reported **0 errors again**.
+
+**The checker cannot distinguish the incomplete model from the complete one.** Two causes:
+
+1. **It is name-based and join-blind.** `productId` on the Cart Page *was* satisfied — by the
+   **Inventories** view, which carries it. The name resolved, so the check passed. But the requirement is
+   *"match the product-id from the inventory **to an item in the cart**"*: a **join**, and `Cart Items`
+   had no key to join on. The check asks "does some upstream supply this name", never "can these two
+   sources be joined".
+2. **`displays=` is a flat set of names**, so *"the indicator shows inventory **for each cart line**"*
+   cannot be stated at all. Read models gained groups via `children=`; the screen side has no matching
+   notion, so the requirement is inexpressible and therefore uncheckable.
+
+**A rule that would catch it:** when a screen displays attributes drawn from two different views, require
+a shared key between them. That is implementable and would have reproduced the book's discovery.
+
+Honest scope of the claim: a human modelling this *would* still find it, exactly as the book's team did —
+by asking how the indicator lines up with a cart row. What the kit does not do is find it for you, and
+`CLAUDE.md` implies the completeness check is the thing that does.
+
+## B1 — A translation slice got none of the automation machinery · **BROKEN** · ***FIXED***
+
+`codegen.mjs` filtered wakeup generation on `s.pattern === "automation"`. A **translation** is an
+automation whose source is foreign — the cheat sheet defines it as
+`Event(s) (source system) → View → Automated Trigger → Command → Event(s)`, and `CLAUDE.md`'s own table
+calls it *"the automation choice, plus how the foreign event lands"*.
+
+So for the translation slice the generator emitted **no trigger message, no trigger class, no wakeup
+scaffold with its decision table, no discovery registration** — and, worst, **`checkWakeupChosen` could
+never fire**. The kit's one structural defence against *"nothing ever wakes this in production"* — the bug
+`CLAUDE.md` says shipped once — was unreachable for the slice type most likely to need it. `Program.cs`
+even asserted `// No automation slice is past in-design, so nothing needs waking` directly over a
+translation slice that needed waking.
+
+Fixed: `WOKEN_PATTERNS = new Set(["automation", "translation"])`.
+
+## B2 — `status=` does not turn tests on after the first generation · **BROKEN** · ***now REPORTED***
+
+`CLAUDE.md` promises: *"A slice at `in-design` has not been claimed, so its GWT tests are generated but
+skipped. From `ready` onward somebody is answerable for them and they run."*
+
+**False after the first generation.** `factAttr()` bakes `[Fact(Skip = …)]` into the file from `status=`
+at scaffold time, and the test file is a `scaffold()` — so it is **kept**. Promote the slice afterwards
+and its tests go on being skipped for ever, reporting `Skipped` where the entire gate depends on `Passed`.
+
+The first project never hit it by luck: its first slice was already `ready` when generated. The second
+generated everything at `in-design` and promoted later — and every test stayed off. I briefed an agent
+that three tests were live and failing; they were not, and it had to notice that itself.
+
+Now reported — `TESTS STILL SKIPPED ON A CLAIMED SLICE`, naming the file and the slice's status. Reported
+rather than repaired, because by then the file is hand-owned. Note the first version of the check was a
+plain substring search and produced a **false positive** on a `///` comment explaining a hand
+un-skipping; it now matches an actual attribute. A report that cries wolf stops being read.
+
+## B3 — An automation's label was used verbatim as a class name · **BROKEN** · ***FIXED***
+
+The book writes the processor as **"Inventory Processor"**, with a space. The generator used the label
+verbatim for the filename, the class and a `typeof()`, producing a file called `Inventory Processor.cs`
+containing `class Inventory Processor` — **eleven compiler errors**.
+
+Latent for the whole life of the kit, because every model that ever had an automation happened to use a
+single-word label (`EmailProcessor`). A different domain found it in one build. Now `pascal()`-ed.
+
+## B4 — The wakeup decision table has a missing row, and it is the translation row
+
+`CLAUDE.md`'s table routes *"the trigger event is **foreign** — we never append it"* to **sweep on a
+clock**, on the grounds that *"there is no transaction of ours to hook"*.
+
+**That premise is false for a translation.** The model draws the external event inside *our own* swimlane
+with `aggregate=` set — an event's y is its stream — so something of ours has to append it. Once we do,
+every "ours" mechanism is available again. The table has no row for *a foreign event that is ingested
+first*, which is the normal shape of a translation.
+
+The implementing agent chose a Marten `ISubscription` and gave the reason the table should have: the black
+box *"notifies us whenever a change in inventory occurs"* and never re-sends, so a dropped notification
+leaves the recorded stock level permanently wrong — and the rule at stake is *"we must not sell items that
+are not in stock"*. Durability wins; a checkpoint is a row in the database. Cost stated: the async daemon,
+and that test waits rather than asserts.
+
+## B5 — Smaller findings from the same run
+
+- **A generated comment contradicted the line beneath it.** `Program.cs` said *"Every stream in this
+  system is keyed by a composite of model fields, so stream ids are strings"* immediately above
+  `StreamIdentity.AsGuid`. Hard-coded prose from the model the generator was written against. **Fixed** —
+  it now derives from the keys and says which case applies.
+- **No decider is scaffolded, for any pattern.** codegen emits the command record and the state fold and
+  stops. *"The endpoint is the decider"* — the sentence the whole design rests on — has no file to live
+  in. Two projects in, the handler is hand-written every time.
+- **`Program.cs` is `emit` with no scaffold hook** into `UseWolverine` or `builder.Services`, so a
+  subscription had to be smuggled in through `ViewRegistrations.ConfigureStore` — the *read-model
+  registration* file — because it was the only scaffold reaching the Marten chain.
+- **A test hint assumes surface nobody generates.** Both GT scaffolds said *"assert the read model through
+  its endpoint"*. codegen emits no read route for any view.
+- **`SeedData`'s scaffolded instruction is actively wrong for a woken slice** — it says to append the
+  foreign events onto their streams, which for a translation means every test starts with a notification
+  the subscription then translates, appending into streams other tests assert on.
+- **`AppFixture` sets `Automation:Wakeup=false` and is `emit`.** Honour it and the "nobody asks" test is
+  unpassable; ignore it and the setting is a lie. Its own comment says it is about a *clock*; the kit
+  should say so, because conflating clock with wakeup makes the one test that matters untestable.
+- **`appsettings.json` hard-codes port 5433 and is `emit`**, and no `docker-compose.yml` is generated,
+  though `CLAUDE.md` and the agent briefs both tell you to run one.
+- **The mirror was wrong again.** `guide/handlers/discovery.md` writes `[Wolverine.WolverineHandler]`; it
+  is `Wolverine.Attributes.WolverineHandlerAttribute`. Also: the documented `dotnet run probe.cs`
+  tiebreaker needs `#:property PublishAot=false` for anything touching Marten, **and** plain
+  `Assembly.LoadFrom` + `GetExportedTypes()` throws in a file-based app.
+- **A todo View has no tick-off edge and nothing checks for one.** The model draws
+  `external → todo view` and not `own event → todo view`, so as drawn the list can only grow. A checkable
+  rule the kit lacks: *a view a trigger watches, with no edge from that trigger's own output event, is an
+  incomplete todo list.*
+
+## B6 — What held up, on ground it had never seen
+
+Worth as much as the failures, and all measured:
+
+- **`slice.mjs` did every bit of geometry.** It refused to add a slice without `--aggregate` once a second
+  swimlane existed, then built the entire translation shape — external, view, automation, command, event,
+  four edges, across two columns — and knew a translation begins with an external event.
+- **`children=` held on independent ground.** Fig 12.7 *is* a cart holding lines plus a total, and
+  `derived="totalPrice=price"` resolved through the group.
+- **Codegen took an unseen model to 0 warnings, 0 errors** — translation slice, external event, two stream
+  types, a nested-group view — correctly labelling the foreign event as foreign.
+- **The automation's Given/Then generated a live test**, which was impossible before this session.
+- **`status=` skipped everything correctly on the first pass**: 7 tests, 7 skipped.
+- **The "nobody asks and it still happens" test is real**, measured by deletion: commenting the wakeup out
+  failed **exactly one** test and left the other two alone.
+- **Three unasked runs against real Postgres**, with the tick-off working (1 outstanding, not 3) and
+  exactly one internal event per notification.
+
+---
+
+## A. Findings — the first run (CPOC01)
 
 ### A1 — `design.mjs` mobile screenshots were lies below 500px · **BROKEN** · ***FIXED***
 

@@ -238,6 +238,14 @@ the skip count becomes the honest measure of what is left.
 Failed: 10, Passed: 0, Skipped: 45, Total: 55     # one slice claimed, the rest documentation
 ```
 
+**But `status=` only decides this AT SCAFFOLD TIME, and that is a trap.** The skip is baked into the test
+file from `status=` when the file is first written, and the test file is `scaffold` — so it is **kept**.
+Generate a slice while it is `in-design`, promote it later, and **its tests go on being skipped for ever**,
+reporting `Skipped` where the gate depends on `Passed`. `codegen` now reports this as
+`TESTS STILL SKIPPED ON A CLAIMED SLICE` and names the file; the fix is deleting the `Skip` argument by
+hand, because a generator must not edit inside a file somebody else owns. The first project never hit it
+only because its first slice was already `ready` when it was generated.
+
 ### Example data comes from `IInitialData`
 
 The model declares field names and types but **never example values**, which is why tests cannot be
@@ -1208,16 +1216,33 @@ on the diagram is the concept, and the Event Model and its implementation are al
 So `pattern="automation"` reads as *"this slice reacts to accumulated state without a human"*, and the
 implementation is a **choice with a decision rule**:
 
+**Ask two questions, in this order: is the trigger event ours to append, and can you afford to lose one?**
+The second is the one that usually decides it, and it is not the same question as "does ordering matter".
+
 | When | Implementation | Why |
 | --- | --- | --- |
-| the trigger event is **ours**, and cheap + immediate wins | **event forwarding → a doorbell handler** | ~1s, no daemon, one class. But a delivery that never happens is lost — no record of intent outside the moment |
+| the trigger event is **ours**, losing one is survivable, and cheap + immediate wins | **event forwarding → a doorbell handler** | ~1s, no daemon, one class. But a delivery that never happens is lost — no record of intent outside the moment |
 | ours, and **losing one is unacceptable** | **Marten `ISubscription`** | durable checkpoint, so a host that was down catches up. Ordered, and coalesces one wakeup per event *page*. Costs the async daemon |
-| the trigger event is **foreign** — we never append it | **sweep a todo View on a clock** | there is no transaction of ours to hook |
+| the trigger event is **foreign but WE INGEST IT** — the normal shape of a `translation` | **whichever of the two rows above the durability answer picks** | once we append it, it is ours from that moment: there IS a transaction of ours to hook |
+| the trigger event is **foreign and never ingested** — nothing of ours ever appends it | **sweep a todo View on a clock** | genuinely no transaction of ours to hook |
 | there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
 | "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model, and it forces the view Async |
 
 All four are **built and measured** against one shared model in
 `reference-implementations/automation/` — read that before writing one.
+
+**The foreign-but-ingested row was missing, and its absence was worse than a gap.** A translation slice
+matched *"the trigger event is foreign"* on the surface criterion while failing its stated reason — the
+model draws the external event inside one of our own swimlanes with `aggregate=` set, so something of ours
+appends it, so there *is* a transaction to hook. As written, `translation` had **no correct row**, and the
+row it did match sends you to a clock you do not need. Anyone reading the verdict rather than the
+justification writes a sweep, and everything stays green.
+
+**And durability is now a criterion in its own right**, because *"can you afford to lose one?"* is the
+question that actually decides a foreign notification, and the table previously only asked it obliquely as
+"ordering or replay". A black box that *"notifies us whenever a change occurs"* and never re-sends means a
+dropped notification is permanently wrong data — which is a durability argument and says nothing about
+order.
 
 `PrepareEmail → EmailPrepared → [subscription] → SendEmail → EmailSent` is an automation. It is drawn
 `EmailPrepared → EmailsToSend → EmailProcessor → SendEmail`, and no `EmailsToSend` document has to exist

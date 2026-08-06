@@ -271,6 +271,29 @@ const checkGwtCoverage = (p, gwts) => {
   for (const g of gwts) if (!src.includes(g.rule)) untested.push({ path: p, rule: g.rule });
 };
 
+// A STALE SKIP, which is the same class of bug as an untested GWT and was doing more damage.
+//
+// CLAUDE.md promises: "A slice at in-design has not been claimed, so its GWT tests are generated but
+// skipped. From ready onward somebody is answerable for them and they run." That is FALSE after the first
+// generation. factAttr() bakes [Fact(Skip = ...)] into the file from status= at scaffold time, and the
+// test file is a scaffold — so it is KEPT. Promote the slice afterwards and the tests go on being skipped
+// for ever, reporting `Skipped` where the whole gate depends on `Passed`.
+//
+// Nobody noticed because the first project happened to generate its slice while already `ready`. The
+// second one generated everything at in-design first, promoted later, and every test stayed off.
+//
+// Reported, not repaired: the file is hand-owned by then, and rewriting an attribute inside somebody's
+// test file is how a generator destroys work. The remedy is one hand edit, and now it is visible.
+const staleSkips = [];
+const checkSkipFreshness = (p, s) => {
+  if (!existsSync(p) || !isClaimed(s)) return;
+  const src = readFileSync(p, "utf8");
+  // An ATTRIBUTE, not the string anywhere in the file. A plain substring search reported a file whose
+  // only match was a /// comment explaining that it had been un-skipped by hand — a false positive that
+  // tells the reader to fix something already fixed, which is how a report stops being read.
+  if (/^[ \t]*\[Fact\(Skip/m.test(src)) staleSkips.push({ path: p, slice: s.name, status: s.status });
+};
+
 // An automation nothing ever wakes passes every test it has, because the tests drive the trigger
 // directly. The generator deliberately does not choose the mechanism (see the automations block below),
 // so the hole it leaves has to be reported until somebody closes it — otherwise "not chosen yet" and
@@ -782,7 +805,9 @@ for (const s of ir.slices) {
       ? `a ${givenAgg.name} stream, keyed by ${givenAgg.identity.join(" + ")} — this slice appends nothing itself, but a GIVEN has to go somewhere`
       : "/* no command in this slice, so no stream is written */";
   gwtCount += s.gwts.length;
-  checkGwtCoverage(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`), s.gwts);
+  const testPath = join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`);
+  checkGwtCoverage(testPath, s.gwts);
+  checkSkipFreshness(testPath, s);
   scaffold(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
     `${banner(`slice "${s.name}" — ${s.gwts.length} ${s.gwts.every((g) => !g.when) ? "GIVEN/THEN" : "GWT"}(s), one test each`)}
 using Alba;
@@ -831,8 +856,22 @@ ${s.gwts.map((g, i) => {
 //
 // Only slices past in-design get one: the message has no handler until the slice is implemented, and
 // Wolverine asserts a subscriber exists.
+// TRANSLATION COUNTS AS AN AUTOMATION HERE, and leaving it out was the most dangerous bug in this file.
+//
+// The cheat sheet defines translation as
+//   Event(s) (source system) -> View -> Automated Trigger -> Command -> Event(s)
+// which is an automation whose source is foreign — and CLAUDE.md's own table says translation is "the
+// automation choice, plus how the foreign event lands". Filtering on pattern === "automation" alone meant
+// a translation slice got NO Run<Slice> message, NO trigger scaffold, NO wakeup decision table, and —
+// worst — checkWakeupChosen could never fire for it. So the kit's one structural defence against
+// "nothing ever wakes this in production", the bug CLAUDE.md says shipped once, was unreachable for the
+// slice type most likely to need it. Program.cs even asserted "No automation slice is past in-design, so
+// nothing needs waking" over a translation slice that very much needed waking.
+//
+// Found by modelling ch.16 of the book, which is a translation, and watching the generator emit nothing.
+const WOKEN_PATTERNS = new Set(["automation", "translation"]);
 const automations = ir.slices.filter(
-  (s) => s.pattern === "automation" && s.status !== "in-design");
+  (s) => WOKEN_PATTERNS.has(s.pattern) && s.status !== "in-design");
 const sweepMessage = (s) => `Run${pascal(s.name)}`;
 // THE GENERATOR DOES NOT CHOOSE HOW A TRIGGER IS WOKEN, and that is a deliberate reversal.
 //
@@ -876,10 +915,13 @@ public sealed record ${sweepMessage(s)};`).join("\n\n")}
     // The TRIGGER class. Program.cs registers it by name, so a project without it does not compile —
     // and for a long time the generator emitted the registration and not the class, which only ever
     // worked because the first project's trigger happened to be written by hand.
+    // pascal(a), NOT a. An automation's label is a DOMAIN label and may contain spaces — the book writes
+    // "Inventory Processor". Used verbatim it produced a file called "Inventory Processor.cs" containing
+    // `class Inventory Processor`, and a matching typeof() in Program.cs: eleven compiler errors. Latent
+    // until a model used a label of more than one word; every earlier one happened to say "EmailProcessor".
     for (const a of s.automations ?? []) {
-      scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${a}.cs`),
+      scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(a)}.cs`),
         `${banner(`${a} — the automated trigger for slice "${s.name}"`)}
-#nullable enable
 using Marten;
 using Wolverine;
 using ${NS}.Contracts;
@@ -934,7 +976,6 @@ public static class ${a}
     checkWakeupChosen(p, s.name);
     scaffold(p,
       `${banner(`${s.name} — HOW this automation is woken. Choose one; regeneration keeps this file.`)}
-#nullable enable
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
@@ -1019,7 +1060,6 @@ public static class ${pascal(s.name)}Wakeup
 // judgement the model deliberately does not carry: it declares field names and types and never examples.
 scaffold(join(APP, "GenesisData.cs"),
   `${banner("development-only starting data — a world to click around in")}
-#nullable enable
 using Marten;
 using Marten.Schema;
 using ${NS}.Contracts;
@@ -1142,10 +1182,13 @@ var marten = builder.Services.AddMarten(opts =>
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
         opts.DatabaseSchemaName = "${camel(ir.system)}";
 
-        // Every stream in this system is keyed by a composite of model fields, so stream ids are
-        // strings. Marten fixes this once per store — Guid and string streams cannot be mixed.
+        // Marten fixes stream identity ONCE PER STORE — Guid and string streams cannot be mixed — so this
+        // follows from the keys every swimlane declares:
 ${[...new Set(ir.shared.aggregates.filter((a) => a.identity.length).map((a) => a.identity.join(" + ")))]
       .map((k) => `        //   ${k}`).join("\n")}
+        // ${STREAM_IDENTITY === "AsGuid"
+        ? "Every one of them is a single Guid field, so the stream id IS that field."
+        : "At least one is a composite, and a composite cannot be a Guid — so every stream id is a string."}
         opts.Events.StreamIdentity = StreamIdentity.${STREAM_IDENTITY};
 
         // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's
@@ -1195,7 +1238,7 @@ ${automations.length === 0 ? "" : `
     // typeof(), not IncludeType<T>(): a Wolverine handler class is static, and a static type cannot be
     // a generic argument.
 ${automations.flatMap((s) => (s.automations ?? []).map(
-  (a) => `    opts.Discovery.IncludeType(typeof(${a}));`)).join("\n")}`}
+  (a) => `    opts.Discovery.IncludeType(typeof(${pascal(a)}));`)).join("\n")}`}
 });
 
 builder.Services.AddWolverineHttp();
@@ -1308,6 +1351,16 @@ console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, $
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
 console.log(`  ${gwtCount} GWT test(s) across ${ir.slices.filter((s) => s.gwts.length).length} slice(s)`);
+
+if (staleSkips.length) {
+  console.log(`\nTESTS STILL SKIPPED ON A CLAIMED SLICE — ${staleSkips.length}. status= is past in-design, but the`);
+  console.log(`test file was scaffolded while it was NOT, and [Fact(Skip = ...)] is baked in. The file is`);
+  console.log(`hand-owned now, so this cannot be repaired for you — and until it is, "the slice's tests are`);
+  console.log(`live, not skipped" reads as Skipped rather than Passed. Delete the Skip argument in:`);
+  for (const t of staleSkips) {
+    console.log(`  ${t.path.replace(OUT, "").replace(/^[\\/]/, "")}   (slice "${t.slice}" is ${t.status})`);
+  }
+}
 
 if (untested.length) {
   console.log(`\nGWT WITHOUT A TEST — ${untested.length}. These rules are in the model and in no test file,`);
