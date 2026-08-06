@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="drafting" id="context">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1140" pageHeight="1910" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1640" pageHeight="1910" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -11,27 +11,27 @@
         </object>
         <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="160" width="1040" height="390" as="geometry" />
+            <mxGeometry x="40" y="160" width="1540" height="390" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="550" width="1040" height="180" as="geometry" />
+            <mxGeometry x="40" y="550" width="1540" height="180" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="870" width="1040" height="120" as="geometry" />
+            <mxGeometry x="40" y="870" width="1540" height="120" as="geometry" />
           </mxCell>
         </object>
         <object id="swim-email" label="Email stream — one stream per email, keyed by a SINGLE field, which is what makes the aggregate handler workflow possible" em="lane" streams="Email" identity="emailId">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
-            <mxGeometry x="40" y="895" width="1040" height="95" as="geometry" />
+            <mxGeometry x="40" y="895" width="1540" height="95" as="geometry" />
           </mxCell>
         </object>
         <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
-            <mxGeometry x="40" y="1230" width="1040" height="620" as="geometry" />
+            <mxGeometry x="40" y="1230" width="1540" height="620" as="geometry" />
           </mxCell>
         </object>
         <object id="slice-draft-email" label="draft-email&#10;command · ready" em="group" slice="draft-email" pattern="command" status="ready" owners="backend-agent, frontend-agent">
@@ -149,6 +149,62 @@
         <object id="gwt-revise-subject-4" label="a blank subject is refused&#10;&#10;GIVEN —&#10;WHEN ReviseSubject&#10;THEN error: SubjectRequired" em="gwt" slice="revise-subject" rule="a blank subject is refused" when="ReviseSubject" then="error: SubjectRequired" enforce="periphery" note="Settled by the request alone, so it is refused before any stream is read.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="740" y="1680" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-my-drafts-1" label="a drafted email appears in my drafts&#10;&#10;GIVEN EmailDrafted&#10;THEN MyDrafts shows it, with its subject and body" em="gwt" slice="my-drafts" rule="a drafted email appears in my drafts" given="EmailDrafted" then="MyDrafts" note="A GIVEN/THEN, not a GWT: a read model only ever reads events that already exist, so there is no command to be the WHEN. Understanding EventSourcing ch.3 — &quot;you typically do not use GWTs but GTs (Given - Then)&quot;.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1260" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-my-drafts-2" label="a revised subject replaces the old one&#10;&#10;GIVEN EmailDrafted, SubjectRevised&#10;THEN MyDrafts shows ONE row, with the new subject" em="gwt" slice="my-drafts" rule="a revised subject replaces the old one" given="EmailDrafted, SubjectRevised" then="MyDrafts" note="The row is REVISED, not added: two events, still one row. This is the delete-vs-upsert question OPEN-QUESTIONS calls invisible to the checker — a GT is where it becomes assertable.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1400" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-my-drafts-3" label="revising the subject leaves the body alone&#10;&#10;GIVEN EmailDrafted, SubjectRevised&#10;THEN MyDrafts still shows the original body" em="gwt" slice="my-drafts" rule="revising the subject leaves the body alone" given="EmailDrafted, SubjectRevised" then="MyDrafts" note="Specifies what the view does NOT change. SubjectRevised carries no body, so a fold that rebuilt the row from the latest event would silently blank it — the one thing a projection can get wrong that no other test notices.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1540" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-draft-history" label="draft-history&#10;view · in-review" em="group" slice="draft-history" pattern="view" status="in-review" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="140" width="220" height="850" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-draft-history" label="DraftHistory" em="readmodel" slice="draft-history" identity="emailId" fields="emailId:Guid, subject:string, revisions:Revision[]" children="Revision: revisedTo:string, revisedAt:DateTimeOffset" mappings="revisedTo=subject" note="THE REPEATED-GROUP ROW SHAPE. One row per draft, carrying its revision history INSIDE the row as revisions:Revision[] — many of these, not one. Contrast MyDrafts next door, which is the same stream flattened to a single current state, and DeliveryLog in state-view, which is the same idea spread over one row per child. Three answers to &quot;what is one row&quot; from the same events. mappings=&quot;revisedTo=subject&quot; is here on purpose too: a rename has to resolve THROUGH the group, and this is the only place that is exercised.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-email-drafted--rm-draft-history" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-email-drafted" target="rm-draft-history">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="217" y="744" />
+              <mxPoint x="1150" y="744" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-subject-revised--rm-draft-history" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-subject-revised" target="rm-draft-history">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="857" y="752" />
+              <mxPoint x="1150" y="752" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="gt-draft-history-1" label="a new draft has an empty revision list&#10;&#10;GIVEN EmailDrafted&#10;THEN DraftHistory shows a row with 0 revisions" em="gwt" slice="draft-history" rule="a new draft has an empty revision list" given="EmailDrafted" then="DraftHistory" note="EMPTY, not null. This is the case that rules out the alternative shape — one row per revision would give a brand-new draft no row at all, and the screen that reads it would show nothing for a draft that certainly exists.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1260" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-draft-history-2" label="each revision is appended to the row's own list&#10;&#10;GIVEN EmailDrafted, SubjectRevised, SubjectRevised&#10;THEN DraftHistory shows ONE row with 2 revisions, in order" em="gwt" slice="draft-history" rule="each revision is appended to the row's own list" given="EmailDrafted, SubjectRevised, SubjectRevised" then="DraftHistory" note="TWO events, still ONE row, with two members inside it. A projection that keyed on the revision instead of the draft passes nothing here. This is the whole point of the shape.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1400" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-draft-history-3" label="the row's current subject is the latest revision&#10;&#10;GIVEN EmailDrafted, SubjectRevised&#10;THEN DraftHistory's subject equals the revision's, and 1 revision is listed" em="gwt" slice="draft-history" rule="the row's current subject is the latest revision" given="EmailDrafted, SubjectRevised" then="DraftHistory" note="The top-level field and the group must agree: subject is the head, revisions are the history. A fold that appended without updating the head would leave the row self-contradictory and no other test would notice.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1540" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
       </root>

@@ -30,6 +30,14 @@ public static class ViewRegistrations
     public static void Register(StoreOptions opts)
     {
         opts.Projections.Add<MyDraftsProjection>(ProjectionLifecycle.Inline);
+
+        // Added BY HAND. This file is a scaffold, so it was written once — before draft-history existed
+        // — and regeneration keeps it. A view added to the model later therefore gets a projection class
+        // scaffolded for it and NO registration, and an unregistered Inline projection is silent: the
+        // table is never created, the fold never runs, and LoadAsync returns null with no error. Nothing
+        // in the build or the startup log says so. If a brand-new view's tests all fail on a null row,
+        // look here first.
+        opts.Projections.Add<DraftHistoryProjection>(ProjectionLifecycle.Inline);
     }
 
     /// <summary>

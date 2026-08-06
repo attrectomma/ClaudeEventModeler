@@ -187,6 +187,7 @@ SQL table both satisfy the drawing. `identity=` is what narrows it:
 | --- | --- |
 | one stream, read by id, short stream | **live aggregation** — register nothing, `FetchLatest<T>` |
 | one stream, read often or long | **`SingleStreamProjection<T, TId>`** / `Projections.Snapshot<T>` |
+| one stream, **with its child lines inside the row** | the same, plus a `Type[]` group — see below |
 | **one event** — a log line, or one row per item *inside* an event | **`EventProjection`** — the only recipe that is not an aggregation |
 | a key carried by events from **several stream types** | **`MultiStreamProjection`** + one `Identity<T>` per event type |
 | a key rolled up over **many streams of one type** (per sender, per month) | the same, with a composite `Identity<IEvent<T>>` reading `StreamId` / `Timestamp` |
@@ -208,6 +209,49 @@ registrations used to be inline in `Program.cs`, which is `emit` — so every re
 made was **lost on the next regeneration**, and on the worked model four views out of five needed one. The
 second hook is separate because `AddAsyncDaemon` sits on the Marten *chain* and not on `StoreOptions`;
 without it, `Async` could not be chosen from a scaffold at all.
+
+### A row can carry its own child lines — `Type[]` and `children=`
+
+A header plus its line items is **one row**, not two views. Say so with a repeated group:
+
+```xml
+<object id="rm-recipe-detail" label="RecipeDetail" em="readmodel" identity="recipeId"
+        fields="recipeId:Guid, name:string, ingredients:IngredientLine[]"
+        children="IngredientLine: ingredientName:string, amount:decimal, unit:string">
+```
+
+**`[]` means many of these, not one.** `children=` names the group's shape and lists its fields, reusing
+the same `name:Type` grammar — the only new notation is the brackets. `identity=` does not change: still
+one row per recipe, with the lines *inside* it.
+
+**The group is transparent to the completeness check in both directions**, which is what keeps everything
+else working. A view declaring `ingredients:IngredientLine[]` is really asking for `ingredientName`,
+`amount` and `unit`, because that is what an event can supply — the collection field itself has no source
+and never could. And a screen displaying `ingredientName` is satisfied by a view offering the group.
+`mappings=`, `derived=` and `mapping-crosses-types` all keep working on the flattened names, so a child
+field may legitimately be a rename of what the event carries.
+
+**A list of primitives is not a group.** `recipients:string[]` needs no `children=` — it already *is* the
+attribute, and it generates `string[]` exactly as before.
+
+**Arrays, not `List<T>`, and not for tidiness.** Both were run against real Marten and Postgres: identical
+behaviour, identical JSONB containment SQL for a LINQ `Any()`, identical rebuild. What decides it is that
+`List<T>` lets somebody write `current.Lines.Add(...)` in an `Apply` — which compiles, appears to work, and
+**mutates the document instance Marten handed you**, a real bug under second-level projection caching that
+no test would obviously catch. On an array that is a compile error, so the immutable
+`with { X = [.. X, item] }` is the only way through. One documented Marten query pattern is array-only too.
+
+**Why this exists at all:** without it, a detail screen showing a recipe *and* its ingredients had to be
+modelled as two read models — and a screen fed by two views is a smell (see below). Twelve checks against
+real Marten proved the single-row form works, including the empty list on a brand-new parent,
+accumulation across separate transactions, querying into the collection, and a full rebuild reproducing it.
+Demonstrated in `reference-implementations/state-change/` as `DraftHistory`, whose row carries its own
+revision history.
+
+**One screen fed by two views is a smell.** Ask why one view cannot answer the screen — usually the answer
+is that it can, with a group. The mirror-image smell is one view feeding two *features*: two independently
+evolvable screens must not share a read model, even when the two views are shaped identically today.
+Neither is checkable; both are review questions.
 
 **A view's document id is not the stream id.** A rolled-up view is keyed by its own `identity=` —
 `(messageId, recipient)`, `(senderId, month)` — and neither is a stream key. Same rule as `StreamIdentity`:

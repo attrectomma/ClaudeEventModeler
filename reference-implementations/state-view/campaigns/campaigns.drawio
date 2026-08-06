@@ -364,6 +364,76 @@
             <mxGeometry x="1060" y="1610" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
+        <object id="gt-message-status-1" label="a queued message starts with nothing delivered&#10;&#10;GIVEN MessageQueued (3 recipients)&#10;THEN MessageStatus shows 3 expected, 0 delivered, 0 bounced" em="gwt" slice="message-status" rule="a queued message starts with nothing delivered" given="MessageQueued" then="MessageStatus" note="A GIVEN/THEN, not a GWT: a read model only ever reads events that already exist, so there is no command to be the WHEN. Understanding EventSourcing ch.3 — &quot;you typically do not use GWTs but GTs (Given - Then)&quot;.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-message-status-2" label="a delivery and a bounce are counted separately&#10;&#10;GIVEN MessageQueued, MessageDelivered, MessageBounced&#10;THEN MessageStatus shows 1 delivered and 1 bounced" em="gwt" slice="message-status" rule="a delivery and a bounce are counted separately" given="MessageQueued, MessageDelivered, MessageBounced" then="MessageStatus" note="Two different outcome events land on ONE row. A fold that treated them alike would pass any test that only ever sent one of them.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-message-status-3" label="status is derived from the counts, not carried&#10;&#10;GIVEN MessageQueued (1 recipient), MessageDelivered&#10;THEN MessageStatus status reads as complete" em="gwt" slice="message-status" rule="status is derived from the counts and not carried" given="MessageQueued, MessageDelivered" then="MessageStatus" note="status= is a derived= field: no event carries it. The GT is the only place its rule is written down.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-sender-monthly-1" label="one sender's month rolls up across messages&#10;&#10;GIVEN MessageQueued, MessageQueued (same sender, same month)&#10;THEN SenderMonthly shows ONE row, 2 messages" em="gwt" slice="sender-monthly" rule="one sender's month rolls up across messages" given="MessageQueued, MessageQueued" then="SenderMonthly" note="A rollup over MANY streams of one type — two messages, one row. This is the recipe this slice exists to demonstrate, and until now nothing asserted it.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-sender-monthly-2" label="two senders are two rows&#10;&#10;GIVEN MessageQueued, MessageQueued (different senders)&#10;THEN SenderMonthly shows TWO rows" em="gwt" slice="sender-monthly" rule="two senders are two rows" given="MessageQueued, MessageQueued" then="SenderMonthly" note="identity=&quot;senderId, month&quot; made executable. A grouping keyed on the wrong field passes the previous GT and fails this one.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-sender-monthly-3" label="an outcome does not touch the monthly rollup&#10;&#10;GIVEN MessageQueued, MessageDelivered&#10;THEN SenderMonthly is unchanged: 1 message" em="gwt" slice="sender-monthly" rule="an outcome does not touch the monthly rollup" given="MessageQueued, MessageDelivered" then="SenderMonthly" note="What the view IGNORES. Only MessageQueued feeds it — the drawing already says so, and this is what makes that assertable.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-message-metrics-1" label="metrics start at zero for a queued message&#10;&#10;GIVEN MessageQueued (2 recipients)&#10;THEN MessageMetrics shows 2 expected, 0 delivered, 0 bounced" em="gwt" slice="message-metrics" rule="metrics start at zero for a queued message" given="MessageQueued" then="MessageMetrics" note="A GIVEN/THEN, not a GWT: a read model only ever reads events that already exist, so there is no command to be the WHEN. Understanding EventSourcing ch.3 — &quot;you typically do not use GWTs but GTs (Given - Then)&quot;.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-message-metrics-2" label="outcomes accumulate onto the metrics&#10;&#10;GIVEN MessageQueued, MessageDelivered, MessageBounced&#10;THEN MessageMetrics shows 1 delivered, 1 bounced" em="gwt" slice="message-metrics" rule="outcomes accumulate onto the message's metrics" given="MessageQueued, MessageDelivered, MessageBounced" then="MessageMetrics" note="Same events as MessageStatus, a different row shape — which is the whole point of having both in one model.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-delivery-log-1" label="one queued message becomes one row per recipient&#10;&#10;GIVEN MessageQueued (3 recipients)&#10;THEN DeliveryLog shows 3 rows, one per recipient" em="gwt" slice="delivery-log" rule="one queued message becomes one row per recipient" given="MessageQueued" then="DeliveryLog" note="The FAN-OUT recipe made executable: one event, several rows. identity=&quot;messageId, recipient&quot; says a row is a pairing, and this is the only place that claim is checked.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-delivery-log-2" label="the same recipient on two messages is two rows&#10;&#10;GIVEN MessageQueued, MessageQueued (same recipient)&#10;THEN DeliveryLog shows 2 rows" em="gwt" slice="delivery-log" rule="the same recipient on two messages is two rows" given="MessageQueued, MessageQueued" then="DeliveryLog" note="A row is keyed by the PAIRING, not by the recipient. A projection keyed on recipient alone passes the first GT and collapses here.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-delivery-log-3" label="an outcome does not add a log row&#10;&#10;GIVEN MessageQueued (1 recipient), MessageDelivered&#10;THEN DeliveryLog still shows 1 row" em="gwt" slice="delivery-log" rule="an outcome does not add a log row" given="MessageQueued, MessageDelivered" then="DeliveryLog" note="What the view ignores: only MessageQueued feeds it. Without this, a fold that also reacted to outcomes would double the rows and no test would say so.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-campaign-dashboard-1" label="an opened campaign appears with nothing sent&#10;&#10;GIVEN CampaignOpened&#10;THEN CampaignDashboard shows it, 0 queued" em="gwt" slice="campaign-dashboard" rule="an opened campaign appears with nothing sent" given="CampaignOpened" then="CampaignDashboard" note="A GIVEN/THEN — no WHEN, because a read model only reads events that already exist.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1330" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-campaign-dashboard-2" label="messages from another stream roll up onto the campaign&#10;&#10;GIVEN CampaignOpened, MessageQueued, MessageDelivered&#10;THEN CampaignDashboard shows 1 queued, 1 delivered" em="gwt" slice="campaign-dashboard" rule="messages from another stream roll up onto the campaign" given="CampaignOpened, MessageQueued, MessageDelivered" then="CampaignDashboard" note="THE reason this view is multi-stream: the Campaign stream and the Message stream land on ONE row, joined on campaignId. Nothing else in this model asserts a cross-stream grouping.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1470" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-campaign-dashboard-3" label="closing changes the status and nothing else&#10;&#10;GIVEN CampaignOpened, MessageQueued, CampaignClosed&#10;THEN CampaignDashboard is closed and STILL shows 1 queued" em="gwt" slice="campaign-dashboard" rule="closing a campaign changes its status and nothing else" given="CampaignOpened, MessageQueued, CampaignClosed" then="CampaignDashboard" note="A revise, not a rebuild: the counts accumulated from the OTHER stream must survive an event from this one. A fold that rebuilt the row from CampaignClosed would zero them silently.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
       </root>
     </mxGraphModel>
   </diagram>

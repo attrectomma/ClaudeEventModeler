@@ -17,6 +17,11 @@ reference-implementations/
   state-change/          the Command pattern on an EXISTING stream — the aggregate handler
     drafting/            the event model                     workflow, with and without HTTP
     generated/           both implementations
+                         ALSO: DraftHistory, the one demonstration of a row that carries its
+                         own child lines as a Type[] group. It lives here rather than in
+                         state-view because adding a tenth column there took that model to
+                         3500px, past the 3200 readability budget — which is the budget doing
+                         its job: state-view is full, and the next recipe wants its own model.
   state-view/            the View pattern — six Marten read-model recipes, one model
     campaigns/           the event model
     generated/           the implementations
@@ -232,8 +237,15 @@ the endpoint honours a supplied id and mints one only when it is absent.
 | folder | pattern | what is built | tests |
 | --- | --- | --- | --- |
 | `automation/` | `automation` | all four wakeup mechanisms, each verified to fire unaided | **15** |
-| `state-change/` | `command` | both deciders — with and without Wolverine.HTTP — asserted against the same GWTs | **10** |
-| `state-view/` | `view` | six Marten read-model recipes over two stream types | **21** |
+| `state-change/` | `command` | both deciders — with and without Wolverine.HTTP — asserted against the same GWTs, **plus `DraftHistory`: a row carrying its own child lines as a `Type[]` group** | **16** |
+| `state-view/` | `view` | six Marten read-model recipes over two stream types, **each now with Given/Thens specifying its fold** | **35** |
+
+**Every view slice here now has Given/Thens, and until recently none did.** These folders demonstrated six
+read-model *recipes* and never once demonstrated how a View is **specified** — the thing both books call
+mandatory and the thing a reader most needs to copy. Seventeen were added. The ones that earn their keep
+assert what a view **ignores**, because the drawing already claims which events feed which view and nothing
+made that claim executable. All of those were mutation-checked: break the fold on purpose, confirm that one
+test and only that one fails.
 
 All three suites pass and are stable across repeated runs. Every folder has also been **run as an app**,
 because each pattern has at least one failure mode a green suite cannot see: an automation that nothing

@@ -27,9 +27,10 @@ var marten = builder.Services.AddMarten(opts =>
         opts.Connection(builder.Configuration.GetConnectionString("Marten")!);
         opts.DatabaseSchemaName = "drafting";
 
-        // Every stream in this system is keyed by a composite of model fields, so stream ids are
-        // strings. Marten fixes this once per store — Guid and string streams cannot be mixed.
+        // Marten fixes stream identity ONCE PER STORE — Guid and string streams cannot be mixed — so this
+        // follows from the keys every swimlane declares:
         //   emailId
+        // Every one of them is a single Guid field, so the stream id IS that field.
         opts.Events.StreamIdentity = StreamIdentity.AsGuid;
 
         // StreamOne/StreamMany write Marten's RAW JSON to the response, which bypasses ASP.NET's

@@ -181,6 +181,27 @@ gives a rule for closing a *closed* campaign and none for closing one that was n
 
 ---
 
+### 7. A custom grouper's cache outlives the database reset, and that is a test-isolation trap
+
+`ResetAllMartenDataAsync()` is the seam every test here leans on, and there is one thing it cannot reach:
+**a grouper's in-memory cache.** `MessageToCampaignGrouper` keeps a `ConcurrentDictionary<Guid, Guid>` for
+the lifetime of the store. Wiping the database does not wipe that dictionary.
+
+So a `messageId` reused under a **different** `campaignId` in a later test resolves from the stale entry —
+and the database lookup that would have corrected it is skipped *precisely because* the key is already
+known. Measured with a throwaway probe (same messageId, two campaigns, a wait so the batch scan cannot
+paper over it): whichever test ran **second** failed with `row.Delivered should be 1 but was 0`. Nothing
+thrown, nothing logged — the same silent shape the batch scan exists to prevent, arriving by another route.
+
+`CampaignDashboard.cs` calls the cache *"unbounded — fine for a reference model, an LRU in anything
+long-running"*, which understates it: the cache also makes correctness depend on
+`messageId -> campaignId` being **immutable**. In production it is, so this is a testing hazard rather
+than a data bug — but it is a hazard that finding #2's batch scan does not cover.
+
+**The rule this folder follows now:** every test in `CampaignDashboardTests` pairs `SeedData.MessageId`
+with `SeedData.CampaignId`, so the cache can only ever hold the answer it would compute anyway. If you
+need a second campaign in one run, use a fresh `messageId` with it.
+
 ## The seam that made this possible
 
 The read-side registrations used to be inline in `Program.cs`, which is `emit()` and therefore overwritten —

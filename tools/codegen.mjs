@@ -284,6 +284,41 @@ const checkGwtCoverage = (p, gwts) => {
 //
 // Reported, not repaired: the file is hand-owned by then, and rewriting an attribute inside somebody's
 // test file is how a generator destroys work. The remedy is one hand edit, and now it is visible.
+// A VIEW WITH NO REGISTRATION, which is the quietest failure in the whole kit.
+//
+// Views/ViewRegistrations.cs is a scaffold — written once, then hand-owned, and KEPT. So a view added to
+// the model AFTERWARDS gets its projection class scaffolded and never gets a line in Register(), because
+// that file was written before the view existed.
+//
+// There is no symptom. The build is clean, startup is clean, no table is created, and LoadAsync just
+// returns null. codegen even prints "N views" on the line above while one of them is dark. The file's own
+// header warns about a read-side decision being LOST to a scaffold; this is the same bug inverted — the
+// decision was never made at all.
+//
+// Reported, not repaired, for the usual reason: appending into a file somebody else owns is how a
+// generator destroys hand-written work. A commented-out TODO registration counts as unregistered on
+// purpose — that is exactly the state a multi-stream view with no slicing rule is parked in.
+const unregisteredViews = [];
+const checkViewsRegistered = (p, views) => {
+  if (!existsSync(p)) return;
+  const src = readFileSync(p, "utf8")
+    .split("\n").filter((l) => !/^\s*(\/\/|\/\/\/)/.test(l)).join("\n");   // ignore commented-out lines
+  for (const v of views) {
+    const t = pascal(v.label);
+    // THREE LEGITIMATE FORMS, and the first version of this check knew only one — it matched
+    // `Add<XProjection>` and so accused three correctly-registered views in the six-recipe reference
+    // implementation, on a fully green suite. Precisely the cry-wolf failure this file warns about
+    // elsewhere, and only a model exercising more than one recipe could expose it:
+    //
+    //   opts.Projections.Add<XProjection>(...)              the generic form
+    //   opts.Projections.Add(new XProjection(), ...)        BY INSTANCE, when config lives in its ctor
+    //   opts.Projections.Snapshot<X>(...)                   self-aggregating: the DOCUMENT type, no
+    //                                                       "Projection" suffix anywhere
+    const registered = src.includes(`${t}Projection`) || new RegExp(`Snapshot<\\s*${t}\\s*>`).test(src);
+    if (!registered) unregisteredViews.push({ path: p, view: v.label });
+  }
+};
+
 const staleSkips = [];
 const checkSkipFreshness = (p, s) => {
   if (!existsSync(p) || !isClaimed(s)) return;
@@ -292,6 +327,24 @@ const checkSkipFreshness = (p, s) => {
   // only match was a /// comment explaining that it had been un-skipped by hand — a false positive that
   // tells the reader to fix something already fixed, which is how a report stops being read.
   if (/^[ \t]*\[Fact\(Skip/m.test(src)) staleSkips.push({ path: p, slice: s.name, status: s.status });
+};
+
+// THE INVERSE, and it was a blind spot in the check above: an UNCLAIMED slice whose tests are written.
+//
+// checkSkipFreshness returns early unless the slice is claimed, so a slice left at in-design with every
+// test body filled in produces no signal at all — the work is done, the tests are dark, and the skip count
+// that CLAUDE.md calls "the honest measure of what is left" over-reports by however many they are.
+//
+// Detected by the absence of the stub: a scaffolded test throws NotImplementedException, so a file with
+// none left has been implemented. The remedy is a status= change on the slice cell, which is a MODELLING
+// edit and squarely the human's.
+const doneButUnclaimed = [];
+const checkImplementedYetUnclaimed = (p, s) => {
+  if (!existsSync(p) || isClaimed(s) || !s.gwts.length) return;
+  const src = readFileSync(p, "utf8");
+  if (!src.includes("NotImplementedException")) {
+    doneButUnclaimed.push({ path: p, slice: s.name, status: s.status ?? "in-design", tests: s.gwts.length });
+  }
 };
 
 // An automation nothing ever wakes passes every test it has, because the tests drive the trigger
@@ -454,7 +507,7 @@ for (const v of ir.shared.views) {
   scaffold(join(APP, "Views", `${pascal(v.label)}.cs`),
     `${banner(`${v.label} read model — fed by ${v.from.length} event type(s)`)}
 using Marten.Events.Aggregation;   // SingleStreamProjection
-using Marten.Events.Projections;   // MultiStreamProjection
+using Marten.Events.Projections;   // only used when this view is MULTI-stream; harmless otherwise
 using ${NS}.Contracts;
 
 namespace ${NS}.Views;
@@ -520,16 +573,22 @@ ${v.from.map((l) => {
       // Does this event look like a member of one of the repeated groups? If it carries every field of
       // a child shape, it almost certainly APPENDS one rather than revising the header — and saying so
       // is the difference between a useful scaffold and a blank `=> current`.
-      const group = v.fields.find((f) => f.collection && (v.children?.[f.type] ?? [])
-        .every((c) => ev?.fields.some((ef) => ef.name === c.name)));
+      // MAPPINGS COUNT. A child field may be a rename of what the event carries — children="Revision:
+      // revisedTo:..." fed by an event carrying `subject`, with mappings="revisedTo=subject". The
+      // completeness check honours that; this hint did not, so the one view in the kit that renames
+      // through a group got a blank `=> current` instead of the append line. Same lookup the checker uses.
+      const supplies = (c) => {
+        const wanted = v.mappings?.[c.name] ?? c.name;
+        return ev?.fields.some((ef) => ef.name === wanted);
+      };
+      const group = v.fields.find((f) => f.collection && (v.children?.[f.type] ?? []).every(supplies));
       const shape = group ? v.children[group.type] : null;
       return `    public static ${pascal(v.label)} Apply(${pascal(l)} e, ${pascal(v.label)} current)
 ${group
         ? `        // TODO(codegen): ${pascal(l)} carries every field of ${pascal(group.type)}, so it almost certainly
         // APPENDS a member rather than revising the header. Immutably, which is the shape Marten's own
         // aggregate-projections docs use for a collection:
-        //   => current with { ${pascal(group.name)} = [.. current.${pascal(group.name)}, new ${pascal(group.type)}(${shape.map((c) => `e.${pascal(c.name)}`).join(", ")})] };
-        // Set Id too if this event can be the first one on the stream.
+        //   => current with { ${pascal(group.name)} = [.. current.${pascal(group.name)}, new ${pascal(group.type)}(${shape.map((c) => `e.${pascal(v.mappings?.[c.name] ?? c.name)}`).join(", ")})] };
         => current;`
         : `        // TODO(codegen): fold ${pascal(l)} into the row.
         => current;`}`;
@@ -710,8 +769,14 @@ namespace ${NS}.IntegrationTests;
 /// Fixed ids so a GIVEN can name things, and so a failing test is reproducible. The model declares
 /// field names and types but never example values — this is where the values live, once.
 ///
-/// Seeds only the ${foreign.length} events nothing in this system produces (${foreign.map((e) => e.label).join(", ")}).
-/// Everything else is appended by the test's own GIVEN, because that is what a GIVEN is for.
+${foreign.length
+  ? `/// Seeds only the ${foreign.length} event(s) nothing in this system produces: ${foreign.map((e) => e.label).join(", ")}.
+/// Everything else is appended by the test's own GIVEN, because that is what a GIVEN is for.`
+  : `/// NOTHING TO SEED, and that is the expected state for most systems: every event here is produced by a
+/// slice of this system, so a test's own GIVEN appends whatever it needs. The class exists for the fixed
+/// ids below, which is what lets a GIVEN name things and a failing test be reproducible.
+/// (The previous wording said "seeds only the 0 events ... ()", which read as an unfinished sentence and
+/// cost a reader a minute checking whether they had missed a seeding step.)`}
 /// </summary>
 public sealed class SeedData : IInitialData
 {
@@ -808,6 +873,7 @@ for (const s of ir.slices) {
   const testPath = join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`);
   checkGwtCoverage(testPath, s.gwts);
   checkSkipFreshness(testPath, s);
+  checkImplementedYetUnclaimed(testPath, s);
   scaffold(join(TESTS, "Slices", pascal(s.context), `${pascal(s.name)}Tests.cs`),
     `${banner(`slice "${s.name}" — ${s.gwts.length} ${s.gwts.every((g) => !g.when) ? "GIVEN/THEN" : "GWT"}(s), one test each`)}
 using Alba;
@@ -834,7 +900,7 @@ ${s.gwts.map((g, i) => {
       // missing; omitting the line says what the book says.
       return `    // ${(g.rule || g.label || g.id).replace(/\s+/g, " ")}
     //   GIVEN ${g.given || "(nothing)"}${g.when ? `\n    //   WHEN  ${g.when}` : ""}
-    //   THEN  ${g.then || "(nothing)"}${g.when ? "" : "\n    //   (no WHEN: this is a GIVEN/THEN. Append the GIVEN, then assert the read model through its endpoint.)"}${isPeriphery(g) && g.when ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
+    //   THEN  ${g.then || "(nothing)"}${g.when ? "" : "\n    //   (no WHEN: this is a GIVEN/THEN. Append the GIVEN, then assert the read model — through its read endpoint if the slice has one, else Store.QuerySession().)"}${isPeriphery(g) && g.when ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
     ${factAttr(s)}
     public Task ${testName(g, i)}()
         => throw new NotImplementedException(
@@ -1100,6 +1166,7 @@ public sealed class GenesisData : IInitialData
 // two of them, and three of the six are not even the base class the view file was scaffolded with.
 // Registration is where all of that lands, so registration has to be scaffold().
 if (ir.shared.views.length) {
+  checkViewsRegistered(join(APP, "Views", "ViewRegistrations.cs"), ir.shared.views);
   scaffold(join(APP, "Views", "ViewRegistrations.cs"),
     `${banner("read-model registration — WHICH Marten recipe each view is")}
 using JasperFx.Events.Projections;
@@ -1351,6 +1418,26 @@ console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, $
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
 console.log(`  ${gwtCount} GWT test(s) across ${ir.slices.filter((s) => s.gwts.length).length} slice(s)`);
+
+if (unregisteredViews.length) {
+  console.log(`\nVIEW WITH NO REGISTRATION — ${unregisteredViews.length}. The projection class exists and NOTHING RUNS IT.`);
+  console.log(`ViewRegistrations.cs is a scaffold, so a view added to the model after it was written gets no`);
+  console.log(`line in Register(). There is no symptom: the build is clean, startup is clean, no table is`);
+  console.log(`created, and a load just returns null. Add each by hand, next to the ones already there:`);
+  for (const u of unregisteredViews) {
+    console.log(`  ${u.view}   ->   opts.Projections.Add<${pascal(u.view)}Projection>(ProjectionLifecycle.Inline);`);
+  }
+  console.log(`  in ${unregisteredViews[0].path.replace(OUT, "").replace(/^[\\/]/, "")}`);
+}
+
+if (doneButUnclaimed.length) {
+  console.log(`\nIMPLEMENTED BUT STILL UNCLAIMED — ${doneButUnclaimed.length}. Every test body is filled in and every`);
+  console.log(`one of them is SKIPPED, because status= says nobody has claimed the slice. The work is done and the`);
+  console.log(`skip count is over-reporting what is left. Promote the slice in the model, then delete the Skip:`);
+  for (const t of doneButUnclaimed) {
+    console.log(`  slice "${t.slice}" is ${t.status} — ${t.tests} test(s) written and dark`);
+  }
+}
 
 if (staleSkips.length) {
   console.log(`\nTESTS STILL SKIPPED ON A CLAIMED SLICE — ${staleSkips.length}. status= is past in-design, but the`);

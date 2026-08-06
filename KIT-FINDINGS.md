@@ -49,6 +49,107 @@ gives a documented expected outcome to score the kit against.
 for all geometry, `compile`, `codegen`, `dotnet build`, `dotnet test`, and an agent implementing the
 translation slice against real Postgres.
 
+## B-1 — Follow-on work: the reference implementations had no view specifications at all
+
+Filed during the first run as A7/B1 and done after the second, because the second run made the case
+better than the first: a GT is the **only** executable evidence a State View slice ever gets.
+
+**All five view slices in `state-view` had no scenarios, and so did `my-drafts` in `state-change`** — the
+first pass reported three because the output was truncated. So the kit's own worked examples demonstrated
+six read-model *recipes* and never once demonstrated how a View is **specified**, which is the thing a
+reader most needs to copy and the thing both books call mandatory. Nothing asked until `slice-needs-gwt`
+started covering view slices.
+
+Seventeen Given/Thens added. The ones that earn their keep are the three asserting **what a view
+IGNORES** — *"an outcome does not touch the monthly rollup"*, *"an outcome does not add a log row"*,
+*"closing a campaign changes its status and nothing else"*. The drawing already says which events feed
+which view; these make that claim executable, and it is the one class of mistake a projection can make
+that nothing else notices.
+
+Two more worth naming for what they pin: `DeliveryLog`'s *"the same recipient on two messages is two
+rows"* (a projection keyed on recipient alone passes the first GT and collapses on this one), and
+`MyDrafts`'s *"revising the subject leaves the body alone"* (`SubjectRevised` carries no body, so a fold
+that rebuilt the row from the latest event would silently blank it).
+
+## B-2 — The repeated-group row shape is now demonstrated, and `state-view` is full
+
+`DraftHistory` in `state-change/` is one row per draft carrying its **revision history inside the row**.
+It needed no new events — a draft's revisions accumulate from the `SubjectRevised` events already there,
+which is the cheapest possible way to show the shape.
+
+It also exercises something nothing else did: `mappings="revisedTo=subject"` means a child field is a
+**rename** of what the event carries, so a rename has to resolve *through* the group. That found a real
+gap — codegen's append hint matched child fields by name and ignored `mappings=`, so the one view in the
+kit that renames through a group got a blank `=> current` instead of the append line. Fixed; the hint now
+reads `new Revision(e.Subject, e.RevisedAt)`.
+
+**It lives in `state-change` and not `state-view`, and that is a finding rather than a preference.**
+`state-view` is the right home for a "what one row is" comparison, and adding a tenth column took it to
+**3500px, past the 3200 readability budget**. The budget did exactly what it exists for: that model is
+full, and the next recipe wants its own model rather than another column. Recorded in
+`reference-implementations/README.md` so the next person does not re-litigate it.
+
+## B-3 — A view can exist with no registration, and nothing says so · **BROKEN** · ***now REPORTED***
+
+The quietest failure in the kit. `Views/ViewRegistrations.cs` is a **scaffold** — written once, hand-owned,
+kept. So a view added to the model *afterwards* gets its projection class scaffolded and **never gets a line
+in `Register()`**, because that file predates it.
+
+**There is no symptom.** Build clean, startup clean, no table created, `LoadAsync` returns null. codegen even
+printed `2 views` on the line above while one of them was dark. It is the same bug the file's own header
+warns about — a read-side decision lost to a scaffold — **inverted**: the decision was never made at all.
+
+Now reported as `VIEW WITH NO REGISTRATION`, with the exact line to paste.
+
+**And my first version of that check cried wolf on three correctly-registered views.** It matched only
+`Add<XProjection>` and missed two other legitimate forms — `Add(new XProjection(), …)` by **instance**, when
+configuration lives in the constructor, and `Projections.Snapshot<X>(…)` for a self-aggregating view, where
+the word "Projection" appears nowhere. It accused three views in the six-recipe reference implementation on
+a **fully green suite**. Only a model exercising more than one recipe could have exposed that, and it is
+exactly the failure mode I had warned about an hour earlier in this same file. Fixed and tested both ways.
+
+## B-4 — The stale-skip report had a blind spot in the mirror · ***now REPORTED***
+
+`checkSkipFreshness` returned early unless the slice was *claimed*, so the inverse case produced no signal:
+a slice left at `in-design` with **every test body filled in**. Three green tests sat dark, and the skip
+count that `CLAUDE.md` calls *"the honest measure of what is left"* over-reported by three.
+
+Now `IMPLEMENTED BUT STILL UNCLAIMED`, detected by the absence of the `NotImplementedException` stub. It
+fired immediately on the newly-written `draft-history`, which is how that slice got promoted.
+
+## B-5 — What a mutation check proved the completeness gate cannot see
+
+Replacing `current with { … }` by `new MyDrafts { … }` in `Apply(SubjectRevised, …)` — a fold that rebuilds
+the row from the latest event instead of revising it — failed **exactly one** test, the newly-added
+*"revising the subject leaves the body alone"*. The pre-existing *"a revised subject replaces the old one"*
+stayed green, and so did the write-side happy path.
+
+**And the completeness check cannot catch it.** It asks whether some connected event supplies `body`, and
+`EmailDrafted` does — so the model is complete while the fold silently blanks the field. *Which* event
+supplies a field is a question only a fold can answer, and only a GT that says what must **not** change will
+ask it.
+
+## B-6 — Smaller, from the same work
+
+- **Two hints that sent readers hunting for things that do not exist.** *"Set Id too if this event can be the
+  first one on the stream"* — Marten sets a single-stream projection's document id from the stream id, so the
+  line is dead and implies a doubt that is not real. And *"assert the read model through its endpoint"*,
+  repeated six times per file, when **no read endpoint is generated for a view slice at all**. Both fixed.
+- **A vacuous scaffold hole:** `SeedData` read *"Seeds only the 0 events nothing in this system produces ()"*
+  with a live `TODO(codegen)` under it — an unfinished sentence from a zero-length list, which cost a reader
+  a minute checking whether they had missed a step. Now says there is nothing to seed, and why that is
+  normal.
+- **`Marten.Events.Projections` is imported by every view scaffold** and unused in single-stream ones, with a
+  `// MultiStreamProjection` comment that reads as a suggestion. Comment reworded.
+- **A grouper's cache outlives `ResetAllMartenDataAsync`.** `MessageToCampaignGrouper` caches
+  `messageId -> campaignId` for the store's lifetime; wiping the database cannot wipe the dictionary, so a
+  messageId reused under a different campaign resolves from the stale entry — and the correcting lookup is
+  skipped *because* the key is known. Measured: whichever test ran second failed with
+  `Delivered should be 1 but was 0`, nothing thrown, nothing logged. A test-isolation hazard in a shipped
+  exemplar, now finding #7 in `state-view/README.md`.
+- **No `python` on this machine.** A scripted patch fails with a Hungarian Microsoft Store message. Use Node
+  or the `Edit` tool.
+
 ## B0 — THE HEADLINE: the kit passed a model the book says is incomplete
 
 Ch. 16's whole purpose is this discovery:

@@ -51,6 +51,14 @@ public sealed class MyDraftsProjection : SingleStreamProjection<MyDrafts, Guid>
     /// <summary>
     /// Updates the one field the revision changes, and nothing else. Touching To or Body here would let a
     /// revision materialise a row that no draft preceded.
+    ///
+    /// <c>current with</c>, NOT <c>new MyDrafts</c>, and the difference is the whole content of the
+    /// "revising the subject leaves the body alone" GIVEN/THEN. SubjectRevised carries emailId, subject
+    /// and revisedAt — no body, no recipient — so the obvious wrong fold, rebuilding the row from the
+    /// latest event, silently blanks both. Measured: swapping this one <c>with</c> for a <c>new</c> fails
+    /// that test and NOTHING else in the suite (Failed: 1, Passed: 15). Not "a revised subject replaces
+    /// the old one", which still sees one row with the right subject; not revise-subject's own happy path,
+    /// which only reads Subject.
     /// </summary>
     public static MyDrafts Apply(SubjectRevised e, MyDrafts current) => current with
     {
