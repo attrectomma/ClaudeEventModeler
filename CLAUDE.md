@@ -857,19 +857,39 @@ while asserting a fiction:
 A label may legitimately contain parentheses — the book's own model writes `Inventory Changed (external)` —
 so **parentheses alone do not make example data; an `=` inside them does.**
 
-**`derived-without-example` warns where a derived field has no worked example** anywhere in its slice. It is
-a warning and not yet an error only because models written before the notation existed do not carry
-examples; promoting it is a one-word change and the intent is to promote it.
+**`derived-without-example` warns where a derived field has no worked example** anywhere in its slice.
 
-Two things it found immediately, both in this kit's own reference implementations:
+It found the case that justifies the whole notation: **`MessageStatus` said "3 recipients" in its GWT label
+while the implemented test asserted 2.** Prose in a label is not checked, so the model and the code generated
+from it had drifted and stayed green.
 
-- **`MessageStatus` said "3 recipients" in its GWT label and the implemented test asserted 2.** Prose in a
-  label is not checked, so the model and the code it produced had drifted and stayed green. That single case
-  is the argument for structured examples over prose.
-- **A todo View on an automation or translation slice cannot carry one at all** — `then=` must name an Event
-  where the slice has a Command, so `then="EmailsToSend(status=…)"` is rejected. The rule says so rather
-  than recommending it, because advice a validator refuses is how a checker stops being read. Whether the
-  `then=` rule should relax for a todo View is an open decision, not an oversight.
+### `then=` names an Event on a slice that has a Command — decided, not inherited
+
+A View that a trigger consults is **machinery, not the slice's contract**. What a State Change, Automation or
+Translation slice promises is the events it appends; the todo View is one implementation of that promise,
+which is why the automation folder can satisfy the drawing with a durable inbox and a translation *must*.
+
+Both books point the same way. The little book's automation shape is *"Given these 2 Events, we expect the
+automation to run automatically… and result in **another Event**"*, and ch. 13 omits the WHEN for automation
+tests without ever moving the outcome off the events.
+
+**Nothing is lost, which is what makes it safe.** A todo View's fold has observable consequences and they are
+all events: get `StockNoticesToApply.status` wrong and either a second `StockLevelSet` appears or a refusal
+does — both already pinned by *"the same notice delivered twice is applied once → error: AlreadyApplied"*. So
+a derived field on such a View is a **note** (`derived-on-todo-view`), not a warning, and the note asks the
+question that matters: would getting the fold wrong change which events appear, and would a GWT catch it? If
+not, the missing scenario is an event one.
+
+### Promotion to error, and what is holding it
+
+All four reference implementations validate at **0 errors, 0 warnings**. The only `derived-without-example`
+left anywhere is **two in `tools/fixtures/cart/`** — `Submit Cart.orderedProducts` and
+`Cart Submitted.totalPrice`, both on the `submit-cart` slice.
+
+That fixture reproduces the book, and **the book's model genuinely does not say how `totalPrice` is computed
+or with what numbers.** Filling them in means inventing domain facts, which is the one thing this kit refuses
+everywhere else. So the warning is correct, and promotion waits for someone with the book — not for a change
+to the rule.
 
 **And a `when=` is now checked on every pattern.** It used to be validated only on `command` slices, so an
 automation, translation or view could name a command that does not exist and hear nothing. Unchecked is not

@@ -349,9 +349,23 @@ of them were real:
 than invented, and every one of them cleared the strict type and field checks on the first run. That model
 went from 15 warnings to 0.
 
-**Not promoted to error, and here is exactly what blocks it:** the two todo Views above (needs the `then=`
-decision) and three in `tools/fixtures/cart/` (the book's own model, which states no example data — inventing
-values there would be inventing domain facts). Promotion is a one-word change once those five are settled.
+**The `then=` question is decided: no.** A read model is not a legal outcome on a slice that has a Command,
+and it should stay that way. The human's call, and both books agree — the little book's automation shape is
+*"Given these 2 Events, we expect the automation to run automatically… and result in **another Event**"*. What
+such a slice promises is the events it appends; the View it consults is machinery, which is exactly why the
+automation folder can satisfy the drawing with a durable inbox and the translation folder must.
+
+Nothing is lost by it. A todo View's fold has observable consequences and they are all events — get
+`StockNoticesToApply.status` wrong and either a second `StockLevelSet` appears or a refusal does, both already
+pinned by `gwt-translate-2`. So a derived field on such a View is now the note `derived-on-todo-view`, asking
+the question that actually matters: would getting the fold wrong change which events appear, and would a GWT
+catch it? **All four reference implementations now validate at 0 errors, 0 warnings.**
+
+**Not promoted to error, and what blocks it is now exactly two cases** — `Submit Cart.orderedProducts` and
+`Cart Submitted.totalPrice` in `tools/fixtures/cart/`. That fixture reproduces the book, and the book's model
+does not say how `totalPrice` is computed or with what numbers. Filling them in means inventing domain facts,
+which is the one thing this kit refuses everywhere else. **The warning is correct; promotion waits for someone
+with the book, not for a change to the rule.**
 
 **And a bug worth recording about the tooling rather than the kit:** the first implementation wrote a NUL byte
 instead of a space into a template literal, so the "has this field got an example?" key never matched and the

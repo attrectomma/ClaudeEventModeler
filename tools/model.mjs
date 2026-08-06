@@ -1019,17 +1019,32 @@ function gwtRules(ir) {
       for (const target of Object.keys(el?.derived ?? {})) {
         if (exampled.has(`${el.label} ${target}`)) continue;
 
-        // AND THE ADVICE MUST BE POSSIBLE TO FOLLOW. On a slice that HAS a command, then= must name an
-        // Event — a read-model outcome is accepted only where there is no command. So telling somebody to
-        // write then="TodoView(status=…)" on an automation or translation slice recommends exactly what the
-        // validator rejects two rules later. The first version of this check said precisely that to
-        // EmailsToSend.status and StockNoticesToApply.status — the two cases that motivated the rule.
-        const inexpressible = el.kind === "readmodel" && s.commands.length > 0;
+        // A TODO VIEW IS MACHINERY, AND ITS FOLD IS NOT THE SLICE'S CONTRACT — so this is a note there,
+        // not a warning, and `then=` stays Event-only on a slice that has a Command. Decided rather than
+        // inherited, and both books point the same way: the little book's automation shape is "Given these
+        // 2 Events, we expect the automation to run automatically... and result in ANOTHER EVENT", and
+        // ch.13 omits the WHEN for automation tests without ever moving the outcome off the events.
+        //
+        // What a State Change, Automation or Translation slice promises is the events it appends. The View
+        // it consults to decide is an implementation of that promise — the automation folder proves it need
+        // not be materialised at all, and on a translation it CANNOT be, because the foreign event is never
+        // in our store to fold.
+        //
+        // And nothing is lost, which is the part that makes the decision safe. A todo View's fold has
+        // observable consequences, and they are all events: get StockNoticesToApply.status wrong and either
+        // a second StockLevelSet appears or a refusal does — both already pinned by
+        // gwt-translate-2 ("the same notice delivered twice is applied once -> error: AlreadyApplied").
+        // So the specification lives at the event level where the books put it, and the note below says to
+        // check it is really there rather than demanding a GWT the grammar forbids.
+        if (el.kind === "readmodel" && s.commands.length > 0) {
+          d.push({ family: "gwt", severity: "info", rule: "derived-on-todo-view",
+            message: `${el.label}.${target} is derived from ${el.derived[target].join(" + ")} on a slice that has a Command, so no GWT states it directly — a View a trigger consults is machinery, and then= names an Event. Confirm the fold's observable consequences ARE pinned by this slice's event-level GWTs; if getting it wrong would change which events appear and no GWT would catch that, the missing scenario is an event one.`,
+            at: el.id });
+          continue;
+        }
+
         push("warn", "derived-without-example",
-          `${el.label}.${target} is derived from ${el.derived[target].join(" + ")}, and no GWT in slice "${s.name}" shows what it works out to. derived= records the INPUTS, never the formula, so two implementers can read it differently and both claim they matched the model. ` +
-          (inexpressible
-            ? `NO GWT CAN STATE IT TODAY: this is a View on a slice that has a Command, where then= must name an Event. Either its semantics belong on the events it folds, or the then= rule needs relaxing for a todo View — a decision to take, not an oversight to fix.`
-            : `Add one worked example, e.g. then="${el.label}(${target}=…)".`),
+          `${el.label}.${target} is derived from ${el.derived[target].join(" + ")}, and no GWT in slice "${s.name}" shows what it works out to. derived= records the INPUTS, never the formula, so two implementers can read it differently and both claim they matched the model. Add one worked example, e.g. then="${el.label}(${target}=…)".`,
           el.id);
       }
     }
