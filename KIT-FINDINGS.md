@@ -303,6 +303,41 @@ file also already documents the `Marten.Events.TestingExtensions` namespace trap
 written up as new. Worth recording as a caution about the survey itself: two of my four "gaps" were already
 closed.
 
+### T10 — A GWT could not carry the example data the kit told you to write · **BROKEN** · ***FIXED***
+
+Raised by the human, from the translation gap: *"we lack a mapping between translated properties… this
+reminds me of computed properties… GWTs are the correct answer. A GWT also specifies how something is
+computed or translated."*
+
+**The kit already agreed, in writing.** `add-slice/SKILL.md` had said since it was written that
+`derived=` records inputs and not the formula, and that *"the formula's home is a GWT with concrete
+values: `when="Send(a=2, b=3, c=4)" then="XRecorded(d=9)"`."*
+
+**That syntax did not parse.** `names()` was `spec.split(",")`, so the commas inside the parentheses cut one
+worked example into three nonexistent event names. Measured: two `gwt-unknown-event` errors from the `then=`
+— and **silence from the `when=`**, because `when` was only validated on `command` slices. So half the
+documented notation failed loudly and half passed unchecked.
+
+Fixed: paren-aware parsing, `$Name` for a seed-data constant, and five new checks — `gwt-example-unknown-field`,
+`gwt-example-type`, `gwt-example-malformed`, `gwt-example-on-error`, `gwt-multiple-whens` — plus `when=` now
+validated on every pattern. All errors, per the standing instruction to be strict.
+
+`gwt-example-type` closes the thread it came from: **`customerId=cus_A1` against `customerId:Guid` is now an
+error**, so a foreign key passed off as ours is caught in the model rather than in production.
+
+**And the first version was too strict in the wrong way.** It fired `gwt-example-malformed` on the cart
+fixture, because the book's own event is labelled `Inventory Changed (external)` — parentheses in a *label*.
+Parentheses alone no longer make example data; an `=` inside them does. A false positive is worse than a
+missing rule, because it teaches people to stop reading the output.
+
+**Still open, and it is the reason this matters more than the notation:** nothing yet *requires* an example
+where one is needed. `StockNoticesToApply.status` is declared `derived="status=StockNoticed+StockLevelSet"`,
+and two implementers can satisfy that model with folds that behave differently on a redelivery — one settles
+the row, the other re-opens it and the trigger issues a doomed command for ever. I chose one and wrote the
+reasoning in a code comment, which is exactly where the kit says decisions must not live. A
+`derived-without-example` warning is the next step; promoting it to an error is a one-word change once the
+existing models carry their examples.
+
 ### T1 — The generator emits no ingest seam for a foreign event · **GAP**
 
 It emits the event *record* and a `SeedData` TODO to append it **in tests**, and nothing in the application. So

@@ -140,6 +140,84 @@ const parseDerived = (spec) =>
       .map(([target, srcs]) => [target, srcs.split("+").map((x) => x.trim()).filter(Boolean)])
   );
 
+// A GWT STEP, WITH OPTIONAL EXAMPLE DATA.
+//
+//   "PaymentSucceeded"                                  -> { label, example: null }
+//   "RecordPayment(providerCustomerId=cus_A1, amount=42.00)"
+//                                                       -> { label, example: { … } }
+//   "PaymentSucceeded(x=1), PaymentRecorded"            -> two steps
+//
+// WHY THIS EXISTS. `derived=` records a field's INPUTS and never the formula; `mappings=` cannot cross
+// types; a correspondence lookup has no notation at all. In every one of those cases the model says where
+// a value comes from and not how it is obtained — and the answer, which .claude/skills/add-slice/SKILL.md
+// has recommended in writing since it was written, is a GWT carrying one worked example:
+//
+//     when="Send(a=2, b=3, c=4)"   then="XRecorded(d=9)"
+//
+// THAT SYNTAX DID NOT PARSE. The old splitter was `spec.split(",")`, so the commas INSIDE the parentheses
+// cut one worked example into three nonexistent event names, and the skill instructed people to write a
+// notation the validator rejected. Measured on a throwaway model: two gwt-unknown-event errors from the
+// then=, and silence from the when=, because when= was only checked on command slices.
+//
+// An example specifies the how well enough to VERIFY, never well enough to GENERATE — which is the right
+// line for this kit, whose generator emits what is mechanically derivable and marks the rest TODO.
+//
+// $NAME IS A NAMED CONSTANT, not a literal. A model full of raw Guids is unreadable and unmaintainable, so
+// `customerId=$CustomerId` means "the fixed value SeedData.CustomerId". Literals are type-checked; a named
+// constant is a reference and is not.
+const splitTopLevel = (spec) => {
+  const out = [];
+  let depth = 0, cur = "";
+  for (const ch of spec ?? "") {
+    if (ch === "(") depth++;
+    else if (ch === ")") depth = Math.max(0, depth - 1);
+    else if (ch === "," && depth === 0) { out.push(cur); cur = ""; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
+};
+
+const parseSteps = (spec) => splitTopLevel(spec).map((raw) => {
+  const m = /^([^(]*?)\s*\((.*)\)\s*$/.exec(raw);
+  // A LABEL MAY LEGITIMATELY CONTAIN PARENTHESES, and the book's own model does: ch.16 draws the imported
+  // event as "Inventory Changed (external)". So parentheses alone do not make example data — an "=" inside
+  // them does. Without this the fixture reproducing the book failed with two gwt-example-malformed errors,
+  // which is the checker inventing a problem, and the fastest way to make people stop trusting it.
+  if (!m || !m[2].includes("=")) return { label: raw, example: null, malformed: [], raw };
+  const example = {};
+  const malformed = [];
+  for (const pair of splitTopLevel(m[2])) {
+    const eq = pair.indexOf("=");
+    if (eq <= 0) { malformed.push(pair); continue; }
+    example[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+  }
+  return { label: m[1].trim(), example, malformed, raw };
+});
+
+// Does a literal look like the type the model declares? Strict on purpose: an example that cannot be the
+// declared type is the single cheapest way to catch a foreign key being passed off as ours —
+// `customerId=cus_A1` against `customerId:Guid` is the whole problem in one line.
+const LITERAL = {
+  Guid: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+  int: /^-?\d+$/,
+  long: /^-?\d+$/,
+  decimal: /^-?\d+(\.\d+)?$/,
+  bool: /^(true|false)$/i,
+  DateOnly: /^\d{4}-\d{2}-\d{2}$/,
+  DateTime: /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?)?$/,
+  DateTimeOffset: /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/,
+};
+// null, a quoted string, or a $NamedConstant is always acceptable; everything else must match its type.
+const literalFits = (value, field) => {
+  if (value === "null") return !!field.nullable;
+  if (/^\$[A-Za-z_]\w*$/.test(value)) return true;
+  if (field.collection) return true;                       // a list example is out of scope, not wrong
+  const v = value.replace(/^["'](.*)["']$/, "$1");
+  const rx = LITERAL[field.type];
+  return rx ? rx.test(v) : true;                           // an unknown type cannot be judged
+};
+
 // "closedBy:actor, bookingId:generated" — attributes that enter from ambient context rather than
 // from the data flow, the way a screen's inputs= and a clock-filled timestamp already do.
 // Deliberately the same "name:kind" shape as fields=, so it reuses parseFields outright.
@@ -220,6 +298,9 @@ function parseCells(body) {
       derived: parseDerived(a.derived),
       terminal: parseFields(a.terminal),
       gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null,
+              // The same three fields parsed into label + example data. Kept ALONGSIDE the raw strings
+              // because every diagnostic quotes what the human wrote, not what the parser made of it.
+              givenSteps: parseSteps(a.given), whenSteps: parseSteps(a.when), thenSteps: parseSteps(a.then),
               // Where this rule is enforced. A rule the request alone can settle belongs at the
               // periphery; one needing accumulated state belongs where the stream is visible. NOT
               // derivable from given= being empty: a context given= like "the month is open" is on
@@ -752,7 +833,9 @@ function gwtRules(ir) {
     byLabel.get(e.label).push(e);
   }
   const all = (label) => byLabel.get(label) ?? [];
-  const names = (spec) => (spec ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  // Labels only. Example data is checked separately, by checkExample below — splitting on every comma is
+  // what made the documented "Label(a=1, b=2)" syntax unparseable.
+  const names = (steps) => steps.map((st) => st.label);
   const isEvent = (el) => el && (el.kind === "event" || el.kind === "external");
   const push = (severity, rule, message, at) => d.push({ family: "gwt", severity, rule, message, at });
 
@@ -783,12 +866,71 @@ function gwtRules(ir) {
     }
 
     for (const g of s.gwts) {
+      // EXAMPLE DATA, CHECKED AGAINST THE ELEMENT IT IS AN EXAMPLE OF.
+      //
+      // A worked example is only worth having if it is held to the model — an example naming a field that
+      // does not exist, or carrying a value the declared type cannot hold, is worse than no example,
+      // because it reads as a specification and generates a test asserting a fiction.
+      //
+      // Strict on purpose. A rule can always be loosened later; a model that quietly accepted a bad example
+      // has already been built on.
+      const checkExample = (step, where) => {
+        if (!step.example && !step.malformed.length) return;
+        if (/^error\b/i.test(step.label)) {
+          push("error", "gwt-example-on-error",
+            `GWT "${g.rule || g.id}" writes ${where}="${step.raw}". An expected rejection carries no payload — the rule name IS the outcome.`, g.id);
+          return;
+        }
+        for (const bad of step.malformed) {
+          push("error", "gwt-example-malformed",
+            `GWT "${g.rule || g.id}" has "${bad}" in ${where}="${step.raw}". Example data is name=value, comma separated.`, g.id);
+        }
+        const el = all(step.label)[0];
+        if (!el) return;                       // the label itself is reported by the rules below
+        for (const [key, value] of Object.entries(step.example ?? {})) {
+          const field = el.fields.find((f) => f.name === key);
+          if (!field) {
+            push("error", "gwt-example-unknown-field",
+              `GWT "${g.rule || g.id}" gives ${step.label}(${key}=…), but ${step.label} declares no "${key}". An example cannot invent a field.`, g.id);
+            continue;
+          }
+          if (!literalFits(value, field)) {
+            push("error", "gwt-example-type",
+              `GWT "${g.rule || g.id}" gives ${step.label}(${key}=${value}), which is not a ${field.type}${field.nullable ? "?" : ""}. Use a literal of the declared type, or $Name for a fixed value that lives in the test's seed data.`, g.id);
+          }
+        }
+      };
+
+      for (const st of g.givenSteps) checkExample(st, "given");
+      for (const st of g.whenSteps) checkExample(st, "when");
+      for (const st of g.thenSteps) checkExample(st, "then");
+
+      if (g.whenSteps.length > 1) {
+        push("error", "gwt-multiple-whens",
+          `GWT "${g.rule || g.id}" names ${g.whenSteps.length} commands in when=. A scenario has exactly one WHEN — the little book on more than one command per slice is a flat "No."`, g.id);
+      }
+
       // Prefer this slice's own Command, so a repeated label cannot resolve to a stranger.
       // Falling back keeps the two diagnostics below honest: "not a Command" vs "other slice".
-      const cmd = !g.when ? null
-        : all(g.when).find((e) => e.kind === "command" && s.commands.includes(e.id))
-          ?? all(g.when).find((e) => e.kind === "command")
-          ?? all(g.when)[0] ?? null;
+      const whenLabel = g.whenSteps[0]?.label ?? null;
+      const cmd = !whenLabel ? null
+        : all(whenLabel).find((e) => e.kind === "command" && s.commands.includes(e.id))
+          ?? all(whenLabel).find((e) => e.kind === "command")
+          ?? all(whenLabel)[0] ?? null;
+
+      // A when= PRESENT ON ANY PATTERN IS CHECKED. It used to be validated only on command slices, so an
+      // automation, translation or view slice could name a command that does not exist — or misspell one —
+      // and hear nothing. Being unchecked is not the same as being optional: the WHEN may be OMITTED on
+      // those patterns, and that is the GT shape; a WHEN that is present is a claim like any other.
+      if (whenLabel && s.pattern !== "command") {
+        if (!cmd || cmd.kind !== "command") {
+          push("error", "gwt-unknown-command",
+            `GWT "${g.rule || g.id}" names when="${whenLabel}", which is not a Command in this model.`, g.id);
+        } else if (!s.commands.includes(cmd.id)) {
+          push("error", "gwt-command-other-slice",
+            `GWT "${g.rule || g.id}" names when="${whenLabel}", which belongs to a different slice.`, g.id);
+        }
+      }
 
       // A MISSING when= IS ONLY AN ERROR ON A STATE CHANGE SLICE.
       //
@@ -818,7 +960,7 @@ function gwtRules(ir) {
         }
       }
 
-      for (const n of names(g.given)) {
+      for (const n of names(g.givenSteps)) {
         // Global on purpose: a given= names a prior fact, wherever it was produced. Where a label
         // is shared by two cells of the same event type, either answers "did this happen".
         if (!all(n).some(isEvent)) {
@@ -826,7 +968,7 @@ function gwtRules(ir) {
         }
       }
 
-      const thens = names(g.then);
+      const thens = names(g.thenSteps);
       if (!thens.length) {
         push("error", "gwt-needs-then", `GWT "${g.rule || g.label || g.id}" has no then=, so it asserts nothing.`, g.id);
       }

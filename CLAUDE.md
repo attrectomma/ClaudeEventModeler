@@ -739,7 +739,7 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `mappings` | any | `targetField=sourceField`, for legitimate name mismatches. A **rename only** |
 | `derived` | any | `target=a+b`, for a value that is *computed* from upstream rather than carried |
 | `terminal` | command, event | `name:kind`, for a value that enters from context, not from the data flow |
-| `given` / `when` / `then` | `gwt` | prior events / the command / expected events. `then="error: RuleName"` for an expected rejection |
+| `given` / `when` / `then` | `gwt` | prior events / the command / expected events. `then="error: RuleName"` for an expected rejection. Any step may carry **example data** — `Label(field=value, …)` |
 | `rule` | `gwt` | the business rule this GWT names |
 | `pattern` | slice cell | which of the four patterns this slice is — checked against what it's made of |
 | `status` | slice cell | where the slice sits in the implementation workflow |
@@ -810,6 +810,57 @@ that isn't connected is an error: a derivation cannot invent its inputs.
 `terminal` kinds are `actor` (the authenticated principal), `generated` (an id the handler mints),
 `clock`, and `const`. Same `name:kind` shape as `fields=`. These are reported as notes rather than
 silently skipped, because "the handler supplies this" is a claim worth a reader disagreeing with.
+
+### None of the three says HOW — a GWT with example data does
+
+`derived="total=price"` names the inputs and never the formula. A correspondence between their key and
+ours has no notation at all. And a fold's semantics — *"Outstanding until what we accepted catches up"* —
+is a judgement nothing in the model records. Same shape every time: **the model says where a value comes
+from, never how it is obtained.**
+
+Two of the four notations do not need a *how*, and two do:
+
+| | says WHERE | needs a HOW? |
+| --- | --- | --- |
+| `mappings=` | a rename | **no** — same value, self-specifying |
+| `terminal=` | context | **no** — the kind says it |
+| `derived=` | the inputs | **yes** |
+| a correspondence lookup | the foreign input | **yes**, plus a failure rule |
+
+Those two are exactly the ones that can be silently wrong. The answer is a **worked example on the GWT**:
+
+```xml
+given="PaymentSucceeded(providerCustomerId=cus_A1, amount=42.00)"
+when="RecordPayment(customerId=$AcmeCustomer, amount=42.00)"
+then="PaymentRecorded(customerId=$AcmeCustomer, amount=42.00)"
+```
+
+**`$Name` is a named constant, not a literal** — it resolves to `SeedData.Name`. A model full of raw Guids
+is unreadable, and identities shared across tests already live in seed data; a GWT carries the example that
+pins *this* rule.
+
+**An example specifies the how well enough to VERIFY, never well enough to GENERATE**, and that is the right
+line here — the generator emits what is mechanically derivable and marks the rest `TODO`. Examples
+underdetermine a formula (2, 3 → 5 could be a sum or a maximum plus two); what they do is make it testable.
+
+Every part of an example is checked, because an example nobody holds to the model reads as a specification
+while asserting a fiction:
+
+| Rule | |
+| --- | --- |
+| `gwt-example-unknown-field` | the example names a field the element does not declare |
+| `gwt-example-type` | the literal cannot be the declared type — **`customerId=cus_A1` against `customerId:Guid` is the whole foreign-key problem in one line** |
+| `gwt-example-malformed` | a step is not `name=value` |
+| `gwt-example-on-error` | `then="error: X(...)"` — a rejection carries no payload, the rule name IS the outcome |
+| `gwt-multiple-whens` | more than one command in a `when=` |
+
+A label may legitimately contain parentheses — the book's own model writes `Inventory Changed (external)` —
+so **parentheses alone do not make example data; an `=` inside them does.**
+
+**And a `when=` is now checked on every pattern.** It used to be validated only on `command` slices, so an
+automation, translation or view could name a command that does not exist and hear nothing. Unchecked is not
+the same as optional: the WHEN may be *omitted* on those patterns — that is the GT shape — but a WHEN that
+is present is a claim like any other.
 
 Note `bookingId` on a booking command: the screen *displays* a `bookingId` — the row being looked
 at — while creating a booking needs a **new** one. Same name, opposite meaning, and a name-match

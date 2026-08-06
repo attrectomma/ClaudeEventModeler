@@ -117,6 +117,16 @@ That is executable, testable, and survives into a generated test. Prose in an at
 those. So when a brief names a rule — "rule X", "rule Z" — ask for one worked example of it, and put
 the example in a GWT. Say that this is where the rule now lives.
 
+**Every part of the example is checked**, so write it against the element it is an example of and not
+against the one upstream — a field the element does not declare, or a literal its type cannot hold, is an
+error rather than a note. Use `$Name` for a fixed identity that belongs in seed data:
+`when="RecordPayment(customerId=$AcmeCustomer)"`. A raw Guid in a diagram is unreadable, and the check
+cannot tell a mistyped one from a foreign key.
+
+**Ask for an example wherever the name is not enough** — a `derived=` field, a value crossing a system
+boundary, a fold whose meaning is a judgement. Not everywhere: the model is a specification, not a fixture,
+and identities shared across tests already live in seed data.
+
 **Then write the gap list.** Read `references/<pattern>.md` for what this pattern requires, and list
 every required answer the brief did not give. Present it as questions, not as blanks you intend to
 fill.
