@@ -150,7 +150,66 @@ ask it.
 - **No `python` on this machine.** A scripted patch fails with a Hungarian Microsoft Store message. Use Node
   or the `Edit` tool.
 
-## B0 — THE HEADLINE: the kit passed a model the book says is incomplete
+## B0-FIXED — the join rule now reproduces the book's discovery
+
+**Fixed.** A screen fed by two or more Views must share at least one attribute across all of them — the thing
+it lines them up on. `joins=` declares it where it is not obvious; `joins="none"` acknowledges a screen that
+shows unrelated figures side by side.
+
+Verified against the book **both ways**, which is the only test that matters here:
+
+- on the model as ch. 16 **fixes** it (`productId` on the cart line): **silent**
+- on the model as ch. 12 **leaves** it: fires on both Cart Page cells, naming *"Cart Items and Inventories,
+  which share no attribute"* and saying the key is missing from one of them **and from the events and command
+  behind it** — which is the ripple the book walks through
+
+No false positives across five models: both projects, all three reference implementations, and the fixture
+suite byte-identical.
+
+A **warning** rather than an error, because whether a screen needs to correlate is a question only a human can
+answer — a dashboard showing revenue beside active users needs no join. Same house style as the Conway rule:
+warn unacknowledged, note acknowledged.
+
+**What it still does not do:** it cannot tell you that a *screen* requires a per-row correlation in the first
+place. `displays=` remains a flat set of names, so *"the indicator shows stock for each cart line"* is still
+inexpressible — the rule catches the missing key once two views meet on one screen, not the missing
+requirement. Groups exist for read models (`children=`); the screen side has no equivalent yet.
+
+## Accepted, not queued — the generator does not reach backwards
+
+A generator improvement does not improve files it has already handed over, and that is **by design**. Anything
+scaffolded is hand-owned from the moment it exists. The alternative — editing inside files somebody else owns —
+is the one thing the emit/scaffold split exists to prevent.
+
+What the generator owes instead is **visibility**, which is what the five reports are for. The rule for future
+work: **add a report, not a rewrite.**
+
+**The reference implementations are likewise not the generator's job.** They carry what a choice *cost* and
+improve as the stack is better understood — editorial work, not generation. The right home is a future **skill
+or agent responsible for keeping them current**: re-reading the docs mirror as the libraries move, re-measuring
+the comparisons, folding in what later runs learn. Not built; recorded so it stays a decision.
+
+## KNOWN GAP, TODO — no journey tests at either end
+
+Every test the kit generates or scaffolds is **one slice's scenario**. Two classes of bug therefore have
+nowhere to be caught:
+
+- **Backend journey tests** — several slices walked in sequence through the real API. A GWT appends its GIVEN
+  straight to the stream, so **no test in this kit has ever driven two commands in a row over HTTP.** That
+  hides slices that pass alone and cannot be composed.
+- **Playwright/browser journey tests** — a workflow across screens. The three-way field check proves a page
+  shows the right fields; nothing proves you can get from the list to the modal to the created thing. The
+  pager-not-in-the-URL bug was found by *screenshotting*, not by a test.
+
+Not accepted — genuinely TODO. The single-slice discipline stays; a journey layer sits above it, belongs to
+the **system** rather than any slice, and so has no owner today. Likely a `journey` skill run once two or more
+slices are `in-review`, with the model naming which journeys are worth walking.
+
+Until then, be honest about what green means: **every slice works in isolation.** Composition is verified by a
+human clicking — which is why `review.mjs` and *"run it and look"* carry more weight here than they would in a
+kit that had journey tests.
+
+## B0 — THE HEADLINE (now fixed, kept because the mechanism is the lesson)
 
 Ch. 16's whole purpose is this discovery:
 

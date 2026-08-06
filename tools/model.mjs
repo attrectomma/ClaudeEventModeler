@@ -204,6 +204,9 @@ function parseCells(body) {
       // The shape of any repeated group a `Type[]` field references. On a read model this is what lets
       // ONE view hold a header and its line items, instead of the two views that shape used to need.
       children: parseChildren(a.children),
+      // On a screen fed by more than one View: the attribute it lines them up on. "none" says it never
+      // correlates them. Left off, the checker asks for a shared attribute and warns if there is none.
+      joins: a.joins ?? null,
       // On a screen: what it shows (the book marks these green on the wireframe) and what the
       // user types into it. `displays` must be sourced from a View; `inputs` is a terminal source.
       displays: parseFields(a.displays),
@@ -651,6 +654,55 @@ function completeness(ir) {
     if (issues && fed && !e.displays.length) {
       d.push({ family: "completeness", severity: "warn", rule: "screen-declares-nothing",
         message: `${e.label} triggers a command but declares no displays=. Until it does, nothing verifies that its View actually supplies what the screen shows.`,
+        at: e.id });
+    }
+  }
+
+  // TWO VIEWS ON ONE SCREEN MUST HAVE SOMETHING TO LINE UP ON.
+  //
+  // This is the hole that let a model the BOOK CALLS INCOMPLETE pass at zero errors. Understanding
+  // EventSourcing ch.16 exists to demonstrate the completeness check finding a missing field: a stock
+  // indicator is shown "for each item in the cart", and the cart's own read model had no productId, so
+  // "we haven't modelled the product-id yet. This is important."
+  //
+  // The kit found nothing, because the check is NAME-BASED: productId was supplied — by the Inventories
+  // view, which is keyed by it — so the name resolved and everything looked sourced. What it could not see
+  // is that the two views had no field in common, so no row of one could ever be matched to a row of the
+  // other. A join is not a name lookup, and the check had no concept of one.
+  //
+  // So: a screen fed by two or more Views must share at least one attribute across ALL of them — the thing
+  // it lines them up on. Declared with joins= where it is not obvious, and joins="none" acknowledges a
+  // screen that genuinely displays unrelated figures side by side and never correlates them.
+  //
+  // A WARNING, not an error, because whether this screen needs to correlate is a question only a human can
+  // answer — a dashboard showing total revenue beside active users needs no join and never will. The kit's
+  // house style for exactly this shape is Conway's: warn on the unacknowledged case, note the acknowledged
+  // one.
+  for (const e of ir.elements) {
+    if (e.kind !== "screen") continue;
+    const views = e.upstream.map((u) => byId.get(u)).filter((v) => v?.kind === "readmodel");
+    if (views.length < 2) continue;
+
+    const declared = (e.joins ?? "").trim();
+    const namesOf = (v) => new Set(flatten(v, v.fields).map((f) => f.name));
+    const shared = [...namesOf(views[0])].filter((n) => views.every((v) => namesOf(v).has(n)));
+
+    if (/^none$/i.test(declared)) {
+      d.push({ family: "completeness", severity: "info", rule: "screen-views-unjoined-ack",
+        message: `${e.label} is fed by ${views.length} Views and declares joins="none": its figures are shown side by side and never correlated. Acknowledged.`,
+        at: e.id });
+    } else if (declared) {
+      for (const k of declared.split(",").map((x) => x.trim()).filter(Boolean)) {
+        const missing = views.filter((v) => !namesOf(v).has(k));
+        if (missing.length) {
+          d.push({ family: "completeness", severity: "error", rule: "join-not-supplied",
+            message: `${e.label} declares joins="${k}", but ${missing.map((v) => v.label).join(" and ")} does not carry ${k}. A screen cannot line up two Views on a field one of them lacks — add it to that View, and to the events and command behind it.`,
+            at: e.id, attribute: k });
+        }
+      }
+    } else if (!shared.length) {
+      d.push({ family: "completeness", severity: "warn", rule: "screen-views-cannot-join",
+        message: `${e.label} is fed by ${views.map((v) => v.label).join(" and ")}, which share no attribute — so nothing on this screen can line up a row of one with a row of the other. If it needs to, the key is missing from one of them (and from the events and command behind it). If it genuinely never correlates them, say so with joins="none".`,
         at: e.id });
     }
   }
