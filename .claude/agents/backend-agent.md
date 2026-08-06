@@ -76,7 +76,7 @@ for three of the four patterns there is a real choice with real consequences:
 | `command` | Wolverine aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. message handler; `StartStream` for a slice that creates. See `reference-implementations/state-change/` |
 | `view` | which of Marten's read-model recipes — live, single-stream, `EventProjection`, multi-stream, flat table, composite. See `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger — forwarding, subscription, side effects, clock. See `reference-implementations/automation/` |
-| `translation` | the automation choice, plus how the foreign event lands |
+| `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll on a clock — decided by who owns a lost notice and whether anything is left to re-read. **Never persist the foreign event**: its band is exempt from `identity=` because we never append to it, and an append-only store puts their schema in our history for ever. So the arrival IS the wakeup, the transport's inbox is the todo View, and none of the automation mechanisms applies. The generator emits **nothing** for the arrival. See `reference-implementations/translation/` |
 
 **No checker can see any of these.** The model validates, the code compiles, the tests pass, and the
 choice can still be wrong. So the rule is the same in every case: **look up what the library offers,

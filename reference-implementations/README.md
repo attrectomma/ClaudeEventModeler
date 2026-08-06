@@ -80,7 +80,7 @@ Written out once, so that no future folder here has to rediscover it:
 | `command` | aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. Wolverine message; `StartStream` where the slice creates the stream. The transport is not in the model, so the transport must not change the behaviour — which is why `state-change/` asserts every GWT against both |
 | `view` | a green box says only "derived from these events". It may be a live fold with no table, a snapshot, a per-event transformation, a cross-stream rollup, or a SQL table. `state-view/` builds six |
 | `automation` | the four wakeup mechanisms above |
-| `translation` | the automation choice, plus how the foreign event lands |
+| `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll of their API — and that is the *only* choice: the foreign event is never persisted by us, so the arrival is the wakeup and the automation choice does not arise. Built and measured in `translation/` |
 
 **Nothing catches a wrong choice.** Not the rule families, not the compiler, not a green suite. That is
 why each folder's job is to state what a choice costs, and why an implementing agent has to name the one
@@ -239,6 +239,22 @@ the endpoint honours a supplied id and mints one only when it is absent.
 | `automation/` | `automation` | all four wakeup mechanisms, each verified to fire unaided | **15** |
 | `state-change/` | `command` | both deciders — with and without Wolverine.HTTP — asserted against the same GWTs, **plus `DraftHistory`: a row carrying its own child lines as a `Type[]` group** | **16** |
 | `state-view/` | `view` | six Marten read-model recipes over two stream types, **each now with Given/Thens specifying its fold** | **35** |
+| `translation/` | `translation` | three ways a foreign notice LANDS — webhook, external database table, poll on a clock — and the finding that a translation needs **no** wakeup mechanism and persists **no** foreign event | **15** |
+
+**All four patterns now have one, and the last one corrected the table above it.** `translation/` was built twice.
+The first version persisted the foreign event onto one of our own streams and woke a trigger off it with a Marten
+subscription; it compiled, passed 15 tests, and ran — and it was wrong in exactly the way this kit exists to catch.
+`tools/model.mjs` had said so all along: both identity rules exclude `external` because *"we never start those
+streams, we only project from them."*
+
+So `translation` is **not** "the automation choice plus how the foreign event lands". The automation choice does not
+arise: all four wakeup mechanisms wake a trigger off events already in our store, and a translation's trigger event
+never is one. **The arrival is the wakeup**, and the transport's durable inbox is the todo View — the sharpest case
+in the kit of "the green box is the concept", because here a materialised View is not merely unnecessary but
+impossible.
+
+Two numbers worth carrying: **1 event type in our store, not 2**; and, measured on the first version before it was
+fixed, **11 of 15 tests passing with the automation completely dead.**
 
 **Every view slice here now has Given/Thens, and until recently none did.** These folders demonstrated six
 read-model *recipes* and never once demonstrated how a View is **specified** — the thing both books call

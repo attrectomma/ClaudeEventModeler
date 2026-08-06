@@ -73,7 +73,7 @@ there is a real choice with real consequences.
 | `command` | aggregate handler workflow vs. explicit `FetchForWriting`; endpoint vs. message; `StartStream` when the slice creates | `reference-implementations/state-change/` |
 | `view` | live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — six recipes, and `identity=` narrows but does not decide | `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger: forwarding, subscription, `RaiseSideEffects`, clock | `reference-implementations/automation/` |
-| `translation` | the automation choice, plus how the foreign event lands | — |
+| `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll of their API — decided by who owns a lost notice and whether anything is left to re-read. **Never persist the foreign event** (its band is exempt from `identity=` because we never append to it), so the arrival IS the wakeup and no automation mechanism applies. **Nothing is generated for the arrival at all**: no handler, no seam, no report | `reference-implementations/translation/` |
 
 Two things follow, and both are yours to enforce:
 

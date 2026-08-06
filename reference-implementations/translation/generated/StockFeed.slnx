@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/StockFeed/StockFeed.csproj" />
+  <Project Path="tests/StockFeed.IntegrationTests/StockFeed.IntegrationTests.csproj" />
+</Solution>

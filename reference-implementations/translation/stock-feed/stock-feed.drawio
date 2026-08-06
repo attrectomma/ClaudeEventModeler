@@ -1,0 +1,144 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="stock-feed" id="context">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1360" pageHeight="2115" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="model-stock-feed" label="Stock feed&#10;stock-feed · context" em="model" context="stock-feed" system="stock-feed" note="A reference model, not a domain. It exists so the ways a FOREIGN event can LAND can be compared against one model — the point being that the model does not choose between them, exactly as it does not choose what wakes an automation. Shaped after Understanding EventSourcing ch.16, where a black-box inventory system notifies us of stock changes and a Translation slice turns those notices into events of our own.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="1260" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="550" width="1260" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="870" width="1260" height="235" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-stock" label="Stock stream — one stream per product. OURS: only StockLevelSet is ever appended here" em="lane" streams="Stock" identity="productId" note="Our own stream, and the only one we append to. It holds exactly one event type — StockLevelSet, what we DECIDED — and never the warehouse's notice. That is what makes the translation real rather than decorative: no reader of this stream, and no projection built from it, ever meets the warehouse's schema.&#10;&#10;identity=productId is required here because these are events we write. The Warehouse feed band below is exempt, and the asymmetry is the clearest statement in the model of which side of the boundary each band is on.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="895" width="1260" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-warehousefeed" label="Warehouse feed — THEIR stream, not ours. We project from it and never append." em="lane" streams="WarehouseFeed">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1000" width="1260" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1345" width="1260" height="730" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-translate-stock-notice" label="translate-stock-notice&#10;translation · ready" em="group" slice="translate-stock-notice" pattern="translation" status="ready" owner="backend-agent" note="Promoted to ready BEFORE the first codegen run, on purpose. status= is baked into each test file from status= at scaffold time and the test file is kept on regeneration, so a slice generated at in-design has its tests skipped for ever — KIT-FINDINGS B2. Generating this at in-design would have produced seven permanently skipped tests and a green suite.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="80" y="140" width="540" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="ext-translate-stock-notice" label="StockNoticed" em="external" slice="translate-stock-notice" aggregate="WarehouseFeed" origin="Warehouse (a black box)" fields="productId:Guid, noticeId:Guid, quantity:int, sequence:long, noticedAt:DateTimeOffset" note="ch.16: &quot;The inventory system is a completely different system... it's a black box for our department.&quot; origin= is a claim on record, not a checked reference — there is no sibling model to check it against, and that is what makes this a translation rather than direct consumption.&#10;&#10;IN THEIR BAND, NOT OURS, AND THAT IS THE WHOLE POINT OF THE PATTERN. It was first drawn in our Stock band — slice.mjs defaults an external to the only band that exists — and everything downstream then read as if we append it. We do not. model.mjs is unambiguous: both band-needs-identity and identity-not-on-every-event filter to kind===&quot;event&quot; and exclude externals, with the comment &quot;we never start those streams, we only project from them.&quot; A foreign band is exempt from identity= because there is nothing of ours to key.&#10;&#10;TERMINAL, and never persisted by us. Our event store is our history; an append-only log that contains the warehouse's schema contains it for ever, which is exactly the coupling a translation exists to prevent. The durable record of what they said is the transport's inbox, which already has it.&#10;&#10;sequence= and noticeId= are ours to demand of the feed: without a sequence a late notice silently overwrites a newer one, and without a notice id a redelivery is indistinguishable from a real second change.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="auto-translate-stock-notice" label="StockTranslator" em="automation" slice="translate-stock-notice" note="The Automated Trigger, and the place the anti-corruption actually happens: it takes the warehouse's vocabulary in and issues a Command in ours. It never appends an event — the decider does that.&#10;&#10;WHAT IS NOT DRAWN HERE IS ONE DECISION, NOT TWO, AND GETTING THAT WRONG COST A WHOLE REBUILD. The first version of this folder treated &quot;how the notice arrives&quot; and &quot;what wakes the trigger&quot; as two independent choices, ingesting the notice as an event of ours and then waking a trigger off it with a Marten subscription. Both halves were wrong, and the second was only needed because of the first.&#10;&#10;For a 1:1 translation THE ARRIVAL IS THE WAKEUP. The foreign message lands in the transport's durable inbox and a handler runs — no subscription, no forwarding, no clock. The automation pattern's four wakeup mechanisms answer a question this slice does not ask, because they exist to wake a trigger off events already in OUR store, and a translation's trigger event is never in our store.&#10;&#10;The one case that does need a separate wakeup is a CONDITIONAL translation — one deciding from several notices accumulated over time. That needs a materialised todo View and a real wakeup, and it is the automation pattern's question arriving on schedule. CLAUDE.md's own line applies: with no view and no conditional logic it is not an automation at all.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="570" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-translate-stock-notice" label="StockNoticesToApply" em="readmodel" slice="translate-stock-notice" identity="noticeId" fields="productId:Guid, noticeId:Guid, quantity:int, sequence:long, status:string" derived="status=StockNoticed+StockLevelSet" note="The todo list — AND IT IS NOT A DOCUMENT. This is the clearest case in the whole kit of the automation folder's rule that the green box is the CONCEPT: no Marten projection can fold StockNoticed, because StockNoticed is never in our event store. The pending-work list is the transport's own durable inbox, which already holds every notice that has arrived and not yet succeeded, with retries and dead-lettering we did not write.&#10;&#10;So `status` is real but not queryable by us: Outstanding means &quot;in the inbox&quot;, Applied means &quot;the handler committed&quot;. ViewRegistrations deliberately registers nothing for it, and says so.&#10;&#10;ch.16's author reaches the same place from the other direction — &quot;I typically skip the read model definition and directly map the external event to an automation processor&quot;. The cheat sheet keeps the box and tools/model.mjs PATTERNS requires one, which is right: the concept is load-bearing even when the table is not.&#10;&#10;identity=noticeId, changed from productId once the notice stopped being persisted. Per-product was a property of a MATERIALISED row collapsing a burst to the newest level; an inbox has one entry per message, so one row is one notice. The lesson survives the change and is worth more than the answer: identity= on a todo list decides whether the automation works notices or subjects, and for a LEVEL feed the collapse is desirable while for a DELTA feed it would lose stock.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="650" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-translate-stock-notice" label="ApplyStockNotice" em="command" slice="translate-stock-notice" aggregate="Stock" fields="productId:Guid, noticeId:Guid, onHand:int, sequence:long" mappings="onHand=quantity" note="THE ANTI-CORRUPTION STEP, and the reason a translation is not just an automation. The warehouse calls it quantity; we call it onHand. mappings= is the honest notation because it is the same value under another name and the same type — a rename, which is all mappings= may ever be.&#10;&#10;What a real boundary also needs and this kit CANNOT express: their key is not our key. A foreign sku:string becoming our productId:Guid is neither a rename (the type changes), nor a computation (derived=), nor context the handler supplies (terminal=) — it is a lookup in a correspondence table. The model is silent about it. Kept out of this model rather than mis-declared; written up as a finding.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-translate-stock-notice" label="StockLevelSet" em="event" slice="translate-stock-notice" aggregate="Stock" fields="productId:Guid, noticeId:Guid, onHand:int, sequence:long, setAt:DateTimeOffset" terminal="setAt:clock" note="OURS — what we DECIDED, as against StockNoticed which is what they SAID. Keeping both on the stream is what makes the boundary auditable: a notice we refused as stale is still on the record, and the refusal is reconstructible.&#10;&#10;It carries noticeId= so it can tick its own row off the todo list, and sequence= so the next notice can be compared against what we last accepted rather than against what last arrived.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-ext-translate-stock-notice--rm-translate-stock-notice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="ext-translate-stock-notice" target="rm-translate-stock-notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-rm-translate-stock-notice--auto-translate-stock-notice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-translate-stock-notice" target="auto-translate-stock-notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-auto-translate-stock-notice--cmd-translate-stock-notice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="auto-translate-stock-notice" target="cmd-translate-stock-notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-translate-stock-notice--evt-translate-stock-notice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-translate-stock-notice" target="evt-translate-stock-notice">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="slice-stock-levels" label="stock-levels&#10;view · ready" em="group" slice="stock-levels" pattern="view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-stock-levels" label="StockLevels" em="readmodel" slice="stock-levels" identity="productId" fields="productId:Guid, onHand:int, sequence:long, setAt:DateTimeOffset" note="What the rest of the system reads, and it is fed by StockLevelSet ONLY — never by StockNoticed. That is the payoff of the translation: no reader downstream ever meets the warehouse's schema, its field names, or a notice we refused. Delete the edge from our own event and feed it from the notice instead and everything still compiles, still passes, and has quietly re-coupled the whole system to a black box.&#10;&#10;One GT below asserts exactly that, because it is the one thing a projection can get wrong here that nothing else would notice.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-evt-translate-stock-notice--rm-translate-stock-notice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-translate-stock-notice" target="rm-translate-stock-notice">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="1120" />
+              <mxPoint x="70" y="1120" />
+              <mxPoint x="70" y="680" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-translate-stock-notice--rm-stock-levels" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-translate-stock-notice" target="rm-stock-levels">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="736" />
+              <mxPoint x="830" y="736" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="gwt-translate-1" label="a notice from the warehouse becomes an event of our own&#10;&#10;GIVEN StockNoticed&#10;WHEN ApplyStockNotice&#10;THEN StockLevelSet" em="gwt" slice="translate-stock-notice" rule="a notice from the warehouse becomes an event of our own" given="StockNoticed" when="ApplyStockNotice" then="StockLevelSet" note="The happy path of the DECIDER: given somebody issues the command, the right event comes out. Compare gt-translate-5, which is the same events and asserts that nobody has to.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-translate-2" label="the same notice delivered twice is applied once&#10;&#10;GIVEN StockNoticed, StockLevelSet&#10;WHEN ApplyStockNotice&#10;THEN error: AlreadyApplied" em="gwt" slice="translate-stock-notice" rule="the same notice delivered twice is applied once" given="StockNoticed, StockLevelSet" when="ApplyStockNotice" then="error: AlreadyApplied" enforce="aggregate" note="Every landing mechanism in this folder is at-least-once, and a black box that re-sends on reconnect makes a redelivery ordinary rather than exceptional. Keyed on noticeId, which is why the feed has to carry one: without it a redelivery and a genuine second change to the same quantity are the same bytes.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-translate-3" label="a notice older than the level we last accepted is refused&#10;&#10;GIVEN StockNoticed, StockLevelSet, StockNoticed&#10;WHEN ApplyStockNotice&#10;THEN error: StaleNotice" em="gwt" slice="translate-stock-notice" rule="a notice older than the level we last accepted is refused" given="StockNoticed, StockLevelSet, StockNoticed" when="ApplyStockNotice" then="error: StaleNotice" enforce="aggregate" note="THE RULE THAT IS ONLY A TRANSLATION'S PROBLEM. Nothing across a boundary guarantees arrival order, so notices for one product can arrive 7 then 3, and 3 is not a correction — it is old news. Compared against the sequence we last ACCEPTED, not the one that last arrived, or a burst of stale notices would ratchet each other through.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1655" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-translate-5" label="a notice nobody asks us about becomes our event anyway&#10;&#10;GIVEN StockNoticed&#10;THEN StockLevelSet" em="gwt" slice="translate-stock-notice" given="StockNoticed" then="StockLevelSet" rule="a notice nobody asks us about becomes our event anyway" note="THE INFRASTRUCTURE HALF. No when=, which is what makes it a Given/Then: the little book's automation shape is &quot;GIVEN these 2 Events, we expect the automation to run AUTOMATICALLY... and result in another Event&quot;, and ch.13 says the WHEN is typically omitted for automation tests too.&#10;&#10;Same events as gwt-translate-1, a different claim. That one drives the COMMAND and says the decider is correct when asked. This one drives the TRIGGER and says the trigger selects its own work from the View — no notice id, no quantity and no sequence appear anywhere in it.&#10;&#10;AND HERE IS WHAT IT STILL CANNOT SAY, measured rather than assumed. Disabling the subscription that wakes the trigger leaves this test GREEN, along with every other model-derived test — 11 of 15 pass with the automation completely dead. The generated test has to send the Run message itself, so &quot;nobody has to ask&quot; is exactly the part it cannot assert. Only the four hand-written LandingMechanismTests fail, because only they boot a host and deliver a notice through real infrastructure. A GT is the strongest thing the MODEL can specify here, and it is still not enough.&#10;&#10;Note also what it does not assert: the todo View's row. Deliberate — the automation folder proves the View need not be materialised at all, so a row is machinery and not contract.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1795" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-stock-levels-1" label="the level we accepted is what the system reads&#10;&#10;GIVEN StockNoticed, StockLevelSet&#10;THEN StockLevels" em="gwt" slice="stock-levels" given="StockNoticed, StockLevelSet" then="StockLevels" rule="the level we accepted is what the system reads" note="onHand 5, sequence 7 — the values live in SeedData, because the model states field names and types and never example values.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-stock-levels-2" label="a notice we have not accepted does not reach the read side&#10;&#10;GIVEN StockNoticed&#10;THEN StockLevels" em="gwt" slice="stock-levels" given="StockNoticed" then="StockLevels" rule="a notice we have not accepted does not reach the read side" note="THE ONE WORTH WRITING ABOVE ALL OTHERS: what the view IGNORES. The drawing already claims StockLevels is fed by StockLevelSet only; this makes the claim executable. Feed it from StockNoticed as well and every other test in this folder still passes while the warehouse's numbers have been published to the whole system unchecked — which is the exact failure a translation exists to prevent.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

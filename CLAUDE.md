@@ -123,6 +123,12 @@ owes you instead is *visibility*, and that is what the reports are for: `GWT WIT
 `TESTS STILL SKIPPED ON A CLAIMED SLICE`, `IMPLEMENTED BUT STILL UNCLAIMED`, `VIEW WITH NO REGISTRATION`,
 `AUTOMATION NOT WOKEN`. Each names a file and what to change. Add a report rather than a rewrite.
 
+**One report is still missing, and it is the arrival of a foreign event.** The generator emits an external event's
+record and a `SeedData` TODO to append it *in tests*, and nothing at all in the application — so no production
+path exists by which a foreign event enters the store, and *"nothing ever ingests this"* is invisible to a green
+suite in exactly the way *"nothing ever wakes this"* was. `INGEST NOT WIRED`, by the same logic as the reports
+above. Measured in `reference-implementations/translation/`; see KIT-FINDINGS T1.
+
 **The reference implementations are not the generator's responsibility either.** They are worked examples
 carrying what a choice *cost*, and they get better as the stack gets better understood — which is editorial
 work, not generation. A future **skill or agent whose job is keeping them current** is the right home for it:
@@ -730,6 +736,7 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `public` | event | another model in this system may consume it. The only public surface there is |
 | `from` | external | the sibling model that publishes it — **checked** |
 | `origin` | external | a genuinely foreign system — a claim on record, unverifiable |
+| `ingested` | external | `"true"` acknowledges that **we append this foreign event into a stream of ours**. Another claim on record |
 
 `displays` is what makes the check two-directional. Without it a read model can be missing every
 attribute and nothing notices, because nothing states what the screen needed.
@@ -1140,6 +1147,26 @@ right up to the point of writing code.
 name in it must appear on **every** owned event in that band (`identity-not-on-every-event`). Bands
 holding only imports or foreign events are exempt: we project from those streams, never append.
 
+**That exemption is a statement about the boundary, and `external-in-written-band` enforces it.** A foreign
+event sharing a band with events we write says the other system's event lands in a stream of *ours*, which can
+only be true if something of ours appends it — and an event store is append-only, so their schema is then in
+our history for ever. That is the coupling a Translation exists to prevent.
+
+| | |
+| --- | --- |
+| the foreign event has **its own band** | silent. It needs no `identity=`, because we never start that stream |
+| it shares a band with events we write | **warning** `external-in-written-band` — give the source system its own band |
+| `ingested="true"` on the external cell | acknowledged: we deliberately record arrivals as events of ours. A note, and a claim a reviewer can disagree with |
+
+A warning rather than an error because the inbox pattern is legitimate, and because **`slice.mjs add
+--pattern translation` puts the external event in whatever band already exists** — with one band, yours. Same
+house style as `joins="none"`. The book's own ch. 16 sketch draws them together, so `cart-replay.mjs` warns
+here; that is the rule working, and the fixture gates on errors.
+
+This rule exists because accepting that default once produced a reference implementation that compiled, passed
+fifteen tests and ran correctly against real Postgres while persisting another system's events into our stream.
+Nothing caught it — not a rule, not the compiler, not a green suite, not a live run. A human asked a question.
+
 The choice decides **which business rules are real invariants**, so it is not a technical detail:
 
 | Entries keyed by | *"at most N per day"* is |
@@ -1299,7 +1326,7 @@ stack:
 | `command` | the aggregate handler workflow vs. explicit `FetchForWriting`; an HTTP endpoint vs. a message handler; `StartStream` for a slice that creates the stream | `reference-implementations/state-change/` |
 | `view` | six Marten recipes — live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — and `Inline` vs `Async` | `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger: event forwarding, `ISubscription`, `RaiseSideEffects`, a clock | `reference-implementations/automation/` |
-| `translation` | the automation choice, plus how the foreign event lands | — |
+| `translation` | the automation choice, plus **how the foreign event lands**: a webhook, a table they write, a broker, or a poll of their API | `reference-implementations/translation/` |
 
 Two consequences, and the second is the one that keeps being learned the hard way:
 
@@ -1342,6 +1369,51 @@ The second is the one that usually decides it, and it is not the same question a
 
 All four are **built and measured** against one shared model in
 `reference-implementations/automation/` — read that before writing one.
+
+**On a translation slice, do not ask this question at all — ask how the foreign event gets here.** The four
+mechanisms above all wake a trigger off events **already in our event store**, and a translation's trigger event
+never is one: it is the other system's event, it belongs in its own foreign band, and *we do not append it.*
+
+**A foreign event is not persisted by us, and both identity rules already say so.** `band-needs-identity` and
+`identity-not-on-every-event` filter to `kind === "event"` and exclude `external` — "*we never start those
+streams, we only project from them.*" A band holding only foreign events is exempt from `identity=` because
+there is nothing of ours to key. Our event store is our history, and it is append-only: a foreign schema written
+into it is in our history for ever, which is precisely the coupling the translation exists to prevent.
+
+So for a 1:1 translation **the arrival is the wakeup**. The notice lands in the transport's durable inbox, a
+handler translates it and issues the command, and the decider appends the one event we own. No subscription, no
+forwarding, no clock, no async daemon. The **inbox is also the todo View** — pending work, with retries and
+dead-lettering nobody wrote — which is the automation folder's "the green box is the concept" doing real work
+rather than being quoted. Here a materialised View is not merely unnecessary but impossible: no Marten
+projection can fold an event that is never in the store.
+
+A translation needs a wakeup from the table above only when it is **conditional** — deciding from several
+notices accumulated over time rather than mapping one. That needs a todo View fed by events of ours, and every
+row above applies again.
+
+The one decision that is genuinely this pattern's own is the arrival, and nothing in the kit generates a seam
+for it, so it is entirely hand-owned:
+
+| When | Landing | Cost |
+| --- | --- | --- |
+| they call us, and a lost call is **their** retry to make | an HTTP endpoint | nothing to re-read if the call never arrives. The route also exists whether or not you chose it, so "not choosing" means refusing |
+| they can **INSERT** into our database | `ListenForMessagesFromExternalDatabaseTable` | durable with no durability code of ours — inbox, dead letters, advisory lock. A table the far side owns |
+| they publish to a **broker** | a Wolverine listener + `DefaultIncomingMessage<T>` | broker durability, plus an envelope mapper if their headers matter. The likely production shape; the one row not measured |
+| they offer only a **query API**, or push nothing | poll on a clock | a high-water mark of our own — a row that can be wrong. But it **cannot deliver out of order**, which some of the others can |
+
+Built and measured against one model in `reference-implementations/translation/`.
+
+Whichever it is, all three end up sending **one message** — the seam that keeps three transports from each
+growing their own copy of the translation. Their vocabulary reaches exactly as far as that message and the
+trigger that handles it; the rename lives on the way into the command, which is what `mappings=` records.
+
+**Dedupe on a value carried by OUR OWN event**, and note this is the one place a foreign id legitimately crosses:
+at-least-once is the normal case for every landing mechanism, and a black box re-sending after a reconnect is
+ordinary rather than exceptional. A transport inbox catches its own redelivery for free and is pruned, so it
+cannot be the durable answer — the notice id on our event is. One correlation value is not their schema.
+
+**Then run it and look**, for the same reason as an automation: nothing in the model or the generated code makes
+an arrival happen, so a completely disconnected feed leaves a green suite green.
 
 **The foreign-but-ingested row was missing, and its absence was worse than a gap.** A translation slice
 matched *"the trigger event is foreign"* on the surface criterion while failing its stated reason — the

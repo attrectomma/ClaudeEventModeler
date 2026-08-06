@@ -264,6 +264,25 @@ const scaffold = (p, body) => {
 // Every generated test carries its rule text as a comment, so a kept file can be checked for
 // coverage without parsing C#. Reported rather than repaired: appending into a file somebody else
 // owns is how a generator destroys hand-written work.
+// WHAT A GIVEN/THEN ASSERTS DEPENDS ON WHICH PATTERN IT IS ON, and one wording for both was wrong for one
+// of them.
+//
+// On a VIEW slice the outcome is the read model's contents — there is no command, so THEN names the View.
+// On an AUTOMATION or TRANSLATION the slice HAS a command, and the GT is its infrastructure half: the little
+// book's shape is "GIVEN these 2 Events, we expect the automation to run automatically... and result in
+// another Event". So THEN names an EVENT, and model.mjs enforces exactly that — it accepts a read-model
+// then= only when the slice has no command.
+//
+// The hint said "assert the read model" for both, which on an automation sends the implementer looking for a
+// document that may deliberately not exist: the todo View is often the durable inbox rather than a
+// projection, and on a translation it CANNOT be a projection, because the foreign event is never in our
+// store to fold.
+const gtHint = (s) => s.commands.length
+  ? "\n    //   (no WHEN: this is a GIVEN/THEN — the infrastructure half. Nobody issues the command: append the"
+    + "\n    //    GIVEN, let the trigger run, and assert the EVENT it produced. That the trigger selects its own"
+    + "\n    //    work is the claim; that anything WAKES it is not, and no generated test can make it.)"
+  : "\n    //   (no WHEN: this is a GIVEN/THEN. Append the GIVEN, then assert the read model — through its read endpoint if the slice has one, else Store.QuerySession().)";
+
 const untested = [];
 const checkGwtCoverage = (p, gwts) => {
   if (!existsSync(p)) return;
@@ -770,8 +789,20 @@ namespace ${NS}.IntegrationTests;
 /// field names and types but never example values — this is where the values live, once.
 ///
 ${foreign.length
-  ? `/// Seeds only the ${foreign.length} event(s) nothing in this system produces: ${foreign.map((e) => e.label).join(", ")}.
-/// Everything else is appended by the test's own GIVEN, because that is what a GIVEN is for.`
+  ? `/// SEEDS NOTHING, and specifically NOT the ${foreign.length} foreign event(s) this system reads but never
+/// produces: ${foreign.map((e) => e.label).join(", ")}.
+///
+/// Those carry origin=, meaning a genuine third party — so they are never in OUR event store at all, and a
+/// band holding only foreign events is exempt from identity= for exactly that reason: "we never start those
+/// streams, we only project from them." Appending one here would put another system's schema into our
+/// append-only history for ever, which is the coupling a Translation slice exists to prevent.
+///
+/// It would also break the tests it appears to help. A seeded foreign event is present before every test
+/// begins, so a trigger translates it into streams other tests are asserting on, and "a notice arrived and
+/// was handled" becomes unassertable because one is always already there.
+///
+/// A test that needs a foreign event to ARRIVE sends the message its landing mechanism sends. Everything
+/// else is appended by the test's own GIVEN, because that is what a GIVEN is for.`
   : `/// NOTHING TO SEED, and that is the expected state for most systems: every event here is produced by a
 /// slice of this system, so a test's own GIVEN appends whatever it needs. The class exists for the fixed
 /// ids below, which is what lets a GIVEN name things and a failing test be reproducible.
@@ -786,9 +817,9 @@ ${seedConstants()}
     {
         await using var session = store.LightweightSession();
 
-        // TODO(codegen): append the foreign events above onto whatever streams the model says they
-        // land in. They have origin=, not from=, so nothing here produces them — they are the world
-        // this system wakes up in.
+        // TODO(codegen): fixed ids and values go in the constants above, not here. Populate stays empty
+        // unless this system genuinely needs baseline DOCUMENTS — see the class comment for why a foreign
+        // event must not be appended.
 
         await session.SaveChangesAsync(cancellation);
     }
@@ -900,7 +931,7 @@ ${s.gwts.map((g, i) => {
       // missing; omitting the line says what the book says.
       return `    // ${(g.rule || g.label || g.id).replace(/\s+/g, " ")}
     //   GIVEN ${g.given || "(nothing)"}${g.when ? `\n    //   WHEN  ${g.when}` : ""}
-    //   THEN  ${g.then || "(nothing)"}${g.when ? "" : "\n    //   (no WHEN: this is a GIVEN/THEN. Append the GIVEN, then assert the read model — through its read endpoint if the slice has one, else Store.QuerySession().)"}${isPeriphery(g) && g.when ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
+    //   THEN  ${g.then || "(nothing)"}${g.when ? "" : gtHint(s)}${isPeriphery(g) && g.when ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
     ${factAttr(s)}
     public Task ${testName(g, i)}()
         => throw new NotImplementedException(
@@ -1150,9 +1181,16 @@ public sealed class GenesisData : IInitialData
         // them looks broken. \`docker compose down -v\` is the fix; knowing that is cheaper than debugging it.
         await using var query = store.QuerySession();
 
-        // TODO(codegen): seed the foreign/genesis events this system reads but never produces, plus enough
-        // of its own history to make the screens worth looking at. The model names the fields; the values
-        // are yours.
+        // TODO(codegen): seed enough of THIS system's own history to make the screens worth looking at. The
+        // model names the fields; the values are yours.
+        //
+        // NOT the foreign events. Anything with origin= belongs to another system and is never in our store,
+        // so appending one here is not a shortcut — it makes a completely disconnected feed look identical to
+        // a working one, which is the single failure a demo run is supposed to expose. Seed THE FAR SIDE
+        // instead: whatever stands in for the other system in Development, so the app has to go and fetch.
+        //
+        // Note this type is constructed with \`new GenesisData()\` in Program.cs, which is emit — so it can
+        // take no constructor dependency. Anything needing the container is registered elsewhere.
         await Task.CompletedTask;
     }
 }

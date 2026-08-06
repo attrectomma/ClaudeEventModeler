@@ -8,6 +8,40 @@ Structurally an automation whose input comes from outside this model. **Two colu
 `references/automation.md` applies — the todo list, the tick-off edge, the automation typing nothing,
 the conditional. This file covers only what is different: the boundary.
 
+**Built and measured in `reference-implementations/translation/`** — three ways a foreign notice can land, the
+wakeup decision re-taken now that the event is ingested, and eight findings against the kit. Read it before
+implementing one; the model-side rules below are unaffected by any of it.
+
+**Note what the model does NOT say, and must not be made to say.** How the foreign event arrives — a webhook, a
+table they write, a broker, a poll — is an implementation choice with no cell to live on, exactly as what wakes
+an automation is. Do not invent an attribute for it. Do not add a command upstream of the external event to
+represent an ingest either: that invents a producer we do not own, and `external-terminal` is a note precisely
+because the event is terminal *in the model*.
+
+**And the foreign event goes in ITS OWN band, which is the modelling decision that matters most here.**
+`slice.mjs add` puts an external event in whatever swimlane already exists — with one band, that is yours — and
+accepting that default is how the reference implementation got built wrong the first time. Give the source system
+its own band with no `identity=`:
+
+```
+node tools/slice.mjs swimlane <file> --label "<Their system> feed — THEIR stream. We project from it, never append."
+                                     --streams <TheirFeed>
+```
+
+`band-needs-identity` will not fire, and that is correct rather than a loophole: it and
+`identity-not-on-every-event` both filter to `kind === "event"` and exclude externals — *"we never start those
+streams, we only project from them."* **We never persist their event**, so there is nothing of ours to key.
+
+Leave it in your own band and `validate` warns:
+
+| Rule | Means |
+| --- | --- |
+| `external-in-written-band` | the foreign event shares a band with events we write. Move it to its own band, or declare `ingested="true"` on it if you really do append arrivals as events of yours — a claim on record, downgraded to a note |
+
+Then **render and look**, because `slice.mjs swimlane` appends the band at the end of the XML and mxGraph paints
+in document order: an event moved into a newly added band is drawn *underneath* it and vanishes, while the model
+still validates at 0 errors.
+
 **`slice-pattern-mismatch` cannot tell `translation` from `automation`.** Their shape signatures are
 identical in `tools/model.mjs` — one command, a view, an automation, events. So declaring `translation`
 is an assertion nothing checks. It is only honest if a boundary is genuinely crossed.

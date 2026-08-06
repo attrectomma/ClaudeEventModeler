@@ -484,7 +484,25 @@ function cmdSwimlane(target, o) {
     { x: LANE_X, y, w: m.grid.laneW, h });
   plan.push(`band "${o.label}" at y=${y}, height ${h}`);
 
-  let out = splice(xml, [...blocks, cell]);
+  // INSERT THE BAND BEFORE THE ELEMENTS, NEVER APPEND IT.
+  //
+  // mxGraph renders in document order and a swimlane has an OPAQUE fill, so a band written last is painted
+  // over every event drawn inside it. The cell does not move, does not error and does not warn — it simply
+  // stops being visible, while the model still validates at 0 errors and 0 warnings.
+  //
+  // Found by adding a foreign band to the translation reference implementation, moving the external event
+  // into it, and looking at the PNG: an empty band and a missing box. Exactly the class of defect
+  // "always render and look" exists for, and the only one so far that the renderer alone could catch.
+  //
+  // Anchored after the last existing swimlane so bands stay in y order in the file too; falling back to the
+  // event lane covers the first band in a fresh model, and to a plain append if neither is found.
+  const anchorId = last?.id ?? "lane-evt";
+  const at = blocks.findIndex((b) => new RegExp(`\\bid="${anchorId}"`).test(b));
+  const ordered = at >= 0
+    ? [...blocks.slice(0, at + 1), cell, ...blocks.slice(at + 1)]
+    : [...blocks, cell];
+
+  let out = splice(xml, ordered);
   out = setPage(out, { h: pageH(xml) + by });
   finish(target, file, out, plan, o,
     o.identity ? [] : ["no --identity given, so band-needs-identity will fire. Correct: what keys one",

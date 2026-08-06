@@ -2,10 +2,12 @@
 
 Everything the kit got wrong, everything the runs taught, and every decision parked for the human.
 
-**Two runs so far.** The first (CPOC01, *Recipe Box*) took a business brief through the whole workflow to
+**Three runs so far.** The first (CPOC01, *Recipe Box*) took a business brief through the whole workflow to
 a clickable Docker app. The second (CPOC02, the book's shopping cart) was a deliberate verification on a
 domain the kit had never generated from, chosen so that the **book** supplies every domain answer and the
-kit can be scored against a documented expected outcome.
+kit can be scored against a documented expected outcome. The third built
+`reference-implementations/translation/` — the last of the four patterns — model → generator → implementation
+→ run, and is section **T** below.
 
 The second run is first below, because its findings are sharper: a fresh domain exercises paths a
 familiar one cannot, and three of its four `BROKEN` findings had been latent since the kit was written.
@@ -209,6 +211,190 @@ Until then, be honest about what green means: **every slice works in isolation.*
 human clicking — which is why `review.mjs` and *"run it and look"* carry more weight here than they would in a
 kit that had journey tests.
 
+## T — the translation run: building the fourth pattern's reference implementation
+
+One session, 2026-08-06. A new model (`stock-feed`, ch. 16 shaped) built with `slice.mjs`, generated, implemented
+against real Postgres, mutation-checked and run by hand. **15 tests, 0 warnings, stable across repeated runs.**
+Full write-up and every measurement: `reference-implementations/translation/README.md`.
+
+**T0 — THE HEADLINE, and it is a design error of mine that a reviewer caught, not a kit defect.** The folder was
+built twice. The first version **appended the foreign event to one of our own streams**, then woke a trigger off
+it with a Marten subscription. It compiled, passed 15 tests, and ran correctly — and it was wrong in exactly the
+way this kit exists to catch, where nothing fails and the design is still broken. Two questions undid it, and
+`tools/model.mjs` answers both:
+
+- **A foreign event belongs in its own foreign band, not ours.** It must be in *a* swimlane, but `slice.mjs`
+  defaults it to whatever band exists, and accepting that default is how this started.
+- **We never persist it.** `band-needs-identity` and `identity-not-on-every-event` both filter to
+  `kind === "event"` and exclude `external`, with the comment *"we never start those streams, we only project
+  from them."* A foreign band is exempt from `identity=` because there is nothing of ours to key. The kit had
+  said so all along.
+
+The reason it matters: an event store is **append-only**, so a foreign schema written into ours is in our history
+for ever — the precise coupling a translation exists to prevent, installed by the thing meant to prevent it.
+
+**Removing the append collapsed the pattern.** For a 1:1 translation *the arrival is the wakeup*: the notice lands
+in the transport's durable inbox, a handler translates it, the decider appends the one event we own. The four
+automation wakeup mechanisms all wake a trigger off events **already in our store**, so none of them applies. And
+the inbox **is** the todo View — pending work with retries and dead-lettering nobody wrote. Measured: 1 event type
+in the store instead of 2, one document instead of two, no async daemon, one decision instead of two, one way to
+be silently dead instead of two, and a refusal that is logged synchronously instead of racily.
+
+**A rule also came off the model.** `NoticeNotReceived` — *"a notice nothing ever delivered cannot be applied"* —
+was only expressible while the notice was persisted, because it asked *"is their event in our history?"*, a
+question we should never be able to answer. An implementation choice had propagated **back into the domain model
+as a business rule**, where it validated, generated a test, and passed. Nothing catches that, and it is the most
+uncomfortable finding of the run.
+
+### T-FIXED — what was repaired immediately after the run
+
+Five changes, all verified against `cart-replay.mjs` (0 errors in every round, byte-identical re-run), the four
+reference models, and CPOC01 (no new findings anywhere):
+
+| | Change |
+| --- | --- |
+| **`slice.mjs`** | the new swimlane is **inserted after the last existing band** instead of appended, so it can no longer paint over an event drawn inside it. T2b. |
+| **`model.mjs`** | new rule **`external-in-written-band`** — warns when a foreign event shares a band with events we write, acknowledgeable with `ingested="true"` (a note). This is the rule that would have caught T0 on the first `validate` instead of after a build, a suite and a live run. |
+| **`codegen.mjs`** | `SeedData`'s instruction no longer tells you to append the foreign events — it now says why doing so puts another system's schema in our append-only history *and* makes the landing mechanisms untestable. T6. |
+| **`codegen.mjs`** | `GenesisData`'s instruction likewise, plus the note that it can take no constructor dependency because `Program.cs` builds it with `new`. T6. |
+| **`codegen.mjs`** | the Given/Then hint now **branches on whether the slice has a command**: a View slice still gets "assert the read model", an automation or translation gets "assert the EVENT the trigger produced", with the warning that no generated test can assert anything *wakes* it. T6. |
+
+Also documented: `ingested=` in `CLAUDE.md`'s attribute table, the rule and its acknowledgement in the swimlane
+section, and the band-per-source-system instruction in `add-slice/references/translation.md`.
+
+**What is deliberately still open:** T1 (`INGEST NOT WIRED`), T3 (`AppFixture` disabling every transport) and
+T4b (`VIEW WITH NO REGISTRATION` crying wolf) — the first is a new report, the other two need a decision about
+where the seam goes. T5 and T7 are grammar changes.
+
+### T1 — The generator emits no ingest seam for a foreign event · **GAP**
+
+It emits the event *record* and a `SeedData` TODO to append it **in tests**, and nothing in the application. So
+there is no production path by which a foreign event enters the store, and **"nothing ever ingests this" is
+invisible to a green suite** — the exact parallel of "nothing ever wakes this", which the kit *does* defend
+against with `AUTOMATION NOT WOKEN`. Every file in `generated/src/StockFeed/Landing/` is hand-written with no
+generated ancestor.
+
+The fix in the kit's own idiom is **a report, not a rewrite**: a slice with a foreign event in one of our own
+bands and no ingest seam should be named, the way an unwoken automation is. `INGEST NOT WIRED`.
+
+### T2 — ~~The write-side fold omits the foreign event~~ · **RETRACTED**
+
+Filed in the first pass as a generator bug: `TranslateStockNoticeState` was scaffolded with `Apply(StockLevelSet)`
+only, and I hand-added a fold for the foreign event.
+
+**The generator was right and the finding was wrong.** Filtering the write-side fold to events the system *owns*
+is exactly correct, because the foreign event is never in our store. Kept here rather than deleted, because "the
+scaffold looks incomplete" is going to feel like a bug to the next person too, and the reason it is not is the
+whole content of T0.
+
+### T2b — `slice.mjs swimlane` paints its band over its own events · **BROKEN** · ***FIXED***
+
+The new band's cell is appended at the **end** of the XML. mxGraph renders in document order and a swimlane has an
+opaque fill, so moving the external event into the newly added band made it **disappear from the render** — while
+the model validated at 0 errors, 0 warnings.
+
+Caught only by rendering and looking, which is exactly what that rule is for. The fix is one line: insert the band
+before the elements rather than appending it. Any event drawn in a band added after it is currently invisible.
+
+### T3 — The generated harness disables every landing mechanism · **BROKEN** · *open*
+
+`AppFixture` calls `DisableAllExternalWolverineTransports()` unconditionally, and it is `emit`. A translation's
+landing mechanism **is** an external transport, so the harness the generator provides can never test the arrival
+half of the pattern. `LandingMechanismTests` boots its own hosts, as `WakeupMechanismTests` already had to.
+
+### T4 — A generated test cannot see a disconnected feed
+
+Nothing in the model or the generated code makes an arrival happen. Every model-derived test hands the notice to
+the translator itself — the production path, correctly — so a feed wired to nothing at all leaves the suite green.
+Only the hand-written `LandingMechanismTests` boot a host and let the infrastructure deliver, with a control test
+that makes the others mean anything.
+
+**This is one failure mode, and it used to be two — measured before the design was fixed.** With the notice
+persisted and a subscription waking the trigger, disabling that subscription left **11 of 15 tests passing**,
+including `gt-translate-5`, the Given/Then written specifically to catch it: a generated test can only drive the
+trigger itself, so it can prove the trigger selects its own work and never that anything wakes it. Removing the
+append removed that whole class of failure — there is no separate wakeup left to be missing. Worth keeping as a
+number, because it is the sharpest measurement the kit has of what a green suite does not cover.
+
+### T4b — `VIEW WITH NO REGISTRATION` cannot tell "forgot" from "deliberately not a projection" · **BROKEN** · *open*
+
+Regenerating the finished folder reports:
+
+```
+VIEW WITH NO REGISTRATION — 1. The projection class exists and NOTHING RUNS IT.
+  StockNoticesToApply   ->   opts.Projections.Add<StockNoticesToApplyProjection>(ProjectionLifecycle.Inline);
+```
+
+The registration is absent **on purpose**: that view is a todo list realised as the transport's durable inbox, and
+a Marten projection cannot fold an event that is never in our store. The report is right that nothing runs it and
+wrong that anything should — and it will now nag for ever, on a folder where the omission is the design.
+
+It also recommends adding `StockNoticesToApplyProjection`, a class that no longer exists, because it reasons from
+the model rather than the code.
+
+**This contradicts the kit's own doctrine**, which says in two places that a View need not be materialised — a
+subscription's checkpoint, a durable inbox. So an unmaterialised View is legal, expected, and unacknowledgeable.
+
+The fix is the kit's own house style, the one `joins="none"` and the acknowledged Conway split already use: **warn
+on the unacknowledged case, note the acknowledged one.** Something like `recipe="none"` on the read model, or a
+recognised marker in the scaffold, so a deliberate omission can be stated once and stop being reported. A report
+that cries wolf stops being read — which this file already says about B2's first version.
+
+### T5 — A foreign key that is not our key has no notation · **GAP**
+
+`mappings=` is a rename (same value, same type), `derived=` is computed, `terminal=` comes from context. A foreign
+`sku:string` becoming our `productId:Guid` is **none of the three**: it is a lookup in a correspondence table, and
+a translation's whole job is exactly that. This model dodged it by sharing the product id and renaming only
+`quantity` → `onHand`. A real boundary needs a fourth notation.
+
+### T6 — Smaller findings from the same run
+
+- **`GenesisData` can take no dependency.** `Program.cs` is `emit` and constructs it with `new GenesisData()`. A
+  translation's demo data belongs on the **far side** — seeding our own stream with a foreign event makes a
+  broken landing mechanism look identical to a working one.
+- **There is no landing hook in `Program.cs`**, so ingest is smuggled in through the wakeup scaffold's hooks —
+  two decisions, one set of seams. Same shape as B5's note about the subscription.
+- **B5's `SeedData` warning confirmed on independent ground**, and it is worse than recorded: seeding the foreign
+  event does not only race other slices, it makes the landing mechanisms untestable outright.
+- **A GT hint is written for a view slice** — it says "assert the read model", but on an automation or translation
+  the GT's `then=` must name an event. The *restriction* is correct and should stay (the todo View need not be
+  materialised, so a row is machinery and not contract); only the hint is wrong.
+- **`ListenForMessagesFromExternalDatabaseTable` is in `Wolverine.RDBMS.Transport`** and the doc page names no
+  namespace. Found by grepping the NuGet package's own `.xml` doc file — **a faster tiebreaker than the
+  `dotnet run probe.cs` reflection app `CLAUDE.md` recommends.** It lists only documented members, so absence
+  proves nothing, but a hit is definitive. Worth adding to the mirror guidance.
+- **`SendMessageThroughExternalTable` exists and is documented nowhere** — Wolverine's own testing helper for
+  writing the row an upstream system would write.
+
+### T7 — What held up
+
+- **`slice.mjs` built the entire translation shape** — external, view, automation, command, event, four edges,
+  two columns — with the View correctly placed *under* the processor. 0 errors, 0 warnings at first validate.
+- **`AUTOMATION NOT WOKEN` fired for a translation slice** and named the file: B1's fix confirmed independently.
+  It also **cleared itself** once a mechanism was chosen.
+- **The generator scaffolded both projection folds**, including the tick-off edge ch. 16's own sketch omits —
+  because the model drew it. Nothing checks that the second edge exists; still a rule worth having.
+- **The scaffold/emit split earned its keep twice.** Both of this folder's real read-side decisions — deleting a
+  projection registration, emptying the wakeup — are edits inside `scaffold` files that regeneration kept. Inline
+  in `Program.cs`, which is `emit`, both would have been silently reinstated.
+
+### T8 — B4 is retracted as well
+
+**B4 said the wakeup decision table needed a "foreign but WE INGEST IT" row**, reasoning that the external event is
+drawn inside our own swimlane with `aggregate=` set, so something of ours must append it, so every "ours" mechanism
+becomes available.
+
+**That reads the model's default LAYOUT as a requirement.** `slice.mjs` puts an external event in whatever band
+exists; with one band that is ours. The identity rules contradict the inference outright — externals are excluded
+from both, *"we never start those streams"*. A translation needs **no row** in that table, because its trigger event
+is never in our store and the arrival is the wakeup.
+
+The original table's answer for a foreign trigger event was *"sweep a todo View on a clock"*, and that is wrong too
+— but for a different reason than B4 gave. It is not that we can hook a transaction of ours; it is that the transport
+already delivers the notice to a handler, so no clock is needed unless the far side offers only a query API.
+
+---
+
 ## B0 — THE HEADLINE (now fixed, kept because the mechanism is the lesson)
 
 Ch. 16's whole purpose is this discovery:
@@ -282,7 +468,13 @@ containing `class Inventory Processor` — **eleven compiler errors**.
 Latent for the whole life of the kit, because every model that ever had an automation happened to use a
 single-word label (`EmailProcessor`). A different domain found it in one build. Now `pascal()`-ed.
 
-## B4 — The wakeup decision table has a missing row, and it is the translation row
+## B4 — The wakeup decision table has a missing row, and it is the translation row · ***RETRACTED — see T8***
+
+> **Retracted by the translation run.** Its premise — that the external event sits in one of *our* swimlanes, so
+> something of ours appends it — reads `slice.mjs`'s default layout as a requirement. The identity rules exclude
+> externals precisely because *"we never start those streams"*. A translation needs no row in this table at all:
+> its trigger event is never in our store, and the arrival is the wakeup. The section is kept unedited below
+> because the reasoning is instructive and it is what the code was built against for a while.
 
 `CLAUDE.md`'s table routes *"the trigger event is **foreign** — we never append it"* to **sweep on a
 clock**, on the grounds that *"there is no transaction of ours to hook"*.

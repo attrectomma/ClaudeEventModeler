@@ -188,6 +188,11 @@ function parseCells(body) {
       isPublic: a.public === "true",
       from: a.from ?? null,
       origin: a.origin ?? null,
+      // On an external event: we deliberately APPEND this foreign event into a stream of ours, so it may
+      // share a band with events we write. Acknowledges external-in-written-band. A claim on record and
+      // nothing more — no rule can tell a considered inbox pattern from an accident, which is why the
+      // default is to warn and the acknowledgement is a human's signature.
+      ingested: a.ingested === "true",
       // A screen's identity. Screens repeat across every slice that triggers from them, so the
       // slug is what makes three Timesheet cells one screen — see screenRules().
       screen: a.screen ?? null,
@@ -1084,6 +1089,55 @@ function swimlaneRules(ir) {
       push("error", "event-wrong-swimlane",
         `${e.label} is aggregate="${e.aggregate}" but is drawn in the "${band.label}" swimlane, which holds ${band.streams.join(", ")}.`,
         e.id);
+    }
+  }
+
+  // A FOREIGN EVENT SHARING A BAND WITH EVENTS WE WRITE.
+  //
+  // The band rules below already encode the boundary: identity= is required of a band we write to and a band
+  // holding only foreign events is EXEMPT, "because we never start those streams, we only project from
+  // them." Drawing both kinds in one band quietly contradicts that — it says the other system's event lands
+  // in a stream of ours, which can only be true if something of ours appends it, which is the one thing a
+  // Translation exists to avoid. An event store is append-only, so a foreign schema written into ours is in
+  // our history for ever.
+  //
+  // WHY THIS RULE EXISTS AT ALL. `slice.mjs add --pattern translation` puts the external event in whatever
+  // band already exists, and with one band that is yours. Accepting that default produced a reference
+  // implementation that compiled, passed fifteen tests and ran correctly against real Postgres while
+  // persisting another system's events into our own stream. Nothing caught it: not a rule, not the compiler,
+  // not a green suite, not a live run. A human asked a question. This is that question, automated.
+  //
+  // A WARNING, NOT AN ERROR, and acknowledgeable — same house style as `joins="none"` and the acknowledged
+  // Conway split. There is a legitimate case: an inbox pattern where arrivals are deliberately recorded as
+  // first-class events of ours. That is a real architectural claim, so it goes on the record with
+  // ingested="true" on the external cell, where a reviewer can disagree with it.
+  //
+  // Note the book's own ch.16 sketch draws them together, so tools/fixtures/cart-replay.mjs warns here. That
+  // is the rule working rather than failing: the ambiguity is in the drawing, and the fixture gates on
+  // errors.
+  for (const band of ir.swimlanes) {
+    const inBand = (kind) => ir.elements.filter((e) =>
+      e.kind === kind && e.geometry &&
+      e.geometry.y + e.geometry.h / 2 >= band.geometry.y &&
+      e.geometry.y + e.geometry.h / 2 <= band.geometry.y + band.geometry.h);
+
+    const written = inBand("event");
+    if (!written.length) continue;                      // a purely foreign band is the shape we want
+
+    for (const foreign of inBand("external")) {
+      if (foreign.ingested) {
+        push("info", "external-ingested",
+          `${foreign.label} is declared ingested="true": we append this foreign event into the "${band.label}" band ourselves. A claim on record — the other system's schema then lives in our append-only history for ever.`,
+          foreign.id);
+        continue;
+      }
+      push("warn", "external-in-written-band",
+        `${foreign.label} is foreign but is drawn in the "${band.label}" band, which also holds ${
+          written.map((e) => e.label).join(", ")} — events we write. That says another system's event lands ` +
+        `in a stream of ours, which can only happen if something of ours appends it. Give the source system ` +
+        `its own band (it needs no identity=, because we never start those streams), or declare ` +
+        `ingested="true" on ${foreign.label} to put the choice on the record.`,
+        foreign.id);
     }
   }
 
