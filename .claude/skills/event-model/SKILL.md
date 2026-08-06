@@ -375,6 +375,18 @@ action* are right — not whether it looks good.
 Business rules, as `GIVEN a set of Events, WHEN a Command, THEN a new set of Events`. One `gwt`
 cell each, in the band below the slice it describes.
 
+**A State View slice takes a GIVEN/THEN instead — there is no WHEN.** A read model only reads events that
+already exist, so no command can be the WHEN: `GIVEN a set of Events THEN the read model shows <this>`.
+Same `em="gwt"` cell with `when=` simply left off, and `then=` naming the **View**. The little book says a
+State View scenario is *always* a GT; ch. 13 of *Understanding EventSourcing* extends it to automations,
+which take a GT for the infrastructure half and a GWT for the domain half. `enforce=` does not apply.
+
+Ask for these as insistently as for the rules — *"don't save on them. They are the real treasury in Event
+Models."* Good ones to pull for: what does one row look like after one event? after two? what does the
+view look like at zero rows? and **which events does this view deliberately ignore?** That last is the
+single thing a projection can get wrong that nothing else notices. Push for concrete example data too,
+which is what makes the generated test assertable rather than a stub.
+
 Ask for the rules; do not derive them from field names. For each slice: what must be true for this
 to be allowed? what happens when it isn't? what are the limits?
 

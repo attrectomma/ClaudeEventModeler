@@ -97,6 +97,7 @@ message, because it is the only place the reasoning will survive.
 | Reads | anything the screen `displays=` can actually be fetched |
 | Choice | the report names the implementation recipe chosen and why. "Same as the reference implementation" is not an answer unless the mirror was checked |
 | Frontend | `tsc` clean, `design.mjs check` clean, and **the render has been looked at** |
+| Review | `node tools/review.mjs sheet` produced `<project>/review/index.html`, with a shot per screen per viewport — **the human reviews the slice against that, not against your description** |
 | Model | `model.mjs validate` still zero errors — implementing must not have needed a model change nobody made |
 
 Verify these yourself. An agent reporting success is a claim, and the whole kit is built on not taking
@@ -133,6 +134,23 @@ and nothing in the test project reads the compose file. Marten manages schema, s
 at the demo database drops the data you were halfway through creating.
 
 Stop everything you started before reporting.
+
+## Hand over screenshots of the BUILT software, not a description of it
+
+A design page is not the software. Before reporting a slice done:
+
+```
+node tools/review.mjs shot <url> --screen <slug> [--state <name>]     # once per screen, per state
+node tools/review.mjs sheet
+```
+
+`<project>/review/index.html` then shows the **agreed design beside what got built**, same screen, same
+width, 1:1 — which is the only view in which a human can answer "does this match what we agreed". Point
+them at that file, and at `review/_shots/review-sheet-<viewport>.png` for the whole set in one image.
+
+It is not ceremony. Within a minute of existing it caught a defect no test had: shots of `/` and
+`/?page=2` came back **identical**, because the pager never reaches the URL — so a page cannot be
+linked, bookmarked, or survive a refresh.
 
 ## Report
 

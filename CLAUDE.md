@@ -523,6 +523,10 @@ node tools/design.mjs shot  <file.html>      # render one design page to PNG, pe
 node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
 node tools/design.mjs check <system-dir>     # the styled pages against the model's displays=/inputs=
 
+node tools/review.mjs shot <url> --screen <slug> [--state <n>]   # shoot the RUNNING app
+node tools/review.mjs sheet                  # design beside implementation, per screen, per viewport
+node tools/review.mjs clear                  # throw the shots away and start again
+
 node tools/project.mjs init --project <path>   # scaffold a project; point this kit copy at it
 node tools/project.mjs where           # which project this copy writes to
 node tools/project.mjs inbox           # what is in the baseline, and what cannot be read
@@ -838,6 +842,34 @@ by rendering the sheet and looking at it.
 Always shoot at least a desktop and a mobile width. A single desktop screenshot hides half the
 problems.
 
+**A mobile screenshot below 500px used to be a lie, and that is now fixed in one place.**
+`chrome --headless=new --window-size=390,…` reports `innerWidth=500`: Windows will not make a real
+window narrower than about 500px, so Chrome laid the page out at 500 and cropped the image to 390 —
+inventing clipping that did not exist and hiding clipping that did. It cost one wrong diagnosis and two
+rounds of CSS "fixes" to a page that was already correct. `tools/shoot.mjs` now renders the page inside
+an `<iframe>` of the requested width, which gets a real layout viewport, and **both `design.mjs` and
+`review.mjs` capture through it** — which is also the only reason a design shot and an implementation
+shot are comparable at all. `--headless=old` is not a way out; modern Chrome ignores it.
+
+### And a design is not the software. Shoot the built thing too.
+
+```
+node tools/review.mjs shot http://localhost:8080/ --screen recipes --state default
+node tools/review.mjs sheet
+```
+
+Lands in `<project>/review/` — gitignored, like `designs/_shots/`, because it is regenerable evidence
+rather than source. `review/index.html` puts the **agreed design beside the built software**, same
+screen, same width, 1:1, which is the only view in which "does the build match what we agreed" is a
+question a human can answer. `--state` names anything with no design counterpart: `rejected`,
+`pending`, `empty`, `page2`.
+
+**This is a codegen deliverable, not an optional extra.** A static design page cannot show a wrong API
+path, an unapplied seed, a state the port forgot, or a layout that only breaks once real data of real
+length arrives. It found one within a minute of existing: shots of `/` and `/?page=2` came back
+**identical**, because the pager is component state and never reaches the URL — so a page cannot be
+linked, bookmarked or refreshed. Nothing in the test suite had noticed.
+
 ## Many small models, one system
 
 > *"It is perfectly fine to have more than one model on a board. In fact, this is the rule rather
@@ -1075,6 +1107,40 @@ badge the failing element, because a red arrow alone doesn't say which attribute
 Business rules are captured as GWT, one cell each, in the band below the slice:
 `GIVEN a set of Events, WHEN a Command, THEN a new set of Events`. Ten or more per slice is
 normal — *"Don't save on GWTs."*
+
+### A State View slice takes a GIVEN/THEN, and there is no WHEN
+
+A read model only ever reads events that **already exist**, so there is no command to be the WHEN:
+
+```
+GIVEN a set of Events   THEN the read model shows <this>
+```
+
+*Understanding EventSourcing* ch. 3 is explicit — *"you typically do not use GWTs but **GTs (Given -
+Then)**. Read Models only rely on previously stored events, so there is no 'When' part necessary"* — and
+the little book says a State View scenario is **always** a GT. Ch. 13 widens it: *"For read model **and
+automation** tests, the 'When' step is typically omitted."* An automation therefore takes both — a GT for
+the infrastructure half, a GWT for the domain half of the command it issues.
+
+**A GT is the same `em="gwt"` cell with `when=` left off.** No new cell type: the absent `when=` is what
+makes it a GT, exactly as the book presents it — a GWT with the middle step omitted, not a different
+animal. `then=` names the **View** rather than an event, which `model.mjs` has always allowed on a slice
+with no command. `enforce=` is meaningless on a GT, because there is no command to reject anything.
+
+The generated test's shape, and the reason to bother writing the GT down at all:
+
+1. **GIVEN** — append the events, with concrete example values. Ch. 13 asks for exactly this: *"we can
+   even extend the scenario with clear example data."*
+2. **THEN** — assert **through the read endpoint**, not against the document store. That covers the
+   projection *and* the query surface, which is what a caller actually gets.
+
+**Write them before implementing.** Adding GTs to a slice already past `in-design` generates live tests
+nobody has written and turns the suite red — correct behaviour, avoidable cost. ANTI-PATTERNS.md #13.
+
+**The one GT worth writing above all others says what the view IGNORES.** *"GIVEN RecipeCreated then
+IngredientAdded, THEN the list still shows one unchanged row"* asserts that the view is fed by only one
+of them — which the drawing already claims, and which is the single thing a projection can get wrong that
+no other test would notice.
 
 ## The four building blocks and the four patterns
 
