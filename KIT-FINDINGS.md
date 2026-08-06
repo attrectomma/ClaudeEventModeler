@@ -266,6 +266,43 @@ section, and the band-per-source-system instruction in `add-slice/references/tra
 T4b (`VIEW WITH NO REGISTRATION` crying wolf) — the first is a new report, the other two need a decision about
 where the seam goes. T5 and T7 are grammar changes.
 
+### T9 — Critter-stack testing support, surveyed · and one suggestion that did not survive
+
+Prompted by "can we stub the external event?". Every API below was **compile-verified against the pinned
+versions** (Wolverine 5.40.1, Marten 8.37.4), not taken from the mirror.
+
+**You do not stub an inbound foreign message — you send it.** Wolverine ships an in-memory mediator, so
+`bus.InvokeAsync(msg)` runs the real production handler with no transport at all. That is already what every
+generated test does, and it is why `DisableAllExternalWolverineTransports()` in `AppFixture` costs nothing
+behaviourally. It is also **the same operation** as `StubAllExternalTransports()` — the docs describe both as
+disabling listeners and stubbing outgoing subscribers.
+
+So **T3 downgrades from BROKEN to documented.** The shared fixture is right; what it cannot test is *wiring*,
+which is a configuration question that deserves its own host by nature. `codegen.mjs` now says so where the
+call is made.
+
+Three genuine capabilities the kit was not using, all verified to exist:
+
+| API | Use |
+| --- | --- |
+| `host.StubWolverineMessageHandling<TReq,TResp>(fn)` | the real "stub" feature — fakes a request/reply **out to** another system. Has `ClearAllWolverineStubs()` and per-type `stubs.Clear<T>()` |
+| `.IncludeExternalTransports()` on a tracked session | makes the session wait on externally-sent messages |
+| `.DoNotAssertOnExceptionsDetected()` / `.IgnoreFailureAcks()` | the automation folder documents a test that "passed while printing what looked like a failure"; this is the built-in answer |
+| `FakeTimeProvider` | Marten has used `TimeProvider` since 7.5, so `terminal="…:clock"` values are controllable. Nothing in the kit does this yet |
+
+**And the suggestion that did not survive.** I proposed replacing the hand-rolled polling in the automation
+folder's wakeup tests with `PauseThenCatchUpOnMartenDaemonActivity()`. Built and measured: **15 green, 51s
+against a 52s baseline, stable over two runs** — and then reverted, because it is wrong for *these* tests.
+Those four tests exist to claim *"nobody does anything, and it fires anyway."* A helper that pauses the daemon
+and forces it to catch up makes the test the thing that made it happen, which is the one claim they are there
+to make. The polling loop is the instrument, not incidental machinery.
+
+`WaitForNonStaleProjectionDataAsync` was the other half of the suggestion, and the kit **already uses it**, in
+`state-view/`, where it belongs — waiting for an Async projection rather than for a downstream handler. That
+file also already documents the `Marten.Events.TestingExtensions` namespace trap in nearly the words I had
+written up as new. Worth recording as a caution about the survey itself: two of my four "gaps" were already
+closed.
+
 ### T1 — The generator emits no ingest seam for a foreign event · **GAP**
 
 It emits the event *record* and a `SeedData` TODO to append it **in tests**, and nothing in the application. So
@@ -296,7 +333,7 @@ the model validated at 0 errors, 0 warnings.
 Caught only by rendering and looking, which is exactly what that rule is for. The fix is one line: insert the band
 before the elements rather than appending it. Any event drawn in a band added after it is currently invisible.
 
-### T3 — The generated harness disables every landing mechanism · **BROKEN** · *open*
+### T3 — The generated harness disables every landing mechanism · ~~BROKEN~~ · ***DOWNGRADED to documented — see T9***
 
 `AppFixture` calls `DisableAllExternalWolverineTransports()` unconditionally, and it is `emit`. A translation's
 landing mechanism **is** an external transport, so the harness the generator provides can never test the arrival

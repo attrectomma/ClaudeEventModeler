@@ -367,7 +367,22 @@ The last two were settled by **reflecting over the assembly with a .NET 10 file-
 (`dotnet run probe.cs` with a `#:package` directive) — that is the tiebreaker when the docs and the
 compiler disagree, and it takes about a minute.
 
-So: read the mirror first, then **compile**. The mirror removes most of the guessing, not all of it.
+**A NuGet package's own `.xml` doc file is faster, and often enough.** It ships beside every `.dll` under
+`~/.nuget/packages` and carries fully-qualified names for every documented member, so a grep answers "which
+namespace is this in?" in seconds — that is how
+`Wolverine.RDBMS.Transport.ExternalDbTransportExtensions.ListenForMessagesFromExternalDatabaseTable` was
+found, along with `SendMessageThroughExternalTable`, a testing helper documented on no page at all. It lists
+only **documented** members, so a miss proves nothing and a hit is definitive.
+
+**And the mirror can be AHEAD of the version you have pinned, which reads exactly like a namespace mistake.**
+`WaitForExecutionOf<T>(n)` is documented on the testing page — and described as being for messages published
+out of band by a Marten subscription or projection side effect, which is the most tempting API in the section
+for anything this kit does. It **does not exist in Wolverine 5.40.1**: not on `TrackedSessionConfiguration`,
+and the string is not in `Wolverine.dll` at all. `WolverineFx 5.*` resolves below the docs. So when a
+documented member will not compile, the question is *which version am I on* before it is *which namespace*.
+
+So: read the mirror, grep the package `.xml`, then **compile**. The mirror removes most of the guessing, not
+all of it.
 
 Everything a generator cannot decide, and the traps found by running rather than reading, are in
 [.claude/skills/codegen/SKILL.md](.claude/skills/codegen/SKILL.md).

@@ -742,7 +742,23 @@ public sealed class AppFixture : IAsyncLifetime
             {
                 // Solo mode skips leader election and the durability agents: much faster startup.
                 services.RunWolverineInSoloMode();
-                // No broker in tests. Sends are still tracked, just not delivered.
+
+                // NO BROKER IN TESTS, and this is the same operation as StubAllExternalTransports() — the
+                // Wolverine docs describe both as "disabling all external listeners, stubbing all outgoing
+                // subscriber endpoints, and not making any connection to external brokers". Sends are still
+                // tracked, just not delivered.
+                //
+                // IT COSTS LESS THAN IT LOOKS, because Wolverine ships an in-memory mediator: InvokeAsync on
+                // any message runs THE REAL PRODUCTION HANDLER with no transport involved at all. So every
+                // behavioural test — every GWT, every Given/Then, an automation's trigger, a translation's
+                // foreign notice — works fine in here. You do not stub an inbound message; you send it.
+                //
+                // WHAT IT DOES COST is the ability to test WIRING: whether a listener was actually configured,
+                // whether a foreign notice really arrives. Those are configuration tests rather than
+                // behavioural ones, and they belong in a class that boots its OWN host with the transport
+                // live — see WakeupMechanismTests and LandingMechanismTests in reference-implementations/.
+                // Keeping them out of the shared fixture is deliberate twice over: a clock or a listener
+                // firing mid-test appends events into streams other tests are asserting on.
                 services.DisableAllExternalWolverineTransports();
 
                 // Marten attaches any IInitialData in the container to StoreOptions, and
