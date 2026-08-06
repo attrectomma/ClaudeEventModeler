@@ -526,6 +526,7 @@ node tools/design.mjs check <system-dir>     # the styled pages against the mode
 node tools/project.mjs init --project <path>   # scaffold a project; point this kit copy at it
 node tools/project.mjs where           # which project this copy writes to
 node tools/project.mjs inbox           # what is in the baseline, and what cannot be read
+node tools/project.mjs palette         # do the three draw.io settings copies still agree?
 
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate          # every model in the project, plus the cross-model rules
@@ -550,8 +551,20 @@ output is never a valid model: look at it, then edit the source.
 Colours are the book's, not ours: *"We use sticky notes in different colors—blue, orange, green,
 and yellow"* — Commands in blue, Events in orange, Read Models green, and **external events in
 yellow** ("indicating that external data is entering the system during this process step").
-Fill/stroke pairs are preset in `.vscode/settings.json`, so the same swatches appear in the
-draw.io colour picker, in this order.
+Fill/stroke pairs are preset so the same swatches appear in the draw.io colour picker, in this
+order. **`templates/drawio-settings.json` is the one authored copy**, and there are three mirrors of
+it because every one of these keys is **window-scoped**: in a multi-root window VS Code ignores a
+folder's `.vscode/settings.json` outright, so the `.code-workspace` needs its own copy, and the
+project needs one to be legible when opened without the kit at all.
+
+```
+node tools/project.mjs palette     # do the three copies still agree?
+```
+
+That check exists because they drifted once: the workspace file sat on six colours while the kit had
+eight, so the external-event yellow and the GWT grey were missing from the picker entirely — and a
+hand-coloured cell is what `em=` falls back to when a cell has not been annotated. Edit the canonical
+file, then bring the mirrors into line.
 
 | Element | `em=` | Lane | Fill | Stroke | Source |
 | --- | --- | --- | --- | --- | --- |

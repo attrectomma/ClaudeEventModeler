@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 
 export const KIT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CONFIG = join(KIT, "project.json");
+const PALETTE = join(KIT, "templates", "drawio-settings.json");
 
 // The folders a project owns. `build` is derived, `generated` is code — both are listed here so
 // init, .gitignore and the resolver cannot drift from one another.
@@ -148,12 +149,50 @@ const argv = process.argv.slice(2);
 const cmd = argv[0];
 const flag = (n, d) => { const i = argv.indexOf(`--${n}`); return i >= 0 && argv[i + 1] ? argv[i + 1] : d; };
 
-if (!cmd || !["init", "where", "inbox"].includes(cmd)) {
+if (!cmd || !["init", "where", "inbox", "palette"].includes(cmd)) {
   console.error("usage:\n" +
-    "  node tools/project.mjs init  [--project <path>] [--name <name>]\n" +
-    "  node tools/project.mjs where [--project <path>]\n" +
-    "  node tools/project.mjs inbox [--project <path>]");
+    "  node tools/project.mjs init    [--project <path>] [--name <name>]\n" +
+    "  node tools/project.mjs where   [--project <path>]\n" +
+    "  node tools/project.mjs inbox   [--project <path>]\n" +
+    "  node tools/project.mjs palette [--project <path>]   # do the three copies still agree?");
   process.exit(2);
+}
+
+// --- palette drift ---------------------------------------------------------------------------
+//
+// The draw.io settings are WINDOW-scoped, which forces three copies of the same values: the
+// .code-workspace (the only one a multi-root window reads), the kit's own .vscode/settings.json
+// (for opening the kit alone), and the project's (for opening the project alone, without the kit).
+// They have drifted once already — the workspace file sat on six colours while the kit had eight,
+// so the external-event yellow and the GWT grey were simply missing from the picker, and a
+// hand-coloured cell would then be classified wrong by the em= fallback. Hence a check.
+
+const stripComments = (s) => s.replace(/^\s*\/\/.*$/gm, "");
+const readJsonc = (f) => { try { return JSON.parse(stripComments(readFileSync(f, "utf8"))); } catch { return null; } };
+const paletteKeys = (o) => Object.fromEntries(
+  Object.entries(o ?? {}).filter(([k]) => k.startsWith("hediet.vscode-drawio.") || k === "files.associations"));
+
+if (cmd === "palette") {
+  const canon = paletteKeys(readJsonc(PALETTE));
+  const proj = tryProjectRoot(argv);
+  const copies = [
+    ["kit  .vscode/settings.json", join(KIT, ".vscode", "settings.json")],
+    ["kit  ClaudeEventModeler.code-workspace", join(KIT, "ClaudeEventModeler.code-workspace")],
+    ...(proj ? [["proj .vscode/settings.json", join(proj.root, ".vscode", "settings.json")]] : []),
+  ];
+  let bad = 0;
+  console.log(`canonical: ${PALETTE}  (${Object.keys(canon).length} key(s))\n`);
+  for (const [label, f] of copies) {
+    if (!existsSync(f)) { console.log(`  MISSING  ${label}`); bad++; continue; }
+    const raw = readJsonc(f);
+    if (!raw) { console.log(`  UNPARSED ${label}`); bad++; continue; }
+    const got = paletteKeys(raw.settings ?? raw);          // .code-workspace nests under "settings"
+    const diff = Object.keys(canon).filter((k) => JSON.stringify(got[k]) !== JSON.stringify(canon[k]));
+    if (diff.length) { console.log(`  DRIFTED  ${label}\n             ${diff.join("\n             ")}`); bad++; }
+    else console.log(`  ok       ${label}`);
+  }
+  if (bad) console.log(`\n${bad} copy/copies out of step. Edit ${PALETTE}, then bring the others into line.`);
+  process.exit(bad ? 1 : 0);
 }
 
 if (cmd === "where") {
@@ -308,6 +347,17 @@ kit's \`project.json\`. Ask whoever set the project up where their copy lives, o
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) records what the model does not settle — including the list
 of things the automated check is blind to.
 `);
+
+// The palette, so the project is legible on its own. A project opened WITHOUT the kit — by someone
+// reviewing the diagrams, or after the kit copy is long gone — would otherwise get draw.io's stock
+// swatches, and colour is what em= falls back to when a cell has not been annotated yet.
+// Copied from templates/drawio-settings.json rather than written inline: one authored source, and
+// `node tools/project.mjs palette` checks the copies still agree.
+{
+  const canon = JSON.parse(readFileSync(PALETTE, "utf8"));
+  delete canon._comment;
+  put(".vscode/settings.json", JSON.stringify(canon, null, 2) + "\n");
+}
 
 // The kit remembers the project, so nothing has to repeat the path.
 const cfg = { project: root.replace(/\\/g, "/"), name };

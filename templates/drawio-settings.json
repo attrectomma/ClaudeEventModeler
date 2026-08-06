@@ -1,0 +1,57 @@
+{
+  "_comment": [
+    "CANONICAL draw.io editor settings. This file is the one authored copy of the palette.",
+    "",
+    "It has to be copied rather than referenced, because VS Code settings cannot $ref and every",
+    "one of these keys is WINDOW-scoped: in a multi-root workspace a folder's .vscode/settings.json",
+    "is ignored outright, so the .code-workspace needs its own copy for the palette to reach a",
+    "project opened alongside the kit. The project's copy is what makes it right when the project",
+    "is opened on its own, without the kit at all.",
+    "",
+    "Three copies, therefore, and `node tools/project.mjs palette` checks they still agree.",
+    "Edit THIS file, then run that check.",
+    "",
+    "Order matches the palette table in CLAUDE.md: screen, command, event, external event,",
+    "read model, automation, GWT, slice group."
+  ],
+  "hediet.vscode-drawio.theme": "kennedy",
+  "hediet.vscode-drawio.appearance": "light",
+  "hediet.vscode-drawio.offline": true,
+  "hediet.vscode-drawio.presetColors": [
+    "ffffff",
+    "dae8fc",
+    "ffe6cc",
+    "fff2cc",
+    "d5e8d4",
+    "e1d5e7",
+    "f0f0f0",
+    "f8cecc"
+  ],
+  "hediet.vscode-drawio.customColorSchemes": [
+    [
+      { "fill": "#ffffff", "stroke": "#666666" },
+      { "fill": "#dae8fc", "stroke": "#6c8ebf" },
+      { "fill": "#ffe6cc", "stroke": "#d79b00" },
+      { "fill": "#fff2cc", "stroke": "#d6b656" },
+      { "fill": "#d5e8d4", "stroke": "#82b366" },
+      { "fill": "#e1d5e7", "stroke": "#9673a6" },
+      { "fill": "#f0f0f0", "stroke": "#999999" },
+      { "fill": "#f8cecc", "stroke": "#b85450" }
+    ]
+  ],
+  "hediet.vscode-drawio.defaultVertexStyle": {
+    "rounded": "0",
+    "whiteSpace": "wrap",
+    "html": "1",
+    "fontSize": "13"
+  },
+  "hediet.vscode-drawio.defaultEdgeStyle": {
+    "edgeStyle": "orthogonalEdgeStyle",
+    "rounded": "0",
+    "html": "1",
+    "strokeColor": "#666666"
+  },
+  "files.associations": {
+    "*.drawio": "xml"
+  }
+}

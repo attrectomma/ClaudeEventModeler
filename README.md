@@ -88,8 +88,10 @@ is three files and not one. If you find yourself cropping a model to look at it,
 
 ## 4. What you are looking at
 
-Colours are the book's, not ours. They are preset in `.vscode/settings.json`, so the same swatches
-appear in draw.io's colour picker in this order.
+Colours are the book's, not ours. They are preset so the same swatches appear in draw.io's colour
+picker in this order — authored once in `templates/drawio-settings.json`, and mirrored into the
+`.code-workspace` and each project because VS Code scopes these settings per *window*, not per
+folder. `node tools/project.mjs palette` tells you if the copies have drifted.
 
 | Colour | Element | `em=` | What it means |
 | --- | --- | --- | --- |

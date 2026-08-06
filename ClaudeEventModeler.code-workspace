@@ -1,20 +1,38 @@
 {
+  // Two roots on purpose. The KIT is where the session runs — cwd here is what gives Claude
+  // CLAUDE.md, .claude/skills, .claude/agents and .mcp.json. The PROJECT is where everything the
+  // kit produces lands, and it is a separate git repo with no trace of the kit in it.
+  //
+  // Change the second entry when this kit copy is pointed at a different project, and keep it in
+  // step with project.json — that file, not this one, is what the tools read.
   "folders": [
     {
-      "name": "ClaudeEventModeler",
+      "name": "ClaudeEventModeler (kit)",
       "path": "."
+    },
+    {
+      "name": "CPOC01 (project)",
+      "path": "../CPOC01"
     }
   ],
   "settings": {
     "hediet.vscode-drawio.theme": "kennedy",
     "hediet.vscode-drawio.appearance": "light",
     "hediet.vscode-drawio.offline": true,
+
+    // These live HERE rather than only in .vscode/settings.json because the diagrams are no longer
+    // in the kit folder. Folder settings do not reach a sibling root, so a palette defined only in
+    // the kit would leave every model in the project drawn from draw.io's stock swatches.
+    // Order matches the palette table in CLAUDE.md: screen, command, event, external event,
+    // read model, automation, GWT, slice group.
     "hediet.vscode-drawio.presetColors": [
       "ffffff",
       "dae8fc",
       "ffe6cc",
+      "fff2cc",
       "d5e8d4",
       "e1d5e7",
+      "f0f0f0",
       "f8cecc"
     ],
     "hediet.vscode-drawio.customColorSchemes": [
@@ -22,16 +40,27 @@
         { "fill": "#ffffff", "stroke": "#666666" },
         { "fill": "#dae8fc", "stroke": "#6c8ebf" },
         { "fill": "#ffe6cc", "stroke": "#d79b00" },
+        { "fill": "#fff2cc", "stroke": "#d6b656" },
         { "fill": "#d5e8d4", "stroke": "#82b366" },
         { "fill": "#e1d5e7", "stroke": "#9673a6" },
+        { "fill": "#f0f0f0", "stroke": "#999999" },
         { "fill": "#f8cecc", "stroke": "#b85450" }
       ]
     ],
+    "hediet.vscode-drawio.defaultVertexStyle": {
+      "rounded": "0",
+      "whiteSpace": "wrap",
+      "html": "1",
+      "fontSize": "13"
+    },
     "hediet.vscode-drawio.defaultEdgeStyle": {
       "edgeStyle": "orthogonalEdgeStyle",
       "rounded": "0",
       "html": "1",
       "strokeColor": "#666666"
+    },
+    "files.associations": {
+      "*.drawio": "xml"
     }
   },
   "extensions": {
