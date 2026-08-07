@@ -297,25 +297,45 @@ two things: the async daemon, and tests that must **wait** where they used to as
 
 All six are built and measured against one model in `reference-implementations/state-view/`.
 
-### KNOWN GAP: nothing tests a whole journey, at either end
+### Journeys: the layer above a slice
 
-**Every test this kit generates or scaffolds is a single slice's scenario.** A GWT appends its GIVEN
-straight to the stream and asserts one outcome; a GT appends events and asserts one read model. That is the
-right shape for a slice, and it leaves two kinds of bug with nowhere to be caught:
+**Every GWT and GT is a single slice's scenario**, and appends its GIVEN straight to the stream. That is the
+right shape for a slice, and on its own it leaves a slice pair that each pass alone and cannot be **composed**
+with nowhere to be caught: an id minted in one shape and read in another, a projection current for its own
+slice but stale for the next, a rule that only bites on the *second* command in a sequence.
 
-| Missing | Would catch |
-| --- | --- |
-| **Backend journey tests** — one test walking several slices in sequence through the real API | a slice pair that each pass alone and cannot be composed: an id minted in one shape and read in another, a projection current for its own slice but stale for the next, a rule that only bites on the *second* command in a sequence. Every GWT starts from a hand-appended GIVEN, so **no test in the kit has ever driven two commands in a row through HTTP.** |
-| **Playwright (or equivalent) UI tests** — a browser walking a workflow across screens | everything between the screens. The three-way field check proves a page *shows the right fields*; nothing proves you can get from the list to the modal to the created thing. The pager-not-in-the-URL bug was found by screenshotting, not by a test, and a journey test is what would have caught it. |
+A **journey** closes that: one test walking several slices end to end **through the real API**, named on the
+model as an `em="journey"` cell and scaffolded by `codegen`. It belongs to the system rather than to any
+slice, which is why the `journey` skill owns it and neither `codegen` nor a slice's own agent does.
 
-Both are **TODO, not accepted.** The single-slice discipline is deliberate and stays; a journey test is a
-second layer above it, not a replacement — and it belongs to the system rather than to any slice, so neither
-`codegen` nor a slice's own agent is the right owner. Likely home is a `journey` skill run after two or more
-slices are `in-review`, with the model naming the journeys worth walking.
+```
+node tools/slice.mjs journey <model> --journey <slug> --slices "<a, b, c>" --then "<View(field=value)>"
+```
 
-Until it exists, be honest about what green means: **every slice works in isolation.** Composition is
-verified by a human clicking, which is why `review.mjs` and *"run the thing and look"* carry more weight here
-than they would in a kit that had journey tests.
+**The one rule: no step may append an event.** No `Given(...)`, no `Events.Append`, no `StartStream`. A GWT
+may append its history because history is exactly what a GIVEN means; a journey may not, because the whole
+question is whether step two can live on what step one *actually left behind*. It is an easy and tempting edit
+when a step fails, so `codegen` reports it: `JOURNEY APPENDS ITS OWN HISTORY`.
+
+Two things measured while writing the first one, both worth knowing before the second:
+
+- **Use the ids the API hands back.** Asserting on a variable the test made up cannot see a slice that echoes
+  something subtly different — the first failure class on the list above.
+- **`WhenPosting` does not wait for Marten's async daemon.** It wraps each request in Wolverine's
+  `ExecuteAndWaitAsync`, which blocks on *cascading messages* only. An `Inline` view is assertable
+  immediately; an `Async` one needs `Store.WaitForNonStaleProjectionDataAsync(timeout)`. **The tell is a
+  partial result, not an empty one** — the measured failure was `Queued == 1, Delivered == 0`, the daemon
+  caught up as far as step two and not step three. A journey has the longest gap in the suite between the
+  first write and the last assertion, so it bites hardest here and reads exactly like a composition bug.
+
+Worked example: `campaign-lifecycle` in `reference-implementations/state-view/`.
+
+**STILL MISSING: UI journeys.** A browser walking a workflow across screens — everything *between* the
+screens. The three-way field check proves a page shows the right fields; nothing proves you can get from the
+list to the modal to the created thing, and the pager-not-in-the-URL bug was found by screenshotting rather
+than by a test. Deliberately not built: the UI already has two nets (the field check reads the React port, and
+`review.mjs` puts the built screens beside the design), while backend composition had none. So green now means
+**every slice works, and the named journeys compose** — anything between screens is still a human clicking.
 
 ### `status=` decides which tests run
 
@@ -625,6 +645,7 @@ node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to
 
 node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at start|end|before:<s>|after:<s>]
 node tools/slice.mjs swimlane <file> --label <t> --streams <A> [--identity <f>]   # + the cascade
+node tools/slice.mjs journey  <file> --journey <slug> --slices <a,b,c> [--then <outcome>]
 node tools/slice.mjs route    <file> --from <id> --to <id>    # allocates a routing y in the right band
 node tools/slice.mjs identity <file> --band <id>              # propagate the stream key onto its events
 node tools/slice.mjs demote   <file> --from-diff              # impacted slices back to in-design
@@ -693,6 +714,7 @@ file, then bring the mirrors into line.
 | Automation / processor | `automation` | Commands / Views | `#e1d5e7` | `#9673a6` | ours |
 | Given / When / Then | `gwt` | GWT band | `#f0f0f0` | `#999999` | ours |
 | Slice group label | `group` | left of a slice | `#f8cecc` | `#b85450` | book (pink) |
+| Journey | `journey` | a bar below the GWT band | `#e6eef7` | `#6c8ebf` | ours |
 | Model context note | `model` | top-left, above the lanes | `#f8cecc` | `#b85450` | book (pink) |
 | Wireframe field | `field` | inside a screen | `#f0f0f0` / `#ffffff` | `#dddddd` / `#999999` | ours |
 | Wireframe action | `action` | inside a screen | `#dae8fc` | `#6c8ebf` | ours |
@@ -742,6 +764,7 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `given` / `when` / `then` | `gwt` | prior events / the command / expected events. `then="error: RuleName"` for an expected rejection. Any step may carry **example data** — `Label(field=value, …)` |
 | `rule` | `gwt` | the business rule this GWT names |
 | `pattern` | slice cell | which of the four patterns this slice is — checked against what it's made of |
+| `journey` / `slices` | `journey` | the journey's slug, and the **ordered** run of slices it walks end to end through the API |
 | `status` | slice cell | where the slice sits in the implementation workflow |
 | `screen` | screen | the screen's identity. Cells sharing a slug are one screen |
 | `joins` | screen | the attribute two or more feeding Views are lined up on. `"none"` = never correlated |
@@ -978,7 +1001,7 @@ in the file.
 Keep the wireframe **low fidelity**: no colour, no type, no imagery. It stays legible at model scale,
 it cannot be mistaken for the design, and it does not fight the sticky-note grammar.
 
-### Four skills, and the line between them is what each may invent
+### Five skills, and the line between them is what each may invent
 
 | Skill | Scope | Invents | Gate |
 | --- | --- | --- | --- |
@@ -986,6 +1009,7 @@ it cannot be mistaken for the design, and it does not fight the sticky-note gram
 | `add-slice` | per slice | layout only — never a domain fact | the same check, plus the ripple reported |
 | `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |
 | `codegen` | per slice | nothing — it reads the compiled IR | tests pass |
+| `journey` | per **system**, once two slices are `in-review` | nothing — the user names the journeys worth walking | the journey passes AND every slice test still does |
 
 **`event-model` and `add-slice` are two directions into one artifact, not two stages.** `event-model`
 asks and the user answers — the exploratory path, eleven phases, a whole context. `add-slice`

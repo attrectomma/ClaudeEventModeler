@@ -297,6 +297,13 @@ function parseCells(body) {
       mappings: parseMappings(a.mappings),
       derived: parseDerived(a.derived),
       terminal: parseFields(a.terminal),
+      // A JOURNEY: an ordered run of slices, walked end to end through the real API.
+      //
+      // It is a fact about the SYSTEM rather than about any slice — which is why it is its own cell and not
+      // an attribute on one, and why neither codegen nor a slice's agent owns it. `slices=` is declared and
+      // ordered because a journey is a SEQUENCE; geometry gives position but not order.
+      journey: a.journey ?? null,
+      slices: a.slices ? a.slices.split(",").map((x) => x.trim()).filter(Boolean) : [],
       gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null,
               // The same three fields parsed into label + example data. Kept ALONGSIDE the raw strings
               // because every diagnostic quotes what the human wrote, not what the parser made of it.
@@ -362,6 +369,8 @@ function buildIr(file) {
   // draw.io container — a container reparents its children and makes their mxGeometry relative,
   // which would break every absolute-x reader here and in tools/crop.mjs.
   const sliceCells = nodes.filter((n) => n.kind === "group" && n.slice && !isMarker(n.id));
+  // Journeys: one cell per named run of slices. A fact about the SYSTEM, so it sits outside every slice.
+  const journeys = nodes.filter((n) => n.kind === "journey" && !isMarker(n.id));
   // Swimlanes cut the Event Stream lane horizontally, one band per stream. "Swimlanes define
   // stream boundaries. Typically, all events in one swimlane end up in a physical stream."
   const swimlanes = swimlaneNodes
@@ -408,6 +417,7 @@ function buildIr(file) {
     lanes: lanes.map(({ id, label, owner }) => ({ id, label, owner: owner ?? null })),
     slices,
     sliceCells,
+    journeys,
     swimlanes,
     elements,
     edges: live,
@@ -1047,6 +1057,89 @@ function gwtRules(ir) {
           `${el.label}.${target} is derived from ${el.derived[target].join(" + ")}, and no GWT in slice "${s.name}" shows what it works out to. derived= records the INPUTS, never the formula, so two implementers can read it differently and both claim they matched the model. Add one worked example, e.g. then="${el.label}(${target}=…)".`,
           el.id);
       }
+    }
+  }
+
+  return d;
+}
+
+// --- journeys: the layer above a slice, and the one thing no slice test can reach ---------------
+//
+// THE GAP THIS EXISTS FOR. Every test the kit generates is a single slice's scenario: a GWT appends its
+// GIVEN straight to the stream and asserts one outcome. That is the right shape for a slice, and it means
+// no test has ever driven two commands in a row through HTTP. So a slice pair that each pass alone and
+// cannot be COMPOSED — an id minted in one shape and read in another, a projection current for its own
+// slice but stale for the next, a rule that only bites on the second command — has nowhere to be caught.
+//
+// A journey is an ordered run of slices walked end to end through the real API, and it belongs to the
+// SYSTEM rather than to any slice — which is why it is its own cell, and why neither codegen nor a slice's
+// own agent owns it.
+//
+// It is shaped like a GT at system scale: GIVEN an empty system, WHEN this sequence, THEN this read model.
+// So `then=` reuses the example-data grammar unchanged, and there is nothing new to learn.
+function journeyRules(ir) {
+  const d = [];
+  const push = (severity, rule, message, at) => d.push({ family: "journey", severity, rule, message, at });
+  const byName = new Map(ir.slices.map((s) => [s.name, s]));
+  const cellOf = (name) => ir.sliceCells.find((c) => c.slice === name);
+
+  const seen = new Set();
+  for (const j of ir.journeys) {
+    const name = j.journey || j.label || j.id;
+    if (!j.journey) {
+      push("error", "journey-needs-name",
+        `journey cell "${j.label || j.id}" declares no journey=, so it has no identity and nothing can be generated for it.`, j.id);
+    } else if (seen.has(j.journey)) {
+      push("error", "journey-duplicated", `two journey cells both call themselves "${j.journey}".`, j.id);
+    } else seen.add(j.journey);
+
+    if (j.slices.length === 0) {
+      push("error", "journey-needs-slices",
+        `journey "${name}" names no slices=. A journey is an ordered run of slices; without one there is nothing to walk.`, j.id);
+      continue;
+    }
+    // ONE SLICE IS NOT A JOURNEY, it is the slice's own GWT with extra ceremony — and worse, it would pass
+    // while proving nothing this layer exists to prove.
+    if (j.slices.length === 1) {
+      push("error", "journey-too-short",
+        `journey "${name}" walks one slice. That is a slice test, and this layer exists precisely because slice tests cannot see composition — name at least two.`, j.id);
+    }
+
+    const unknown = j.slices.filter((n) => !byName.has(n));
+    if (unknown.length) {
+      push("error", "journey-unknown-slice",
+        `journey "${name}" names ${unknown.join(", ")}, which ${unknown.length > 1 ? "are" : "is"} not a slice in this model.`, j.id);
+      continue;
+    }
+
+    // TIME RUNS LEFT TO RIGHT, so a journey that jumps backwards through the columns is worth a look —
+    // but it is a WARNING and not an error, because a real journey legitimately revisits: add an item, add
+    // another, then check out. The model's columns are a story; a journey is a run through it, and a run may
+    // loop. So the rule names both readings and lets a human pick.
+    //
+    // It earns its keep on the kit's own campaigns model, where close-campaign is drawn second — beside
+    // open-campaign, because they share the Campaign stream — while the story closes last. Neither the
+    // column order nor the journey is wrong; the tension between them is exactly what this points at.
+    const xs = j.slices.map((n) => ({ n, x: cellOf(n)?.geometry?.x ?? null })).filter((s) => s.x !== null);
+    for (let i = 1; i < xs.length; i++) {
+      if (xs[i].x < xs[i - 1].x) {
+        push("warn", "journey-runs-backward",
+          `journey "${name}" goes ${xs[i - 1].n} -> ${xs[i].n}, which runs right to left. Either the columns tell the story in a different order than the journey walks it, or this journey revisits a slice on purpose — both are legitimate, and only one of them is worth reordering the model for.`, j.id);
+        break;
+      }
+    }
+
+    // A journey over a slice nobody has built will fail for a reason that has nothing to do with
+    // composition. Warned rather than errored: writing the journey first is a legitimate way to work.
+    const unbuilt = j.slices.filter((n) => byName.get(n)?.status === "in-design");
+    if (unbuilt.length) {
+      push("warn", "journey-slice-in-design",
+        `journey "${name}" walks ${unbuilt.join(", ")}, still in-design. Until they are claimed this journey tests nothing it could not have told you by reading the model.`, j.id);
+    }
+
+    if (!j.gwt.then) {
+      push("warn", "journey-needs-then",
+        `journey "${name}" asserts nothing. A journey is a GT at system scale — end it with then="SomeView(field=value)" so the walk has an outcome rather than just an absence of exceptions.`, j.id);
     }
   }
 
@@ -1836,6 +1929,12 @@ function buildSystemIr(models, system) {
       screens: [...screens.values()].sort((a, b) => a.slug.localeCompare(b.slug)),
     },
     slices: slices.sort((a, b) => a.name.localeCompare(b.name)),
+    // Journeys are a SYSTEM fact, so they sit beside slices rather than inside one. Each carries its
+    // ordered slice list and its outcome; codegen scaffolds one test per journey.
+    journeys: models.flatMap((m) => m.ir.journeys.filter((j) => j.journey).map((j) => ({
+      name: j.journey, context: contextOf(m), label: j.label ?? null,
+      slices: j.slices, then: j.gwt.then ?? null,
+    }))).sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
 
@@ -1998,7 +2097,7 @@ function runOne(f) {
   // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while
   // its own cells still carry errors.
   const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
-                ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir)];
+                ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir), ...journeyRules(ir)];
   return { ir, findings: [...core, ...sliceRules(ir, core)] };
 }
 

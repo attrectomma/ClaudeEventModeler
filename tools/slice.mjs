@@ -3,6 +3,7 @@
 //
 //   node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at <spec>] [--columns N] [--aggregate A]
 //   node tools/slice.mjs swimlane <file> --label <text> --streams <A[,B]> [--identity <f[,f]>] [--height N]
+//   node tools/slice.mjs journey  <file> --journey <slug> --slices <a,b,c> [--then <outcome>] [--label <t>]
 //   node tools/slice.mjs route    <file> --from <id> --to <id>
 //   node tools/slice.mjs identity <file> --band <id>
 //   node tools/slice.mjs demote   <file> [--slice <n>]... | --from-diff
@@ -46,6 +47,8 @@ const STYLE = {
   automation: "rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;",
   gwt:        "rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;",
   group:      "rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;",
+  // A journey bar: a distinct blue-grey so it is obviously not a slice band and obviously not a GWT.
+  journey:    "rounded=0;whiteSpace=wrap;html=1;fillColor=#e6eef7;strokeColor=#6c8ebf;dashed=1;verticalAlign=middle;align=left;spacingLeft=12;fontStyle=1;fontColor=#3f5f8f;fontSize=12;",
   swimlane:   "rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;",
 };
 const ID_PREFIX = { screen: "scr", command: "cmd", event: "evt", external: "ext", readmodel: "rm", automation: "auto" };
@@ -510,6 +513,48 @@ function cmdSwimlane(target, o) {
 }
 const slug = (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+// ---------------------------------------------------------------- journey
+//
+// A journey bar, drawn BELOW the GWT lane and spanning the columns it walks. The span is what makes the
+// cell worth drawing rather than listing in a file: you can see at a glance how much of the model one
+// story crosses, and a journey that spans everything is telling you something about the model.
+//
+// The ORDER is `slices=`, not the geometry — a journey may revisit a column, so position gives extent and
+// only the list gives sequence.
+function cmdJourney(target, o) {
+  const { file, xml } = read(target);
+  const m = model(xml);
+  if (!o.journey || !o.slices) die("journey needs --journey <slug> and --slices <a,b,c>.");
+  const names = o.slices.split(",").map((s) => s.trim()).filter(Boolean);
+  if (names.length < 2) die("a journey walks at least two slices; one slice is a slice test.");
+
+  const cells = names.map((n) => {
+    const c = m.sliceCells.find((x) => x.slice === n);
+    if (!c) die(`--slices names "${n}", which has no slice cell. Bands: ${m.sliceCells.map((x) => x.slice).join(", ")}.`);
+    return c;
+  });
+  const x0 = Math.min(...cells.map((c) => c.g.x));
+  const x1 = Math.max(...cells.map((c) => c.g.x + c.g.w));
+
+  const gwt = m.lanes["lane-gwt"]?.g;
+  if (!gwt) die("this model has no GWT lane, so there is nowhere to put a journey.");
+  // Stack under any journey already there, so a second one does not land on the first.
+  const existing = m.blocks.filter((b) => /\bem="journey"/.test(b)).map((b) => geomOf(b)).filter(Boolean);
+  const y = existing.length ? Math.max(...existing.map((g) => g.y + g.h)) + 20 : gwt.y + gwt.h + 40;
+
+  const extra = ` em="journey" journey="${esc(o.journey)}" slices="${esc(names.join(", "))}"`
+    + (o.then ? ` then="${esc(o.then)}"` : "");
+  const cell = box(`journey-${slug(o.journey)}`, o.label ?? o.journey, "journey", extra,
+    { x: x0, y, w: x1 - x0, h: 70 });
+
+  let out = splice(xml, [...m.blocks, cell]);
+  out = setPage(out, { h: Math.max(pageH(xml), y + 70 + 40) });
+  finish(target, file, out, [
+    `journey "${o.journey}" spanning ${names.length} slice(s), x ${x0}..${x1} at y=${y}`,
+  ], o, o.then ? [] : ["no --then given, so journey-needs-then will fire. A journey is a GT at system",
+                      "scale: end it with what the walk should leave behind."]);
+}
+
 // ---------------------------------------------------------------- route
 
 function cmdRoute(target, o) {
@@ -717,6 +762,9 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--from") o.from = v;
   else if (a === "--to") o.to = v;
   else if (a === "--band") o.band = v;
+  else if (a === "--journey") o.journey = v;
+  else if (a === "--slices") o.slices = v;
+  else if (a === "--then") o.then = v;
   else die(`unknown flag ${a}`);
 }
 if (!cmd || !target) {
@@ -724,7 +772,7 @@ if (!cmd || !target) {
     .slice(2, 10).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(2);
 }
-const ops = { add: cmdAdd, swimlane: cmdSwimlane, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, reflow: cmdReflow };
+const ops = { add: cmdAdd, swimlane: cmdSwimlane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, reflow: cmdReflow };
 if (!ops[cmd]) die(`unknown command "${cmd}". One of: ${Object.keys(ops).join(", ")}.`);
 if (cmd === "add" && (!o.slice || !o.pattern)) die("add needs --slice and --pattern.");
 ops[cmd](target, o);

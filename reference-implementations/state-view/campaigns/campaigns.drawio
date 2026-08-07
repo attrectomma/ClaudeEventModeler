@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="campaigns" id="context">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2940" pageHeight="1820" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2940" pageHeight="1910" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -432,6 +432,11 @@
         <object id="gt-campaign-dashboard-3" label="closing changes the status and nothing else&#10;&#10;GIVEN CampaignOpened, MessageQueued, CampaignClosed&#10;THEN CampaignDashboard is closed and STILL shows 1 queued" em="gwt" slice="campaign-dashboard" rule="closing a campaign changes its status and nothing else" given="CampaignOpened, MessageQueued, CampaignClosed" then="CampaignDashboard(status=Closed, queued=1)" note="A revise, not a rebuild: the counts accumulated from the OTHER stream must survive an event from this one. A fold that rebuilt the row from CampaignClosed would zero them silently.">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="2020" y="1610" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="journey-campaign-lifecycle" label="a campaign opened, a message queued, a delivery recorded" em="journey" journey="campaign-lifecycle" slices="open-campaign, queue-message, record-outcome" then="CampaignDashboard(status=Open, queued=1, delivered=1, bounced=0)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e6eef7;strokeColor=#6c8ebf;dashed=1;verticalAlign=middle;align=left;spacingLeft=12;fontStyle=1;fontColor=#3f5f8f;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="80" y="1800" width="1180" height="70" as="geometry" />
           </mxCell>
         </object>
       </root>

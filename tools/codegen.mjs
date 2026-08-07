@@ -1467,11 +1467,113 @@ emit(join(OUT, `${NS}.slnx`),
 </Solution>
 `);
 
+// --- journeys: the one test shape that spans slices --------------------------------------------
+//
+// Every other test this file writes is a single slice's scenario, and appends its GIVEN straight to the
+// stream. That is right for a slice, and it means no generated test has ever driven two commands in a row
+// through HTTP — so a slice pair that each pass alone and cannot be COMPOSED has nowhere to be caught.
+//
+// A journey walks several slices end to end through the real API. It is scaffold(), never emit: the model
+// names the sequence and the outcome, and only a human knows what a step's request body should be.
+//
+// ONE DISCIPLINE MAKES IT WORTH HAVING, and it is the whole reason the file is scaffolded with the rule
+// written in it: no step may append an event. The moment a journey test reaches for Given() to set up
+// step three, it has become a slice test again and stops catching the thing it exists for. That is
+// reported below rather than prevented, because a generator must not edit inside a file somebody owns.
+const journeys = ir.journeys ?? [];
+for (const j of journeys) {
+  const cls = `${pascal(j.name)}JourneyTests`;
+  scaffold(join(TESTS, "Journeys", `${cls}.cs`),
+    `${banner(`journey "${j.name}" — ${j.slices.length} slices walked end to end`)}
+using Alba;
+using Marten;
+using Microsoft.Extensions.DependencyInjection;
+using ${NS}.Contracts;
+using Shouldly;
+using Xunit;
+
+namespace ${NS}.IntegrationTests.Journeys;
+
+/// <summary>
+/// ${(j.label ?? j.name).replace(/\s+/g, " ")}
+///
+/// Walks: ${j.slices.join(" -> ")}
+/// Ends:  ${j.then ?? "(the model states no outcome — journey-needs-then)"}
+///
+/// THE ONE RULE. Every step goes through the REAL API, in order, and nothing here appends an event. No
+/// Given(), no session.Events.Append, no seeding between steps. A slice's GWT is allowed to append its
+/// GIVEN because history is exactly what a GIVEN means; a journey may not, because the whole point is
+/// whether step two can live on what step one actually left behind.
+///
+/// WHAT THIS CATCHES that no slice test can: an id minted in one shape and read in another, a projection
+/// that is current for its own slice and stale for the next, a rule that only bites on the SECOND command
+/// in a sequence. All three pass a green per-slice suite.
+///
+/// TWO THINGS THAT COST A FAILURE TO LEARN THE FIRST TIME THIS WAS WRITTEN:
+///
+///   USE THE IDS THE API HANDS BACK, not the ones the test made up. Asserting on your own variable cannot
+///   see a slice that echoes something subtly different, and "an id minted in one shape and read in
+///   another" is the first failure class on the list above.
+///
+///   WAIT FOR THE DAEMON IF THE OUTCOME IS AN ASYNC VIEW. WhenPosting wraps each request in Wolverine's
+///   ExecuteAndWaitAsync, which blocks until all CASCADING MESSAGE work is done — it knows nothing about
+///   Marten's async daemon. An Inline view is assertable immediately; an Async one needs
+///   <c>await Store.WaitForNonStaleProjectionDataAsync(timeout)</c> — an extension in Marten.Events.TestingExtensions.
+///   The tell is a partial result rather than an empty one: the count from step two present, step three's
+///   missing. A journey has the longest gap in the suite between the first write and the last assertion,
+///   so this bites hardest here and is easiest to misread as a composition bug.
+///
+/// It is deliberately not exhaustive. One journey per story worth telling — the model names them, and a
+/// suite of thirty journeys is a suite nobody will keep working.
+/// </summary>
+public sealed class ${cls}(AppFixture fixture) : IntegrationContext(fixture)
+{
+    [Fact]
+    public Task ${pascal(j.name)}()
+        => throw new NotImplementedException(
+            "TODO(codegen): walk ${j.slices.join(" -> ")} with WhenPosting, one step per slice, then assert ${j.then ?? "the journey's outcome"}. " +
+            "Use no Given() anywhere — that is what makes this a journey.");
+}
+`);
+}
+
+// A JOURNEY THAT APPENDS ITS OWN HISTORY HAS STOPPED BEING ONE, and it is an easy and tempting edit: step
+// four fails, appending the missing event makes it pass, and the test goes on looking like a journey while
+// testing one slice. Reported by name.
+const cheatingJourneys = [];
+for (const j of journeys) {
+  const p = join(TESTS, "Journeys", `${pascal(j.name)}JourneyTests.cs`);
+  if (!existsSync(p)) continue;
+  // STRIP COMMENTS **AND STRING LITERALS** BEFORE MATCHING. The first version stripped only comments and
+  // then reported its own freshly written scaffold, because the TODO text says "Use no Given() anywhere".
+  // A check that fires on the file the generator just wrote is the cry-wolf failure this file warns about
+  // twice already — and it took one run to prove it, which is the argument for running a new report before
+  // believing it.
+  const src = readFileSync(p, "utf8").split("\n")
+    .filter((l) => !/^\s*\/\//.test(l)).join("\n")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""');
+  if (/\bGiven\s*\(|Events\.Append\s*\(|StartStream\s*[<(]/.test(src)) cheatingJourneys.push({ p, name: j.name });
+}
+
 console.log(`${files.length} file(s) written, ${kept.length} kept (already filled in) -> ${OUT}`);
 console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, ${foreign.length} foreign)`);
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
 console.log(`  ${gwtCount} GWT test(s) across ${ir.slices.filter((s) => s.gwts.length).length} slice(s)`);
+if (journeys.length) {
+  console.log(`  ${journeys.length} journey test(s): ${journeys.map((j) => `${j.name} (${j.slices.length} slices)`).join(", ")}`);
+} else {
+  console.log(`  NO JOURNEY TESTS. Every test here is a single slice's scenario, so "these slices cannot be
+  composed" has nowhere to be caught. Once two slices are in-review, name a journey:
+    node tools/slice.mjs journey <model> --journey <slug> --slices <a,b,c> --then "<View(field=value)>"`);
+}
+if (cheatingJourneys.length) {
+  console.log(`\nJOURNEY APPENDS ITS OWN HISTORY — ${cheatingJourneys.length}. A journey that calls Given(),
+appends events or starts a stream has stopped being a journey: it is a slice test with more steps, and it
+no longer tells you whether step two can live on what step one left behind. Drive every step through the
+API instead.`);
+  for (const c of cheatingJourneys) console.log(`  ${c.name}: ${c.p.replace(OUT + "\\", "").replace(OUT + "/", "")}`);
+}
 
 if (unregisteredViews.length) {
   console.log(`\nVIEW WITH NO REGISTRATION — ${unregisteredViews.length}. The projection class exists and NOTHING RUNS IT.`);
