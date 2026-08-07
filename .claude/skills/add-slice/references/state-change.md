@@ -1,4 +1,4 @@
-# `pattern="command"` — a State Change slice
+# `pattern="state-change"` — a State Change slice
 
 ```
 Trigger (a screen) → Command → Event(s)
@@ -92,7 +92,7 @@ sharing the slug — copy it exactly. `inputs=` **may differ**, and that asymmet
 about affordances, and it is why one screen legitimately offers three different buttons.
 
 If this slice's screen needs to show something no View supplies, that is `undisplayable-data` and the
-answer is almost always a **missing read model** — propose a `view` slice, do not invent a source.
+answer is almost always a **missing read model** — propose a `state-view` slice, do not invent a source.
 
 ## Conway
 
@@ -102,7 +102,7 @@ Screen → command → event crosses the UI/backend line by definition, so a com
 
 ## Implementation — state it, do not choose it in the model
 
-`pattern="command"` is a contract. The recipe is a codegen decision with real consequences: the
+`pattern="state-change"` is a contract. The recipe is a codegen decision with real consequences: the
 Wolverine aggregate handler workflow vs. explicit `FetchForWriting`, an HTTP endpoint vs. a message
 handler, `StartStream` for a slice that creates the stream. Note it in `OPEN-QUESTIONS.md` if the user
 raises it; it belongs to `codegen`, measured in `reference-implementations/state-change/`.

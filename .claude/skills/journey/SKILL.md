@@ -20,9 +20,10 @@ So a slice pair that each pass alone and cannot be **composed** has nowhere to b
 All three pass a green per-slice suite. That is what this skill is for, and it is the kit's own documented
 KNOWN GAP.
 
-**Backend only.** There is no UI journey layer and this skill does not write one — the three-way field check
-already holds the React port to the model, and `review.mjs` puts the built screens beside the design for a
-human. Backend composition has neither.
+**Backend only, and this skill does not write the other half.** The UI journey layer is `ui-journey`, which
+walks the **same `em="journey"` cell** through a browser instead of through HTTP — one story, one cell, two
+wires. Write this one first: a browser walk that fails because two slices cannot compose is the most expensive
+possible way to learn that.
 
 ## When to run
 
@@ -115,8 +116,11 @@ until it fails; add the next journey.
 
 It walks the API, so it cannot see anything between the screens: whether you can get from the list to the
 modal to the created thing. The pager-not-in-the-URL bug was found by screenshotting, not by a test, and this
-layer would not have caught it either. That is `review.mjs` and a human, and it stays that way until somebody
-decides a UI journey layer is worth its cost.
+layer would not have caught it either.
+
+**That is `ui-journey`'s half**, and it reads the same cell you just named — so if this story is also worth
+clicking through, say so when you hand back. It is manually invoked and expensive, so offer it; never start
+it.
 
 ## Worked example
 

@@ -1,4 +1,4 @@
-# `pattern="view"` — a State View slice
+# `pattern="state-view"` — a State View slice
 
 ```
 Event(s) → View
@@ -111,8 +111,9 @@ implementation detail into the model. A View belongs to the thing that reads it.
 
 ## Implementation — state it, do not choose it in the model
 
-`Inline` is the kit's default, not a law. Marten registers multi-stream projections `Async` by default
-and warns that `Inline` invites concurrent writes stomping each other into apparent event skipping;
-`RaiseSideEffects` forces `Async` outright. Every step away from `Inline` costs the async daemon and
+codegen registers a single-stream view `Inline` and a multi-stream one `Async`, following the library:
+Marten has NO default — ProjectionLifecycle is a required argument — and its multi-stream page says outright: "Register the lookup projection inline and the multi-stream projection async".
+Neither is a law —
+`RaiseSideEffects` no longer forces `Async` outright — side effects are processed only during async processing **by default**, and running them on an `Inline` projection needs `opts.Events.EnableSideEffectsOnInlineProjections = true`. Every step away from `Inline` costs the async daemon and
 tests that must **wait** where they used to assert. That is `codegen`'s decision, made from
 `reference/llms/marten/` and measured in `reference-implementations/state-view/` — not a model attribute.

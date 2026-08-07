@@ -34,17 +34,17 @@
             <mxGeometry x="40" y="1230" width="1540" height="620" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-draft-email" label="draft-email&#10;command · ready" em="group" slice="draft-email" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-draft-email" label="draft-email&#10;state-change · ready" em="group" slice="draft-email" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="80" y="140" width="220" height="860" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-my-drafts" label="my-drafts&#10;view · ready" em="group" slice="my-drafts" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-my-drafts" label="my-drafts&#10;state-view · ready" em="group" slice="my-drafts" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="400" y="140" width="220" height="860" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-revise-subject" label="revise-subject&#10;command · ready" em="group" slice="revise-subject" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-revise-subject" label="revise-subject&#10;state-change · ready" em="group" slice="revise-subject" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="720" y="140" width="220" height="860" as="geometry" />
           </mxCell>
@@ -166,7 +166,7 @@
             <mxGeometry x="420" y="1540" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-draft-history" label="draft-history&#10;view · in-review" em="group" slice="draft-history" pattern="view" status="in-review" owner="backend-agent">
+        <object id="slice-draft-history" label="draft-history&#10;state-view · in-review" em="group" slice="draft-history" pattern="state-view" status="in-review" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="1040" y="140" width="220" height="850" as="geometry" />
           </mxCell>

@@ -121,7 +121,7 @@ tests itself against, including one built to fail.
 npm install                                        # only needed for the MCP server
 
 # See the checker pass and fail on purpose.
-node tools/model.mjs validate tools/fixtures/resolved.drawio    # 0 / 0 / 0
+node tools/model.mjs validate tools/fixtures/resolved.drawio    # 0 errors / 1 warning / 0 notes
 node tools/model.mjs validate tools/fixtures/gaps.drawio        # errors, on purpose
 node tools/drawio.mjs render  templates/template.drawio
 ```
@@ -303,7 +303,7 @@ most often delegated rather than dictated.
 
 ### `codegen` — built, and exercised on four slices
 
-Four slices went end to end on the now-archived example: three Command-pattern and one Automation, with
+Four slices went end to end on the now-archived example: three State Change and one Automation, with
 GWT tests green against a real Testcontainers Postgres and a React page ported from the design and
 screenshotted. The skill is the reasoning that produced them — including the API facts the docs got wrong,
 which cost real time and are now written down.

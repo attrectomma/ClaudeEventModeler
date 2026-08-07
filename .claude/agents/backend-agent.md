@@ -73,8 +73,8 @@ for three of the four patterns there is a real choice with real consequences:
 
 | `pattern=` | What is genuinely a choice |
 | --- | --- |
-| `command` | Wolverine aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. message handler; `StartStream` for a slice that creates. See `reference-implementations/state-change/` |
-| `view` | which of Marten's read-model recipes — live, single-stream, `EventProjection`, multi-stream, flat table, composite. See `reference-implementations/state-view/` |
+| `state-change` | Wolverine aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. message handler; `StartStream` for a slice that creates. See `reference-implementations/state-change/` |
+| `state-view` | which of Marten's read-model recipes — live, single-stream, `EventProjection`, multi-stream, flat table, composite. See `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger — forwarding, subscription, side effects, clock. See `reference-implementations/automation/` |
 | `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll on a clock — decided by who owns a lost notice and whether anything is left to re-read. **Never persist the foreign event**: its band is exempt from `identity=` because we never append to it, and an append-only store puts their schema in our history for ever. So the arrival IS the wakeup, the transport's inbox is the todo View, and none of the automation mechanisms applies. The generator emits **nothing** for the arrival. See `reference-implementations/translation/` |
 
@@ -120,7 +120,7 @@ slices without saying so; report the duplication instead.
 
 ## If the slice is a View, WHICH projection is the decision
 
-`pattern="view"` means `Event(s) → View`. That is the whole contract: this read model is derived from
+`pattern="state-view"` means `Event(s) → View`. That is the whole contract: this read model is derived from
 those events and from nothing else. It does **not** say the view is a `SingleStreamProjection`, and it
 does not even say a document exists — a live aggregation and a flat SQL table both satisfy the drawing.
 
@@ -155,7 +155,7 @@ has one default.
 
 **`Inline` is the kit's default for a reason, and multi-stream fights it.** Inline is what makes a
 GWT's THEN assertable the moment the request returns. A multi-stream projection registered `Inline`
-gives that up under load — Marten warns about "apparent event skipping" from concurrent writes
+gives that up under load — and note "event skipping" is an ASYNC-DAEMON high-water-mark phenomenon, not an Inline one; the kit attributed it backwards for a while (KIT-FINDINGS MD)
 stomping each other. When you take `Async`, the tests have to **wait** rather than assert, and you must
 turn on the daemon. Say which you chose.
 
@@ -190,7 +190,7 @@ This is the standing point that the Event Model and the implementation are allow
 | ours, and **losing one is unacceptable** | **Marten `ISubscription`** | durable checkpoint, so a host that was down catches up. Ordered, and coalesces one wakeup per event *page*. Costs the async daemon |
 | the trigger event is **foreign** — we never append it | **sweep a todo View on a clock** | there is no transaction of ours to hook |
 | there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
-| "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model, and it forces the view Async |
+| "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model. It does NOT force the view Async any more: side effects are processed only during async processing **by default**, and running them on an `Inline` projection needs `opts.Events.EnableSideEffectsOnInlineProjections = true` |
 
 All four are **built and measured** against one shared model in
 `reference-implementations/automation/` — read that before writing one.

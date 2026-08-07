@@ -34,7 +34,7 @@
             <mxGeometry x="40" y="1230" width="940" height="440" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-prepare-email" label="prepare-email&#10;command · ready" em="group" slice="prepare-email" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-prepare-email" label="prepare-email&#10;state-change · ready" em="group" slice="prepare-email" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="80" y="140" width="220" height="860" as="geometry" />
           </mxCell>

@@ -295,7 +295,17 @@ ${mine.map((s) => `  <figure><figcaption>${s.stem} <span>· ${w}px</span></figca
   const out = join(shotDir, `contact-sheet-${label(w)}.png`);
   // The sheet gets its own viewport, independent of --height, so nothing is cropped. It is always wide,
   // so it never hits the narrow-window problem the individual shots do.
-  if (captureHtml({ html, out, width: sheetW, height: sheetH })) {
+  //
+  // SHOOT THE FILE WE JUST WROTE, NOT A COPY OF ITS TEXT. `captureHtml` writes the markup to tmpdir and
+  // shoots that, so every RELATIVE subresource resolves against %TEMP% — where the shots are not. The
+  // sheet's whole content is `<img src="recipes-desktop.png">`, so the captured PNG was a page of broken
+  // image icons, deterministically, in every run this tool has ever done. `review.mjs` builds the same
+  // kind of sheet and is fine only because it happens to write `fileUrl(...)` absolute srcs.
+  //
+  // Shooting `sp` fixes it without absolute machine paths, and has a second benefit: `_sheet-<w>.html`
+  // stops being a write-only artifact nobody validates and becomes the thing actually rendered — so if
+  // it is ever wrong, the sheet is visibly wrong too.
+  if (capture({ url: sp, out, width: sheetW, height: sheetH })) {
     sheets.push({ label: label(w), out, sheetW, sheetH });
   } else {
     console.error(`contact sheet failed for ${label(w)}`);

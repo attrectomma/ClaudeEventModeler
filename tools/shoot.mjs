@@ -121,6 +121,17 @@ export function pngSize(path) {
 export const fileUrl = (p) => `file:///${p.replace(/\\/g, "/")}`;
 
 /** Shoot an arbitrary HTML string at an exact size — how both tools build their contact sheets. */
+// RELATIVE SUBRESOURCES DO NOT WORK HERE, and the failure is silent.
+//
+// The markup is written to tmpdir and shot from there, so every relative <img>, <link> or <script> in it
+// resolves against %TEMP% rather than against wherever its assets live. Chrome renders a broken-image icon
+// and exits 0, so the PNG is produced, the caller reports success, and nobody finds out until a human looks
+// at the picture. `design.mjs` built its contact sheet this way from the day it was written and every sheet
+// it ever produced was a grid of broken icons.
+//
+// So: pass ABSOLUTE urls (see fileUrl / asFileUrl, which is what review.mjs does), or — better — write the
+// file next to its assets and use `capture({ url: <that file> })` instead, which is what design.mjs does now.
+// Reach for this only when the html genuinely has no external references.
 export function captureHtml({ html, out, width, height }) {
   const p = join(tmpdir(), `em-sheet-${process.pid}-${Math.abs(hash(out))}.html`);
   writeFileSync(p, html, "utf8");

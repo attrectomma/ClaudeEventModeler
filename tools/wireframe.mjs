@@ -38,6 +38,13 @@ if (!existsSync(file)) {
   process.exit(1);
 }
 let xml = readFileSync(file, "utf8");
+// EVERY .drawio in this kit is CRLF — the template, the fixtures, the reference implementations, and
+// therefore every model grown from one. Every block regex below ends `</object>\n` or `</mxCell>\n`,
+// which cannot match `\r\n`, so on a CRLF file NOTHING matches and this exits with "no screen cells"
+// on a model that has four. Silent, and it looked like a modelling mistake for a while. Normalise on
+// read and restore on write, exactly as tools/slice.mjs does.
+const crlf = xml.includes("\r\n");
+if (crlf) xml = xml.replace(/\r\n/g, "\n");
 if (!/<mxGraphModel/.test(xml)) {
   console.error("source is compressed — run: node tools/drawio.mjs inflate <file>");
   process.exit(1);
@@ -138,13 +145,11 @@ for (const s of screens) {
   const cmdLabel = triggers.get(id);
   const innerW = g.w - 2 * PAD;
 
-  // Chrome carries slice= as well. It is bound to nothing, but it is still drawn inside a slice
-  // band, and slice/slice-membership-mismatch is right to want every cell in a band to say so.
-  cells.push(`        <object id="wf-${id}-title" label="${attr(s, "label")}" em="chrome" slice="${slice}">
-          <mxCell style="text;html=1;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#666666;" vertex="1" parent="1">
-            <mxGeometry x="${g.x + PAD}" y="${g.y + 6}" width="${innerW}" height="${TITLE_H}" as="geometry" />
-          </mxCell>
-        </object>`);
+  // NO TITLE CHROME. A screen cell is styled `verticalAlign=top; spacingTop=6` and therefore already
+  // draws its own label at the top of the box — a chrome cell at y+6 rendered the name a second time
+  // on top of it, "Cart PageCart Page". Invisible in XML, obvious in the PNG, and never seen before
+  // because the CRLF bug above meant this scaffold had never once run on a file in this kit.
+  // TITLE_H is still reserved below, so the rows start under the label rather than through it.
 
   // Room for the rows between the title and the action button at the foot.
   const top = g.y + 6 + TITLE_H;
@@ -176,5 +181,5 @@ xml = xml
     `$1        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${rewritten.join("")}${cells.join("\n")}\n$2`)
   .replace(/pageHeight="(\d+)"/, (m, h) => `pageHeight="${+h + DELTA}"`);
 
-writeFileSync(file, xml, "utf8");
+writeFileSync(file, crlf ? xml.replace(/\n/g, "\r\n") : xml, "utf8");
 console.log(`${target}: ${screens.length} screen(s) grown ${sg.h}->${SCREEN_H}px (+${DELTA} below), ${fields} bound field(s), ${cells.length} cell(s) added.`);

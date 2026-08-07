@@ -100,7 +100,7 @@ system, unverifiable and on the record. Do not switch to `origin=` just to silen
 Direct consumption between contexts of one system is **allowed**. The book is explicit that a context is
 *not* a microservice and that you should *"not split but keep everything in one system until you know
 more."* A sibling model's `public` event can be imported and projected directly — that is an
-`upstream` column plus an ordinary `view` slice, and it is simpler.
+`upstream` column plus an ordinary `state-view` slice, and it is simpler.
 
 Full ch. 15 translation — View → automation → command → external event — earns its keep at a **real
 system boundary**, where the other side has its own lifecycle, its own schema, and no shared deploy.

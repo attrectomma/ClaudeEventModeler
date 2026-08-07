@@ -22,15 +22,36 @@ one layer across many slices.
 
 ## Before delegating anything
 
+**The skeleton is not yours to make.** `scaffold` runs the generator and gates on it compiling;
+`architect` then answers what the model leaves open. You come third:
+
+```
+event-model  →  scaffold  →  architect  →  codegen (you)  →  journey
+```
+
+If `generated/<System>` does not exist, or the last `dotnet build` was not clean, **stop and run
+`scaffold`**. Do not generate a skeleton yourself as a side effect of implementing a slice: its gate is
+a build with 0 errors and 0 warnings, and that gate is the only thing standing between the kit and
+two defects that shipped through exactly this hole (KIT-FINDINGS W6 and W9).
+
+You still re-run `node tools/codegen.mjs` at step 5 — it is idempotent, it keeps every filled file, and
+it picks up anything `architect` recorded since. What you do not own is the *first* one, or its gate.
+
 1. **`node tools/model.mjs validate` at zero errors.** Implementing against a
    model that has not passed its own gate is building on a guess.
-2. **`node tools/docs.mjs status`** — all three libraries mirrored. `sync` if not. The backend agent
+2. **`node tools/architect.mjs check` clean.** The model leaves the concurrency and consistency choices
+   open *on purpose* — they are technical, so they are not on a cell — but "open" becomes "whatever this
+   generator picked" the moment a slice is built, and the generator picks `Inline` for every read model
+   while Marten's own default for a multi-stream projection is `Async`. Those decisions are **system**-scoped:
+   made per slice, slice 1 chooses one thing and slice 4 needs another, and they conflict after both are
+   green. Hand it to the `architect` skill and do not decide it yourself.
+3. **`node tools/docs.mjs status`** — all three libraries mirrored. `sync` if not. The backend agent
    depends on this and cannot fix it.
-3. **Pick the slice with the furthest `status=`** — `ready` if one exists. Set it to `in-progress` and
+4. **Pick the slice with the furthest `status=`** — `ready` if one exists. Set it to `in-progress` and
    **work on its own branch**: `status` is advisory, a branch is the only exclusion git offers.
-4. **`node tools/codegen.mjs`** — reports `N written, M kept`. `kept` files are
+5. **`node tools/codegen.mjs`** — reports `N written, M kept`. `kept` files are
    hand-owned and will not be clobbered.
-5. **Read the slice's contract out of the IR** and hand it over rather than making each agent
+6. **Read the slice's contract out of the IR** and hand it over rather than making each agent
    rediscover it:
 
 ```bash
@@ -65,13 +86,13 @@ whole model.
 ## The pattern does not choose the implementation — make the agent choose, out loud
 
 `pattern=` names one of the four shapes. It is a **contract**: which blocks connect, in which
-direction. It never says which library recipe realises them, and for `command`, `view` and `automation`
+direction. It never says which library recipe realises them, and for `state-change`, `state-view` and `automation`
 there is a real choice with real consequences.
 
 | `pattern=` | The choice | Worked comparison |
 | --- | --- | --- |
-| `command` | aggregate handler workflow vs. explicit `FetchForWriting`; endpoint vs. message; `StartStream` when the slice creates | `reference-implementations/state-change/` |
-| `view` | live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — six recipes, and `identity=` narrows but does not decide | `reference-implementations/state-view/` |
+| `state-change` | aggregate handler workflow vs. explicit `FetchForWriting`; endpoint vs. message; `StartStream` when the slice creates | `reference-implementations/state-change/` |
+| `state-view` | live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — six recipes, and `identity=` narrows but does not decide | `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger: forwarding, subscription, `RaiseSideEffects`, clock | `reference-implementations/automation/` |
 | `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll of their API — decided by who owns a lost notice and whether anything is left to re-read. **Never persist the foreign event** (its band is exempt from `identity=` because we never append to it), so the arrival IS the wakeup and no automation mechanism applies. **Nothing is generated for the arrival at all**: no handler, no seam, no report | `reference-implementations/translation/` |
 
@@ -96,6 +117,7 @@ message, because it is the only place the reasoning will survive.
 | Coverage | `codegen` prints no `GWT WITHOUT A TEST` — see below, this one is not implied by green |
 | Reads | anything the screen `displays=` can actually be fetched |
 | Choice | the report names the implementation recipe chosen and why. "Same as the reference implementation" is not an answer unless the mirror was checked |
+| Architecture | `architect.mjs check` still clean, and the slice honours `ARCHITECTURE.md` — if an agent needed `Async` where the record says `Inline`, that is a decision to revisit in the record, not to change quietly in a file |
 | Frontend | `tsc` clean, `design.mjs check` clean, and **the render has been looked at** |
 | Review | `node tools/review.mjs sheet` produced `<project>/review/index.html`, with a shot per screen per viewport — **the human reviews the slice against that, not against your description** |
 | Model | `model.mjs validate` still zero errors — implementing must not have needed a model change nobody made |

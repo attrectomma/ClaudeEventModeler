@@ -67,24 +67,28 @@ const ID_PREFIX = { screen: "scr", command: "cmd", event: "evt", external: "ext"
 // View goes UNDERNEATH. Reading upward from the event lane that is Event -> View -> Trigger, the
 // cheat sheet's own order — and with the processor on top, the event's feed into the View no longer
 // has to pass straight through the processor to reach it.
+// READ THE KEYS AND THE VALUES DIFFERENTLY: a key is a PATTERN, a value names ELEMENT KINDS. They used to
+// share the words `command` and `view`, so `command: [... ["command", 0, 0] ...]` had two unrelated meanings
+// on one line. The patterns are now the books' own terms, `state-change` and `state-view`; the element kinds
+// are untouched, because a blue Command cell is still kind="command".
 const PATTERN_CELLS = {
-  command:     [["screen", 0, 0], ["command", 0, 0], ["event", 0, 0]],
-  view:        [["readmodel", 0, 0]],
-  automation:  [["automation", 0, 0], ["readmodel", 0, 1], ["command", 1, 0], ["event", 1, 0]],
-  translation: [["external", 0, 0], ["automation", 0, 0], ["readmodel", 0, 1],
-                ["command", 1, 0], ["event", 1, 0]],
-  upstream:    [["external", 0, 0]],
+  "state-change": [["screen", 0, 0], ["command", 0, 0], ["event", 0, 0]],
+  "state-view":   [["readmodel", 0, 0]],
+  automation:     [["automation", 0, 0], ["readmodel", 0, 1], ["command", 1, 0], ["event", 1, 0]],
+  translation:    [["external", 0, 0], ["automation", 0, 0], ["readmodel", 0, 1],
+                   ["command", 1, 0], ["event", 1, 0]],
+  upstream:       [["external", 0, 0]],
 };
 // Only the edges the PATTERN determines. Which existing events feed a view is a domain answer and
 // belongs to `route`, with ids the user supplied.
 const PATTERN_EDGES = {
-  command:     [["screen", "command"], ["command", "event"]],
-  view:        [],
-  automation:  [["readmodel", "automation"], ["automation", "command"], ["command", "event"]],
-  translation: [["external", "readmodel"], ["readmodel", "automation"], ["automation", "command"], ["command", "event"]],
-  upstream:    [],
+  "state-change": [["screen", "command"], ["command", "event"]],
+  "state-view":   [],
+  automation:     [["readmodel", "automation"], ["automation", "command"], ["command", "event"]],
+  translation:    [["external", "readmodel"], ["readmodel", "automation"], ["automation", "command"], ["command", "event"]],
+  upstream:       [],
 };
-const DEFAULT_COLS = { command: 1, view: 1, upstream: 1, automation: 2, translation: 2 };
+const DEFAULT_COLS = { "state-change": 1, "state-view": 1, upstream: 1, automation: 2, translation: 2 };
 
 // ---------------------------------------------------------------- text plumbing
 
@@ -705,6 +709,32 @@ function cmdReflow(target, o) {
   const sliceY = m.grid.uiY - SLICE_PAD, sliceH = (m.grid.evtBottom + dEvt) - sliceY;
   const lowestGwt = m.gwts.length ? Math.max(...m.gwts.map((g) => g.g.y + g.g.h)) : m.grid.gwtY;
 
+  // A JOURNEY BAR SITS BELOW THE GWT LANE, AND THE LANE GROWS UNDER IT.
+  //
+  // `journey` places the bar at the lane's bottom + 40 — correct at the moment it runs. But the lane is
+  // sized from its lowest GWT, and GWTs keep arriving: the template lane is 440 tall while six rules at the
+  // documented 140 pitch reach 850. So reflow would grow the lane straight past a bar placed earlier and
+  // leave it stranded IN THE MIDDLE OF THE RULES — overlapping a cell, on a model that still validates at
+  // 0 errors. Invisible in XML, obvious in the render, which is what "always look at the PNG" is for.
+  //
+  // Re-seat every bar below the lane's NEW bottom, keeping their existing order and 20px stacking.
+  const gwtLane = m.lanes["lane-gwt"]?.g;
+  const newGwtBottom = gwtLane
+    ? (gwtLane.y + dEvt) + Math.max(gwtLane.h, lowestGwt + dEvt + 20 - (gwtLane.y + dEvt))
+    : null;
+  const journeys = (m.blocks ?? []).filter((b) => /\bem="journey"/.test(b))
+    .map((b) => ({ b, g: geomOf(b) })).filter((j) => j.g)
+    .sort((a, z) => a.g.y - z.g.y);
+  const moveJourney = new Map();
+  if (newGwtBottom != null && journeys.length) {
+    let y = newGwtBottom + 40;
+    const strandedAt = journeys[0].g.y + dEvt;
+    if (strandedAt < newGwtBottom) {
+      for (const j of journeys) { moveJourney.set(j.b, y); y += j.g.h + 20; }
+      plan.push(`${journeys.length} journey bar(s) re-seated below the GWT lane (${strandedAt} -> ${newGwtBottom + 40})`);
+    }
+  }
+
   let blocks = m.blocks;
   if (dEvt) { const s = shiftY(blocks, m.grid.evtBottom, dEvt); blocks = s.blocks; plan.push(`event lane ${m.lanes["lane-evt"].g.h}->${wantEvtH}, ${s.cells} cell(s) below it moved`); }
   blocks = blocks.map((b) => {
@@ -719,10 +749,12 @@ function cmdReflow(target, o) {
       return out;
     }
     if (/\bem="group"/.test(b) && (g.y !== sliceY || g.h !== sliceH)) return setGeom(b, { y: sliceY, h: sliceH });
+    if (moveJourney.has(b)) return setGeom(b, { y: moveJourney.get(b) });
     return b;
   });
   if (wantLaneW !== m.grid.laneW) plan.push(`lanes ${m.grid.laneW}->${wantLaneW}`);
-  const wantPageH = Math.max(pageH(xml) + dEvt, lowestGwt + dEvt + 60);
+  const lowestJourney = moveJourney.size ? Math.max(...moveJourney.values()) + 70 : 0;
+  const wantPageH = Math.max(pageH(xml) + dEvt, lowestGwt + dEvt + 60, lowestJourney + 60);
   let out = splice(xml, blocks);
   out = setPage(out, { w: LANE_X + wantLaneW + PAGE_RIGHT_PAD, h: wantPageH });
   plan.push(`page ${LANE_X + wantLaneW + PAGE_RIGHT_PAD} x ${wantPageH}`);

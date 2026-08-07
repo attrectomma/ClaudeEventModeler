@@ -39,47 +39,47 @@
             <mxGeometry x="40" y="1300" width="2840" height="460" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-open-campaign" label="open-campaign&#10;command · ready" em="group" slice="open-campaign" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-open-campaign" label="open-campaign&#10;state-change · ready" em="group" slice="open-campaign" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="80" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-close-campaign" label="close-campaign&#10;command · ready" em="group" slice="close-campaign" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-close-campaign" label="close-campaign&#10;state-change · ready" em="group" slice="close-campaign" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="400" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-queue-message" label="queue-message&#10;command · ready" em="group" slice="queue-message" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-queue-message" label="queue-message&#10;state-change · ready" em="group" slice="queue-message" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="720" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-record-outcome" label="record-outcome&#10;command · ready" em="group" slice="record-outcome" pattern="command" status="ready" owners="backend-agent, frontend-agent">
+        <object id="slice-record-outcome" label="record-outcome&#10;state-change · ready" em="group" slice="record-outcome" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="1040" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-message-status" label="message-status&#10;view · ready" em="group" slice="message-status" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-message-status" label="message-status&#10;state-view · ready" em="group" slice="message-status" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="1360" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-delivery-log" label="delivery-log&#10;view · ready" em="group" slice="delivery-log" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-delivery-log" label="delivery-log&#10;state-view · ready" em="group" slice="delivery-log" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="1680" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-campaign-dashboard" label="campaign-dashboard&#10;view · ready" em="group" slice="campaign-dashboard" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-campaign-dashboard" label="campaign-dashboard&#10;state-view · ready" em="group" slice="campaign-dashboard" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="2000" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-sender-monthly" label="sender-monthly&#10;view · ready" em="group" slice="sender-monthly" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-sender-monthly" label="sender-monthly&#10;state-view · ready" em="group" slice="sender-monthly" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="2320" y="140" width="220" height="1040" as="geometry" />
           </mxCell>
         </object>
-        <object id="slice-message-metrics" label="message-metrics&#10;view · ready" em="group" slice="message-metrics" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-message-metrics" label="message-metrics&#10;state-view · ready" em="group" slice="message-metrics" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="2640" y="140" width="220" height="1040" as="geometry" />
           </mxCell>

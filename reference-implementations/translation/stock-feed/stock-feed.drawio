@@ -81,7 +81,7 @@
         <mxCell id="e-cmd-translate-stock-notice--evt-translate-stock-notice" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-translate-stock-notice" target="evt-translate-stock-notice">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <object id="slice-stock-levels" label="stock-levels&#10;view · ready" em="group" slice="stock-levels" pattern="view" status="ready" owner="backend-agent">
+        <object id="slice-stock-levels" label="stock-levels&#10;state-view · ready" em="group" slice="stock-levels" pattern="state-view" status="ready" owner="backend-agent">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="720" y="140" width="220" height="965" as="geometry" />
           </mxCell>

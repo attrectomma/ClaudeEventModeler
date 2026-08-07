@@ -2,12 +2,16 @@
 
 Everything the kit got wrong, everything the runs taught, and every decision parked for the human.
 
-**Three runs so far.** The first (CPOC01, *Recipe Box*) took a business brief through the whole workflow to
+**Five runs so far.** The first (CPOC01, *Recipe Box*) took a business brief through the whole workflow to
 a clickable Docker app. The second (CPOC02, the book's shopping cart) was a deliberate verification on a
 domain the kit had never generated from, chosen so that the **book** supplies every domain answer and the
 kit can be scored against a documented expected outcome. The third built
 `reference-implementations/translation/` — the last of the four patterns — model → generator → implementation
-→ run, and is section **T** below.
+→ run, and is section **T** below. The fourth (CPOC03, the book's cart again, but as a **live walkthrough**
+for a coworker) drove all eleven `event-model` phases in one session and is section **W** — two `BROKEN`
+findings, both fixed mid-run because each one blocked the next phase. The fifth is three parallel runs
+(CPOC03/04/05) of one demo-sized brief — same input, twice on Opus and once on Sonnet — built specifically
+to answer *is the generated code reproducible, and does the model tier change that* and is section **X**.
 
 The second run is first below, because its findings are sharper: a fresh domain exercises paths a
 familiar one cannot, and three of its four `BROKEN` findings had been latent since the kit was written.
@@ -191,7 +195,48 @@ improve as the stack is better understood — editorial work, not generation. Th
 or agent responsible for keeping them current**: re-reading the docs mirror as the libraries move, re-measuring
 the comparisons, folding in what later runs learn. Not built; recorded so it stays a decision.
 
-## KNOWN GAP, TODO — no journey tests at either end
+## KNOWN GAP — CLOSED AT BOTH ENDS
+
+**Both halves are now built.** `journey` walks slices through the real API; `ui-journey` walks the same
+`em="journey"` cell through a browser with Playwright. One cell, two wires — never two cells for one story.
+
+| | Skill | Tool | The one rule |
+| --- | --- | --- | --- |
+| behind the API | `journey` | `slice.mjs journey`, `codegen.mjs` | no step may **append an event** |
+| in front of it | `ui-journey` | `uijourney.mjs plan/scaffold/check` | no step may **fake the backend**, and none may **skip the navigation it is testing** |
+
+**What the UI half derives, and the one thing it cannot.** `plan` reads the compiled IR for the ordered
+screens, each screen's `displays=`/`inputs=`/commands, the exact `data-em` selectors the port is allowed to
+have, and every rule name a rejection can surface with the wire shape `enforce=` implies. With no journey named
+it derives the **candidates** from real edges — slice A leads to B when an event A appends feeds a view that
+feeds B's screen — and prints the `slice.mjs journey` command for each. What it cannot derive is **how a user
+reaches a screen**: there is no notation for *"the modal opens from the list"*, so `plan` flags every screen no
+data path reaches and asks. On CPOC01 that fired on `new-recipe` immediately, which is correct — it is a modal.
+
+**Playwright, and the "no Playwright" rule is intact.** That rule is about `design.mjs`, where shooting a URL
+needs nothing but the installed Chrome. A journey clicks. Two things come with it that are not conveniences: a
+real 390px layout viewport from device metrics, so **A1's sub-500px lie does not arise and the iframe workaround
+is not needed**; and retrying assertions, which are the only way to distinguish *eventually consistent* from
+broken. An assertion that only passes on retry is a finding, not a pass.
+
+**And it buys back the capability this file recorded as lost.** B3 and `frontend-agent` both say headless Chrome
+shoots a URL and does not click, so click-only states were unlookable. `journeys/_shot.ts` writes into
+`review/_shots/` under the name `review.mjs` already parses, so they land beside the agreed design with no extra
+step — which is often the largest single thing a run produces.
+
+**Deliberately not scheduled and deliberately not a gate.** It starts containers and drives a browser, so
+`codegen` prints `NO UI JOURNEY` once two claimed slices have screens and stops. Honest scope of "green" now:
+**every slice works, the named journeys compose behind the API, and the named journeys are walkable in front of
+it** — anything not named, and any screen state not walked, is still a human clicking. See ANTI-PATTERNS #16.
+
+**Two false positives caught by running the new checks before believing them**, which is this file's own
+standing lesson (C11) applied to itself: the content checks all fired on the scaffold `scaffold` had just
+written, and the console/network check demanded a literal `page.on()` while the scaffold correctly calls the
+supplied `watchForSilentFailure` helper. Fixed by skipping any spec still carrying its `TODO(uijourney)`
+markers, and by teaching the check about its own helper. A check that does not know its own scaffold is worse
+than no check.
+
+### The original finding, kept because the reasoning is the record
 
 Every test the kit generates or scaffolds is **one slice's scenario**. Two classes of bug therefore have
 nowhere to be caught:
@@ -210,6 +255,234 @@ slices are `in-review`, with the model naming which journeys are worth walking.
 Until then, be honest about what green means: **every slice works in isolation.** Composition is verified by a
 human clicking — which is why `review.mjs` and *"run it and look"* carry more weight here than they would in a
 kit that had journey tests.
+
+## CC — a concurrency invariant IS testable on this stack · ***PROVEN BY RUNNING, 2026-08-07***
+
+**The human refused to start CPOC03 until this was proven**, against my report that nothing in the kit could
+test *"two members at the same instant must not both succeed"*. That report was half right: **no kit-generated
+test can, and the stack can perfectly well.** `probes/concurrency-invariant.cs` — 43 races, 270 writers per
+run, three consecutive identical runs, exit 0.
+
+### It is TWO mechanisms with two exception types, not one
+
+The single most useful finding, and neither the mirror nor I had it right:
+
+| The contested operation | Refused by | Exception |
+| --- | --- | --- |
+| **creating** the stream — the first booking of a desk-day | the stream table's primary key, in Postgres | `ExistingStreamIdCollisionException` |
+| **appending** to a stream that exists — a re-booking after a cancellation | the optimistic version check | `EventStreamUnexpectedMaxEventIdException` |
+
+Both matter for desk booking, and a generated test has to expect the right one. **The mirror names neither for
+the append case:** `scenarios/command_handler_workflow.md` says a stream that moved under `FetchForWriting`
+fails with *"a Marten `ConcurrencyException`"*, and on Marten 8.37.4 with `StreamIdentity.AsString` it does
+not — it throws the type the older `aggregates-events-repositories.md` page names. A test must accept either.
+
+**This does not break the "docs win" rule (MD); it delimits it.** That rule is about which **design** to
+adopt. For an **observable runtime fact** the kit's own escalation applies — read the mirror, grep the `.xml`,
+then **compile** — and the compiler is the tiebreaker. Worth stating because the two rules point opposite ways
+and it would be easy to cite the wrong one.
+
+### `Task.WhenAll` is not a race, and my first attempt passed for the wrong reason
+
+Attempt 1 reported `won=1` and looked like a success. It was not: `refused-by-rule=9,
+concurrency-conflict=0`. Ten writers were released together and then each did its **own** `FetchForWriting`
+round trip, so the database serialised them and nine read the state *after* the winner committed. They were
+refused by the business rule; the concurrency guard was never exercised. **A test that green-lights a race it
+never ran is worse than no test.**
+
+**The fix is to split read from write.** Every writer reads and decides first — so all N observe the same
+state — and only then does a `TaskCompletionSource` fire the starting gun for the writes. That is
+simultaneously deterministic *and* genuinely parallel, and it moved the result to `concurrency=9`.
+
+### The control had to be the BOUNDARY, not the guard — and that is the real lesson
+
+My first control dropped `FetchForWriting` and expected both writers through. It failed: **in Rich append
+mode (the Marten 8 default) even a bare `Append` carries a client-assigned version**, so the second writer
+still lost. The protection is stronger than the thing I was trying to remove.
+
+So the honest control is the **modelling** decision, not a library setting: key the stream **per booking**
+instead of per desk-day, and there is no shared stream to serialise on. Measured: **10 winners, 10 bookings
+for one desk-day.** Same rule, same library, two boundary choices — one enforceable and one not.
+
+That is `stream-boundaries` from the `architect` step made executable, and it is the best evidence the kit has
+that the boundary question is the one that matters. CLAUDE.md has claimed exactly this in prose since it was
+written; now it has a number.
+
+### What this changed about the kit · ***BUILT INTO `architect` the same day***
+
+The human's call on where it belongs: *"it's the architect's job to find exactly points like this where it can
+say write a concurrency test."* So the architect now does both halves — it **derives** the contention points and
+**scaffolds** the tests.
+
+- **A seventh question family, `contended-invariant`.** A *rejection* whose GIVEN is in the very stream its
+  command appends to — the class of rule two callers at the same instant can both pass. Filtered to
+  `enforce=aggregate` with a **non-empty** given, because a periphery rule is settled by the request alone and
+  a rejection with no given has no accumulated state to race over. Without that filter it asked for a race
+  test on *"a campaign with no name is refused"*, which is noise. On `campaigns` it finds exactly 2.
+- **`architect.mjs tests`** emits `Concurrency/ConcurrencyHarness.cs` (overwritten) and scaffolds one
+  `<Slice>ConcurrencyTests.cs` per invariant (kept). Two tests each: a **deterministic** multi-session race,
+  which is the primary assertion and cannot flake, and an **HTTP** race asserting *at most* one success —
+  deliberately "at most", because racing requests cannot be guaranteed to overlap and "exactly one" would
+  flake while "at most one" is true either way.
+- **`check` reports `RACE TEST NOT WRITTEN`**, and codegen surfaces it through `ARCHITECTURE DECISIONS MISSING`.
+- **Still not model notation.** `gwt-multiple-whens` stays an error (AR). The model says *"one member per desk
+  per day"*; the race is how that is enforced.
+
+**Verified by compiling AND by running, because a harness that compiles is not a harness that works.**
+`dotnet build` on the generated `campaigns` project: 0 warnings, 0 errors with the harness and both scaffolds
+in it. Then `probes/harness-check.cs` — which copies `RaceAsync` and `Classify` **verbatim** from what the tool
+emits — races the real thing: one winner and `StreamCollision=9` on a new stream, one winner and
+`VersionConflict=9` on an existing one, `RefusedByRule=6` when the desk-day was already booked (no refusal
+misreported as a conflict), and 30/30 alternating rounds with no hang. Three consecutive runs of both probes,
+identical.
+
+**Two bugs found while wiring it, both worth recording:**
+
+- **`pascal()` had to be copied from codegen, not approximated.** A scaffolded race test names types codegen
+  generated, so a different casing rule produces a reference to a type nobody emitted.
+- **The system name must be `pascal()`-ed before it names a folder.** A model cell saying `system="campaigns"`
+  put the tests in `generated/campaigns` while codegen writes `generated/Campaigns` — on Windows the same
+  folder, on a case-sensitive CI a different one, and the namespace was wrong either way. **`uijourney.mjs`
+  had the identical latent bug** and only worked because that system name was already PascalCase; fixed in
+  both.
+
+- **`probes/` is a new kit folder** for runnable proofs of stack behaviour, with the three file-based-app
+  rules that cost a build each: `PublishAot=false`, types after top-level statements, and **document types
+  must be `public`** or Marten's runtime codegen fails with a wall of generated C# instead of the real cause.
+
+## MD — where the kit and the critter-stack docs disagree, the docs win · ***STANDING RULE, and the first audit***
+
+**The human's rule, and it means the kit gets CHANGED rather than documented as different.** These libraries
+move faster than model knowledge — the entire reason `reference/llms/` exists — so a kit holding its own
+opinion beside theirs is a second source of truth nobody reconciles, and the difference becomes a bug in
+generated code that compiles and passes.
+
+**It was prompted by a claim of mine that turned out to be wrong in three ways at once.** I had reported that
+*"the kit's default and Marten's disagree — the kit picks `Inline`, Marten registers multi-stream `Async`"*.
+Audited against the mirror:
+
+| The kit claimed | The docs say |
+| --- | --- |
+| Marten *"registers multi-stream projections `Async` by default"* | **there is no default.** `ProjectionLifecycle` is a required argument, and **22 of 22** `Projections.Add` call sites in the mirror pass it explicitly |
+| `Inline` *"invites concurrent writes stomping each other into apparent event skipping"* | *"event skipping"* is an **async-daemon high-water-mark** phenomenon (`async-daemon.md`), so it was attributed exactly backwards |
+| `Inline` everywhere is a reasonable default | the multi-stream page states the shape outright: *"Register the lookup projection **inline** and the multi-stream projection **async**."* |
+
+**So `codegen` was changed to follow the library: single-stream `Inline`, multi-stream `Async`.** Verified on
+`campaigns` — `CampaignDashboard` (fed by 2 stream types) now registers `Async`, `MessageStatus` and
+`MessageMetrics` stay `Inline`, and the two views with no slicing rule keep their commented-out registration
+but now suggest the right lifecycle.
+
+Three consequences the change had to carry, none of them optional:
+
+- **`ConfigureStore` now starts the daemon** — `marten.AddAsyncDaemon(DaemonMode.Solo)` — but *only* when a
+  view is actually registered Async. The first version named every multi-stream view including the two whose
+  registration is commented out, which would have sent a reader looking for a projection `Register()` never
+  adds. `DaemonMode` is in `JasperFx.Events.Daemon`, stated by no doc page and confirmed from a file in this
+  repo that compiled.
+- **The GT test hint now branches on the lifecycle.** An Async view is not current when the append returns, so
+  the hint carries `await Store.WaitForNonStaleProjectionDataAsync(...)` and says that asserting without it
+  fails intermittently and looks exactly like a broken projection. Without this the change would have turned a
+  correct generator into one that hands you flaky tests.
+- **The multi-stream test is now defined once** and shared by the lifecycle and the projection base class. Two
+  copies could disagree, and a view registered Async while declared `SingleStreamProjection` is a worse bug
+  than either half.
+
+**A second stale claim found by the same audit:** *"`RaiseSideEffects` forces `Async` outright"* — repeated in
+five places. It is now only the **default**: `opts.Events.EnableSideEffectsOnInlineProjections = true` runs
+side effects on an `Inline` projection. Corrected in CLAUDE.md, ANTI-PATTERNS #14, `backend-agent`, and two
+`add-slice` references.
+
+**One claim audited and upheld:** *"Wolverine treats a handler's return value as a cascading message with no
+opt-out."* `return-values.md` confirms it, and `[EmptyResponse]` is an HTTP-response concern rather than a
+message-handler opt-out. Worth recording that the audit was not a rout.
+
+**And a defect this did NOT fix, by design:** `ViewRegistrations.cs` is a `scaffold`, so **the four existing
+reference implementations keep their `Inline` registrations.** That is the *"the generator does not reach
+backwards"* rule working as intended — regenerating them would change measured behaviour in folders whose
+tests assert immediately. Their editorial refresh belongs to the future skill that keeps them current.
+
+**What to audit next, and how to choose.** The claims worth re-checking are about **defaults and behaviour**,
+not API names: a wrong method name fails to compile, while a wrong default ships. Search for *"by default"*,
+*"defaults to"*, *"forces"*, and any sentence attributing a behaviour to Marten or Wolverine.
+
+## AR — the architect step: concurrency belongs to the implementation, not the model · ***BUILT 2026-08-07***
+
+**Raised by the human, as a correction to a proposal of mine that was wrong.** I had said the first thing to
+fix for CPOC03 was that `gwt-multiple-whens` blocks a concurrency scenario — *"two members book the same desk
+at the same instant, exactly one wins"* — and that the grammar should relax to allow it.
+
+**That is finding T0 all over again**, and the human named the principle instead: *the event model represents
+domain knowledge and how information flows through the system, and that is its sole responsibility.*
+Concurrency is technical, so **nothing about it enters the model or its grammar.** Consistency enters only as
+modelling done right — swimlanes and stream boundaries drawn properly, closing-the-books shapes recognised —
+which is judgement, not a rule to enforce. What was missing is a step that *reads* the model, notices where it
+implies a concurrency or consistency problem, and checks the **real backend stack** for how that is handled.
+
+**Both books back it, and one line settles it:**
+
+> *"Snapshots are a pure technical tool and are **neither modeled nor mentioned in an Event Model** typically."*
+
+The little book files Live-Model vs Database-Projection under *"Implementation Hints"*. And the business rule
+in this domain is *"one member per desk per day"* — the business does not care about instants. So
+`gwt-multiple-whens` stays an error and the proposal is retracted.
+
+### What the books actually say on the implementation side
+
+Researched from the local extracts rather than the web, per A7b. Ch. 4 of *Understanding EventSourcing* is
+titled **"CQRS, Concurrency, (Eventual) Consistency"**:
+
+| | |
+| --- | --- |
+| **concurrency** | *"we apply optimistic locking not on the entire Event Store, but on **individual event streams**"* — version = the index of the last event; the fix is refetch and reapply. So **once the stream boundary is right, concurrency is mechanical** |
+| **the boundary** | *"the aggregate basically defines a transactional consistency boundary protecting business invariants"*; little book: *"An aggregate is a consistency boundary"*, and *"if a single command touches multiple aggregates or swimlanes… these aren't two separate aggregates—they're one"* — which the kit **already** enforces as `command-crosses-swimlane` |
+| **eventual consistency** | three options with named costs: accept and document; make it immediately consistent in one transaction (*not independently scalable; a projection error can abort the business transaction; each added projection slows the write*); or a **partial live model** over the projection, an in-memory cache of the newest events filling the gap |
+| **who decides** | *"This issue should be discussed with the subject-matter-experts during one of the Event Modeling sessions… it could lead to hard-to-find bugs that are nearly impossible to reproduce"* — the **question** belongs to the session, the **answer** to the implementation |
+| **growth** | *"better to limit the length of a stream naturally by understanding the business processes"* — closing the books beats snapshots, which are *"the exception, not the rule"* |
+| **replay** | an event handler triggering an action *"might be triggered again during an event replay… not a problem in general if the changes are idempotent"* |
+
+Two findings fall straight out: **the kit's read-side default and Marten's disagree** — the kit picks `Inline`,
+Marten registers multi-stream projections `Async` — so `Inline` is a decision the kit was presenting as a
+default. And **the partial live model is not in the six-recipe menu as a combination**; the table offers live
+aggregation *or* a projection, never both layered, which is the book's way to close the staleness window
+without paying `Inline`'s price. A gap in the reference implementations, not in the grammar.
+
+### What was built
+
+`tools/architect.mjs` (`questions` / `record` / `check`) plus the `architect` skill. It derives six families
+of question from the IR, **answers none of them**, and never touches a `.drawio`. Same split as
+`slice.mjs`/`add-slice`. A step **before** codegen rather than part of it, because these decisions are
+system-scoped: slice 1 picking `Inline` and slice 4 needing `Async` conflict after both are green. Decisions
+land in `<project>/ARCHITECTURE.md` as **Decision / Because / It costs**, and `codegen` reports
+`ARCHITECTURE DECISIONS MISSING`.
+
+**Validated against `state-view/campaigns/`, chosen because its real decisions are already documented** — so
+the questions could be scored rather than admired. Six questions, and every one maps to a decision that
+folder actually had to make:
+
+| It asked | The folder's documented reality |
+| --- | --- |
+| `cross-stream-rule` on *"a message cannot be queued to a closed campaign"* | the command appends to **Message**, the GIVEN lives in **Campaign** — a genuine read-then-append window, and the kit already documents `FetchLatest` as the mechanism while nothing asked whether the race mattered |
+| `stale-read/CampaignDashboard` | fed by 2 stream types, so Marten defaults it `Async` — this is the view whose journey test needed `WaitForNonStaleProjectionDataAsync` |
+| `view-identity/SenderMonthly/month` | **finding #1 of that folder**: seed data stamped `queuedAt = 2026-01-15` produced a row keyed `2026-08`, because the key came off the envelope |
+| `view-identity/DeliveryLog/recipient` | correctly identified as *probably a fan-out* of `recipients`, naming the candidate — the legitimate case, distinguished from the bug above |
+
+**Three defects in my own first version, all caught by running it:**
+
+- **It iterated the letters of a key.** A swimlane's `identity=` is an array in the per-model IR but an
+  element's is still the raw string, so `view-identity/CampaignDashboard/a` was asked about a view keyed
+  `campaignId`. The system IR splits it; the per-model one does not.
+- **It cried wolf: 17 questions on a nine-slice model**, because `stream-boundary` and `stream-growth` fired
+  per stream unconditionally — two of them amounting to *"is one campaign the right scope for one campaign"*.
+  Collapsed into **one boundary map per model**, with the specific problems (`cross-stream-rule`,
+  `no-stream-key`) left per-occurrence where they are actionable. 17 → 6.
+- **A `continue` skipped the highest-value check.** The staleness guard sat above the identity check, so
+  every single-stream view with no screen was skipped — including `SenderMonthly`, the one real documented
+  bug in that model.
+
+**And the staleness check that every write-once file in this kit needs** is there from the start rather than
+retrofitted: sections are keyed by a stable question id, so `check` separates a question with no section
+(the model grew) from a decision still `TODO` from an **answer to a question nobody asks** (the model changed
+under it). Verified both ways by editing a model and re-running.
 
 ## T — the translation run: building the fourth pattern's reference implementation
 
@@ -932,11 +1205,16 @@ name both — another way the A2 workaround leaks.
 
 ---
 
-### A8 — `wireframe.mjs` draws every screen title twice · **NOISE**
+### A8 — `wireframe.mjs` draws every screen title twice · **NOISE** · ***FIXED***
 
-`tools/wireframe.mjs:143` emits a chrome cell carrying the screen's own `label`, which the screen box
-already renders at the top with `verticalAlign=top`. Every scaffolded wireframe overlaps its own title.
-One-line fix: do not emit the title cell. Worked around by hand in the CPOC01 model.
+`tools/wireframe.mjs` emitted a chrome cell carrying the screen's own `label`, which the screen box
+already renders at the top with `verticalAlign=top; spacingTop=6`. Every scaffolded wireframe overlapped
+its own title, rendering `Cart PageCart Page`.
+
+**Fixed in the CPOC03 walkthrough.** The title chrome is gone; the screen cell's own label *is* the
+title, and `TITLE_H` is still reserved so the rows start below it rather than through it. Verified by
+re-scaffolding and looking: 36 cells instead of 40, one title per screen. See **W1**, which is why this
+had to be fixed by hand in CPOC01 rather than caught by re-running the tool.
 
 ---
 
@@ -1203,9 +1481,52 @@ Parked deliberately during the run.
 **D1 — Merge the `recipe-detail` slice's two views into one.** Agreed as the goal, blocked on A2.
 Sequencing agreed: fix the kit, then re-model the slice.
 
-**D2 — Rename `pattern=` to the canonical terms?** `state-change` / `state-view` instead of
-`command` / `view`. Kit-wide: `model.mjs`, `slice.mjs`, `codegen.mjs`, four skills, `CLAUDE.md`, and
-every existing model and fixture.
+**D2 — Rename `pattern=` to the canonical terms** · ***DONE 2026-08-07***. `state-change` / `state-view`
+instead of `command` / `view`, as a **hard cutover with no deprecated alias** — the old values are now
+`slice-unknown-pattern` errors.
+
+**Done deliberately with no project attached**, which is what made it cheap: it touches every model, so
+after CPOC03 exists it would have been a migration rather than a rename. Both POC projects were archived
+first (`_archive/CPOC01-recipe-box`, `_archive/CPOC02-shopping-cart`), so nothing live read the old
+vocabulary.
+
+**What the rename was really about.** `command` and `view` were already taken by **element kinds** — a blue
+Command cell is `em="command"`, and `command=` on a wireframe action names the command it issues. So
+`model.mjs` had `s.pattern !== "command"` and `cmd.kind !== "command"` *two lines apart, meaning different
+things*, and `slice.mjs` had `command: [… ["command", 0, 0] …]` where key and value were unrelated
+concepts. The new values also agree with `slices[].kind`, which the IR has always derived as
+`state-change` / `state-view` — and that agreement is the point rather than a coincidence, because
+`slice-pattern-mismatch` exists precisely to catch declared and derived disagreeing.
+
+`automation`, `translation` and `upstream` were already canonical and did not move.
+
+**Scope, measured:** 7 code sites (4 in `model.mjs`, 3 table keys in `slice.mjs`; `codegen.mjs` needed
+nothing — it only interpolates `s.pattern` into a comment and filters on `automation`/`translation`),
+29 `pattern=` attributes plus their slice-cell labels across 8 `.drawio` files, ~31 doc and skill
+mentions, and **two skill reference files renamed** — `add-slice/references/command.md` → `state-change.md`
+and `view.md` → `state-view.md`, because that skill resolves `references/<pattern>.md` *by convention from
+the pattern name*, so leaving them would have silently broken the lookup.
+
+**Verified behaviour-preserving rather than assumed.** Every fixture reports byte-identical diagnostic
+counts before and after, checked by running HEAD's `model.mjs` against HEAD's fixtures: `gaps` 4/2/1,
+`resolved` 0/1/0, `unsourced` 1/1/0. `cart-replay.mjs` is 0 errors in all ten rounds and byte-identical on
+re-run, ending 0/7/20 exactly as before. All four reference implementations remain 0 errors, 0 warnings.
+And `slice.mjs add --pattern command` now fails with `unknown pattern "command". One of: state-change,
+state-view, automation, translation, upstream.`
+
+**Two traps worth recording**, both of which a blind find-and-replace would have walked into:
+
+- **`CLAUDE.md`'s `em=` table and the `command=` attribute row must NOT change**, nor `README.md`'s colour
+  table — those three say `` `command` `` meaning the element kind. Caught by reading each hit rather than
+  by counting them.
+- **The slice cell's `label=` renders the pattern on the canvas** (`add-entry&#10;command · in-design`), so
+  a migration that changed only the attribute would leave every band captioned with the old word. Matched
+  on the `&#10;` entity so it could not touch prose.
+
+**One stale claim found on the way and fixed:** `README.md` advertised
+`validate tools/fixtures/resolved.drawio  # 0 / 0 / 0`, and it has been 0 errors / **1 warning** / 0 notes
+since `slice-needs-gwt` started covering view slices (B-1). Confirmed pre-existing, not caused by the
+rename.
 
 **D3 — The max lengths were delegated, never confirmed.** `name` ≤ 200, `description` ≤ 1000,
 `ingredientName` ≤ 100, `unit` ≤ 20. All four are live GWTs and generated validators.
@@ -1249,3 +1570,576 @@ Recorded so the next run knows what it can rely on.
   two slices required no model change — which is the property that makes the gate worth having.
 - **Wolverine's runtime codegen works in the `mcr.microsoft.com/dotnet/aspnet:10.0` image**, so the demo
   needs no SDK at runtime and no precompiled types.
+
+---
+
+## W. Findings — the CPOC03 walkthrough run (2026-08-07)
+
+A **fourth run**, and a different shape from the first three: a live demo for a coworker, driven through
+all eleven `event-model` phases in one session against `CPOC03/inbox/01-shopping-cart.md`. The model is
+`CPOC03/diagrams/shopping-cart.drawio` — 7 slices, 19 elements, 3 swimlanes, 31 GWTs, **0 errors and
+0 warnings**.
+
+**These were fixed during the run, not after it** — the opposite of the CPOC01 policy, and deliberately
+so: W1 blocked phase 8 outright and W2 blocked phase 9, so there was no way to finish the walkthrough
+without them. Both fixes were verified against the kit's own regression suite before continuing.
+
+### W1 — `wireframe.mjs` has never run on any file in this kit · **BROKEN** · ***FIXED***
+
+`tools/wireframe.mjs` reports **`no screen cells — nothing to scaffold`** on every model in the kit,
+including the fixture that demonstrably has four:
+
+```
+$ node tools/wireframe.mjs scaffold tools/fixtures/cart/cart.drawio
+tools/fixtures/cart/cart.drawio: no screen cells — nothing to scaffold.
+  (fixture has 4 screen cells)
+```
+
+**Cause.** Its `BLOCK_RE` alternatives all end `</object>\n` / `</mxCell>\n`, and **every `.drawio` in
+this kit is CRLF** — the template, the fixtures, all four reference implementations, and therefore every
+model grown from one. `</object>\r\n` does not match `</object>\n`, so `matchAll` returns **zero** blocks.
+Unlike `slice.mjs` and `cart-replay.mjs`, which both normalise on read and restore on write,
+`wireframe.mjs` did neither.
+
+**Why it stayed hidden.** The failure mode is not a crash but a *plausible sentence*. "No screen cells"
+reads as a modelling mistake — as if the screens were not annotated yet — so the natural response is to
+go and check the model, which is fine, and then to draw the wireframe by hand. Which is exactly what
+CPOC01 did (see **A8**: *"worked around by hand"*). The workaround concealed the tool.
+
+**Fixed.** Normalise on read, restore the original line endings on write. Verified: the fixture now
+scaffolds 4 screens / 28 bound fields / 36 cells, stays CRLF, and still validates at 0 errors.
+
+**The lesson is bigger than the bug.** A tool that reports a *domain-shaped* reason for a *plumbing*
+failure will be believed. Any "nothing to do" exit path should be able to distinguish *I looked and
+found none* from *I could not read the file* — `blocks.length === 0` on a file that plainly contains
+`<object` is the second, and should say so.
+
+### W2 — A GWT step could not have both a parenthesised label and example data · **BROKEN** · ***FIXED***
+
+`CLAUDE.md` states the rule plainly: *"A label may legitimately contain parentheses — the book's own
+model writes `Inventory Changed (external)` — so parentheses alone do not make example data; an `=`
+inside them does."* Both halves worked; **the combination did not.**
+
+```
+given="Stock Level Changed (external)(productId=$Widget, quantityOnHand=5)"
+  -> ERROR [gwt/gwt-unknown-event] given="Stock Level Changed", which is not an Event in this model.
+```
+
+**Cause.** `parseSteps` anchored on the **first** parenthesis: `/^([^(]*?)\s*\((.*)\)\s*$/`. `[^(]*?`
+cannot contain a `(`, so the label stopped at `Stock Level Changed`, and `(.*)`
+greedily swallowed `external)(productId=$Widget, quantityOnHand=5` — which contains an `=`, so it was
+accepted as example data and the label lost its suffix.
+
+**Fixed.** Anchor on the **last** paren-free group instead: `/^(.*)\s*\(([^()]*)\)\s*$/`. All five cases
+now parse correctly — bare label, label + example, label with parentheses, label with parentheses **+**
+example, and a plain command with example. `cart-replay.mjs` still passes with a byte-identical fixture,
+and all four reference implementations still validate at 0 errors / 0 warnings.
+
+**Why it stayed hidden.** It needs a *foreign* event to appear in a GWT's `given=` **carrying example
+data**. The cart fixture writes `Inventory Changed (external)` in a `given=` but never with an example;
+`reference-implementations/translation/` has examples but no parenthesised label. This run was the first
+to do both — which is what a translation slice with worked examples looks like, and is now the normal
+case rather than an exotic one.
+
+### W3 — `slice.mjs`'s GWT layout constants are dead, and the documented height is too small · **WRONG**
+
+`tools/slice.mjs:39` declares `GWT_W = 300, GWT_H = 120, GWT_PITCH = 140, GWT_TOP = 30` and **uses none
+of them** — grep returns exactly one hit, the declaration. GWT placement is entirely the caller's
+(`cart-replay.mjs` hardcodes the same numbers), and `reflow` sizes the GWT lane from the cells it
+actually finds.
+
+That would be harmless, except the numbers are also in `CLAUDE.md`'s layout table as though they were
+enforced, **and 120px is too short for a GWT carrying worked example data.** A three-line rule plus a
+GIVEN/WHEN/THEN with examples runs to about ten lines at `fontSize=11`, which overflows the box —
+invisible in XML, obvious the moment you render. This run used **150 tall at a 170 pitch** and every one
+of 31 cells fits.
+
+Not fixed, because the right fix is a decision rather than an edit: either delete the dead constants and
+let `CLAUDE.md` say the height is the caller's, or make `slice.mjs` own GWT placement properly and raise
+the default. The second is better — `reflow` already adapts — but it moves every GWT in the fixture, so
+it needs the byte-identical assertion re-baselined deliberately.
+
+### W4 — `slice.mjs add` measures its append position from *any* cell, including scratch · **NOISE**
+
+Phases 1–2 of `event-model` are a brainstorm wall — loose stickies with no `em=`, which the checker
+correctly ignores. But `slice.mjs add` computed the first column's x from the rightmost cell **on the
+canvas**, so the first real slice landed at `x=1420` with a 1300px empty gutter and a page 1300px wider
+than it needed.
+
+Harmless and obvious once seen — the fix is to clear the wall before laying columns, which is what a
+real team does with sticky notes anyway. Worth writing down because the skill's phase order *produces*
+this situation: phases 1–2 draw cells that phases 4–6 replace, and nothing says so.
+
+### W5 — the UI routing strip overflows past 7 View→Screen feeds · **NOISE**
+
+Two of this model's eight `View → Screen` routes were allocated the **same** y:
+
+```
+Stock Levels  -> Cart Page: UI routing strip y=553
+Cart Contents -> Cart Page: UI routing strip y=553
+```
+
+The strip is documented as y=500 height 50, and allocation is `uiLane + 345 + 8n` — so n=0..5 fits
+(505..545) and n=6 onward is already outside it. Two views feeding four cells of one screen is eight
+routes, which is not exotic: it is what `joins=` exists to describe. The lines are 8px apart so nothing
+is *unreadable*, but two edges genuinely share a run, which is the exact defect the per-edge-y rule
+exists to prevent. Either widen the strip or fall back to a second corridor past n=5.
+
+### W6 — the generated project did not compile: an automation's label used as a C# class name · **BROKEN** · ***FIXED***
+
+`dotnet build` on a freshly generated CPOC03 failed with four syntax errors:
+
+```
+StockFeedTranslator.cs(32,27): error CS1514: { expected
+public static class Stock Feed Translator
+```
+
+**Cause, and it is the interesting part: this bug was already known, already fixed, and the fix was
+half-applied.** `tools/codegen.mjs` carries a comment saying exactly this —
+
+> *"pascal(a), NOT a. An automation's label is a DOMAIN label and may contain spaces… Used verbatim it
+> produced a file called `Inventory Processor.cs` containing `class Inventory Processor`… Latent until a
+> model used a label of more than one word; every earlier one happened to say `EmailProcessor`."*
+
+— and the file name and the `typeof()` in `Program.cs` were duly `pascal()`ed. **The class declaration
+eleven lines below was not.** It still read `public static class ${a}`.
+
+**Why it stayed hidden after being found.** Same reason as the first time, one layer down: the only
+automation labels in the kit are `Email Processor` in the automation reference implementation and
+`Inventory Translator` / `Price Translator` in the cart fixture — and the fixture is a `.drawio` that is
+never generated from. Nothing in the kit's own suite runs `codegen.mjs` and then `dotnet build`, so a
+generated project that does not compile is not something any check can currently notice.
+
+**Fixed**, and verified by regenerating and building: 0 errors, 0 warnings.
+
+**The lesson is about the comment, not the code.** A note saying a bug is fixed is not a test that it is,
+and this one actively cost time — reading it, the natural conclusion is *"this cannot be the problem, it
+is handled"*. Against **CLAUDE.md**'s standing claim that *"`dotnet build` succeeds with 0 warnings"*: that
+claim is measured on one model, and it is the kind of claim the docs-win rule exists to re-check.
+
+### W7 — race tests ignore `status=`, so unclaimed slices turn the suite red · **BROKEN** · ***FIXED***
+
+`node tools/architect.mjs tests` scaffolded 8 race tests (2 each for four contended slices), every one of
+them **live**, every one of them throwing `NotImplementedException: TODO(architect)`. All four slices are
+`in-design`. The suite went from
+
+```
+Failed: 0, Passed: 3, Skipped: 28, Total: 31       <- one slice finished, and you can SEE it
+```
+
+to
+
+```
+Failed: 8, Passed: 3, Skipped: 28, Total: 39       <- red, for four slices nobody has started
+```
+
+**This is the exact failure `status=` exists to prevent**, in CLAUDE.md's own words: *"without this, one
+finished slice is invisible — 55 failures look identical whether nothing is built or everything but one
+thing is."* `codegen.mjs` has enforced it since it was written, via `factAttr()`. `architect.mjs` never
+read `status=` at all — grep for it returns one hit, an unrelated `spawnSync` exit code.
+
+**Fixed** by giving the race payload the slice's `status` and reusing codegen's exact `CLAIMED` set and
+skip wording. Suite back to `Failed: 0, Passed: 3, Skipped: 36, Total: 39`.
+
+**Two things this inherits, both deliberate and both worth knowing:**
+
+- **The same trap as `TESTS STILL SKIPPED ON A CLAIMED SLICE`.** The Skip is baked in at scaffold time and
+  the file is `scaffold`, so promoting a slice later leaves its race tests skipped for ever. Worse than for
+  GWTs: **codegen's report only inspects GWT test files, so nothing looks in `Concurrency/` at all.** The
+  report should grow to cover them, or `architect.mjs check` should.
+- **Six questions, four files.** `OrderCart` and `RemoveProduct` each have two contended invariants, and the
+  file is named per *slice*, so the second question of each pair is reported `kept` and its rule never
+  appears in any header. Not wrong — one file per slice is the right shape — but the scaffold's
+  `THE CONTENDED INVARIANT:` line then documents only one of the two rules it is responsible for.
+
+### W8 — nothing in the kit's own suite ever builds generated code · **GAP**
+
+W6 is a generated project that did not compile, found by a human running `dotnet build`. Nothing would
+have caught it otherwise: `cart-replay.mjs` exercises `slice.mjs` and `model.mjs` and stops at the
+`.drawio`; the reference implementations are committed C# that is never re-generated as part of a check.
+
+So the kit has a regression suite for the *model* half and none for the *generator* half, and W6 is what
+that costs — a bug fixed once, half-reverted, and shipped for however long it has been since. The cheapest
+useful version is not a full harness: take one fixture model, run `codegen.mjs` into a temp folder, and
+assert `dotnet build` returns 0. That alone would have caught it.
+
+### W9 — codegen emits `fields=` types verbatim as C# types, and the kit's own fixture does not compile · **BROKEN** · ***FIXED***
+
+Found by doing W8's proposed check by hand on a **second** model. `cart.drawio` — the kit's own
+regression fixture, the model `cart-replay.mjs` builds and asserts byte-identical every run — generates
+a project with **68 compile errors**:
+
+```
+$ node tools/codegen.mjs --project <tmp>
+37 file(s) written, 0 kept
+$ dotnet build
+Contracts/Events.cs(11,34): error CS0246: The type or namespace name 'UUID' could not be found
+  ... 67 more, all the same cause
+```
+
+**Cause.** `codegen.mjs` passes the type half of `fields="name:Type"` straight through as a C# type
+name, with no validation anywhere in the pipeline. `model.mjs validate` does not check that a type is
+real either — it checks name-matching and, for `mapping-crosses-types`, that two declared types agree
+with each other. Nothing asks whether the type *exists*.
+
+The fixture writes `aggregateId:UUID` because that is the book's vocabulary, quoted deliberately. It
+survives every model-level check. `Double` in the same fixture is fine by accident — `System.Double` is
+a real C# type — which is exactly the kind of near-miss that makes the failure look arbitrary.
+
+**Why it stayed hidden: W8.** Nothing in the kit has ever built generated code, so "the fixture cannot
+be generated from" was not a fact anything could observe. `cart-replay.mjs` asserts the fixture's
+*model* is correct and stops there.
+
+**Fixed, and the human's framing is what made it the right fix rather than a patch.** Three answers were on
+the table and they are not equivalent:
+
+- **`model.mjs` rejects an unknown type.** Strongest, and consistent with the kit's house rule of erroring
+  by default — but it hard-codes a list of C# types into the model layer, which is meant to be
+  stack-agnostic. It would also fail the fixture, so the book's vocabulary would have to be abandoned or
+  the fixture re-baselined.
+- **`codegen.mjs` maps aliases** (`UUID`→`Guid`, `Boolean`→`bool`, …). Keeps the model stack-agnostic and
+  puts stack knowledge in the stack layer, where it belongs. Risk: a silent mapping is a silent
+  assumption, and a typo (`Guidd`) still reaches the compiler.
+- **`codegen.mjs` refuses and names the field.** Emits nothing and says
+  `UNKNOWN TYPE — Item Added.aggregateId:UUID is not a C# type`. Consistent with how the generator already
+  handles what it cannot decide, and the only option that cannot guess wrong.
+
+**All three were wrong, and the human named why: the model must stay stack- and implementation-agnostic.**
+`UUID` is not a mistake in the model — it is the *domain's* word for a universally unique id, and the model
+is not entitled to know what a C# is. Rejecting it in `model.mjs` would put the stack inside the artifact
+whose whole value is outliving the stack. Mapping it silently in `codegen.mjs` would make a decision nobody
+reviewed. And the fixture is not wrong either, so re-baselining it would have destroyed evidence.
+
+**The missing thing was a LAYER, and the kit already has one for exactly this: `architect`.** A domain type
+becoming a C# type is a decision with a cost — `Double` or `decimal` for money is a rounding question
+somebody has to own — and decisions with costs live in `ARCHITECTURE.md`. So:
+
+- `tools/type-bindings.mjs` — the shared format, so architect and codegen cannot drift. It also holds the
+  proposal table, which is stack knowledge and therefore correctly **not** in `model.mjs`.
+- `architect.mjs` grows a seventh question family, `type-binding/<ctx>`, deriving every distinct scalar
+  type (child group names excluded — codegen emits those records itself). `record` writes a fenced
+  ```type-bindings``` block pre-filled for the unambiguous ones; anything with a real trade-off arrives as
+  `TODO(architect)`.
+- `codegen.mjs` reads the block instead of guessing, and reports **`UNBOUND TYPE`** by name before the
+  build rather than letting it surface as CS0246.
+
+Measured: the cart fixture went from **68 compile errors to 0 errors, 0 warnings**. With no
+`ARCHITECTURE.md` at all it now prints `UNBOUND TYPE — 2` naming `UUID` and `Double` and where each is
+first used, instead of failing mutely at the compiler.
+
+**And the fix drew blood on the way in, which is worth recording.** The old `CS` table's entries were all
+identities (`Guid -> Guid`), so two call sites read `CS[t]` *bare* and happened to work. With bindings
+coming from a record that may legitimately be empty, a bare lookup returns `undefined` — which flipped
+`allGuid` to false and silently re-keyed every stream from `Guid` to `string`: **0 warnings, 3 errors, and
+nothing pointing at the cause.** Every lookup now goes through one `cs()` helper. A lookup table of
+identities is indistinguishable from no lookup table at all until the day it stops being one.
+
+### W10 — `reflow` grows the GWT lane straight past a journey bar and strands it among the rules · **BROKEN** · ***FIXED***
+
+Found by rendering the demo-cut model and looking at it. The journey bar sat **on top of** a GWT cell,
+on a model validating at 0 errors and 0 warnings.
+
+**Cause, and it is a plain ordering bug.** `slice.mjs journey` places the bar at the GWT lane's bottom
+`+ 40`, which is correct at the instant it runs. But the lane is *sized from its lowest GWT cell*, and
+GWTs keep arriving — the template lane is 440px tall while six rules at the documented 140 pitch reach
+850. So `reflow` grew the lane from 440 to 1050 and **left the bar where it was**, now 570px inside the
+rules. Measured: lane bottom 2290, lowest GWT 2270, journey bar at 1720.
+
+It needs only a journey plus more than about three rules per slice, which is not an unusual model —
+the kit's guidance is *"ten or more per slice is normal"*.
+
+**Fixed** in `cmdReflow`: it now computes the lane's *new* bottom and re-seats every `em="journey"` bar
+below it, preserving order and 20px stacking, and grows the page to cover them. Verified: bar moved
+1720 → 2330, below both the lane bottom and the lowest rule; model still 0/0; `cart-replay` still
+byte-identical (that fixture has no journey, so the path is inert there — which is also why nothing
+caught this).
+
+**Two things worth keeping from how it was found.** It is invisible in XML and obvious in the PNG,
+which is the standing "always render and look" rule earning its keep again. And while patching it I
+briefly shipped the *report* without the *move* — reflow printed `1 journey bar(s) re-seated` while the
+bar had not moved. A plan line that is written before the edit it describes is a lie waiting to happen;
+both now come from the same `moveJourney` map.
+
+### W11 — every contact sheet `design.mjs` has ever produced was a grid of broken image icons · **BROKEN** · ***FIXED***
+
+The artifact CLAUDE.md calls *"the one for **looking**"* — *"every screen at 1:1 in one image"* — contained no
+screens. It rendered the caption, the border and a broken-image glyph, deterministically, in every run since
+the tool was written.
+
+**Cause.** `design.mjs` writes the sheet markup to `_shots/_sheet-<w>.html`, right beside the PNGs, and then
+**throws that file away and shoots a copy of its text**: `captureHtml()` writes the markup into `tmpdir()`
+and screenshots from there. The sheet's entire content is `<img src="recipes-desktop.png">` — relative — so
+every image resolved against `%TEMP%`, where the shots are not.
+
+`review.mjs` builds the same kind of sheet through the same helper and is **fine**, which is what made this
+confusing: it happens to emit `fileUrl(c.path)` absolute srcs. One of the two siblings dodged the trap
+without either of them naming it.
+
+**Why nothing caught it.** Chrome renders the broken glyph and **exits 0**. The PNG is produced, it is a
+plausible size, `existsSync(out)` is true, the tool reports success and prints `look at this: …`. Every
+automated signal is green; the only detector is a human opening the image. It also survived because the two
+things that would have exposed it are the same thing — the individual shots are correct, so anyone spot-
+checking a screen sees a correct picture and never opens the sheet.
+
+**Fixed** by shooting the file it already wrote: `capture({ url: sp, … })`. No absolute machine paths get
+baked into a portable artifact, and it has a second benefit — `_sheet-<w>.html` stops being a write-only
+file nobody validates and becomes the thing actually rendered, so if it is ever wrong the sheet is visibly
+wrong too. Verified: desktop sheet 14,145 → 32,689 bytes, and the screen is in it.
+
+**The class, guarded rather than just the instance.** `captureHtml` now documents that relative
+subresources silently fail there, and points at the two correct answers (absolute `fileUrl`, or write the
+file beside its assets and use `capture`). It is a genuinely hazardous helper: any future caller with an
+`<img>`, `<link>` or `<script>` in its markup gets a green run and a wrong picture.
+
+---
+
+## X. Determinism across independent runs, and across model tiers (CPOC03 / CPOC04 / CPOC05, 2026-08-07)
+
+**The question.** The emit/scaffold split rests on a claim: *"anything mechanically determined is
+overwritten"* — i.e. the generator's output for a fixed model is reproducible, and only the hand-filled
+half varies. That claim had never been tested against a second, independent run. A second question rode
+along with it, because the walkthrough above was entirely Claude Opus 5, orchestrator and both subagents:
+**does the model tier change any of this?**
+
+**The design.** One brief (`demo/00-recipe-list.md`, the trivial one-screen recipe box: one state-view
+slice, one state-change slice, one journey), run through the full chain **three times**, into three
+sibling projects living beside each other exactly as `CPOC03`/`04` do:
+
+| Run | Project | Orchestrator | Backend + frontend agents | What was reused from the previous run |
+| --- | --- | --- | --- | --- |
+| 1 | CPOC03 | Opus 5 | Opus 5 | — (first run) |
+| 2 | CPOC04 | Opus 5 | Opus 5 | model, `ARCHITECTURE.md`, `designs/recipes.html` — copied verbatim |
+| 3 | CPOC05 | Sonnet 5 | Sonnet 5 (forced via the `Agent` tool's `model` param) | **nothing** — model, architecture answers, design and journey all re-derived from the brief, independently |
+
+Run 3 is the load-bearing one methodologically: reusing run 1's artifacts would measure Opus and label it
+Sonnet. Run 2 exists to separate "ran twice" noise from "ran on a different tier" before drawing any
+tier conclusion from run 3.
+
+### X1 — the generator is unconditionally deterministic, independent of model tier · **MEASURED, HELD**
+
+Every file `codegen.mjs` marks `<auto-generated>` (never overwritten by an agent) was **byte-identical**
+across all three runs: `RecipeBox.slnx`, `Contracts/Events.cs`, `Program.cs`, both `.csproj`, the command
+record, `AppFixture.cs`, `IntegrationContext.cs` — 8/8 diffed clean between run 1 (Opus) and run 3 (Sonnet),
+which never shared a single upstream artifact. This is the strongest form of the emit/scaffold claim: not
+"the generator is idempotent on re-run" (already proven by `cart-replay.mjs`) but **"the generator is
+deterministic across independent invocations on independent machines' worth of LLM output feeding it."**
+The generator reads the compiled IR and nothing else; two structurally-identical IRs produce byte-identical
+emit output, full stop.
+
+### X2 — the MODEL itself converges on every domain fact, independent of who draws it or which tier drew it · **MEASURED, HELD**
+
+Run 3's `.drawio` was not copied from run 1 — it was re-derived from the brief by an independent reading,
+written in fresh prose (different labels, different GWT wording, different notes). Despite that, every
+domain-fact attribute hashed identical across the two files: `fields=`, `identity=`, `aggregate=`,
+`enforce=`, `terminal=`, `displays=`, `inputs=`. Only prose (`label=`, GWT rule text, `note=`) differed —
+which is exactly the boundary the kit draws between a domain fact (never invented, always derivable from
+the brief) and layout/wording (free to vary). A brief with a genuinely fixed answer to every field question
+produces a genuinely fixed model, regardless of who — or what tier — reads it.
+
+### X3 — the architecture decisions converged three times, independently, with no coordination · **MEASURED, HELD**
+
+All three runs — two Opus, one Sonnet, none seeing another's answer — landed on the identical technical
+shape for both slices:
+
+| | run 1 (Opus) | run 2 (Opus) | run 3 (Sonnet) |
+| --- | --- | --- | --- |
+| view recipe | `SingleStreamProjection<Recipes,Guid>` | same | same |
+| lifecycle | `Inline` | same | same |
+| decider | `MartenOps.StartStream`, not `[Aggregate]`/`FetchForWriting` | same | same |
+| contended invariants found | 0 (correctly — one event per stream, for ever) | same | same |
+| GWT test scenario names | 6 | same 6 | same 6 (one reworded by the human facilitator, not the agent) |
+
+This is not the generator being deterministic — it is three independent instances of judgement (backend
+agent, twice on Opus and once on Sonnet) converging on the same answer because the brief and
+`ARCHITECTURE.md` leave only one defensible answer once you take `[Aggregate]`'s composite-key limitation
+and Marten's own single-stream-vs-multi-stream guidance seriously. The architecture-decisions-first
+ordering (`scaffold → architect → codegen`) is what makes this possible: the decision that would otherwise
+vary per slice was made once, in writing, and read rather than re-derived three times.
+
+### X4 — where the runs DID diverge, and why none of the divergences is a defect · **NOISE, worth naming so nobody mistakes it for one**
+
+**Response shape, and it is a visible progression rather than noise-plus-noise:**
+
+| | shape chosen |
+| --- | --- |
+| run 1 | bespoke `record AddRecipeResponse(Guid RecipeId)` — no Wolverine convention used |
+| run 2 | `record AddRecipeResponse(Guid RecipeId) : CreationResponse(Route)` — subclasses Wolverine's base |
+| run 3 | `CreationResponse<Guid>` directly — no bespoke type, the most idiomatic form available |
+
+Each is a legitimate reading of "return the minted id, get a 201 and a Location header." Run 2 and run 3
+each read the mirror and moved closer to what `Wolverine.Http` actually offers; the improvement is not
+tier-correlated (run 2 improving on run 1 was still Opus).
+
+**Verbosity: Sonnet wrote consistently fewer lines for the same coverage.**
+
+| file | run 1 (Opus) | run 2 (Opus) | run 3 (Sonnet) |
+| --- | --- | --- | --- |
+| `AddRecipeTests.cs` | 191 | 188 | 160 |
+| `RecipeListTests.cs` | 134 | 115 | 118 |
+| `Recipes.cs` (view fold) | 78 | 77 | 56 |
+| `GenesisData.cs` | 74 | 61 | 49 |
+
+All three pass the identical 10-test suite (9 GWTs/GTs + 1 journey). The gap is doc-comment density, not
+missing assertions — confirmed by reading, not just counting lines.
+
+**Iteration count: the one place tier showed up as cost, and it is small.** Both Opus backend runs went
+green on the first `dotnet build`. Sonnet's backend needed one fix cycle — a missing `using` directive,
+caught by its own build step before reporting done, not by the orchestrator. One data point; not enough to
+generalise from, recorded because it is the only place in this experiment where the tiers actually differed
+in outcome rather than in wording.
+
+### X5 — wall clock: no tier effect at this size · **MEASURED**
+
+| step | run 1 (Opus, cold) | run 2 (Opus, warm) | run 3 (Sonnet, cold) |
+| --- | --- | --- | --- |
+| event-model | 0m 52s | 0m 41s | 1m 33s |
+| scaffold | 0m 17s | 0m 23s | 0m 33s |
+| architect | 1m 35s | 1m 11s | 1m 19s |
+| styling | 3m 38s | (reused) | 0m 47s |
+| codegen — backend agent | 14m 50s | 13m 27s | 12m 22s |
+| codegen — frontend agent | 11m 10s | 8m 21s | 9m 54s |
+| journey | 1m 54s | 4m 20s | 1m 31s |
+| **total** | **34m 16s** | **28m 23s** | **27m 59s** |
+
+Run 2 and run 3 land within 24 seconds of each other, both faster than run 1 — and run 2 is Opus. Comparing
+only the two genuinely cold runs (1 and 3, since run 2 reused artifacts run 3 could not), Opus's two agents
+took 26m 00s combined against Sonnet's 22m 16s. At this brief's size that gap is well inside the variance
+already visible between run 1 and run 2 on the *same* tier, so it should not be read as "Sonnet is faster" —
+only as "Sonnet was not slower here," which was the open question worth closing.
+
+### What this licenses saying, and what it does not
+
+**Licensed:** the generator's determinism claim in CLAUDE.md ("the generator's diff is how a model change
+gets reviewed") is not aspirational — it held across two independent LLM-driven runs on two model tiers with
+zero shared state. The architecture-decisions-first ordering does what it is designed to do: it turns a
+per-slice judgement call into a system-wide fact that gets read identically rather than re-litigated.
+
+**Not licensed:** a general claim that "Sonnet is as good as Opus for this kit." Three runs of one
+demo-sized, two-slice, zero-ambiguity brief is a smoke test, not a benchmark — every rejection in this
+model is a periphery rule and there is exactly one contended-invariant question in the whole system
+(answered "there are none"). A model with real cross-stream rules, several race conditions, and six-recipe
+read-side choices with a wrong answer available has not been run on both tiers. If that comparison is
+wanted, it needs a brief sized like `reference-implementations/state-view/campaigns/` or the real
+co-working desk-booking brief, not this one.
+
+---
+
+## Y. What the books permit ON the model, and the one gap that exposed (2026-08-07)
+
+**The question, from the human:** do either of the books allow annotations the kit currently forbids —
+RBAC, HTTP endpoints, and similar metadata? Asked because run 3 (section X) showed the HTTP response
+shape varying across runs, and *"add a notation for it"* is the obvious-looking fix.
+
+**Method.** Both books are on disk and extracted to greppable text under `reference/` (gitignored —
+they are purchased): `eventmodeling-and-eventsourcing.txt` (Dilger, ~547 kB) and
+`the-little-eventmodeling-book.txt` (~36 kB). Searched both for the security, transport and
+metadata vocabulary, then read every hit in context rather than counting.
+
+### Y1 — RBAC, HTTP endpoints and NFRs are explicitly NOT model content · **CONFIRMED, kit already aligned**
+
+Dilger devotes **chapter 40, *Handling Security*,** to precisely this question and answers it outright:
+
+> *"how do we specify that the technical role 'admin' is necessary to block a customer? **Short answer:
+> Typically I don't. That's an implementation detail.** The required role can change without affecting
+> the overall flow."*
+
+and gives the reason, which is this kit's standing rule in the author's own words:
+
+> *"Adding 'implementation hints' to the model may seem useful during development, but **the more
+> implementation details you include, the harder it becomes to focus on the essential information.**"*
+
+He splits the concept rather than banning it: **business roles are modelled** (via actor lanes, Y2),
+**technical roles are not** — *"I typically don't include technical roles in the Event Model at all — a
+decision that initially surprises many developers."*
+
+Transport is not model content either. Measured across the whole book: `endpoint` **4 hits, every one in
+Part III** (implementation — API wrapper functions, SSE, polling), `route` **0**, `URL` **1**. The
+modelling half never mentions them.
+
+Neither book has non-functional requirements: case-sensitively, `NFR` **0** and `Non-Functional` **0** in
+both. (A case-insensitive search appears to find them — it is matching i**nfr**astructure. Recorded
+because it will mislead the next person who greps.)
+
+The little book says **nothing whatsoever** about security or roles; its only `permission` hits are the
+copyright page.
+
+**Consequence for the kit: the run-3 response-shape variance cannot be fixed with notation, and should
+not be.** It stays an `ARCHITECTURE.md` question — which is exactly where X4 left it. This finding is
+worth recording precisely because it is a *negative* result that will otherwise be re-researched.
+
+### Y2 — actor lanes are book-sanctioned and the kit has none · **GAP**
+
+Prompted by the human recalling that the shopping-cart walkthrough *"failed to draw the upper aka actor
+swimlanes"*, and that the run called that step the Conway phase.
+
+**The recollection is correct, and nothing malfunctioned — there is no such notation to draw.** Verified:
+`em="actor"` does not exist anywhere in `tools/`. The kit has exactly four lanes, all fixed and all about
+*layer* (`lane-ui`, `lane-cmd`, `lane-evt`, `lane-gwt`), plus swimlanes inside the event lane for stream
+boundaries.
+
+**The confusion is worth naming, because the phase name invites it.** There are two different "who"
+questions and the kit answers only one:
+
+| | the question | book | kit |
+| --- | --- | --- | --- |
+| Conway / `owner=` | who **builds** this slice | ch. 43 | ✅ — and repurposed: CLAUDE.md says *"`owner` is the **agent** that generates the slice, not a human team"* |
+| **actor lane** | who **uses** this screen | ch. 40 | ❌ absent |
+
+Dilger: *"Using actor lanes, we clearly show which actor is responsible for a specific screen or action
+in the system."* He also keeps `swimlane` strictly for streams — *"Swimlanes define stream boundaries"* —
+so actor lanes are a **third** lane concept, not a renaming of either thing the kit has.
+
+**Cost so far: none, and that is not luck.** Every model built to date — the cart, the recipe box — has
+exactly **one** actor. The book reaches for actor lanes only to *separate* flows (*"Whenever possible, I
+model flows from the perspective of a single actor"*), and with one actor there is nothing to separate.
+It becomes live at two, which is the next brief: `demo/03-coworking-desk-booking.md` has a **member** and
+an **office manager**, and parks *"should the office manager be able to book on a member's behalf?"* as an
+open question — Dilger's clerk-vs-admin case almost exactly.
+
+### Y3 — the unconnected "Logged-In User" read model, which is the other half of the same gap · **GAP**
+
+The kit can already say a value arrives from the authenticated principal — `terminal="closedBy:actor"`,
+one of four terminal kinds. But it is reported at **`severity: "info"`** and nothing can check it;
+CLAUDE.md concedes as much: *"'the handler supplies this' is a claim worth a reader disagreeing with."*
+
+The book's answer is a specific device, and it is the one read model that is deliberately sourceless:
+
+> *"This read model differs from others in that it isn't connected to any events or event streams. Its
+> primary purpose is simply to signal that the logged-in user is available from this point onward."*
+
+paired with worked example data — *"the username from the Login is used as the clerkId in the command"* —
+which is the same "example on the GWT pins what the notation cannot say" move the kit already makes for
+`derived=`.
+
+**So Y2 and Y3 are one gap, not two: the kit can say a value comes from the actor, but cannot say who the
+actor is, or where they came from.** Note the completeness check would currently flag such a read model as
+unsourced, so adopting this needs a rule change and not just a cell — do not treat it as free.
+
+Dilger also keeps the login flow itself **out** of the system's model: *"Since this is purely a technical
+flow meant for discussion, and not part of the system's Event Model, I typically keep it in a separate
+model."* That is compatible with the kit's one-context-per-file rule as it stands.
+
+### Y4 — three further devices the books use, for the record
+
+- **Dotted backlinks.** *"If only the data is affected and not the flow itself, I prefer... a dotted arrow
+  from the event pointing back to the affected Read Model... The dotted line indicates that this
+  connection does not impact the modeled flow itself but only affects the data in the Read Model."* The
+  kit has the `Event → View` backward exception but draws it identically to a forward feed, so it loses
+  the distinction the dotted line carries.
+- **Chapters / sub-chapters** (blue arrows, two layers, above the model). CLAUDE.md already records these
+  as deliberately not built in favour of splitting — that remains defensible and is now cited.
+- **Alternative-flow markers** — a sticky below a slice linking to a separate model on the board. The kit
+  achieves the same end with `<model>.<flow>.drawio` and the context map.
+
+### The standing caveat on all of Y2–Y4
+
+Dilger closes chapter 18 by disclaiming authority for exactly these devices:
+
+> *"The tools discussed in this chapter are **not part of the original Event Modeling definition**.
+> Instead, they can be seen as practical 'extensions' to an Event Model... I didn't create these
+> notations but rather selected what worked best for me."*
+
+So chapters, model-context stickies, alternative-flow markers and backlinks are **his** additions. That is
+precedent for the kit adding its own — it is **not** authority requiring the kit to adopt his. Y1 is
+different in kind and should be treated as binding: it is a direct statement about what does not belong on
+a model, not a proposed extension.

@@ -23,13 +23,13 @@ mistake.
 
 | # | Ch. | Slice | `pattern` | Cols | The model after it |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 12 | `add-item` | `command` | 1 | Cart screen → `AddItem` → `ItemAdded` |
-| 2 | 12 | `cart-items` | `view` | 1 | `ItemAdded` → `CartItems` |
-| 3 | 12 | `remove-item` | `command` | 1 | Cart screen (displays `itemId`) → `RemoveItem` → `ItemRemoved` |
-| 4 | 14 | `clear-cart` | `command` | 1 | → `CartCleared` |
-| 5 | 15 | `submit-cart` | `command` | 1 | → `CartSubmitted`, `public="true"` |
+| 1 | 12 | `add-item` | `state-change` | 1 | Cart screen → `AddItem` → `ItemAdded` |
+| 2 | 12 | `cart-items` | `state-view` | 1 | `ItemAdded` → `CartItems` |
+| 3 | 12 | `remove-item` | `state-change` | 1 | Cart screen (displays `itemId`) → `RemoveItem` → `ItemRemoved` |
+| 4 | 14 | `clear-cart` | `state-change` | 1 | → `CartCleared` |
+| 5 | 15 | `submit-cart` | `state-change` | 1 | → `CartSubmitted`, `public="true"` |
 | 6 | 16 | `change-inventory` | `translation` | 2 | external `InventoryChanged` → processor → `ChangeInventory` → internal event, **in a new swimlane** |
-| 7 | 16 | `inventories` | `view` | 1 | `Inventories` read model → the Cart screen's stock indicator |
+| 7 | 16 | `inventories` | `state-view` | 1 | `Inventories` read model → the Cart screen's stock indicator |
 | 8 | 17 | `change-price` | `translation` | 2 | external `PriceChanged` → processor → `ChangePrice` → internal event |
 | 9 | 17 | `archive-item` | `automation` | 2 | `CartsWithProducts` todo list → processor → `ArchiveItem` → `ItemArchived` |
 
@@ -125,8 +125,8 @@ the shape.
 | `before:<slice>` | insert immediately left of that slice's first column |
 | `after:<slice>` | insert immediately right of that slice's last column |
 
-`--columns` defaults from `--pattern`: `command` 1, `view` 1, `upstream` 1, `automation` 2,
-`translation` 2. An explicit value wins — a command slice emitting into two bands still needs one
+`--columns` defaults from `--pattern`: `state-change` 1, `state-view` 1, `upstream` 1, `automation` 2,
+`translation` 2. An explicit value wins — a state-change slice emitting into two bands still needs one
 column, but a translation with a materialised todo list may want three.
 
 Refuses, with a message and exit 1:

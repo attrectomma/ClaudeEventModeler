@@ -179,7 +179,14 @@ const splitTopLevel = (spec) => {
 };
 
 const parseSteps = (spec) => splitTopLevel(spec).map((raw) => {
-  const m = /^([^(]*?)\s*\((.*)\)\s*$/.exec(raw);
+  // ANCHOR ON THE LAST PARENTHESISED GROUP, NOT THE FIRST. `[^(]*?` cannot contain a "(", so on
+  //     "Stock Level Changed (external)(productId=$Widget, quantityOnHand=5)"
+  // the label stopped at "Stock Level Changed", the example parse swallowed "external)(productId=…",
+  // and the step was reported as gwt-unknown-event against an event that is plainly in the model. That
+  // is the two rules below colliding: a label may contain parentheses AND may carry example data, and
+  // until now it could not do both. A greedy label with a paren-free group at the end handles each
+  // case on its own and the combination too.
+  const m = /^(.*)\s*\(([^()]*)\)\s*$/.exec(raw);
   // A LABEL MAY LEGITIMATELY CONTAIN PARENTHESES, and the book's own model does: ch.16 draws the imported
   // event as "Inventory Changed (external)". So parentheses alone do not make example data — an "=" inside
   // them does. Without this the fixture reproducing the book failed with two gwt-example-malformed errors,
@@ -867,7 +874,7 @@ function gwtRules(ir) {
         push("warn", "slice-needs-gwt",
           `slice "${s.name}" has no GWT. Business rules are invisible without one, and the book is explicit: "Don't save on GWTs."`,
           s.commands[0]);
-      } else if (s.pattern === "view") {
+      } else if (s.pattern === "state-view") {
         push("warn", "slice-needs-gwt",
           `slice "${s.name}" has no GIVEN/THEN. A View is specified as "GIVEN a set of events, THEN the read model shows this" — a gwt cell with given= and then= and NO when=, because a read model has no command to be the WHEN. Without one, nothing states what this view is for and nothing is generated to check it.`,
           s.readModels[0]);
@@ -932,7 +939,7 @@ function gwtRules(ir) {
       // automation, translation or view slice could name a command that does not exist — or misspell one —
       // and hear nothing. Being unchecked is not the same as being optional: the WHEN may be OMITTED on
       // those patterns, and that is the GT shape; a WHEN that is present is a claim like any other.
-      if (whenLabel && s.pattern !== "command") {
+      if (whenLabel && s.pattern !== "state-change") {
         if (!cmd || cmd.kind !== "command") {
           push("error", "gwt-unknown-command",
             `GWT "${g.rule || g.id}" names when="${whenLabel}", which is not a Command in this model.`, g.id);
@@ -960,7 +967,7 @@ function gwtRules(ir) {
       //
       // So the kit documented a shape it then rejected, which is worse than not documenting it. Caught by
       // modelling ch.16 of the book, where the translation's infrastructure half is exactly this.
-      if (s.pattern === "command") {
+      if (s.pattern === "state-change") {
         if (!g.when) {
           push("error", "gwt-needs-when", `GWT "${g.rule || g.label || g.id}" has no when=, so it names no Command. A State Change slice's scenarios are always GIVEN/WHEN/THEN; only a View, Automation or Translation may omit the WHEN.`, g.id);
         } else if (!cmd || cmd.kind !== "command") {
@@ -1156,14 +1163,23 @@ function journeyRules(ir) {
 //
 // A slice cell — em="group", slice=, pattern=, status= — is that identity.
 
+// THE VOCABULARY IS THE BOOKS', NOT OURS. `state-change` and `state-view` are what both books call these
+// two patterns and what everybody says out loud; this table used to call them `command` and `view`, which
+// collided head-on with the ELEMENT KINDS of the same names — a blue Command cell is kind="command", and a
+// slice whose pattern was also "command" made every read of the code ask which one was meant.
+//
+// It also now agrees with `slices[].kind`, which has always been derived as "state-change"/"state-view".
+// That agreement is the point rather than a coincidence: `pattern=` is DECLARED and `kind` is DERIVED, and
+// slice-pattern-mismatch exists precisely to catch them disagreeing. Two names for one concept made that
+// comparison need a translation table in the reader's head.
 const PATTERNS = {
   // the four from the Event Modeling cheat sheet, plus the one shape that is none of them
-  command:     { commands: 1, views: false, automations: false, events: true },
-  view:        { commands: 0, views: true,  automations: false, events: false },
-  automation:  { commands: 1, views: true,  automations: true,  events: true },
-  translation: { commands: 1, views: true,  automations: true,  events: true },
+  "state-change": { commands: 1, views: false, automations: false, events: true },
+  "state-view":   { commands: 0, views: true,  automations: false, events: false },
+  automation:     { commands: 1, views: true,  automations: true,  events: true },
+  translation:    { commands: 1, views: true,  automations: true,  events: true },
   // external events landing in our stream, authored elsewhere. Not a pattern; still a column.
-  upstream:    { commands: 0, views: false, automations: false, events: true },
+  upstream:       { commands: 0, views: false, automations: false, events: true },
 };
 const STATUSES = ["in-design", "ready", "in-progress", "in-review", "closed"];
 

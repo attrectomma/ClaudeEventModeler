@@ -60,7 +60,7 @@ trigger, a command — it is `automation` or `translation`, and `slice-pattern-m
 because those require a command and a view.
 
 **Not a substitute for a view slice.** Arriving events generate event records and nothing else. Reading
-them is a separate `view` slice, and that is usually the next thing the user wants. Say so, and offer
+them is a separate `state-view` slice, and that is usually the next thing the user wants. Say so, and offer
 it — but as a second invocation. One slice at a time.
 
 ## Layout

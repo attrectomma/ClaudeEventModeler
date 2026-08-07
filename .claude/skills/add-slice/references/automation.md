@@ -87,7 +87,7 @@ Four mechanisms, all built and measured in `reference-implementations/automation
 | ours, and **losing one is unacceptable** | Marten `ISubscription` — durable checkpoint |
 | the trigger event is **foreign** — we never append it | sweep a todo View on a clock |
 | there is **no event at all** — the trigger is *time* | sweep |
-| "is there work?" genuinely means "did this row change" | projection `RaiseSideEffects` — forces the view `Async` |
+| "is there work?" genuinely means "did this row change" | projection `RaiseSideEffects` — async-only by default, but `EnableSideEffectsOnInlineProjections` allows Inline |
 
 This is `codegen`'s decision, not the model's. But it is worth **capturing the user's answer if they
 volunteer one**, in `OPEN-QUESTIONS.md` or the slice cell's `note=` — because nothing catches a wrong

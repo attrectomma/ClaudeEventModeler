@@ -133,15 +133,17 @@ fill.
 
 | `pattern=` | Reference |
 | --- | --- |
-| `command` | `references/command.md` |
-| `view` | `references/view.md` |
+| `state-change` | `references/state-change.md` |
+| `state-view` | `references/state-view.md` |
 | `automation` | `references/automation.md` |
 | `translation` | `references/translation.md` |
 | `upstream` | `references/upstream.md` |
 
-If the user's phrasing does not settle *which* pattern it is, that is the first gap. "State change" is
-`command`; "state view" is `view`. An `automation` needs a View **and** conditional logic — without
-both it is a command emitting several events, not an automation.
+If the user's phrasing does not settle *which* pattern it is, that is the first gap. **The vocabulary is
+now the one the user speaks** — "state change" *is* `state-change`, "state view" *is* `state-view`, so
+there is nothing to translate. This line used to read *"'State change' is `command`; 'state view' is
+`view`"*, and that translation was the whole argument for renaming them. An `automation` needs a View
+**and** conditional logic — without both it is a command emitting several events, not an automation.
 
 ## 3 — ask the gaps
 
@@ -165,14 +167,14 @@ Which gives:
 
 | The new slice | Goes |
 | --- | --- |
-| `command`, whose screen reads only existing Views | at the right end |
-| `command`, chronologically before an existing slice | **inserted** — everything right of it shifts |
-| `view`, read by a screen that already exists | **inserted left of that screen's column** — otherwise the View → Screen feed points left, and that is not the exception |
-| `view`, read by nothing yet | at the right end |
+| `state-change`, whose screen reads only existing Views | at the right end |
+| `state-change`, chronologically before an existing slice | **inserted** — everything right of it shifts |
+| `state-view`, read by a screen that already exists | **inserted left of that screen's column** — otherwise the View → Screen feed points left, and that is not the exception |
+| `state-view`, read by nothing yet | at the right end |
 | `automation` / `translation` | two columns, after the events they watch |
 | `upstream` | wherever the foreign events land in the story |
 
-Inserting is the common case for a `view`, and it is the expensive one: every column to the right
+Inserting is the common case for a `state-view`, and it is the expensive one: every column to the right
 moves by 320 per inserted column, and so does every routing point.
 
 ### The geometry — `tools/slice.mjs` owns all of it

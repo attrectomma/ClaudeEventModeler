@@ -21,11 +21,12 @@
 // Testcontainers is NOT in the mirror (zero mentions across 392 pages), so its usage is the one
 // part of this file written from unverifiable knowledge. Flagged in the output.
 
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectRoot } from "./project.mjs";
+import { parseBindings, distinctTypes } from "./type-bindings.mjs";
 
 const argvAll = process.argv.slice(2);
 const explicit = argvAll[0] && !argvAll[0].startsWith("--") ? argvAll[0] : null;
@@ -61,10 +62,29 @@ const OUT = resolve(PROJECT, flag("out", join("generated", NS)));
 const APP = join(OUT, "src", NS);
 const TESTS = join(OUT, "tests", `${NS}.IntegrationTests`);
 
-const CS = {                       // model type -> C# type. Anything unknown stays verbatim.
-  Guid: "Guid", string: "string", decimal: "decimal", int: "int", long: "long", bool: "bool",
-  DateOnly: "DateOnly", DateTimeOffset: "DateTimeOffset", DateTime: "DateTime",
-};
+// THE MODEL IS STACK-AGNOSTIC, SO THE TRANSLATION IS NOT ITS JOB — AND IT IS NOT THIS FILE'S EITHER.
+//
+// This used to be a hard-coded table whose every entry mapped a name to itself, with the comment
+// "Anything unknown stays verbatim." That is not a translation layer, it is a silent pass-through: a model
+// saying `aggregateId:UUID` — the book's own word, and what the kit's regression fixture says — emitted
+// `UUID` as a C# type name and produced 68 compile errors with nothing anywhere naming the cause.
+//
+// A domain type is not a C# type, and deciding which C# type it becomes is a DECISION WITH A COST
+// (`Double` or `decimal` for money is a rounding question, not a typo). Decisions with costs belong to the
+// `architect` step and live in ARCHITECTURE.md. So the bindings are READ from there.
+//
+// The fallback is deliberately the identity, NOT an error: a project whose model already speaks C# needs no
+// record at all, which is what keeps all four reference implementations working unchanged. What changed is
+// that an unbound type is now REPORTED by name, before the build, instead of surfacing as CS0246 later.
+const BINDINGS = parseBindings(
+  existsSync(join(PROJECT, "ARCHITECTURE.md")) ? readFileSync(join(PROJECT, "ARCHITECTURE.md"), "utf8") : "");
+// No alias table of its own. Falling back to one here would put the guessing back, one layer down.
+const CS = BINDINGS;
+// ALWAYS RESOLVE THROUGH THIS, never `CS[t]` bare. The old table's entries were identities (Guid -> Guid),
+// so two call sites could read `CS[t]` directly and happen to work; with bindings coming from a record that
+// may legitimately be empty, a bare lookup silently returns undefined. That turned `allGuid` false and
+// re-keyed every stream from Guid to string — 0 warnings, 3 errors, and nothing pointing at the cause.
+const cs = (t) => CS[t] ?? t;
 // A `Type[]` field is an ARRAY, whether its members are primitives or a declared group:
 //
 //   recipients:string[]            -> string[]
@@ -86,7 +106,7 @@ const CS = {                       // model type -> C# type. Anything unknown st
 //   * one documented query pattern is array-ONLY: for `Any(x => constants.Contains(x))`, Marten
 //     requires BOTH the property and the compared values to be arrays.
 const type = (f) => {
-  const t = CS[f.type] ?? f.type;
+  const t = cs(f.type);
   return f.collection ? `${t}[]` : `${t}${f.nullable ? "?" : ""}`;
 };
 const params = (fields) => fields.map((f) => `${type(f)} ${pascal(f.name)}`).join(", ");
@@ -130,24 +150,52 @@ const testName = (g, i) => {
 //
 // Every name in a swimlane's identity= is a stream key, so it is exactly what a test must be able to
 // refer to. Types come from the events that carry the field.
-// Inline by default: a read model updated in the same transaction as the append means a GWT's THEN is
-// assertable the moment the request returns. But a view that is an automation's TODO LIST may have to be
-// Async — projection side effects, one of the ways to wake a trigger, are documented as built for
-// asynchronous processing. So the owning automation is asked, and only it can override.
+// WHETHER ONE ROW IS ONE STREAM. Factored out because the lifecycle below and the projection base class
+// further down must agree: a view registered Async while declared SingleStreamProjection is a different
+// bug from the two disagreeing, and one copy of this rule is the only way to be sure they cannot.
+const isMultiStream = (v) => {
+  const streams = [...new Set(v.from.map((l) => ir.shared.events.find((e) => e.label === l)?.aggregate).filter(Boolean))];
+  const streamKey = streams.length === 1
+    ? (ir.shared.aggregates.find((a) => a.name === streams[0])?.identity ?? [])
+    : [];
+  const declared = v.identity?.length ? v.identity : null;
+  const rowIsStream = streams.length === 1 && (
+    declared === null ||
+    (streamKey.length === declared.length && streamKey.every((k) => declared.includes(k))));
+  return !rowIsStream;
+};
+
+// LIFECYCLE: SINGLE-STREAM INLINE, MULTI-STREAM ASYNC — and that is the library's recommendation rather
+// than ours. Marten's multi-stream page states the shape outright: "Register the lookup projection inline
+// and the multi-stream projection async." Verified in the mirror, where all 22 Projections.Add call sites
+// pass a lifecycle EXPLICITLY.
+//
+// THIS FILE USED TO REGISTER EVERYTHING INLINE, and CLAUDE.md justified it with two claims that the mirror
+// does not support: that Marten "registers multi-stream projections Async by default" — it has no default,
+// the argument is required — and that Inline "invites apparent event skipping", which is an async-daemon
+// high-water-mark phenomenon and so was attributed backwards. Standing rule from the human: where the kit
+// and the critter-stack docs disagree, the docs win.
+//
+// The cost is real and is not hidden: an Async view is NOT assertable the moment the request returns, so a
+// test must wait rather than assert. That is why the GT hints below branch on this, and why ConfigureStore
+// starts the daemon when anything is Async.
 const ownerOf = (v) => automations.find((s) => (s.views ?? []).includes(v.label));
 const lifecycleFor = (v) => {
   const owner = ownerOf(v);
-  return owner
-    ? `${pascal(owner.name)}Wakeup.LifecycleOf(ProjectionLifecycle.Inline)`
-    : "ProjectionLifecycle.Inline";
+  // An automation's todo View may have to be Async whatever its shape — projection side effects, one way to
+  // wake a trigger, are documented as built for asynchronous processing. Only the owning automation can
+  // override, so it is still asked.
+  if (owner) return `${pascal(owner.name)}Wakeup.LifecycleOf(ProjectionLifecycle.${isMultiStream(v) ? "Async" : "Inline"})`;
+  return `ProjectionLifecycle.${isMultiStream(v) ? "Async" : "Inline"}`;
 };
+const anyAsync = () => ir.shared.views.some((v) => isMultiStream(v));
 
 const seedConstants = () => {
   const keys = [...new Set(ir.shared.aggregates.flatMap((a) => a.identity ?? []))];
   const typeOf = (name) => {
     for (const e of ir.shared.events) {
       const f = (e.fields ?? []).find((x) => x.name === name);
-      if (f) return CS[f.type] ?? f.type;
+      if (f) return cs(f.type);
     }
     return "string";
   };
@@ -197,7 +245,7 @@ const identityFieldOf = (a) => {
   return null;
 };
 const singleKeyed = keyedAggs.length > 0 && keyedAggs.every((a) => a.identity.length === 1);
-const allGuid = singleKeyed && keyedAggs.every((a) => (CS[identityFieldOf(a)?.type] ?? "") === "Guid");
+const allGuid = singleKeyed && keyedAggs.every((a) => cs(identityFieldOf(a)?.type) === "Guid");
 const STREAM_ID = allGuid ? "Guid" : "string";
 const STREAM_IDENTITY = allGuid ? "AsGuid" : "AsString";
 
@@ -277,11 +325,28 @@ const scaffold = (p, body) => {
 // document that may deliberately not exist: the todo View is often the durable inbox rather than a
 // projection, and on a translation it CANNOT be a projection, because the foreign event is never in our
 // store to fold.
-const gtHint = (s) => s.commands.length
-  ? "\n    //   (no WHEN: this is a GIVEN/THEN — the infrastructure half. Nobody issues the command: append the"
-    + "\n    //    GIVEN, let the trigger run, and assert the EVENT it produced. That the trigger selects its own"
-    + "\n    //    work is the claim; that anything WAKES it is not, and no generated test can make it.)"
-  : "\n    //   (no WHEN: this is a GIVEN/THEN. Append the GIVEN, then assert the read model — through its read endpoint if the slice has one, else Store.QuerySession().)";
+// AND IT ALSO HAS TO SAY WHETHER THE VIEW IS ASSERTABLE YET. A multi-stream view is registered Async, per
+// Marten's own guidance, so it is NOT current the moment the append returns — a test that asserts straight
+// away fails intermittently and reads as a projection bug. Naming the wait here is the difference between a
+// hint that helps and one that misleads, which this hint has already been twice.
+const asyncViews = () => ir.shared.views.filter((v) => isMultiStream(v)).map((v) => v.label);
+const gtHint = (s) => {
+  if (s.commands.length) {
+    return "\n    //   (no WHEN: this is a GIVEN/THEN — the infrastructure half. Nobody issues the command: append the"
+      + "\n    //    GIVEN, let the trigger run, and assert the EVENT it produced. That the trigger selects its own"
+      + "\n    //    work is the claim; that anything WAKES it is not, and no generated test can make it.)";
+  }
+  const mine = (s.views ?? []).filter((l) => asyncViews().includes(l));
+  return "\n    //   (no WHEN: this is a GIVEN/THEN. Append the GIVEN, then assert the read model — through its read"
+    + "\n    //    endpoint if the slice has one, else Store.QuerySession().)"
+    + (mine.length
+      ? `\n    //   ${mine.join(", ")} ${mine.length === 1 ? "is" : "are"} multi-stream and therefore registered ASYNC, so`
+        + "\n    //    it is NOT current when the append returns. Wait first:"
+        + "\n    //      await Store.WaitForNonStaleProjectionDataAsync(5.Seconds());"
+        + "\n    //    (Marten.Events.TestingExtensions — no doc page states that namespace.) Asserting without the"
+        + "\n    //    wait fails intermittently and looks exactly like a broken projection."
+      : "");
+};
 
 const untested = [];
 const checkGwtCoverage = (p, gwts) => {
@@ -501,14 +566,10 @@ for (const v of ir.shared.views) {
   //
   // So the multi-stream base class is used when there is real evidence of it: several feeding
   // streams, or a declared grain that the single feeding stream's key does not match.
-  const streamKey = streams.length === 1
-    ? (ir.shared.aggregates.find((a) => a.name === streams[0])?.identity ?? [])
-    : [];
   const declared = v.identity?.length ? v.identity : null;
-  const rowIsStream = streams.length === 1 && (
-    declared === null ||
-    (streamKey.length === declared.length && streamKey.every((k) => declared.includes(k))));
-  const multi = !rowIsStream;
+  // One copy of this rule, shared with lifecycleFor() above — see the comment there. Two copies could
+  // disagree, and a view registered Async while declared SingleStreamProjection would be the result.
+  const multi = isMultiStream(v);
   const ownKey = declared ?? SYS_KEY;
   // A row of THIS view, not of the system. Declared on the read model where the grain is known;
   // where it is not, fall back to the system key and say so, because guessing a view's grain
@@ -554,7 +615,7 @@ ${v.fields.map((f) => {
         f.collection ? `A repeated group: many ${pascal(f.type)}, not one. An ARRAY so it cannot be mutated in place — see the Apply below.`
         : d ? `Computed from ${d.join(" + ")} — not carried by any event.` : "Carried by an upstream event."}</summary>
     public ${type(f)} ${pascal(f.name)} { get; init; }${
-        f.collection ? " = [];" : f.nullable || CS[f.type] === "string" ? " = default!;" : ""}`;
+        f.collection ? " = [];" : f.nullable || cs(f.type) === "string" ? " = default!;" : ""}`;
     }).join("\n\n")}
 }
 
@@ -1032,6 +1093,12 @@ public sealed record ${sweepMessage(s)};`).join("\n\n")}
     // "Inventory Processor". Used verbatim it produced a file called "Inventory Processor.cs" containing
     // `class Inventory Processor`, and a matching typeof() in Program.cs: eleven compiler errors. Latent
     // until a model used a label of more than one word; every earlier one happened to say "EmailProcessor".
+    //
+    // AND THE FIX WAS HALF-APPLIED. The file name and the typeof() got pascal(); the class DECLARATION
+    // below kept `${a}` and went on emitting `public static class Stock Feed Translator` — four syntax
+    // errors, and a generated project that does not build, against CLAUDE.md's standing claim that it
+    // does. Found on CPOC03, the first model since to name an automation in more than one word.
+    // The lesson is the comment's, not the code's: a note saying a bug is fixed is not a test that it is.
     for (const a of s.automations ?? []) {
       scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(a)}.cs`),
         `${banner(`${a} — the automated trigger for slice "${s.name}"`)}
@@ -1059,7 +1126,7 @@ namespace ${NS}.Slices.${pascal(s.context)};
 ///
 /// What wakes this is NOT here: see ${pascal(s.name)}Wakeup.
 /// </summary>
-public static class ${a}
+public static class ${pascal(a)}
 {
     public static async Task Handle(
         ${sweepMessage(s)} message,
@@ -1223,6 +1290,7 @@ if (ir.shared.views.length) {
   checkViewsRegistered(join(APP, "Views", "ViewRegistrations.cs"), ir.shared.views);
   scaffold(join(APP, "Views", "ViewRegistrations.cs"),
     `${banner("read-model registration — WHICH Marten recipe each view is")}
+using JasperFx.Events.Daemon;        // DaemonMode — no doc page states this namespace; verified by compiling
 using JasperFx.Events.Projections;
 using Marten;
 using ${NS}.Views;
@@ -1253,20 +1321,34 @@ ${ir.shared.views.map((v) => registerable.includes(v.label)
       : `        // TODO(codegen): ${pascal(v.label)}Projection groups events that do not carry
         // ${SYS_KEY.join(" + ")}, so it has no slicing rule yet. Marten rejects a multi-stream
         // projection with no rules AT STARTUP, so registering it now would take the host down.
-        // opts.Projections.Add<${pascal(v.label)}Projection>(ProjectionLifecycle.Inline);`
+        // opts.Projections.Add<${pascal(v.label)}Projection>(${lifecycleFor(v)});`
     ).join("\n")}
     }
 
     /// <summary>
-    /// The read side sometimes needs the STORE and not just its options. Any projection registered
-    /// Async — which is Marten's own default for multi-stream — runs in the async daemon, and without
-    /// the daemon nothing processes it and Marten only logs a warning at startup. Empty by default,
-    /// because every registration above is Inline.
+    /// The read side sometimes needs the STORE and not just its options. Any projection registered Async
+    /// runs in the async daemon, and WITHOUT THE DAEMON NOTHING PROCESSES IT — Marten only logs a warning
+    /// at startup, so the symptom is a view that stays empty for ever with a clean build and a clean boot.
     ///
     /// Solo rather than HotCold: one node, no leader election, much faster startup.
     /// </summary>
     public static void ConfigureStore(MartenServiceCollectionExtensions.MartenConfigurationExpression marten)
     {
+${(() => {
+  // Only the views ACTUALLY REGISTERED Async need the daemon. A multi-stream view whose registration is
+  // commented out because it has no slicing rule is not running at all, and naming it here would send a
+  // reader looking for a projection that Register() never adds — the first version of this did exactly that.
+  const live = ir.shared.views.filter((v) => isMultiStream(v) && registerable.includes(v.label))
+    .map((v) => pascal(v.label));
+  return live.length
+    ? `        // ${live.join(", ")} ${live.length === 1 ? "is" : "are"} multi-stream, so registered Async above —
+        // per Marten's own guidance: "Register the lookup projection inline and the multi-stream projection
+        // async." WITHOUT THIS LINE those views never update, and Marten only logs a warning.
+        marten.AddAsyncDaemon(DaemonMode.Solo);`
+    : `        // Nothing above is registered Async, so no daemon is needed yet. Add
+        // marten.AddAsyncDaemon(DaemonMode.Solo) the moment you register one — Async with no daemon is a
+        // view that stays empty for ever, with a clean build and a clean boot.`;
+})()}
     }
 }
 `);
@@ -1578,12 +1660,79 @@ derivable one:
   node tools/slice.mjs journey <model> --journey <slug> --slices <a,b,c> --then "<View(field=value)>"
 Best once two of them are in-review: earlier and it fails on slices nobody has built yet.`);
 }
+
+// ARCHITECTURE DECISIONS: the choices the model deliberately leaves open, and which get made by ACCIDENT
+// if nobody makes them on purpose. Reported here rather than enforced, in this file's house style — but
+// reported loudly, because the default this generator picks (Inline on every read model) is one of the
+// three options the books offer and Marten's own default for a multi-stream projection is a different one.
+// A generated slice built on an unmade decision compiles, passes and can still be wrong.
+if (claimed.length) {
+  const rec = join(PROJECT, "ARCHITECTURE.md");
+  // Shell out rather than duplicate the derivation: architect.mjs owns those six question families, and a
+  // second copy here would drift the first time one of them changed. Failure is non-fatal — a missing
+  // report must never break a generation run.
+  let r = null;
+  try {
+    r = execFileSync(process.execPath,
+      [fileURLToPath(new URL("architect.mjs", import.meta.url)), "check", ...pass],
+      { encoding: "utf8", maxBuffer: 1 << 24 });
+  } catch { /* no project, no models, or no record — the branches below cover it */ }
+  if (!existsSync(rec)) {
+    console.log(`
+NO ARCHITECTURE RECORD, and ${claimed.length} slice(s) are claimed. The model leaves the concurrency and
+consistency choices open on purpose — they are technical, so they are not on a cell — but "open" becomes
+"whatever the generator picked" the moment a slice is built:
+  node tools/architect.mjs questions`);
+  } else if (r && /DECISION STILL TODO|QUESTION WITH NO SECTION/.test(r)) {
+    console.log(`
+ARCHITECTURE DECISIONS MISSING. ARCHITECTURE.md exists but does not answer everything the model asks:
+${r.split("\n").filter((l) => /^\s{2}\S/.test(l) && l.includes("/")).slice(0, 6).map((l) => "  " + l.trim()).join("\n")}
+  node tools/architect.mjs check`);
+  }
+}
+
+// THE SAME PROMPT IN FRONT OF THE API, and gated on SCREENS rather than on slices — a UI journey over
+// slices with no screen is not unwritten, it is impossible, which is the same reasoning that keeps the
+// report above quiet below two claimed slices. It is a prompt and not a queue: `ui-journey` starts
+// containers and drives a browser, so it runs only when a human asks for it.
+const claimedWithScreens = claimed.filter((s) => s.screen);
+if (claimedWithScreens.length >= 2) {
+  const specs = join(OUT, "web", "journeys");
+  const written = existsSync(specs) &&
+    readdirSync(specs).some((f) => f.endsWith(".journey.spec.ts"));
+  if (!written) {
+    console.log(`
+NO UI JOURNEY, and ${claimedWithScreens.length} claimed slices have screens (${claimedWithScreens.map((s) => s.screen).join(", ")}).
+Every check on those screens looks at ONE SCREEN AT REST — the field check, design check and review sheet
+all do — so nothing proves you can get from the list to the modal to the created thing. The pager bug (/ and
+/?page=2 rendering identically, past 32 green tests) is what that hole looks like:
+  node tools/uijourney.mjs plan
+Ask the human first — a browser walk starts containers and costs minutes, and nothing gates on one.`);
+  }
+}
 if (cheatingJourneys.length) {
   console.log(`\nJOURNEY APPENDS ITS OWN HISTORY — ${cheatingJourneys.length}. A journey that calls Given(),
 appends events or starts a stream has stopped being a journey: it is a slice test with more steps, and it
 no longer tells you whether step two can live on what step one left behind. Drive every step through the
 API instead.`);
   for (const c of cheatingJourneys) console.log(`  ${c.name}: ${c.p.replace(OUT + "\\", "").replace(OUT + "/", "")}`);
+}
+
+// UNBOUND TYPE. The model is stack-agnostic on purpose, so a domain type is not a C# type until the
+// architect step says what it is. Anything with no binding is emitted verbatim and will reach the compiler
+// as CS0246 with nothing naming the cause — which is exactly how the kit's own fixture came to generate 68
+// errors. Name it here, before the build.
+const unboundTypes = distinctTypes([
+  ...(ir.shared?.events ?? []), ...(ir.shared?.views ?? []), ...(ir.shared?.aggregates ?? []),
+  ...(ir.slices ?? []).flatMap((s) => s.elements ?? []),
+]).filter((r) => !CS[r.type] && !/^(string|int|long|bool|decimal|double|float|Guid|DateOnly|DateTime|DateTimeOffset|object|byte|short|char|TimeSpan|TimeOnly)$/.test(r.type));
+
+if (unboundTypes.length) {
+  console.log(`\nUNBOUND TYPE — ${unboundTypes.length}. The model is stack-agnostic, so a domain type is not a C# type`);
+  console.log(`until ARCHITECTURE.md says which one it is. These have no binding and are being emitted VERBATIM,`);
+  console.log(`so the compiler will reject them with no explanation of where they came from:`);
+  for (const u of unboundTypes) console.log(`  ${u.type}   first used by ${u.usedAt}`);
+  console.log(`  fix: node tools/architect.mjs record   (it proposes a binding for each and records the cost)`);
 }
 
 if (unregisteredViews.length) {

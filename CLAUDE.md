@@ -94,6 +94,11 @@ harness, and one test per GWT. It is total and idempotent, and its diff is how a
 reviewed. It emits **no business logic**, marking every hole `TODO(codegen)` for the `codegen` skill,
 which reads `reference/llms/` and fills them.
 
+**This is not aspirational — it was tested against a second, fully independent run.** Two Opus runs and
+one cold Sonnet run of the same brief, sharing no artifacts, produced **byte-identical `emit` output**
+every time, and the three independently-authored backends converged on the same view recipe, the same
+lifecycle and the same decider with no coordination between them. KIT-FINDINGS **X**.
+
 Verified rather than assumed: `dotnet build` succeeds with 0 warnings, and `dotnet test` discovers
 and runs **55 tests, 55 failing** — one per GWT, against a real Testcontainers Postgres.
 
@@ -171,10 +176,12 @@ same shape whether the rule was caught at the periphery or in the decider.
 | | Registered? | Why |
 | --- | --- | --- |
 | **write** — the state a slice folds to decide | **nothing** | live aggregation: `FetchForWriting` folds on demand |
-| **read** — every read model | **`ProjectionLifecycle.Inline`** | updated in the same transaction as the append, so a GWT's THEN can be asserted the moment the request returns |
+| **read**, one row = one stream | **`ProjectionLifecycle.Inline`** | updated in the append's own transaction, so a GWT's THEN can be asserted the moment the request returns |
+| **read**, one row spans streams | **`ProjectionLifecycle.Async`** + the daemon | Marten's own guidance: *"register the lookup projection inline and the multi-stream projection async"*. Not assertable immediately — a test must **wait** |
 
-The read row is the **default**, not the only option — Marten offers six read-model recipes and several
-of them cannot be `Inline`. See *…and what one row is decides WHICH projection* below.
+Those two rows are the **starting point**, not the only option — Marten offers six read-model recipes and
+several of them cannot be `Inline`. See *…and what one row is decides WHICH projection* below, and note
+that `ProjectionLifecycle` is a **required argument**: Marten has no default to fall back on.
 
 **There is no "the" aggregate.** Every state-change slice folds the stream into whatever shape *its*
 decision needs, so aggregates are **per slice**, not per stream — which also takes them out of the
@@ -290,10 +297,26 @@ month. `IEvent.Timestamp` is stamped when the event is written and ignores the p
 *"appended in month M"* while every reader assumes *"happened in month M"*. Use the payload's own timestamp
 unless the question really is about the write. ANTI-PATTERNS.md #15.
 
-So **`Inline` on the read side is a default, not a law.** Marten registers multi-stream projections
-`Async` by default and warns that `Inline` invites concurrent writes stomping each other into apparent
-event skipping; `RaiseSideEffects` forces `Async` outright. Every step away from `Inline` costs the same
-two things: the async daemon, and tests that must **wait** where they used to assert.
+So **the lifecycle is per view, and the generator now follows Marten rather than its own habit:
+single-stream `Inline`, multi-stream `Async`.** `RaiseSideEffects` no longer forces `Async` outright — side effects are processed only during async processing **by default**, and running them on an `Inline` projection needs `opts.Events.EnableSideEffectsOnInlineProjections = true`. Every step
+away from `Inline` costs the same two things: the async daemon, and tests that must **wait** where they
+used to assert — which is why `codegen` puts the `WaitForNonStaleProjectionDataAsync` line in an Async
+view's test hint and starts the daemon in `ConfigureStore`.
+
+**This paragraph used to say something else, and it was wrong three ways** — worth recording, because it
+is the standing rule earning its keep. It claimed Marten *"registers multi-stream projections `Async` by
+default"* and that `Inline` *"invites apparent event skipping"*. Checked against the mirror:
+
+| The old claim | What the docs say |
+| --- | --- |
+| Marten defaults multi-stream to `Async` | **there is no default** — `ProjectionLifecycle` is a required argument, and all 22 `Projections.Add` call sites in the mirror pass it explicitly |
+| `Inline` causes apparent event skipping | *"event skipping"* is an **async-daemon high-water-mark** phenomenon, so it was attributed backwards |
+| `Inline` everywhere is a reasonable default | *"Register the lookup projection inline and the multi-stream projection **async**"* — the multi-stream page states the shape outright |
+
+**The standing rule: where this kit and the critter-stack docs disagree, the docs win, and the kit is
+changed to match.** Not documented as a difference — *changed*. These libraries move faster than model
+knowledge, which is the whole reason the mirror exists; a kit that keeps its own opinion beside theirs is
+just a second source of truth that nobody reconciles.
 
 All six are built and measured against one model in `reference-implementations/state-view/`.
 
@@ -330,12 +353,79 @@ Two things measured while writing the first one, both worth knowing before the s
 
 Worked example: `campaign-lifecycle` in `reference-implementations/state-view/`.
 
-**STILL MISSING: UI journeys.** A browser walking a workflow across screens — everything *between* the
-screens. The three-way field check proves a page shows the right fields; nothing proves you can get from the
-list to the modal to the created thing, and the pager-not-in-the-URL bug was found by screenshotting rather
-than by a test. Deliberately not built: the UI already has two nets (the field check reads the React port, and
-`review.mjs` puts the built screens beside the design), while backend composition had none. So green now means
-**every slice works, and the named journeys compose** — anything between screens is still a human clicking.
+### And the same layer in front of the API — UI journeys
+
+**A journey walks slices through HTTP, so it cannot see anything between the screens.** Whether you can get
+from the list to the modal to the created thing is a different question, and the three nets under the UI all
+check **one screen at rest**: `model.mjs` holds `displays=` to the wireframe, `design.mjs check` holds both to
+the React port, `review.mjs` puts the built screen beside the design. The bug that proves the hole was found by
+*screenshotting*, past 32 passing tests — `/` and `/?page=2` rendered **identically**, because the pager was
+component state that never reached the URL, so a page could not be linked, bookmarked or refreshed.
+
+**`ui-journey` closes it, in a browser, and it is the same cell.** No new notation: an `em="journey"` cell
+names one story, and `journey` walks it through HTTP while `ui-journey` walks it through the browser. A journey
+whose slices have no screens is a backend journey and only that — which is an answer, not a gap.
+
+```
+node tools/uijourney.mjs plan       # what the model says a UI journey would walk, and what it cannot say
+node tools/uijourney.mjs scaffold   # the playwright config, the shot helper, one spec per journey
+node tools/uijourney.mjs check      # a spec that fakes its backend, skips its navigation, or invents a selector
+```
+
+**The one rule has two halves here, because a browser has two ways to cheat.** *No step may fake the backend* —
+no `page.route`, no `fulfill`, no `localStorage` seeding, and **no `/harness/`**, which exists to make a hard
+state *lookable* and fakes transport to do it. And *no step may skip the navigation it is testing* — reaching
+step three by typing its URL is exactly a backend journey appending its own GIVEN. A deep link is legal **after**
+a click has proved the app produces it, which is not a loophole: it is the pager test.
+
+**Selectors come from the model, and that is why this needs no test ids.** `data-em` / `data-em-input` /
+`data-em-action` are already in the shipped React, already derived from `displays=`/`inputs=`/the command edge,
+and already held to the model in both directions by `design.mjs check`. `check` reports a spec naming a field
+its screens do not declare — the same error class, at the same strictness.
+
+**Playwright, deliberately, and the "no Playwright" rule above is unchanged** — that rule is about `design.mjs`,
+where shooting a URL needs nothing. A journey **clicks**, and nothing else on this machine does. Two things come
+with it that are not conveniences: a real 390px layout viewport from device metrics, so the sub-500px lie
+`shoot.mjs` needs an iframe to dodge does not arise and a desktop-only run has no excuse; and retrying
+assertions, which are the only way to say *eventually consistent* rather than confuse it with broken. **If an
+assertion only passed on retry, that is a finding** — the screen needs a refetch or optimistic UI in production.
+
+**It also buys back a capability the kit had written off.** `frontend-agent` correctly says headless Chrome
+shoots a URL and does not click, so a modal over a list, page 2, a rejected form and an in-flight button were
+states nobody could look at. A journey that clicks shoots them into `<project>/review/_shots/` under the name
+`review.mjs` already parses, so they appear **beside the agreed design** with no extra step.
+
+**A shot is the proof of an assertion, and the folder is a snapshot of the last run.** Assert, then shoot —
+one shot per *state*, not per assertion, because a URL that changed, a console that stayed quiet and a button
+that is genuinely `disabled` have no picture. `check` reports both directions, `SHOT WITH NOTHING ASSERTED
+ABOVE IT` and `STATES ASSERTED BUT NOT SHOT`. The name is
+`<screen>__<journey>-<state>-<viewport>.png` — no timestamp, no counter, so a re-run overwrites and nothing
+accumulates; the journey sits in the *state* segment because `review.mjs` pairs by **screen slug**.
+**Overwriting alone is not enough**: a run where step 5 fails would leave step 6's picture from the *previous*
+run looking current, which is worse than accumulation because it is plausible. So the scaffold clears this
+journey's own shots for this viewport in a `beforeAll` — a missing shot must read as missing. And this is
+**not** `toHaveScreenshot()`: a pixel baseline fails on a diff, which puts aesthetic judgement in the suite
+instead of with a human, and is flaky over real data besides.
+
+**Typecheck the specs, because Playwright does not.** It transpiles TypeScript and never checks it, so an
+error in step 4 surfaces only when step 4 runs — and step 4 is what does not run when step 2 fails.
+`journeys/tsconfig.json` extends the app's and adds Node types; `npx tsc -p journeys --noEmit` is the gate.
+The app's own `typecheck` is deliberately left alone: it sets `types: ["vite/client"]` and excludes
+`journeys/`, both correct for a browser build.
+
+**Manually invoked, and nothing gates on one existing.** It starts containers and drives a browser. `codegen`
+prints a one-line prompt once two slices with screens are claimed; that is all the scheduling there is.
+
+**The run that counts is against compose, not Vite.** Vite proxies `/api` itself, so it cannot see a wrong
+nginx `proxy_pass` prefix, a missing `ASPNETCORE_ENVIRONMENT` that leaves the seed unapplied, or a runtime that
+cannot do Wolverine's codegen. All three have happened, and each renders as **an empty screen with no error** —
+which is why the check is `watchForSilentFailure` plus *assert real data*, not *assert no error*.
+
+**One thing is still not in the model and is not derivable: how a user reaches a screen.** There is no notation
+for *"the modal opens from the list"*, and `ui-journey` invents none — `plan` flags every screen no data path
+reaches and asks. The answer lives in the spec's own doc comment, which is then the only place in the system it
+is written down. So green now means **every slice works, the named journeys compose behind the API, and the
+named journeys are walkable in front of it.**
 
 ### `status=` decides which tests run
 
@@ -371,6 +461,26 @@ accumulated state). **This is declared, not derived.** The obvious heuristic —
 request alone settles it" — fails on a real model: almost every GWT carries a *context* `given=` like
 *"the period is still open"*, so on the worked model it found zero periphery rules out of four. The default is
 the safe one, because a state rule placed in a validator cannot enforce itself.
+
+### When the kit and the critter-stack docs disagree, the docs win
+
+**Standing rule, and it means the kit gets CHANGED — not documented as a difference.** If `reference/llms/`
+says Marten or Wolverine does X and this kit does Y, adopt X. These libraries move faster than model
+knowledge, which is the entire reason the mirror exists; a kit that keeps its own opinion alongside theirs
+is a second source of truth that nobody reconciles, and the difference silently becomes a bug in generated
+code that compiles and passes.
+
+It has already paid for itself once. `Inline` on every read model was justified in this file by two claims
+the mirror does not support — that Marten *"registers multi-stream projections `Async` by default"* (it has
+**no** default; the argument is required, and 22/22 call sites in the mirror pass it) and that `Inline`
+*"invites apparent event skipping"* (that is an async-daemon high-water-mark phenomenon, attributed
+backwards). The docs say plainly: *"Register the lookup projection inline and the multi-stream projection
+async."* `codegen` now does exactly that.
+
+**Auditing for this is a real task, not a reflex.** The claims worth re-checking are the ones about
+**defaults and behaviour**, not API names — a wrong method name fails to compile, while a wrong default
+ships. When one is found, fix the generator, fix this file, and record it in KIT-FINDINGS: a corrected
+claim that leaves the old sentence standing somewhere else is how the kit ends up disagreeing with itself.
 
 ### The mirror is not infallible either
 
@@ -650,7 +760,7 @@ node tools/slice.mjs route    <file> --from <id> --to <id>    # allocates a rout
 node tools/slice.mjs identity <file> --band <id>              # propagate the stream key onto its events
 node tools/slice.mjs demote   <file> --from-diff              # impacted slices back to in-design
 node tools/slice.mjs reflow   <file>                          # re-derive lane/page geometry
-node tools/fixtures/cart-replay.mjs          # the book's cart model in nine appends — the regression suite
+node tools/fixtures/cart-replay.mjs          # the book's cart model in nine appends — the MODEL half of the suite
 
 node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound wireframe cells
 node tools/design.mjs shot  <file.html>      # render one design page to PNG, per viewport
@@ -661,10 +771,19 @@ node tools/review.mjs shot <url> --screen <slug> [--state <n>]   # shoot the RUN
 node tools/review.mjs sheet                  # design beside implementation, per screen, per viewport
 node tools/review.mjs clear                  # throw the shots away and start again
 
+node tools/uijourney.mjs plan     [--journey <slug>]   # what a UI journey would walk, and what the model cannot say
+node tools/uijourney.mjs scaffold [--journey <slug>]   # playwright config, shot helper, one spec per journey
+node tools/uijourney.mjs check               # a spec that fakes its backend, skips its navigation, invents a selector
+
 node tools/project.mjs init --project <path>   # scaffold a project; point this kit copy at it
 node tools/project.mjs where           # which project this copy writes to
 node tools/project.mjs inbox           # what is in the baseline, and what cannot be read
 node tools/project.mjs palette         # do the three draw.io settings copies still agree?
+
+node tools/architect.mjs questions      # the concurrency/consistency choices the model leaves open
+node tools/architect.mjs record         # a section per question in <project>/ARCHITECTURE.md
+node tools/architect.mjs tests          # a RACE test per contended invariant — no GWT can express one
+node tools/architect.mjs check          # unanswered, still TODO, or answered but now orphaned
 
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate          # every model in the project, plus the cross-model rules
@@ -673,6 +792,30 @@ node tools/model.mjs compile           # the system IR a generator reads -> <pro
 node tools/docs.mjs sync               # mirror Marten/Wolverine/Alba docs into reference/llms/
 node tools/codegen.mjs                 # the deterministic code -> <project>/generated/<System>/
 ```
+
+### Testing the kit itself — the `kit-test` agent
+
+**`cart-replay.mjs` is the regression suite for the MODEL half and stops at the `.drawio`.** Nothing
+in the kit has ever run `codegen.mjs` and then `dotnet build`, which is how a generated project that
+does not compile shipped twice — once from an automation label of more than one word, once from a
+`fields=` type that is not a C# type. Both are in KIT-FINDINGS as **W6** and **W9**; the missing check
+is **W8**.
+
+`kit-test` is that check, as a **manually invoked agent** rather than a script, because most of what
+it hunts needs judgement: *is this tool silently doing nothing, or is there genuinely nothing to do?*
+
+```
+"run kit-test"        # there is no CLI entry point — it is .claude/agents/kit-test.md
+```
+
+Five tiers, cheapest first: the existing sweep; **tools that succeed while doing nothing** (the
+highest-value tier — `wireframe.mjs` reported "no screen cells" on a fixture with four, and had never
+once worked); CRLF round-tripping, since every `.drawio` here is CRLF; generate-and-build, per fixture;
+and the awkward-input classes that only bite on multi-word labels or a promoted `status=`.
+
+**It reports and never fixes** — no `Write`, no `Edit`, deliberately. A test that repairs itself has a
+stake in the run being clean, and its own repair is the one change nothing has tested. Same reasoning
+that keeps `completeness-checker` outside the model it audits.
 
 **Validate the folder, not the file.** A single file cannot see whether an imported event is
 actually published anywhere; only the whole-project run can. `compile`, `mark` and `clear` still
@@ -914,7 +1057,7 @@ or with what numbers.** Filling them in means inventing domain facts, which is t
 everywhere else. So the warning is correct, and promotion waits for someone with the book — not for a change
 to the rule.
 
-**And a `when=` is now checked on every pattern.** It used to be validated only on `command` slices, so an
+**And a `when=` is now checked on every pattern.** It used to be validated only on `state-change` slices, so an
 automation, translation or view could name a command that does not exist and hear nothing. Unchecked is not
 the same as optional: the WHEN may be *omitted* on those patterns — that is the GT shape — but a WHEN that
 is present is a claim like any other.
@@ -933,8 +1076,8 @@ to record a fact about the slice itself.
 A **slice cell** is that identity: one `em="group"` rectangle drawn around the slice's columns.
 
 ```xml
-<object id="slice-add-entry" label="add-entry&#10;command · in-design"
-        em="group" slice="add-entry" pattern="command" status="in-design">
+<object id="slice-add-entry" label="add-entry&#10;state-change · in-design"
+        em="group" slice="add-entry" pattern="state-change" status="in-design">
   <mxCell style="fillColor=none;strokeColor=#b85450;dashed=1;..." vertex="1" parent="1">
     <mxGeometry x="1260" y="0" width="220" height="645" as="geometry" />
   </mxCell>
@@ -945,10 +1088,19 @@ Use a **plain rectangle, never a draw.io container.** A container reparents its 
 their `mxGeometry` relative to the parent, which breaks every absolute-x reader — `geometryOf`,
 marker placement, `tools/crop.mjs`.
 
-`pattern` is one of `command`, `view`, `automation`, `translation` (the cheat sheet's four), plus
-`upstream` for a column that is only external events landing in our stream. It is **checked
+`pattern` is one of `state-change`, `state-view`, `automation`, `translation` (the cheat sheet's four),
+plus `upstream` for a column that is only external events landing in our stream. It is **checked
 against what the slice actually contains** — declaring `automation` on a slice with no View is an
 error. Declared and derived disagreeing is a bug worth catching.
+
+**The first two used to be `command` and `view`, and the rename was worth doing.** Those words are
+already taken by **element kinds** — a blue Command cell is `em="command"`, and `command=` on a wireframe
+action names the command it issues — so `s.pattern === "command"` and `cell.kind === "command"` sat two
+lines apart in `model.mjs` meaning different things. `state-change` / `state-view` are what both books
+call these patterns, what the `slices[].kind` the IR derives has always called them, and what a human
+says out loud. **No alias is accepted:** the old values are now `slice-unknown-pattern` errors, which is
+safe because every model in existence was migrated with the rename and the archived projects stay
+archived.
 
 A slice must be **one contiguous band**. If a slice's columns aren't adjacent, that's a layout bug:
 reorder the columns. A vertical slice that isn't vertical isn't a slice.
@@ -1001,15 +1153,38 @@ in the file.
 Keep the wireframe **low fidelity**: no colour, no type, no imagery. It stays legible at model scale,
 it cannot be mistaken for the design, and it does not fight the sticky-note grammar.
 
-### Five skills, and the line between them is what each may invent
+### Eight skills, and the line between them is what each may invent
 
 | Skill | Scope | Invents | Gate |
 | --- | --- | --- | --- |
 | `event-model` | once per context | layout only — never a domain fact | the completeness check, deterministic |
 | `add-slice` | per slice | layout only — never a domain fact | the same check, plus the ripple reported |
+| `scaffold` | once per **system**, then after any model change | nothing — it runs the generator | **the skeleton compiles, 0 errors 0 warnings, and the tests run** |
+| `architect` | once per **system**, before the first slice | nothing — it answers what the model leaves open, from the docs mirror | every question has a decision, a reason and a stated cost |
 | `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |
-| `codegen` | per slice | nothing — it reads the compiled IR | tests pass |
+| `codegen` | per slice | nothing — it reads the compiled IR | that slice's tests pass |
 | `journey` | per **system**, once two slices are `in-review` | nothing — the user names the journeys worth walking | the journey passes AND every slice test still does |
+| `ui-journey` | per **system**, once two slices **with screens** are built | nothing — except the navigation, which the model cannot hold and the user must state | the browser walk passes at both viewports against **compose**, and the slice suite still does |
+
+**The order, and the two places it is not obvious:**
+
+```
+event-model  →  scaffold  →  architect  →  codegen  →  journey
+```
+
+**`scaffold` is separate from `codegen` because they have different gates.** `tools/codegen.mjs` is the
+*scaffolder* — it emits the skeleton and no business logic — while the skill named `codegen` is what fills
+it. Run as one step, the skeleton's own gate never got enforced: nothing in the kit built generated code,
+and two defects shipped through that hole (**W6**, an automation label of more than one word emitted as a
+C# class name; **W9**, a domain type emitted verbatim as a C# type — 68 errors). `scaffold`'s gate is
+`dotnet build` at 0 errors and 0 warnings, and that is the check that was missing.
+
+**`scaffold` comes BEFORE `architect` because architect writes into the test project.**
+`architect.mjs tests` scaffolds a race test per contended invariant and refuses when there is nothing to
+write into — so on a first pass through the workflow its own gate was unreachable. It is then normal to run
+`scaffold` **again** after `architect`: the type bindings land in `ARCHITECTURE.md`, everything depending
+on them is `emit`, and a second run overwrites cleanly. `UNBOUND TYPE` on the first pass is the report
+working.
 
 **`event-model` and `add-slice` are two directions into one artifact, not two stages.** `event-model`
 asks and the user answers — the exploratory path, eleven phases, a whole context. `add-slice`
@@ -1055,11 +1230,25 @@ none, so they live in `styling`.
 screens is backend-only and can go straight to codegen with no design in existence — a notification-only
 context is typically exactly that. Same for any View or Automation slice.
 
-**`journey` is the one skill nothing schedules, and that is deliberate.** Which stories are worth walking is
-a domain answer: it cannot be derived and must not be invented, so nothing runs it for you and nothing gates
-on a journey existing. What the kit does instead is **prompt at the moment you can answer it** — `codegen`
-prints `NO JOURNEY TESTS` once two slices are claimed, stays silent below that (where a journey is not
-missing but impossible), and the `codegen` skill asks before it stops.
+**`architect` is the one step that gates the BACKEND, and it runs once per system rather than per slice.**
+It answers the concurrency and consistency choices the model deliberately leaves open, and it has to happen
+**before the first slice** — a system-scoped decision made per slice is a decision made four times and
+reconciled never. See *Concurrency is not a modelling concern* below. It invents no domain facts and never
+edits the model; the one exception is a wrong stream key, which is a domain fact and goes back to
+`add-slice`.
+
+**`journey` and `ui-journey` are the two skills nothing schedules, and that is deliberate.** Which stories are
+worth walking is a domain answer: it cannot be derived and must not be invented, so nothing runs them for you
+and nothing gates on a journey existing. What the kit does instead is **prompt at the moment you can answer
+it** — `codegen` prints `NO JOURNEY TESTS` once two slices are claimed and `NO UI JOURNEY` once two of them
+have screens, stays silent below that (where a journey is not missing but impossible), and the `codegen` skill
+asks before it stops. `ui-journey` is additionally **only ever run when the human asks**, because it starts
+containers and drives a browser; the prompt is a prompt and not a queue.
+
+**They share one cell and split on the wire.** A story named once as `em="journey"` is walked through HTTP by
+`journey` and through the browser by `ui-journey` — never two cells for one story, because that is the second
+place a fact would live. A journey whose slices have no screens is backend-only, which `uijourney.mjs plan`
+says out loud rather than reporting as a gap.
 
 The styled design is found **by convention, not by an attribute**: `designs/<screen-slug>.html`. The
 slug already exists, so a `design=` attribute would be a second place the same fact lives — the thing
@@ -1077,7 +1266,9 @@ keeping them in separate artifacts.
 *"Never hand over diagram XML you have not rendered"* applies unchanged to CSS. **A human cannot
 read a stylesheet and picture the result, and neither can Claude.** So the design gets the same
 closing loop the model has, via headless Chrome — already on this machine, no Playwright, no
-Puppeteer:
+Puppeteer. (That holds for **shooting a URL**, which is all this and `review.mjs` do. `ui-journey`
+does bring Playwright in, because it **clicks** and nothing else here does — see the UI-journey
+section above.)
 
 ```
 node tools/design.mjs sheet
@@ -1126,6 +1317,11 @@ path, an unapplied seed, a state the port forgot, or a layout that only breaks o
 length arrives. It found one within a minute of existing: shots of `/` and `/?page=2` came back
 **identical**, because the pager is component state and never reaches the URL — so a page cannot be
 linked, bookmarked or refreshed. Nothing in the test suite had noticed.
+
+**That class of bug now has a test rather than only a screenshot**, and `ui-journey` exists because of this
+one: click to the state, assert the URL changed, reload, assert the state survived. `review.mjs` remains the
+thing that *shows* a human the result — and `ui-journey` shoots into the same folder, so the states only a
+click can reach finally turn up in the same sheet.
 
 ## Many small models, one system
 
@@ -1230,6 +1426,14 @@ unacknowledged split is a **warning**; an acknowledged one is a note.
 Here `owner` is the **agent** that generates the slice, not a human team: `frontend-agent` on the
 UI lane, `backend-agent` on Commands and Event Stream. **The GWT band is deliberately unowned** —
 the business rules are the contract *between* the two, and belong to neither.
+
+**`owner=` answers "who BUILDS it", and nothing here answers "who USES it."** Those are two different
+questions and the book keeps them apart: Conway/teams is ch. 43, while **actor lanes** — *"we clearly
+show which actor is responsible for a specific screen or action"* — are ch. 40. **The kit has no actor
+notation at all**; `em="actor"` does not exist, and `terminal="x:actor"` records that a value arrives
+from the authenticated principal without being able to say who that is. It has cost nothing so far
+because every model built to date has exactly one actor, and actor lanes exist to *separate* flows. It
+becomes real at two. KIT-FINDINGS **Y2/Y3**.
 
 The result is structural rather than accidental: **every State Change slice crosses the line and
 no other slice does.** A State Change slice is screen → command → event by definition, while Views
@@ -1453,8 +1657,8 @@ stack:
 
 | `pattern=` | What is genuinely a choice | Built and measured in |
 | --- | --- | --- |
-| `command` | the aggregate handler workflow vs. explicit `FetchForWriting`; an HTTP endpoint vs. a message handler; `StartStream` for a slice that creates the stream | `reference-implementations/state-change/` |
-| `view` | six Marten recipes — live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — and `Inline` vs `Async` | `reference-implementations/state-view/` |
+| `state-change` | the aggregate handler workflow vs. explicit `FetchForWriting`; an HTTP endpoint vs. a message handler; `StartStream` for a slice that creates the stream | `reference-implementations/state-change/` |
+| `state-view` | six Marten recipes — live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — and `Inline` vs `Async` | `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger: event forwarding, `ISubscription`, `RaiseSideEffects`, a clock | `reference-implementations/automation/` |
 | `translation` | the automation choice, plus **how the foreign event lands**: a webhook, a table they write, a broker, or a poll of their API | `reference-implementations/translation/` |
 
@@ -1472,6 +1676,120 @@ docs. So: **`reference/llms/` for what the library offers, the reference impleme
 cost.** The kit has already made this mistake once, generalising "a sweep on a clock" into the only
 correct automation from a sample of one model. The correction is written below, and the general form of
 it is this paragraph.
+
+### Concurrency is not a modelling concern — the `architect` step, and why it is not a rule
+
+**The event model's responsibility is domain knowledge and how information flows. That is all.** Optimistic
+locking, projection consistency mode and snapshots are technical, and both books say so outright:
+
+> *"Snapshots are a pure technical tool and are **neither modeled nor mentioned in an Event Model**
+> typically."* — Understanding EventSourcing
+
+**The same ruling covers security and transport, and it was checked rather than assumed.** Ch. 40 asks how
+to specify that the role `admin` is needed to block a customer and answers *"**Typically I don't. That's an
+implementation detail.** The required role can change without affecting the overall flow"* — because *"the
+more implementation details you include, the harder it becomes to focus on the essential information."*
+Measured across the whole book: `endpoint` appears 4 times and **every one is in Part III**, `route` never,
+and neither book has a single non-functional requirement. **So RBAC, roles, routes and HTTP status codes get
+no notation, and asking for one is answered.** KIT-FINDINGS **Y1**.
+
+The little book files its Live-Model vs Database-Projection trade-off under *"Implementation Hints"*. So
+**none of this becomes notation, and no grammar rule is added for any of it.** `gwt-multiple-whens` stays an
+error: a race is not a business rule. The business rule is *"one member per desk per day"* — the business does
+not care about instants. Getting this wrong is finding **T0** all over again, where an implementation concern
+climbed into the domain model as a business rule and then validated, generated a test and passed.
+
+**What the model does carry is the boundary, and that is enough.** Both books say the aggregate *is* the
+transactional consistency boundary; here that is `identity=` on the swimlane. And the one consistency rule
+either book states *as a rule* is already an error — the little book's *"if a single command touches multiple
+aggregates or swimlanes… these aren't two separate aggregates—they're one"* is `command-crosses-swimlane`.
+Choosing eventual consistency is likewise a modelling act, not a setting: two effects that need not be atomic
+are **two slices with an automation between them** (the books' hotel/car and bank-transfer examples).
+
+Once the boundary is right, concurrency stops being a design question:
+
+> *"we apply optimistic locking not on the entire Event Store, but on **individual event streams**."* — ch. 4
+
+**The gap was that nothing read the model and ASKED.** That is the `architect` step: it derives six families
+of question from the IR, answers none of them, and the skill answers them against `reference/llms/` — writing
+each decision, its reason and **its cost** into `<project>/ARCHITECTURE.md`.
+
+```
+node tools/architect.mjs questions   # what the model implies and cannot answer
+node tools/architect.mjs record      # a section per question, for the decision
+node tools/architect.mjs check       # unanswered, still TODO, or orphaned by a model change
+```
+
+| Question | Why the model cannot answer it |
+| --- | --- |
+| `stream-boundaries/<ctx>` | the boundary map — every stream, its key, its writers. A rule inside one key is a true invariant; the same rule against a wider key is a projection check two writers both pass |
+| `no-stream-key/<lane>` | events we append with no `identity=`: no boundary exists at all |
+| `contended-invariant/<slice>/<gwt>` | **a rejection depending on state in the stream its own command appends to** — two callers at the same instant can both pass it. Gets a **race test**, because every generated GWT is sequential |
+| `cross-stream-rule/<slice>/<gwt>` | **the sharpest.** A GIVEN in a stream the command does not write, so enforcing it means *reading* another stream — and optimistic concurrency on *our* version cannot close that window |
+| `stale-read/<View>` | fed by more than one stream type (**Marten defaults multi-stream to `Async`**), or read by a screen that also feeds it — read-your-own-write |
+| `view-identity/<View>/<field>` | a key value no feeding event carries. Metadata means **append** time (ANTI-PATTERNS #15) |
+| `replay-safety/<slice>` | an automation or translation: a replay, a redelivery and a restarted sweep all run it twice |
+| `type-binding/<ctx>` | **what a domain type IS, in C#** — see below. The model may not answer this, because the model does not know what a C# is |
+
+### The model is stack-agnostic, so `UUID` is not a C# type and nobody may pretend it is
+
+`fields="aggregateId:UUID"` is the **business** saying *"a universally unique id"*. It is not a claim about
+.NET, and it must not become one: the model outlives whichever stack builds it, which is the entire reason
+`model.mjs` holds **no list of C# types** and never will. Both books write `UUID` and `Double`, and the
+kit's own fixture quotes them deliberately.
+
+So something has to translate — and **codegen may not be that something**, because a translation it invents
+is a decision nobody reviewed. `Double` or `decimal` for money is a *rounding* question, not a typo.
+
+That makes it `architect`'s, like everything else with a cost:
+
+```
+node tools/architect.mjs record    # proposes a binding per distinct type, records the cost
+```
+
+The decision lives in `ARCHITECTURE.md` as a fenced ` ```type-bindings ` block, `codegen` reads it, and
+`tools/type-bindings.mjs` is the one definition of the format so the two cannot drift. Child group names
+(`CartLine`) are excluded — codegen emits those records itself, so there is nothing to bind.
+
+**An unbound type is emitted verbatim and REPORTED by name**, which is the whole point:
+
+```
+UNBOUND TYPE — 2. ...
+  UUID     first used by Cart Cleared.aggregateId
+  Double   first used by Cart Submitted.totalPrice
+```
+
+The fallback stays the identity rather than an error, so a project whose model already speaks C# needs no
+record at all and every reference implementation keeps working untouched. What changed is that the failure
+is now named **before** the build instead of arriving as CS0246 sixty-eight times with nothing pointing at
+the cause. KIT-FINDINGS **W9**.
+
+**It is a step before codegen rather than part of it, and that is load-bearing.** These decisions are
+*system*-scoped: if slice 1 picks `Inline` and slice 4 needs `Async` they conflict after both are green. Same
+reasoning that keeps `journey` out of codegen. `codegen` reports `ARCHITECTURE DECISIONS MISSING` rather than
+enforcing it.
+
+**The read side has three options and the book names the costs of each** — accept it (`Async`, and tests must
+wait); make it immediately consistent (`Inline`, which costs independent scalability, lets a projection error
+abort the business transaction, and slows the write per projection); or a **partial live model** over the
+projection (`FetchLatest` filling the gap, in-memory so lost on restart). **The generator now takes option 1
+for a multi-stream view and option 2 for a single-stream one**, following Marten's own guidance rather than
+the kit's former habit of `Inline` everywhere — so `stale-read` asks whether that is right for *this* view,
+not whether to depart from a kit default. The third option is *not* in the six-recipe menu as a combination,
+and that is a gap in the reference implementations rather than in the grammar.
+
+**The one answer that IS a model change** is a wrong boundary: if the stream key does not contain the
+contested thing, the fix is the swimlane, because a stream key is a domain fact. Expect the ripple — the key
+goes on every event of that stream and on the commands.
+
+**And for growth, the book prefers a business period to a snapshot outright:** *"better to limit the length of
+a stream naturally by understanding the business processes"* — banks close the books after a day or a month,
+the stock market settles each trading day. Snapshots are *"the exception, not the rule"*. Whether a stream
+grows without end is not derivable, so it is folded into the boundary map as a prompt rather than claimed.
+
+**Nothing checks whether any of these answers is right** — not a rule, not the compiler, not a test. The model
+validates, the code compiles, the suite is green, and the choice can still be wrong. That is the entire reason
+the reasoning is written down rather than merely made.
 
 ### What makes an automation actually run — and why there is no single answer
 
@@ -1495,7 +1813,7 @@ The second is the one that usually decides it, and it is not the same question a
 | the trigger event is **foreign but WE INGEST IT** — the normal shape of a `translation` | **whichever of the two rows above the durability answer picks** | once we append it, it is ours from that moment: there IS a transaction of ours to hook |
 | the trigger event is **foreign and never ingested** — nothing of ours ever appends it | **sweep a todo View on a clock** | genuinely no transaction of ours to hook |
 | there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
-| "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model, and it forces the view Async |
+| "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model. It does NOT force the view Async any more: side effects are processed only during async processing **by default**, and running them on an `Inline` projection needs `opts.Events.EnableSideEffectsOnInlineProjections = true` |
 
 All four are **built and measured** against one shared model in
 `reference-implementations/automation/` — read that before writing one.

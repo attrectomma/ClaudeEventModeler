@@ -21,6 +21,7 @@ needs a human to notice, which is the whole reason this file exists.
 | 13 | [A rule added after the slice was built](#13) | yes — `codegen` reports `GWT WITHOUT A TEST` |
 | 14 | [An automation nothing ever runs](#14) | **no** — only starting the app and watching a second sweep |
 | 15 | [A view keyed on a time bucket the events do not carry](#15) | **no** |
+| 16 | [A screen state that only a click can reach](#16) | now — `ui-journey`, if somebody runs it |
 
 ---
 
@@ -203,7 +204,8 @@ claim of the pattern, and **nothing in the grammar, the checker or the test suit
 false.** One slice passed six GWTs while the only thing that could ever run it was a human with `curl`.
 
 **There is more than one right implementation, and choosing by habit is its own version of this bug.**
-Event forwarding, a Marten subscription, projection `RaiseSideEffects` and a clock-driven sweep are all
+Event forwarding, a Marten subscription, projection `RaiseSideEffects` (async-only by default, Inline via
+`EnableSideEffectsOnInlineProjections`) and a clock-driven sweep are all
 valid; which is correct depends on whether the trigger event is ours, whether ordering matters, and
 whether the trigger is an event at all rather than the passage of time. The kit briefly asserted that a
 sweep was the only correct answer — generalised from a single model whose automations were all
@@ -303,3 +305,33 @@ the only place a reader can find out.
 
 **Caught by:** *no*. `derived=` accepts it, the generator emits it, the projection compiles, the suite is
 green. Only a backfill, or someone reading the note, reveals it.
+
+---
+
+## 16. A screen state that only a click can reach <a id="16"></a>
+
+A page 2, a sort order, an open modal, a rejected form, an in-flight button. Every check the kit had over the
+UI looked at **one screen at rest**: `model.mjs` holds `displays=` to the wireframe, `design.mjs check` holds
+both to the React port, `review.mjs` puts the built screen beside the design. All three are useful and none
+of them can press a button.
+
+**Why it is a smell rather than a gap in tooling.** The states you cannot reach without clicking are exactly
+the states where the app's *behaviour* lives, so a screen whose interesting states are all click-only has all
+of its risk in the one place nothing was looking. Three measured consequences, and every one survived a green
+suite:
+
+- **The pager never reached the URL.** Shots of `/` and `/?page=2` came back **identical**, so a page could not
+  be linked, bookmarked or refreshed. 32 tests green, no design page could have shown it.
+- **An empty screen and a broken one were byte-identical.** A wrong nginx `proxy_pass` prefix makes the API
+  answer 404, and a 404 body is not a paged result — so the list renders empty with no error. A missing
+  `ASPNETCORE_ENVIRONMENT` that leaves the seed unapplied looks exactly the same.
+- **A state was silently not being rendered at all**, and its screenshot was taken anyway. The shot looked
+  fine, of the wrong thing. Hence the rule that followed: **a screenshot is evidence for a human and never for
+  the suite — assert first, then shoot.**
+
+**Now caught, conditionally.** `ui-journey` walks the workflow in a real browser and reports a spec that fakes
+its backend, skips its navigation, or names a selector the model does not declare. The condition matters and is
+the honest part of this entry: **nothing schedules it and nothing gates on it.** It starts containers and costs
+minutes, so `codegen` prints `NO UI JOURNEY` once two claimed slices have screens and stops there. A smell whose
+detector is opt-in is still a smell — and the sub-smell to watch for is a `frontend-agent` report that lists
+click-only states as unverified and treats *"a journey could cover this"* as though it had.

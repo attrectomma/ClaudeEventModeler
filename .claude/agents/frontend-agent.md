@@ -125,7 +125,12 @@ Known limitation, and do not pretend otherwise: headless Chrome screenshots a **
 click. A mode you can only reach by clicking is unverified visually. Say that in your report rather
 than implying you saw it.
 
-Do not add a browser-driving dependency to get around this without being asked.
+Do not add a browser-driving dependency to get around this without being asked. **The kit now has one,
+and it is not yours to run.** `ui-journey` drives Playwright across screens and shoots the click-only
+states into the same `review/_shots/` folder — but a journey belongs to the **system**, spans slices you
+do not own, and costs minutes. So: list the states you could not reach, and let the human decide whether
+a journey is worth it. Do not install Playwright, do not write a spec, and do not treat "a journey could
+cover this" as a reason to leave a state unlooked-at.
 
 ## Known drift
 

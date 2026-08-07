@@ -166,7 +166,7 @@ const rounds = [];
 
 // ---------------------------------------------------------------- 1. add-item (ch.12)
 rounds.push(() => {
-  slice("add", "--slice", "add-item", "--pattern", "command", "--aggregate", "Cart");
+  slice("add", "--slice", "add-item", "--pattern", "state-change", "--aggregate", "Cart");
   edit({
     "scr-add-item": { label: "Cart Page", screen: "cart",
       inputs: "productId:UUID, description:string, image:string, price:Double" },
@@ -191,7 +191,7 @@ rounds.push(() => {
 // Screen edge may not point left. CLAUDE.md: "where a screen reads a View drawn to its right, put
 // the View's column first." The event feeding it then runs back under the Event -> View exception.
 rounds.push(() => {
-  slice("add", "--slice", "cart-items", "--pattern", "view", "--at", "start");
+  slice("add", "--slice", "cart-items", "--pattern", "state-view", "--at", "start");
   edit({
     "rm-cart-items": { label: "Cart Items", identity: "aggregateId",
       fields: "aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double",
@@ -209,7 +209,7 @@ rounds.push(() => {
 
 // ---------------------------------------------------------------- 3. remove-item (ch.12)
 rounds.push(() => {
-  slice("add", "--slice", "remove-item", "--pattern", "command", "--aggregate", "Cart");
+  slice("add", "--slice", "remove-item", "--pattern", "state-change", "--aggregate", "Cart");
   edit({
     "scr-remove-item": { label: "Cart Page", screen: "cart", inputs: "itemId:UUID",
       note: "ch.12: \"How can the UI provide the itemId to the command?\" -- it must be displayed, so the "
@@ -229,7 +229,7 @@ rounds.push(() => {
 
 // ---------------------------------------------------------------- 4. clear-cart (ch.14)
 rounds.push(() => {
-  slice("add", "--slice", "clear-cart", "--pattern", "command", "--aggregate", "Cart");
+  slice("add", "--slice", "clear-cart", "--pattern", "state-change", "--aggregate", "Cart");
   edit({
     "scr-clear-cart": { label: "Cart Page", screen: "cart", inputs: "aggregateId:UUID" },
     "cmd-clear-cart": { label: "Clear Cart", aggregate: "Cart", fields: "aggregateId:UUID" },
@@ -249,7 +249,7 @@ rounds.push(() => {
 
 // ---------------------------------------------------------------- 5. submit-cart (ch.15)
 rounds.push(() => {
-  slice("add", "--slice", "submit-cart", "--pattern", "command", "--aggregate", "Cart");
+  slice("add", "--slice", "submit-cart", "--pattern", "state-change", "--aggregate", "Cart");
   edit({
     "scr-submit-cart": { label: "Cart Page", screen: "cart", inputs: "aggregateId:UUID" },
     "cmd-submit-cart": { label: "Submit Cart", aggregate: "Cart",
@@ -307,7 +307,7 @@ rounds.push(() => {
 // items are currently in stock." That screen is the Cart Page, in column 1 -- so the view must be
 // inserted at position 0, or the View -> Screen feed points left and that is not the exception.
 rounds.push(() => {
-  slice("add", "--slice", "inventories", "--pattern", "view", "--at", "start");
+  slice("add", "--slice", "inventories", "--pattern", "state-view", "--at", "start");
   edit({
     "rm-inventories": { label: "Inventories", identity: "productId",
       fields: "productId:UUID, inventory:int",
@@ -411,7 +411,7 @@ const final = validate("final");
 
 // Idempotency: every command re-run must be a no-op.
 const before = readFileSync(FILE, "utf8");
-run(["add", FILE, "--slice", "add-item", "--pattern", "command"], true);
+run(["add", FILE, "--slice", "add-item", "--pattern", "state-change"], true);
 run(["swimlane", FILE, "--label", "Inventory stream — one stream per product", "--streams", "Inventory"], true);
 run(["route", FILE, "--from", "evt-add-item", "--to", "rm-cart-items"], true);
 const after = readFileSync(FILE, "utf8");

@@ -262,7 +262,7 @@ carrying `slice=`, `pattern=` and `status="in-design"`.
 
 - Use a **plain rectangle, never a draw.io container** — a container reparents its children and
   makes their geometry relative, breaking every absolute-x reader.
-- `pattern=` is one of `command`, `view`, `automation`, `translation`, plus `upstream` for a column
+- `pattern=` is one of `state-change`, `state-view`, `automation`, `translation`, plus `upstream` for a column
   that is only external events landing in our stream. It is **checked against what the slice
   actually contains**, so declaring it is a real assertion.
 - **One Command per State Change slice.** The little book, on more than one: *"No."* More than one
