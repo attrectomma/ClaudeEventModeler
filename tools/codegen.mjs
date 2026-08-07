@@ -1560,12 +1560,23 @@ console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, $
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
 console.log(`  ${gwtCount} GWT test(s) across ${ir.slices.filter((s) => s.gwts.length).length} slice(s)`);
+// REPORT IT ONLY WHEN IT CAN BE ACTED ON. The first version printed NO JOURNEY TESTS unconditionally,
+// including for a system with ONE slice — where a journey is not merely unwritten but impossible, because
+// journey-too-short is an error. A check that fires when you cannot act on it teaches people to stop
+// reading the output, which is the failure this file warns about in three other places and then committed
+// itself. Two slices past in-design is the threshold: the same filter the automation wakeup report uses,
+// and the point at which "these two cannot be composed" becomes a question worth asking.
+const claimed = ir.slices.filter((s) => s.status !== "in-design");
 if (journeys.length) {
   console.log(`  ${journeys.length} journey test(s): ${journeys.map((j) => `${j.name} (${j.slices.length} slices)`).join(", ")}`);
-} else {
-  console.log(`  NO JOURNEY TESTS. Every test here is a single slice's scenario, so "these slices cannot be
-  composed" has nowhere to be caught. Once two slices are in-review, name a journey:
-    node tools/slice.mjs journey <model> --journey <slug> --slices <a,b,c> --then "<View(field=value)>"`);
+} else if (claimed.length >= 2) {
+  console.log(`
+NO JOURNEY TESTS, and ${claimed.length} slices are claimed. Every test here is a single slice's scenario that
+appends its own GIVEN, so nothing drives two commands in a row through the API and "these slices cannot be
+composed" has nowhere to be caught. Name the story worth walking — a journey is a domain answer, not a
+derivable one:
+  node tools/slice.mjs journey <model> --journey <slug> --slices <a,b,c> --then "<View(field=value)>"
+Best once two of them are in-review: earlier and it fails on slices nobody has built yet.`);
 }
 if (cheatingJourneys.length) {
   console.log(`\nJOURNEY APPENDS ITS OWN HISTORY — ${cheatingJourneys.length}. A journey that calls Given(),

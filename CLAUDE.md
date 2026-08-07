@@ -1055,6 +1055,12 @@ none, so they live in `styling`.
 screens is backend-only and can go straight to codegen with no design in existence — a notification-only
 context is typically exactly that. Same for any View or Automation slice.
 
+**`journey` is the one skill nothing schedules, and that is deliberate.** Which stories are worth walking is
+a domain answer: it cannot be derived and must not be invented, so nothing runs it for you and nothing gates
+on a journey existing. What the kit does instead is **prompt at the moment you can answer it** — `codegen`
+prints `NO JOURNEY TESTS` once two slices are claimed, stays silent below that (where a journey is not
+missing but impossible), and the `codegen` skill asks before it stops.
+
 The styled design is found **by convention, not by an attribute**: `designs/<screen-slug>.html`. The
 slug already exists, so a `design=` attribute would be a second place the same fact lives — the thing
 this kit refuses everywhere else. That gives a three-way check, which is `styling`'s to run:

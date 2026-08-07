@@ -113,6 +113,33 @@ file somebody else owns. ANTI-PATTERNS.md #13.
 Then promote the slice past `in-progress` and **stop**. Do not start a second slice in the same
 session: the point of one-at-a-time is that the second one tells you what the first cost.
 
+## Before you stop: does this slice make a journey possible?
+
+**Every test you have just made green is a single slice's scenario**, and each one appends its own GIVEN
+straight to the stream. So nothing you have written drives two commands in a row through the API, and a
+slice pair that each pass alone and cannot be **composed** is invisible to all of it — an id minted in one
+shape and read in another, a projection current for its own slice but stale for the next, a rule that only
+bites on the *second* command.
+
+**If this slice takes the count of `in-review` slices to two or more and the model names no journey, say so
+and offer one.** `codegen` prints `NO JOURNEY TESTS` once two slices are claimed, and this is the moment to
+act on it: you have just finished the work, so you are the only one holding the context to answer *which
+story is worth walking*.
+
+That question is a **domain answer** and yours to ask, never to invent:
+
+> *"Now that <this slice> is in, someone can go <a> → <b> → <c> and see <outcome>. Is that worth a journey
+> test? Is there a different order that matters more?"*
+
+Hand it to the `journey` skill, which owns the layer — it belongs to the system rather than to any slice,
+which is why neither this skill nor a slice's agent writes it. **Do not write journey tests yourself as part
+of a slice**, and do not let one slice's agent do it: a journey that fails may be broken in any slice it
+walks, or in none of them.
+
+One thing to state when you offer: **a journey never appends an event.** No `Given(...)`, no `Events.Append`.
+That restraint is the whole point, and it is the first thing an implementer reaches for when step three
+fails.
+
 ## What a slice legitimately needs from its neighbours
 
 A State Change slice is screen → command → event, and the screen reads a View another slice owns. So
