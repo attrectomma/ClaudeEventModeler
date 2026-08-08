@@ -236,7 +236,18 @@ function derive() {
             ? key.map((f) => st.example[f]).join(" ") : null;
           const whenKey = keyOfStep((g.whenSteps ?? [])[0]);
           const givenKeys = (g.givenSteps ?? []).map(keyOfStep).filter(Boolean);
-          if (key.length > 1 && whenKey && givenKeys.length && !givenKeys.includes(whenKey)) {
+          // `key.length`, NOT `key.length > 1`. The composite case (Z1) is what prompted this check, so the
+          // guard was written to match it — but the comparison is sound for a SINGLE-field key too, and
+          // arguably more so: one field means one value to compare and no partial-match ambiguity.
+          //
+          // Requiring a composite key made the detector blind to the simplest cross-stream rule there is:
+          // "spend on ANOTHER project of this department counts against the budget", where Project is keyed
+          // by projectId alone and the example data says projectId=$ProjectB in the GIVEN against
+          // projectId=$ProjectA in the WHEN. That is provably two streams. It was being reported as a
+          // contended-invariant — the same dangerous misclassification Z1 describes, asking for a race test
+          // that passes while the rule it protects stays untested. Caught by running this against
+          // reference-implementations/cross-aggregate-invariant/, the folder built to study exactly it.
+          if (key.length && whenKey && givenKeys.length && !givenKeys.includes(whenKey)) {
             foreign = givenAggs;   // same aggregate, provably a different stream => cross-stream
             sameAggOtherStream = `(${key.join(", ")}) = (${givenKeys[0]}) vs (${whenKey})`;
           }
@@ -268,7 +279,8 @@ function derive() {
             ],
             mirror: "marten scenarios/command_handler_workflow (FetchForWriting, FetchForExclusiveWriting); and probes/concurrency-invariant.cs, which measures both refusal mechanisms",
             weight: 3,
-            race: { slice: s.name, gwt: g.id, rule: g.rule ?? g.id,
+            race: { kind: "same-stream",
+                    slice: s.name, gwt: g.id, rule: g.rule ?? g.id,
                     command: sliceCommand?.label ?? null, emits: emitted,
                     given: (g.givenSteps ?? []).map((x) => x.label),
                     aggregate: givenAggs[0], identity: lane?.identity ?? [],
@@ -294,10 +306,33 @@ function derive() {
             "accept the window — the far stream rarely changes and a late write is tolerable. Say so, and say who agreed",
             "make the contested thing ONE stream, so the rule is an in-transaction invariant instead of a read",
             "compensate — let it through and emit a correcting event when the conflict is detected later",
-            "serialise on the far stream's version too, which couples the two and can deadlock",
+            // THE FOUR BELOW ARE MEASURED, not proposed. reference-implementations/cross-aggregate-invariant
+            // builds all of them against one model and real Postgres, with a control that proves the race
+            // reproduces without them. This used to say "serialise on the far stream's version too, which
+            // couples the two and can deadlock" — which was the only mechanism offered and the worst one.
+            "GUARD ROW — one IRevisioned document per boundary, written with UpdateRevision(doc, doc.Version + 1) in the SAME transaction as the append. Costs: every write in the boundary contends on one row. NOTE Store() cannot conflict; the +1 is the mechanism",
+            "RESERVATION ROW — a unique index on (boundary, sequence), inserted (never Store()) beside the append. Costs: a row per write, unbounded, and the sequence is an O(rows) count. Leaves an audit trail",
+            "ADVISORY LOCK — pg_advisory_xact_lock on the boundary key, taken BEFORE the read, on a transaction you own via Marten.Services.SessionOptions.ForTransaction. Costs: serialises the boundary, so contention becomes latency. Buys: the loser is refused by the ORDINARY RULE, so nothing retries",
+            "DCB — FetchForWritingByTags, with Marten maintaining mt_dcb_tag_version. Additive: the event still goes to its own stream with the tag attached. Costs: nothing beyond the current stack",
           ],
-          mirror: "reading another stream is session.Events.FetchLatest<T>(streamKey) on IDocumentSession.Events, not the query session — see CLAUDE.md",
+          mirror: "marten/events/dcb (FetchForWritingByTags, the mt_dcb_tag_version side table) and marten/documents/concurrency (UpdateRevision, and why Store() asserts a version already true). Reading another stream is session.Events.FetchLatest<T>(streamKey) on IDocumentSession.Events, not the query session. Worked comparison: reference-implementations/cross-aggregate-invariant/",
           weight: rejects ? 2 : 1,
+          // A REJECTION ACROSS STREAMS GETS A TEST, and until now it did not — `tests` generated only for
+          // contended-invariant, so the sharper question was the one with no scaffold. Non-rejections are
+          // excluded: with nothing to refuse there is no race to lose.
+          race: rejects ? {
+            kind: "cross-stream", slice: s.name, gwt: g.id, rule: g.rule ?? g.id,
+            command: sliceCommand?.label ?? null, emits: emitted,
+            given: (g.givenSteps ?? []).map((x) => x.label),
+            aggregate: writes[0] ?? givenAggs[0],
+            // "appends to Project but reads Project" is true and reads like a typo. When the far stream is
+            // ANOTHER stream of the same aggregate, say that — it is the whole point of the Z1 detection.
+            foreign: sameAggOtherStream
+              ? `another ${givenAggs[0]} stream — ${sameAggOtherStream}`
+              : foreign.join(", "),
+            identity: laneOfAggregate.get(writes[0])?.identity ?? [],
+            status: s.status ?? "in-design",
+          } : undefined,
         });
       }
     }
@@ -585,19 +620,54 @@ if (cmd === "tests") {
   }
 
   emit(join(TESTS, "ConcurrencyHarness.cs"), harness());
-  for (const q of races) scaffoldFile(join(TESTS, `${pascal(q.race.slice)}ConcurrencyTests.cs`), raceTest(q));
+  // Two FILES per slice at most, because one slice can legitimately have both kinds and they assert
+  // different things: a same-stream race is settled by the stream key, a cross-stream one is not settled
+  // by any stream key and needs a mechanism chosen in ARCHITECTURE.md.
+  for (const q of races) scaffoldFile(join(TESTS, raceFileName(q.race)), raceTest(q));
 
   for (const p of written) console.log(`  written  ${rel(p)}`);
   for (const p of keptFiles) console.log(`  kept     ${rel(p)}`);
   console.log(`\n${written.length} written, ${keptFiles.length} kept (already filled in)`);
-  console.log(`\n${races.length} contended invariant(s):`);
-  for (const q of races) console.log(`  ${q.race.rule}\n     ${q.race.command} on ${q.race.aggregate}, keyed by (${q.race.identity.join(", ") || "?"})`);
-  console.log(`\nEach scaffold asserts the invariant TWICE and neither is optional:`);
-  console.log(`  1. deterministically, two sessions — reliable, and proves the STREAM KEY enforces the rule`);
-  console.log(`  2. through HTTP, N callers — proves the ENDPOINT turns a lost race into a sane response`);
-  console.log(`\nThen prove the tests bite: temporarily key the stream per-operation instead of per-contested-thing`);
-  console.log(`and test 1 must FAIL. Measured in probes/concurrency-invariant.cs as 10 winners for one desk-day.`);
+  const sameStream = races.filter((q) => q.race.kind !== "cross-stream");
+  const crossStream = races.filter((q) => q.race.kind === "cross-stream");
+
+  if (sameStream.length) {
+    console.log(`\n${sameStream.length} contended invariant(s) — inside ONE stream, so the key enforces them:`);
+    for (const q of sameStream) console.log(`  ${q.race.rule}\n     ${q.race.command} on ${q.race.aggregate}, keyed by (${q.race.identity.join(", ") || "?"})`);
+  }
+  if (crossStream.length) {
+    console.log(`\n${crossStream.length} CROSS-STREAM invariant(s) — NO stream key covers these, so a mechanism`);
+    console.log(`must be chosen in ARCHITECTURE.md. Four are built and measured in`);
+    console.log(`reference-implementations/cross-aggregate-invariant/: guard row, reservation row, advisory lock, DCB.`);
+    for (const q of crossStream) console.log(`  ${q.race.rule}\n     ${q.race.command} appends to ${q.race.aggregate} but reads ${q.race.foreign}`);
+  }
+  if (sameStream.length) {
+    console.log(`\nEach contended-invariant scaffold asserts TWICE and neither is optional:`);
+    console.log(`  1. deterministically, two sessions — reliable, and proves the STREAM KEY enforces the rule`);
+    console.log(`  2. through HTTP, N callers — proves the ENDPOINT turns a lost race into a sane response`);
+    console.log(`\nThen prove the tests bite: temporarily key the stream per-operation instead of per-contested-thing`);
+    console.log(`and test 1 must FAIL. Measured in probes/concurrency-invariant.cs as 10 winners for one desk-day.`);
+  }
+  if (crossStream.length) {
+    console.log(`\nEach cross-stream scaffold asserts THREE times, and the first is the one people skip:`);
+    console.log(`  1. THE CONTROL — the unguarded race, asserting the invariant BREAKS. Without it a green`);
+    console.log(`     "exactly one wins" cannot be told from a race that never reproduced.`);
+    console.log(`  2. the mechanism — exactly one wins AND exactly one is refused. Both counts, not just one.`);
+    console.log(`  3. the wrong-reason guard — uncontended writes that fit must still SUCCEED. A mechanism`);
+    console.log(`     that refuses everything after the first write passes 1 and 2 while being useless.`);
+    console.log(`\nAnd assert on the EVENT STORE, never a read model: the same race makes two inline projection`);
+    console.log(`updates overwrite each other, so the view UNDER-REPORTS the damage (KIT-FINDINGS AD12).`);
+  }
   process.exit(0);
+}
+
+// A DECLARATION, not a `const` arrow — the `tests` command runs at module top level ABOVE this point, and
+// a const is in the temporal dead zone there ("Cannot access 'raceFileName' before initialization").
+// Function declarations hoist, which is why every other helper in this file is one.
+function raceFileName(r) {
+  return r.kind === "cross-stream"
+    ? `${pascal(r.slice)}CrossStreamTests.cs`
+    : `${pascal(r.slice)}ConcurrencyTests.cs`;
 }
 
 function harness() {
@@ -650,6 +720,19 @@ public static class ConcurrencyHarness
     {
         "ExistingStreamIdCollisionException" => new(RaceOutcome.StreamCollision),
         "ConcurrencyException" or "EventStreamUnexpectedMaxEventIdException" => new(RaceOutcome.VersionConflict),
+
+        // THE CROSS-STREAM MECHANISMS REFUSE WITH THEIR OWN EXCEPTIONS, and without these four they all
+        // classify as Unexpected — so a guard that is working perfectly reads as a broken test. Each is a
+        // loser being correctly refused, which is the same verdict as a version conflict.
+        //   DcbConcurrencyException        DCB: the mt_dcb_tag_version bump matched no row
+        //   DocumentAlreadyExistsException a guard/reservation row lost the INSERT
+        //   PostgresException 23505        a unique index refused the reservation row
+        // ConcurrencyException above already covers the guard-row case: UpdateRevision throws it, and it
+        // lives in JasperFx rather than Marten.Exceptions as of Marten 9 — which is why this matches on the
+        // NAME rather than the type, and why that is a feature here and not laziness.
+        "DcbConcurrencyException" or "DocumentAlreadyExistsException" => new(RaceOutcome.VersionConflict),
+        "PostgresException" when (ex as dynamic)?.SqlState == "23505" => new(RaceOutcome.VersionConflict),
+
         var other => new(RaceOutcome.Unexpected, other + ": " + ex.Message),
     };
 
@@ -709,6 +792,7 @@ public static class ConcurrencyHarness
 
 function raceTest(q) {
   const r = q.race;
+  if (r.kind === "cross-stream") return crossStreamTest(q);
   const cls = `${pascal(r.slice)}ConcurrencyTests`;
   // Same rule and same wording as codegen.mjs's factAttr, deliberately: a race test on an unclaimed slice
   // has no endpoint to race and no decider to refuse anybody, so a live one is a guaranteed red for work
@@ -798,6 +882,138 @@ public sealed class ${cls}(AppFixture fixture) : IntegrationContext(fixture)
 `;
 }
 
+/**
+ * A CROSS-STREAM invariant, which is a different test from a same-stream one and needs a different shape.
+ *
+ * The same-stream scaffold can assert "exactly one wins" and stop, because the stream key either enforces
+ * the rule or it does not. Here NO stream key covers the rule, so the mechanism is a deliberate choice
+ * recorded in ARCHITECTURE.md — and the test has to prove three separate things, each of which was learned
+ * by getting it wrong in reference-implementations/cross-aggregate-invariant/.
+ */
+function crossStreamTest(q) {
+  const r = q.race;
+  const cls = `${pascal(r.slice)}CrossStreamTests`;
+  const claimed = ["ready", "in-progress", "in-review", "closed"].includes(r.status ?? "in-design");
+  const fact = claimed
+    ? "[Fact]"
+    : `[Fact(Skip = ${JSON.stringify(`slice ${r.slice} is ${r.status ?? "in-design"} — nobody has claimed this invariant yet`)})]`;
+  return `// <auto-generated-scaffold> by tools/architect.mjs — yours from here on, and regeneration keeps it.
+//
+// A CROSS-STREAM INVARIANT: ${r.rule}
+//
+//   slice        ${r.slice}
+//   command      ${r.command ?? "(none named)"}
+//   appends to   ${r.aggregate}${r.identity.length ? `, keyed by (${r.identity.join(", ")})` : ""}
+//   but READS    ${r.foreign}
+//   given        ${r.given.join(", ") || "(none)"}
+//
+// NO STREAM'S VERSION COVERS THIS. The command appends to one stream and the fact that would refuse it
+// lives in another, so two callers writing DIFFERENT streams touch no common row, Postgres has no conflict
+// to detect, and FetchForWriting's optimistic concurrency — correct everywhere else in this kit — cannot
+// see it. Whatever guards this rule is a CHOICE, and it is recorded in ARCHITECTURE.md under:
+//   ${q.id}
+//
+// Four mechanisms are built and measured in reference-implementations/cross-aggregate-invariant/:
+// a guard row, a reservation row + unique index, an advisory lock, and DCB. All four work; they differ in
+// what the loser gets and what it costs. Read that folder before writing the body below.
+#nullable enable
+
+using Marten;
+using Shouldly;
+using Xunit;
+using static ${SYSTEM}.IntegrationTests.Concurrency.ConcurrencyHarness;
+
+namespace ${SYSTEM}.IntegrationTests.Concurrency;
+
+public sealed class ${cls}(AppFixture fixture) : IntegrationContext(fixture)
+{
+    /// <summary>
+    /// THE INVARIANT, COMPUTED FROM THE EVENT STORE — never from a read model.
+    ///
+    /// This is not fastidiousness. The same race that breaks the invariant ALSO makes two inline projection
+    /// updates overwrite each other, so the view UNDER-REPORTS the damage: measured at a store holding
+    /// 140,000 while the dashboard showed 70,000 against a 100,000 budget. A test asserting on the view
+    /// would have reported the budget intact while the money was spent twice. KIT-FINDINGS AD12.
+    /// </summary>
+    private async Task<decimal> AccordingToTheEventStore()
+    {
+        await using var session = Store.QuerySession();
+        // TODO(architect): sum the contested quantity across every contributing stream, e.g.
+        //   var added = await session.Events.QueryRawEventDataOnly<${r.emits[0] ?? "TheEvent"}>()
+        //       .Where(e => e.SomeBoundaryId == TheBoundary).ToListAsync();
+        //   return added.Sum(e => e.Amount);
+        throw new NotImplementedException(
+            "TODO(architect): compute ${r.rule} from the event store, across all contributing streams.");
+    }
+
+    ${fact}
+    /// <summary>
+    /// THE CONTROL, AND IT ASSERTS THE BUG. It must PASS, and it must go in FIRST.
+    ///
+    /// Without it the guarded test below proves nothing: if the race never reproduces on this machine, a
+    /// green "exactly one wins" is indistinguishable from a guard that does nothing. The control is what
+    /// turns the other tests into evidence.
+    ///
+    /// If this ever starts failing, the unguarded path has accidentally become correct and every conclusion
+    /// drawn from the other tests needs re-checking.
+    /// </summary>
+    public async Task CONTROL_the_race_reproduces_without_a_guard()
+    {
+        // TODO(architect): race the NAIVE version — read the state, check the rule, append — with no guard.
+        //   var results = await RaceAsync(2, async (i, session) => { /* read, check, stage */ return true; }, Store);
+        //   results.Count(RaceOutcome.Won).ShouldBe(2);              // BOTH get through
+        //   (await AccordingToTheEventStore()).ShouldBeGreaterThan(/* the limit */);   // and the rule is broken
+        throw new NotImplementedException(
+            "TODO(architect): prove the race reproduces at all, or the tests below are not evidence.");
+    }
+
+    ${fact}
+    /// <summary>
+    /// THE MECHANISM. Same race, same barrier, with the guard chosen in ARCHITECTURE.md in place.
+    ///
+    /// Assert BOTH counts, not just the winner: "exactly one won" alone is also true when the mechanism
+    /// wrongly refuses everybody, and "no conflicts" alone is true when it refuses nobody.
+    /// </summary>
+    public async Task exactly_one_racing_writer_is_refused()
+    {
+        // TODO(architect): the same race with the guard in place.
+        //   results.Count(RaceOutcome.Won).ShouldBe(1, results.Describe());
+        //   results.Count(RaceOutcome.VersionConflict).ShouldBe(1, results.Describe());
+        //   results.Count(RaceOutcome.Unexpected).ShouldBe(0, results.Describe());
+        //   (await AccordingToTheEventStore()).ShouldBeLessThanOrEqualTo(/* the limit */);
+        //
+        // IF YOU CHOSE THE ADVISORY LOCK, this test looks different and RaceAsync does not fit it. That
+        // mechanism locks BEFORE the read, so a read-barrier DEADLOCKS against it — writer A holds the lock
+        // while waiting for writer B to read, and B cannot read until A releases. Its loser is refused by
+        // the ORDINARY RULE rather than by a conflict, so assert the outcome shape instead:
+        // one accepted, one refused-by-rule, zero conflicts.
+        throw new NotImplementedException(
+            "TODO(architect): race ${r.command ?? "the command"} with the guard from ARCHITECTURE.md.");
+    }
+
+    ${fact}
+    /// <summary>
+    /// THE WRONG-REASON GUARD, and it is the test most likely to be skipped and most likely to matter.
+    ///
+    /// A mechanism that simply refuses everything after the first write PASSES both tests above — the
+    /// control still overspends, and "exactly one won" is exactly what such a mechanism produces. This one
+    /// catches it: two UNCONTENDED operations that both fit must BOTH succeed, and the third must be
+    /// refused by the BUSINESS RULE rather than by the guard.
+    ///
+    /// It also pins the cross-stream read itself: the third can only be refused if the mechanism really
+    /// accumulated state across the different streams the first two wrote.
+    /// </summary>
+    public async Task the_guard_is_invisible_when_nobody_is_racing()
+    {
+        // TODO(architect): three sequential operations against DIFFERENT streams of one boundary —
+        //   two that fit (both must be ACCEPTED, not conflicted), then one that does not (refused BY THE RULE).
+        throw new NotImplementedException(
+            "TODO(architect): prove the guard costs nothing when there is no contention.");
+    }
+}
+`;
+}
+
 // --- check ----------------------------------------------------------------------------------------
 
 if (cmd === "check") {
@@ -840,13 +1056,16 @@ if (cmd === "check") {
   // sequential, so a green suite says nothing about whether two callers at the same instant are both let
   // through — and that is the failure this whole family exists for.
   const TESTDIR = join(PROJ, "generated", SYSTEM, "tests", `${SYSTEM}.IntegrationTests`, "Concurrency");
-  const missingRaces = qs.filter((q) => q.race &&
-    !existsSync(join(TESTDIR, `${pascal(q.race.slice)}ConcurrencyTests.cs`)));
+  const missingRaces = qs.filter((q) => q.race && !existsSync(join(TESTDIR, raceFileName(q.race))));
   if (missingRaces.length) {
-    console.log(`\nRACE TEST NOT WRITTEN — ${missingRaces.length}. These rules depend on state in the stream their own`);
-    console.log(`command appends to, so two callers at the same instant can both pass them if the key is wrong.`);
-    console.log(`Every generated GWT is sequential and cannot see it:`);
-    for (const q of missingRaces) console.log(`  ${q.race.rule}\n     ${q.race.command} on ${q.race.aggregate} (${q.race.identity.join(", ") || "NO KEY"})`);
+    console.log(`\nRACE TEST NOT WRITTEN — ${missingRaces.length}. Two callers at the same instant can both pass these`);
+    console.log(`rules, and every generated GWT is sequential, so a green suite cannot see it:`);
+    for (const q of missingRaces) {
+      const where = q.race.kind === "cross-stream"
+        ? `reads ${q.race.foreign}, appends to ${q.race.aggregate} — NO stream key covers this`
+        : `${q.race.aggregate} (${q.race.identity.join(", ") || "NO KEY"})`;
+      console.log(`  ${q.race.rule}\n     ${q.race.command} on ${where}`);
+    }
     console.log(`  node tools/architect.mjs tests`);
   }
 

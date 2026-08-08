@@ -96,14 +96,55 @@ live fold together. `[Aggregate]` cannot resolve a composite key, so it does not
 than one field. Reading *another* stream is `session.Events.FetchLatest<T>(streamKey)` — on
 `IDocumentSession.Events`, not the query session.
 
-**For a `cross-stream-rule`, the four honest answers are:**
+**For a `cross-stream-rule`, the honest answers are:**
 
 | | Costs |
 | --- | --- |
 | **accept the window** | a late write gets through. Legitimate — but name who agreed |
 | **make the contested thing one stream** | the rule becomes a true invariant. Costs a model change and the key on every event |
 | **compensate** | let it through, emit a correcting event when the conflict is found. Costs a second slice and a visible-to-users reversal |
-| **serialise on both streams** | couples them, and can deadlock. Rarely right |
+| **guard the boundary directly** | **four measured mechanisms — see below.** The rule becomes real with no model change |
+| ~~serialise on both streams~~ | couples them, and can deadlock. Superseded by the row below it — every mechanism there serialises on **one** thing, which is what makes it safe |
+
+#### Guarding the boundary: four mechanisms, all measured
+
+**This used to read "no stream's version covers a cross-stream rule, so you cannot enforce it." That is
+false, and `reference-implementations/cross-aggregate-invariant/` exists to say so.** All four hold the
+invariant against real Postgres; the control proves the race reproduces deterministically without them.
+
+The organising idea is one sentence from Marten's own migration guide, and it generalises past DCB:
+
+> *"the side-table mechanism **converts the predicate read into a row-level write conflict**, so concurrent
+> boundary saves serialize on a row lock at `READ COMMITTED`."*
+
+**Optimistic concurrency was never the problem — the thing being versioned was.** A version has to sit on
+something *both writers write*. A stream fails that test when the writers are on different streams; a
+document row, a unique index, a lock or a DCB tag all pass it.
+
+| | Serialisation point | Loser gets | Costs |
+| --- | --- | --- | --- |
+| **guard row** | one `IRevisioned` row per boundary, written with `UpdateRevision` | `Conflict`, retry | every write in the boundary contends on one hot row |
+| **reservation row** | a unique index on `(boundary, sequence)` | `Conflict`, retry | a row per write, unbounded; the sequence is an O(rows) count. Leaves an audit trail |
+| **advisory lock** | `pg_advisory_xact_lock`, taken **before the read** | **`BudgetExceeded`** — the ordinary rule, **no retry** | serialises everything in the boundary; contention becomes latency rather than failure |
+| **DCB** | `mt_dcb_tag_version`, maintained by Marten | `DcbConcurrencyException`, retry | none beyond being on the current stack |
+
+**Three things to know before choosing:**
+
+- **`Store()` cannot conflict.** On an `IRevisioned` document it supplies the version the entity *already
+  has*, and a revision is only rejected when the stored version is **equal or greater** than the one
+  supplied — so it asserts something already true. `UpdateRevision(doc, doc.Version + 1)` is the mechanism;
+  the `+1` is the whole thing. Three attempts to fix this by configuration failed because none of them
+  changed *which number was supplied*. KIT-FINDINGS **AD14**.
+- **The advisory lock is the odd one and often the best.** Because it locks before the read, the loser sees
+  the winner's write and is refused by the **business rule** — so callers never retry and the budget is
+  fully used rather than partly lost to conflicts. Ten writers against a budget for six give exactly
+  `6 accepted, 4 refused`, every run. Prefer it when contention is low and a wait is cheaper than a retry.
+- **DCB is additive, not a re-modelling.** The event is still appended to *its own* stream with the tag
+  attached; the tag is a boundary marker, not a stream key. So an existing model keeps its stream layout
+  and gains the boundary. It does need an `Id` on the boundary aggregate despite `dcb.md` saying otherwise.
+
+**Nothing checks whether you chose right** — not a rule, not the compiler, not a test. Say which one, and
+why, in `ARCHITECTURE.md`.
 
 ### The read side — the book gives three options, with the costs
 
