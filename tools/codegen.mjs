@@ -500,7 +500,7 @@ for (const s of ir.slices) {
   const keyed = agg.identity;
   scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${stateName(s)}.cs`),
     `${banner(`${s.name} — the state this slice folds to make its decision`)}
-using ${NS}.Contracts;
+${keyed.length > 1 ? "using System.Globalization;\n" : ""}using ${NS}.Contracts;
 
 namespace ${NS}.Slices.${pascal(s.context)};
 
@@ -531,11 +531,25 @@ ${keyed.length === 1 ? `    /// <summary>
     /// stream: [WriteAggregate] reads one member, and there is no single member to read. Use
     /// FetchForWriting(streamKey) instead — same optimistic concurrency, honest about the key.
     /// </summary>
+    /// CULTURE-INVARIANT, AND EVERY DATE PART EXPLICITLY FORMATTED. A composite key is BUILT BY STRING
+    /// INTERPOLATION, so without this the machine's culture leaks into the stream id: a DateOnly renders
+    /// "2026. 09. 01." under hu-HU and "09/01/2026" under invariant, and a decimal swaps its separator.
+    /// Two hosts would then compose two different streams for one desk-day and the invariant the key
+    /// exists to enforce would silently stop holding — with no error anywhere. KIT-FINDINGS Z4.
     public static string StreamKey(${keyed.map((k) => {
       const f = evs[0].fields.find((x) => x.name === k);
       return `${f ? type(f) : "string"} ${camel(k)}`;
     }).join(", ")})
-        => $"${camel(agg.name)}:${keyed.map((k) => `{${camel(k)}}`).join(":")}";
+        => string.Create(CultureInfo.InvariantCulture, $"${camel(agg.name)}:${keyed.map((k) => {
+          const f = evs[0].fields.find((x) => x.name === k);
+          const t = f ? cs(f.type) : "string";
+          // A round-trippable, sortable, separator-free rendering for the types that have one. Everything
+          // else is left to InvariantCulture, which is already enough for Guid/int/long/string.
+          const fmt = t === "DateOnly" ? ":yyyy-MM-dd"
+                    : t === "DateTime" || t === "DateTimeOffset" ? ":O"
+                    : t === "TimeOnly" ? ":HH\\\\:mm\\\\:ss" : "";
+          return `{${camel(k)}${fmt}}`;
+        }).join(":")}");
 ` : ""}
 ${evs.map((e) => `    public static ${stateName(s)} Apply(${pascal(e.label)} e, ${stateName(s)} current)
         // TODO(codegen): fold ${pascal(e.label)} into whatever ${pascal(s.commands[0])} needs to decide.

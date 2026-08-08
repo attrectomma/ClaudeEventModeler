@@ -211,8 +211,36 @@ function derive() {
           .map((x) => byLabel.get(x.label))
           .filter((e) => e && (e.kind === "event" || (e.kind === "external" && e.ingested)))
           .map((e) => e.aggregate).filter(Boolean))];
-        const foreign = givenAggs.filter((a) => !writes.includes(a));
+        let foreign = givenAggs.filter((a) => !writes.includes(a));
+        let sameAggOtherStream = null;
         const rejects = /^error\s*:/i.test(g.then ?? "");
+
+        // SAME AGGREGATE IS NOT SAME STREAM, once the key is composite.
+        //
+        // `foreign` above compares AGGREGATE NAMES, which was sound while every stream key was a single
+        // field equal to the aggregate's identity — aggregate and stream instance were then the same
+        // thing. With `identity="deskId, date"` one aggregate spans a stream per desk per day, so a rule
+        // reading OTHER streams of the SAME aggregate was reported as "the same stream the command
+        // appends to". It is not, and the misclassification is dangerous rather than untidy: it asks for
+        // a race test that PASSES (racing one desk-day really does refuse the loser) while the rule it
+        // was meant to protect — "a member may hold at most 3 upcoming bookings", which reads three other
+        // desk-day streams — stays broken and untested. KIT-FINDINGS Z1.
+        //
+        // The model already carries the answer: a GWT's example data names the key on both sides. Where
+        // every identity field is given on the WHEN and on a GIVEN step, compare them. Differ => the
+        // GIVEN lives in another stream, so this is cross-stream. Absent example data we cannot tell, and
+        // the old aggregate-name behaviour stands.
+        if (!foreign.length && rejects && givenAggs.length) {
+          const key = laneOfAggregate.get(givenAggs[0])?.identity ?? [];
+          const keyOfStep = (st) => key.every((f) => st?.example?.[f] !== undefined)
+            ? key.map((f) => st.example[f]).join(" ") : null;
+          const whenKey = keyOfStep((g.whenSteps ?? [])[0]);
+          const givenKeys = (g.givenSteps ?? []).map(keyOfStep).filter(Boolean);
+          if (key.length > 1 && whenKey && givenKeys.length && !givenKeys.includes(whenKey)) {
+            foreign = givenAggs;   // same aggregate, provably a different stream => cross-stream
+            sameAggOtherStream = `(${key.join(", ")}) = (${givenKeys[0]}) vs (${whenKey})`;
+          }
+        }
 
         // ---- W4: A CONTENDED INVARIANT — the rule is inside our own stream, so a race decides it -----
         //
@@ -258,7 +286,9 @@ function derive() {
           id: `cross-stream-rule/${ctx}/${s.name}/${g.id}`,
           family: "cross-stream-rule", area: "write", context: ctx,
           subject: `${s.name}: ${g.rule || g.id}`,
-          says: `the command appends to ${writes.join(", ")} but this scenario's GIVEN lives in ${foreign.join(", ")}${rejects ? ", and it is a REJECTION" : ""}`,
+          says: sameAggOtherStream
+            ? `the command appends to one ${writes.join(", ")} stream but this scenario's GIVEN lives in ANOTHER stream of the same aggregate — ${sameAggOtherStream}${rejects ? ", and it is a REJECTION" : ""}`
+            : `the command appends to ${writes.join(", ")} but this scenario's GIVEN lives in ${foreign.join(", ")}${rejects ? ", and it is a REJECTION" : ""}`,
           asks: "Enforcing this means reading another stream. What happens if that stream changes between the read and the append?",
           options: [
             "accept the window — the far stream rarely changes and a late write is tolerable. Say so, and say who agreed",

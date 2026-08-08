@@ -1,6 +1,6 @@
 ---
 name: scaffold
-description: Generate the deterministic skeleton of a system from its event model — solution, projects, event records, aggregates, view types, validators, the test harness and one failing test per GWT — and prove it compiles and runs. Use after the model validates and BEFORE architect, or when the user says "scaffold", "generate the skeleton", "set up the project", or invokes /scaffold. Writes no business logic and spawns no agents; every hole is left marked TODO for codegen.
+description: Generate the deterministic skeleton of a system from its event model — solution, projects, event records, aggregates, view types, validators, the test harness and one failing test per GWT — and prove it compiles and runs. Use after the model validates and after `architect record`, or when the user says "scaffold", "generate the skeleton", "set up the project", or invokes /scaffold. Writes no business logic and spawns no agents; every hole is left marked TODO for codegen.
 ---
 
 # Scaffold session
@@ -10,7 +10,7 @@ You run the generator and **prove the skeleton stands up**. That is the whole jo
 You write no business logic, you fill no `TODO(codegen)`, and you spawn no agents. If you find
 yourself making a judgement call about the domain or the stack, you are in the wrong skill.
 
-## Why this is its own step, and why it comes before `architect`
+## Why this is its own step, and where it sits
 
 **`tools/codegen.mjs` is the scaffolder.** It emits everything mechanically derivable from the IR —
 the solution, both projects, `Program.cs`, the event records, the aggregate folds, the view types,
@@ -23,20 +23,23 @@ and running them as one hid both:
 | **scaffold** (you) | the skeleton, every hole marked | **it compiles, and the tests run** | none |
 | **codegen** | the business logic, one slice at a time | that slice's tests pass | the recipe, per slice |
 
-**Before `architect`, for a concrete reason:** `node tools/architect.mjs tests` scaffolds a race test
-per contended invariant **into the test project**, and refuses if there is no project —
-`generated/<Sys> does not exist — run codegen first`. Until this step existed, architect's own gate
-could not be met on the first pass through the workflow. So the order is
+**`architect` straddles you.** `architect.mjs record` needs only the model and must run FIRST (see the
+type-binding note below). `architect.mjs tests` writes race tests **into the test project** and refuses if
+there is none — `generated/<Sys> does not exist — run codegen first` — so that half follows you. The order:
 
 ```
-event-model  →  scaffold  →  architect  →  codegen  →  journey
+event-model  →  architect record + answer  →  scaffold  →  architect tests  →  codegen  →  journey
 ```
 
-**And you will be run again after `architect`.** That is not a flaw in the ordering, it is the
-emit/scaffold split doing its job: `architect` records the **type bindings**, and the files that
-depend on them are all `emit`, so a second run picks them up and overwrites cleanly. Expect
-`UNBOUND TYPE` on the first pass of a model that speaks the domain's vocabulary rather than C#'s —
-that is the report working, not a defect. Re-run after **any** model change too.
+**`architect record` must have run BEFORE you, for `type-binding`.** Views, aggregate folds and GWT tests
+are all `scaffold`, so an unbound type baked into them on your first pass is KEPT on every later one and
+`UNBOUND TYPE` goes quiet while it is still true — measured at 68 errors then 20 (KIT-FINDINGS Z6). If you
+see `UNBOUND TYPE`, stop: record the bindings and regenerate from an empty `generated/`, do not re-run over
+the top.
+
+**Re-run after any model change**, and after `architect tests` — both are safe, because everything a
+later run changes is `emit`. What is *not* safe is re-running to fix an unbound type, per the paragraph
+above: that one needs an empty `generated/`.
 
 ## The steps
 
@@ -87,7 +90,7 @@ cause, say where it is, and fix the tool.
 
 | | |
 | --- | --- |
-| `UNBOUND TYPE` | a domain type with no C# binding, emitted verbatim. **Expected before `architect`**; a defect after it |
+| `UNBOUND TYPE` | a domain type with no C# binding, emitted verbatim. **Always a defect** — `architect record` should have run first. Do not re-run over the top; record the bindings and regenerate from an empty `generated/` |
 | `GWT WITHOUT A TEST` | a rule added after the test file was scaffolded. Test files are hand-owned, so the generator will not append — write it by hand |
 | `TESTS STILL SKIPPED ON A CLAIMED SLICE` | the skip was baked in while the slice was `in-design` and never came off. Delete the `Skip` argument |
 | `IMPLEMENTED BUT STILL UNCLAIMED` | the work is done and `status=` never moved |
@@ -115,5 +118,5 @@ saying which are expected and which are not is most of your value.
 - every report that fired, each marked *expected here* or *needs attention*
 - what the model made impossible to generate, if anything
 
-Then say the next step out loud: **`architect`**, because the system now has somewhere for its race
-tests to live.
+Then say the next step out loud: **`architect tests`**, because the system now has somewhere for its
+race tests to live.

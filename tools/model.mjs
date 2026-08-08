@@ -904,8 +904,19 @@ function gwtRules(ir) {
         }
         const el = all(step.label)[0];
         if (!el) return;                       // the label itself is reported by the rules below
+        // A CHILD GROUP'S FIELDS COUNT AS THE ELEMENT'S OWN, exactly as they do everywhere else.
+        // `children="DayBookingLine: deskLabel:string, …"` means a Day Bookings row really does carry a
+        // deskLabel — inside its lines — so `Day Bookings(deskLabel=Window 3)` is a legitimate example
+        // and rejecting it is a FALSE POSITIVE. CLAUDE.md already promises this: "the group is
+        // transparent to the completeness check in both directions", and mappings=, derived= and
+        // mapping-crosses-types all resolve on the flattened names. This was the one rule that did not,
+        // so a view with a group could not be given example data at all.
+        const declared = el.fields.flatMap((f) => {
+          const shape = el.children?.[f.type];
+          return f.collection && shape ? shape : [f];
+        });
         for (const [key, value] of Object.entries(step.example ?? {})) {
-          const field = el.fields.find((f) => f.name === key);
+          const field = declared.find((f) => f.name === key);
           if (!field) {
             push("error", "gwt-example-unknown-field",
               `GWT "${g.rule || g.id}" gives ${step.label}(${key}=…), but ${step.label} declares no "${key}". An example cannot invent a field.`, g.id);

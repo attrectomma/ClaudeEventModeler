@@ -1179,12 +1179,26 @@ and two defects shipped through that hole (**W6**, an automation label of more t
 C# class name; **W9**, a domain type emitted verbatim as a C# type — 68 errors). `scaffold`'s gate is
 `dotnet build` at 0 errors and 0 warnings, and that is the check that was missing.
 
-**`scaffold` comes BEFORE `architect` because architect writes into the test project.**
-`architect.mjs tests` scaffolds a race test per contended invariant and refuses when there is nothing to
-write into — so on a first pass through the workflow its own gate was unreachable. It is then normal to run
-`scaffold` **again** after `architect`: the type bindings land in `ARCHITECTURE.md`, everything depending
-on them is `emit`, and a second run overwrites cleanly. `UNBOUND TYPE` on the first pass is the report
-working.
+**`architect` is really two steps, and they sit on opposite sides of `scaffold`:**
+
+```
+event-model  →  architect record + answer  →  scaffold  →  architect tests  →  codegen  →  journey
+```
+
+**`record` needs only the model, so it goes first — and for `type-binding` it MUST.** `architect.mjs tests`
+is the half that writes race tests into the test project and refuses when there is nothing to write into,
+so that half necessarily follows `scaffold`.
+
+**This used to say the opposite, and the correction is measured.** It claimed you could scaffold first and
+re-run afterwards because *"everything depending on the bindings is `emit`, and a second run overwrites
+cleanly."* **That is false: views, aggregate folds and GWT tests are all `scaffold`**, so they are KEPT on
+the second run with the unbound type baked in. Reproduced on the cart fixture — pass 1 reports
+`UNBOUND TYPE` and fails with 68 errors, bindings are then recorded, pass 2 reports nothing and still fails
+with **20**, all `CS0246` inside kept view files. Recording the bindings *before* the first scaffold builds
+clean at 0/0. KIT-FINDINGS **Z6**.
+
+So `UNBOUND TYPE` on a first pass is not "the report working" — it is a project you must regenerate from
+scratch, and the report goes quiet on the second pass precisely while it is still true.
 
 **`event-model` and `add-slice` are two directions into one artifact, not two stages.** `event-model`
 asks and the user answers — the exploratory path, eleven phases, a whole context. `add-slice`

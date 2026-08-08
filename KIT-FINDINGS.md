@@ -2143,3 +2143,235 @@ So chapters, model-context stickies, alternative-flow markers and backlinks are 
 precedent for the kit adding its own — it is **not** authority requiring the kit to adopt his. Y1 is
 different in kind and should be treated as binding: it is a direct statement about what does not belong on
 a model, not a proposed extension.
+
+### Y5 — "swimlane" means three different things across the sources, and the kit implements one · **WRONG** · *supersedes Y2's sourcing*
+
+Researched online after the human pointed out that the desk-booking run still had no actor lanes, and
+asked for the primary sources rather than the books alone. **Y2 attributed actor lanes to Dilger ch. 40.
+That is not where they come from, and the weaker citation understated the case.**
+
+The canonical definition — Adam Dymitruk, *What is Event Modeling?*, the article Dilger himself footnotes
+— uses the word **twice, in two different sections, for two different things**:
+
+| | Where | Over what | Means |
+| --- | --- | --- | --- |
+| **§3 "The Story Board"** | **top**, the wireframe row | wireframes | **ACTORS.** *"The wireframes are generally put at the top of the blueprint. **They can be divided into separate swimlanes to show what each user sees if there is more than one.**"* |
+| **§6 "Apply Conway's Law"** | bottom, the event row | events | **TEAMS.** *"Now that we know how information gets in and out of our system, we can start to look at organizing **the events themselves** into swimlanes."* |
+
+And *Understanding EventSourcing* ch. 7 gives the event-row band a **third** meaning: *"Swimlanes define
+stream boundaries. Typically, all events in one swimlane end up in a physical stream."*
+
+**What the kit built.** Its swimlanes sit over the events — §6's *position* — carrying Dilger's *meaning*
+(stream boundaries) plus `owner=` for §6's *meaning* (Conway/teams). Those two are fused into one band,
+which is defensible and is documented. **What it has none of is §3: the actor lanes at the top.**
+
+**So the human's phrase — "the conway idea, so the upper swimlanes for actors" — is not a confusion, it is
+an accurate reading of a genuinely overloaded term.** §6 is literally titled *Apply Conway's Law* and is
+about swimlanes; §3's swimlanes are the upper ones and are about actors. The two sit four sections apart in
+one document and share a word.
+
+**Corroborated in the community, with a worked three-actor example.** Dymitruk again: *"Wireframes or web
+page mockups across the top. These can be organized in swim-lanes to show **different people (or sometimes
+systems)** interacting with our system."* A published example models a fundraising order across three
+lanes — Funder, Fundraising Manager, Checkin Clerk — stating *"When there are multiple actors in the story,
+I use a swimlane for each type of person taking part, and for each role wireframes or mockups are drawn."*
+
+**Two consequences the run should carry:**
+
+- **Actor lanes divide the WIREFRAME ROW ONLY.** §3 places them there and the article never extends them
+  below it; §3.1 separately forbids stacked screens. So an actor lane is a subdivision of the kit's
+  `lane-ui`, not a new full-height band — which is also the only reading that does not collide with the
+  stream bands already sitting in `lane-evt`.
+- **An actor may be a SYSTEM, not just a person** — *"or sometimes systems"*. The cart model's warehouse
+  and the desk-booking office manager are both actors in this sense, so the notation should not assume a
+  human.
+
+**This raises the priority rather than changing the answer.** Y2 called actor lanes "book-sanctioned"; they
+are in fact part of the **original definition of the method**, present since 2019 and absent from this kit —
+which makes them the oldest unimplemented thing in the grammar, not a Dilger extension the kit may take or
+leave. The standing caveat above does **not** apply to them.
+
+Sources: [What is Event Modeling?](https://eventmodeling.org/posts/what-is-event-modeling/) ·
+[Event Modeling Cheat Sheet](https://eventmodeling.org/posts/event-modeling-cheatsheet/) (blocks and
+patterns only — no lanes, no actors) ·
+[What is Event Modeling? (with example)](https://www.goeleven.com/blog/event-modeling/)
+
+---
+
+## Z. Findings — the desk-booking run (CPOC03, 2026-08-08)
+
+The first model with a **composite stream key**, three aggregates, real contended invariants and
+multi-stream views — chosen per section X because the recipe-box brief could not distinguish
+"the kit is robust" from "the brief was trivial". It found three things in the modelling half alone.
+
+### Z1 — same aggregate is not the same stream, and the misclassification asks for a race test that proves nothing · **BROKEN** · ***FIXED***
+
+`architect.mjs` classified *"a member may hold at most 3 upcoming bookings"* as a
+**`contended-invariant`**, describing it as *"a rejection that depends on state in Booking — **the same
+stream** the command appends to, keyed by (deskId, date)"*.
+
+It is not the same stream. The GIVEN is three `Desk Booked` events in three **different** `(deskId, date)`
+streams; the command appends to a **fourth**. Same aggregate, four stream instances.
+
+**Cause.** The split between `contended-invariant` and `cross-stream-rule` compared **aggregate names** —
+`givenAggs.filter((a) => !writes.includes(a))`. That was sound while every stream key was a single field
+equal to the aggregate's identity, so aggregate and stream instance were the same thing. `identity="deskId,
+date"` breaks the equivalence: one aggregate now spans a stream per desk per day.
+
+**Why it is BROKEN rather than untidy — the failure is a false sense of proof.** The contended-invariant
+branch instructs you to *"WRITE THE RACE TEST that proves optimistic concurrency refuses the loser"*, and
+that race test **would pass**: racing two bookings of the *same* desk-day genuinely does refuse one. Meanwhile
+the rule actually at risk — two callers booking a member's 4th and 5th desk on *different* days at the same
+instant — both succeed, is never raced, and now carries a green test as evidence that it was checked.
+
+**Fixed, using what the model already carries.** A GWT's example data names the stream key on both sides, so
+where every `identity=` field appears in the WHEN and in a GIVEN step, the keys are compared: differ ⇒
+cross-stream. The kit's own doctrine is that *"an example specifies the how well enough to VERIFY"*, and this
+is that principle paying for itself. Guarded to `key.length > 1` and to steps that actually carry examples —
+a single-field key cannot hit it and a model without example data keeps the old behaviour, so the cart
+fixture and both recipe-box models are provably untouched (re-checked: recipe box still 3 questions, cart
+still 4 write-side).
+
+The message now names the keys rather than reading `appends to Booking but the GIVEN lives in Booking`:
+`(deskId, date) = ($Window3 2026-09-01) vs ($Quiet1 2026-09-04)`.
+
+**The general lesson, and it is the reason this run was worth doing:** every prior model keyed a stream by a
+single field, so an entire class of reasoning had never been exercised. The bug was not introduced — it was
+*revealed*, and it had been latent since `architect.mjs` was written.
+
+### Z2 — a child group's fields were invisible to GWT example checking · **BROKEN** · ***FIXED***
+
+`Day Bookings(deskLabel=Window 3)` was rejected with *"Day Bookings declares no deskLabel"* — but it does,
+inside its `children="DayBookingLine: deskId, deskLabel, memberId, memberName"` group.
+
+**Cause.** `gwt-example-unknown-field` resolved against `el.fields` only. Everywhere else flattens children —
+CLAUDE.md promises *"the group is transparent to the completeness check in both directions"*, and `mappings=`,
+`derived=` and `mapping-crosses-types` all work on the flattened names. This was the one rule that did not,
+so **a view with a child group could not be given example data at all** — and a multi-stream view with lines
+inside its row is exactly the shape that most needs a worked example.
+
+**Fixed** by applying the same flattening the completeness check uses. A **false positive**, which the house
+rule ranks as worse than a missing check.
+
+### Z3 — a screen and a read model sharing a label resolve to whichever comes first · **NOISE**
+
+Naming the desk catalogue view `Desks` while the admin screen was also `Desks` produced three
+`gwt-example-unknown-field` errors plus three `gwt-unknown-event` errors, because `all(label)[0]` is neither
+slice-scoped nor kind-filtered — the screen won, and a screen has no `fields`.
+
+The root cause is a modelling mistake (two different things, one name) and renaming the view fixed it. But
+`then=` is documented as resolving *"this slice first, then anywhere"*, and the example checker does not do
+that — it takes the first global match. Worth tightening to prefer the same slice and then the expected kind;
+not fixed here because the run had a correct answer available and the fix wants its own regression case.
+
+### Z4 — a composite stream key was built culture-dependently · **BROKEN** · ***FIXED***
+
+The first model with `identity="deskId, date"` reached a branch no earlier model could.
+`tools/codegen.mjs` emitted the key by plain interpolation — `$"booking:{deskId}:{date}"` — and
+`DateOnly.ToString()` follows the machine's culture. Measured on the real runtime across five cultures:
+
+| culture | naive render | with the fix |
+| --- | --- | --- |
+| invariant | `09/01/2026` | `2026-09-01` |
+| hu-HU | `2026. 09. 01.` | `2026-09-01` |
+| de-DE | `01.09.2026` | `2026-09-01` |
+| th-TH | `1/9/2569` | `2026-09-01` |
+| ar-SA | Arabic-Indic digits, Hijri | `2026-09-01` |
+
+**Two hosts would compose two different streams for one desk-day**, and the "one member per desk per day"
+invariant — the entire reason the key is composite — would stop holding, with no error anywhere. A
+`decimal` key part swaps its separator the same way, and a `TimeOnly` additionally *loses its seconds*.
+
+**Fixed** with `string.Create(CultureInfo.InvariantCulture, …)` plus an explicit round-trippable format for
+date-shaped parts, and the `using System.Globalization;` added only when the key is composite. Verified
+across all five cultures; the regenerated skeleton still builds 0/0. Single-field keys never interpolate
+and are untouched.
+
+### Z5 — two labels that PascalCase to one identifier: one is silently dropped, and reported as `kept` · **BROKEN** · *not fixed*
+
+Found by `kit-test` on its first ever run. `scaffold()` guards with `existsSync(p)`, so **"left over from a
+previous run" and "written twice in this run" are indistinguishable**:
+
+```
+$ node tools/codegen.mjs --project $T        # FIRST run, into an EMPTY directory
+33 file(s) written, 2 kept (already filled in)
+  ... 4 views
+$ ls generated/Drafting/src/Drafting/Views/
+DraftHistory.cs  MyDrafts.cs  ViewRegistrations.cs      # 4 views claimed, 2 files exist
+$ dotnet build   ->  0 Warning(s)  0 Error(s)
+```
+
+Two views gone, build green, and the message is the worst available: **`kept (already filled in)` on a
+first run into an empty directory** asserts "you already filled these in" when it means "I discarded a
+different view". Which definition survives is decided by alphabetical filename order.
+
+**The trigger needs no punctuation.** CLAUDE.md endorses the exact shape — *"if two contexts need the same
+projection, each builds its own"* — so two models in one system, each with a `MyDrafts`, is enough.
+
+**Cause, two places.** `codegen.mjs`'s `scaffold()` asks the filesystem instead of tracking what this run
+wrote. And `model.mjs`'s `system/event-shape-disagrees`, which is exactly the right check and whose own
+comment says *"a generator picking whichever cell it met first would emit a type that is wrong for the
+other"*, filters to `kind === "event" || "external"` — **read models are excluded**. Events are protected,
+commands fail loudly at CS0101; the read model is the only kind that is both one-file-per-name and written
+through `scaffold()`, so it is the only one whose collision is silent.
+
+**Not fixed here, deliberately.** It is two one-line changes — track paths written this run, and drop the
+`kind` filter — but it needs its own regression fixture, and four tools had already changed in this run.
+**Still unproven: the same collision on automations and on slice validators.**
+
+### Z6 — `scaffold → architect → scaffold` leaves a project that does not build · **WRONG** · ***DOCS FIXED***
+
+CLAUDE.md claimed — in text written the same day — that re-running scaffold after architect was safe
+because *"everything depending on them is `emit`, and a second run overwrites cleanly."* **That is false:
+views, aggregate folds and GWT tests are all `scaffold`**, so they are KEPT with the unbound type baked in.
+Measured on the cart fixture:
+
+| | |
+| --- | --- |
+| pass 1, no bindings | `UNBOUND TYPE — 2`, then **68** `CS0246` |
+| record bindings, pass 2 | **no report at all**, and still **20** `CS0246` inside kept view files |
+| bindings recorded **before** the first scaffold | **0 errors, 0 warnings** |
+
+The report goes silent exactly while it is still true — the pre-W9 situation the W9 fix was written to end.
+
+**Corrected in the docs rather than the code:** `architect` is really two steps sitting on opposite sides of
+`scaffold`. `record` needs only the model and must go first; `tests` needs the test project and follows.
+Both CLAUDE.md and the `scaffold` skill now say so, and `UNBOUND TYPE` is documented as **always** a defect
+requiring an empty `generated/`, never something to re-run over the top.
+
+### Z7 — smaller things `kit-test` found, recorded not fixed
+
+- **The mobile contact sheet is sized for six columns regardless of screen count** · *NOISE*. `design.mjs`
+  fits height to content but not width, so one screen yields a 2508px sheet that is ~85% white space — and
+  a viewer scaling it to fit makes the screen tiny, the exact failure the sheet exists to prevent. One-line
+  fix identified, not applied.
+- **`model.mjs mark` and `crop.mjs` write LF lines into CRLF files** · *NOISE*. `mark` → `clear` still
+  round-trips byte-identical, so it is cosmetic, but a marked file's diff shows the markers as LF.
+- **A `children=` collection field cannot carry example data** · *GAP*. `DraftHistory(revisions=1)` is
+  rejected, so a GT whose whole point is *"shows a row with 0 revisions"* cannot state that as checked
+  data — the "prose in a label is not checked" problem `derived-without-example` exists to solve.
+- **No fixture in the kit has a composite stream key** · *GAP*. The Z4 branch, and the whole
+  `[Aggregate]`-does-not-fit section of CLAUDE.md, have no regression coverage. CPOC03 depends on both and
+  nothing the kit owns would notice if either broke.
+- **`model.mjs` accepts a duplicate XML attribute** with last-wins, which real XML forbids. Plain `Edit` on
+  the XML is the kit's documented default path, so a cheap check may be worth it.
+
+### What this run demonstrated that no earlier one could
+
+Recorded because section X could not distinguish *"the kit is robust"* from *"the brief was trivial"*.
+
+- **The first passing race test in the kit's history — and it was mutation-checked.** Keyed per booking
+  instead of per desk-day, `ExactlyOneWriterWins` reports `Won=10`: ten winners for one desk-day. What the
+  test has teeth about is the **modelling** decision `identity="deskId, date"`, not a Marten setting.
+- **The first `Async` views, async daemon and `WaitForNonStaleProjectionDataAsync`** — plus a consequence
+  the kit's guidance does not mention: an `Async` view read by a **decider** means a **GIVEN** needs a
+  daemon wait too, not only a THEN. Without it the endpoint counts zero and returns success, which reads
+  exactly like a missing rule.
+- **The first composite stream key**, which forced `StreamIdentity.AsString` system-wide and surfaced Z4.
+- **A race test can pass vacuously.** The first HTTP race used a hard-coded date that had drifted outside
+  the 30-day window, so all ten callers were refused by the *validator*: "at most one success" and "no 5xx"
+  were both true and both meaningless. Only asserting the rule **name** caught it.
+- **The model's absolute example dates age out.** `TooFarInAdvance` is measured from now, so
+  `AFreeDeskCanBeBookedForADay` starts failing on 2026-09-01 with `DateInThePast` — reading like a broken
+  validator rather than a stale example. Left as-is: relative dates would stop testing the values the model
+  states. The fix is the model's, and the notation cannot yet say "N days from now".
