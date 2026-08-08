@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Spend/Spend.csproj" />
+  <Project Path="tests/Spend.IntegrationTests/Spend.IntegrationTests.csproj" />
+</Solution>

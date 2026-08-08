@@ -289,6 +289,13 @@ function parseCells(body) {
       // `owners` acknowledges a slice that genuinely needs more than one team.
       owner: a.owner ?? null,
       owners: a.owners ?? null,
+      // ACTOR LANES — the sibling of `owner`, and the easiest pair in the kit to confuse. `owner=` on a
+      // lane says who BUILDS what is in it; `actor=` says who USES it. A band carrying `actor=` divides
+      // the UI lane by person-or-system, per the original definition's §3.
+      actor: a.actor ?? null,
+      // "person" or "system". Not a role and never a permission: roles are an implementation detail the
+      // books refuse outright ("Typically I don't. That's an implementation detail.").
+      actorKind: a.actorKind ?? null,
       aggregate: a.aggregate ?? null,
       fields: parseFields(a.fields),
       // The shape of any repeated group a `Type[]` field references. On a read model this is what lets
@@ -347,15 +354,29 @@ function buildIr(file) {
   // <object> before every bare <mxCell>, so a swimlane authored as an object would otherwise be
   // found ahead of the lane that contains it and every event would look misplaced.
   const swimlaneNodes = nodes.filter((n) => n.streams && !isMarker(n.id));
+  // ACTOR LANES cut the UI lane horizontally, one band per actor — the ORIGINAL definition's swimlane,
+  // and a different thing from the stream bands above. Adam Dymitruk, "What is Event Modeling?" §3:
+  // "The wireframes are generally put at the top of the blueprint. They can be divided into separate
+  // swimlanes to show what each user sees if there is more than one." Discriminated by `actor=` exactly
+  // as a stream band is by `streams=`.
+  //
+  // THEY MUST BE EXCLUDED FROM `lanes` FOR THE SAME REASON SWIMLANES ARE. laneOf() takes the first
+  // containing match and parseCells returns every <object> before every bare <mxCell>, so an actor band
+  // authored as an object would be found ahead of the lane-ui containing it and every screen would look
+  // misplaced. The comment on swimlanes in CLAUDE.md is about precisely this trap.
+  const actorLaneNodes = nodes.filter(
+    (n) => n.actor && !isMarker(n.id) && !swimlaneNodes.includes(n)
+  );
   const lanes = nodes.filter(
-    (n) => !swimlaneNodes.includes(n) && (n.kind === "lane" || n.id.startsWith("lane-"))
+    (n) => !swimlaneNodes.includes(n) && !actorLaneNodes.includes(n) &&
+      (n.kind === "lane" || n.id.startsWith("lane-"))
   );
   // The model cell names the model; it is not an element of it. Left in `elements` it would be
   // reported as unsliced, and laneOf() would try to place a note that belongs to no lane.
   const modelCells = nodes.filter((n) => n.kind === "model" && !isMarker(n.id));
   const elements = nodes.filter(
-    (n) => !lanes.includes(n) && !swimlaneNodes.includes(n) && !modelCells.includes(n) &&
-      !isMarker(n.id) && n.kind !== "group"
+    (n) => !lanes.includes(n) && !swimlaneNodes.includes(n) && !actorLaneNodes.includes(n) &&
+      !modelCells.includes(n) && !isMarker(n.id) && n.kind !== "group"
   );
   const live = edges.filter((e) => !isMarker(e.id));
 
@@ -385,6 +406,15 @@ function buildIr(file) {
                    streams: n.streams.split(",").map((s) => s.trim()).filter(Boolean),
                    identity: (n.identity ?? "").split(",").map((s) => s.trim()).filter(Boolean) }));
 
+  // One band per actor. `kind` is the actor's nature — the original definition says a lane shows
+  // "different people (OR SOMETIMES SYSTEMS) interacting with our system", so a lane must never assume
+  // a human. Default "person" because that is the common case; "system" is the warehouse, the payment
+  // provider, the thing with no screen of its own that still acts on us.
+  const actorLanes = actorLaneNodes
+    .map((n) => ({ id: n.id, label: n.label, geometry: n.geometry,
+                   actor: n.actor.trim(),
+                   kind: (n.actorKind ?? "person").trim() }));
+
   const sliceNames = [...new Set([
     ...elements.map((e) => e.slice).filter(Boolean),
     ...sliceCells.map((c) => c.slice),
@@ -401,6 +431,16 @@ function buildIr(file) {
       status: cells.find((c) => c.status)?.status ?? null,
       kind: commands.length ? "state-change" : pick("readmodel").length ? "state-view" : "unknown",
       aggregate: members.find((m) => m.aggregate)?.aggregate ?? null,
+      // WHO USES THIS SLICE, derived the way `aggregate` is — read off the band each screen sits in,
+      // never declared a second time. Empty for a model with no actor lanes and for every slice with no
+      // screen: a View or an Automation has no actor by construction, which is a real answer rather than
+      // a gap. The Conway equivalent (which TEAMS a slice needs) is computed in conwayRules from owner=.
+      actors: [...new Set(pick("screen").map((s) => {
+        if (!s.geometry) return null;
+        const mid = s.geometry.y + s.geometry.h / 2;
+        return actorLanes.find((a) => a.geometry &&
+          mid >= a.geometry.y && mid <= a.geometry.y + a.geometry.h)?.actor ?? null;
+      }).filter(Boolean))].sort(),
       screens: pick("screen").map((x) => x.id),
       commands: commands.map((x) => x.id),
       events: [...pick("event"), ...pick("external")].map((x) => x.id),
@@ -426,6 +466,7 @@ function buildIr(file) {
     sliceCells,
     journeys,
     swimlanes,
+    actorLanes,
     elements,
     edges: live,
   };
@@ -1369,6 +1410,107 @@ function flowRules(ir) {
   return d;
 }
 
+// --- actor lanes: who USES it, which is not who builds it and not which stream ----------------------
+//
+// THE OLDEST UNIMPLEMENTED THING IN THE GRAMMAR, and the word for it is overloaded three ways. Adam
+// Dymitruk's original definition uses "swimlane" twice: §3 "The Story Board" divides the WIREFRAME row
+// by actor — "They can be divided into separate swimlanes to show what each user sees if there is more
+// than one" — and §6 "Apply Conway's Law" divides the EVENTS by owning team. Understanding EventSourcing
+// ch. 7 gives that second band a third meaning again, stream boundaries, which is what this kit already
+// implements. So a model can carry all three and they are not alternatives.
+//
+// An actor lane answers WHO USES A SCREEN. `owner=` answers who BUILDS it. Neither answers which stream.
+//
+// OPT-IN, like wireframes: a model with no actor lanes gets no findings at all. Every model built before
+// this existed has exactly one actor and must stay byte-identically green, and a single-actor model has
+// nothing to separate — the lanes exist to SEPARATE flows, per "Whenever possible, I model flows from
+// the perspective of a single actor."
+function actorRules(ir) {
+  const d = [];
+  const push = (severity, rule, message, at) => d.push({ family: "actor", severity, rule, message, at });
+  if (!ir.actorLanes.length) return d;
+
+  const bandOf = (e) => {
+    if (!e.geometry) return null;
+    const mid = e.geometry.y + e.geometry.h / 2;
+    return ir.actorLanes.find((a) => a.geometry &&
+      mid >= a.geometry.y && mid <= a.geometry.y + a.geometry.h) ?? null;
+  };
+
+  const screens = ir.elements.filter((e) => e.kind === "screen");
+
+  // A screen's y IS its actor, exactly as an event's y is its stream. Deriving it from geometry rather
+  // than from a second attribute is what stops the drawing and the data disagreeing.
+  for (const s of screens) {
+    if (!bandOf(s)) {
+      push("error", "screen-outside-actor-lane",
+        `${s.label} is drawn outside every actor lane, so nobody owns it. A screen's y IS its actor once the model draws them — move it into a lane, or add the lane it belongs to.`, s.id);
+    }
+  }
+
+  // ONE SCREEN, ONE ACTOR. "Instead of merging these flows into a single screen, I clearly separate
+  // them" — ch. 40. Cells sharing a screen= slug are one screen, so they cannot sit in two lanes: that
+  // drawing says two different people see the same page, which is the thing the method tells you to
+  // split. This is the rule that makes actor lanes worth checking rather than merely drawing.
+  const bySlug = new Map();
+  for (const s of screens) {
+    if (!s.screen) continue;
+    (bySlug.get(s.screen) ?? bySlug.set(s.screen, []).get(s.screen)).push(s);
+  }
+  for (const [slug, cells] of bySlug) {
+    const named = [...new Set(cells.map((c) => bandOf(c)?.actor).filter(Boolean))];
+    if (named.length > 1) {
+      push("error", "screen-actor-disagrees",
+        `screen "${slug}" is drawn in ${named.length} actor lanes (${named.join(", ")}). One screen has one actor — if two people genuinely need this page, they need two screens, because "instead of merging these flows into a single screen, I clearly separate them".`, cells[0].id);
+    }
+  }
+
+  // A lane nobody is in. Legitimate while modelling — you name the actors before you draw their
+  // screens — so it is a note, not a warning.
+  for (const a of ir.actorLanes) {
+    if (!screens.some((s) => bandOf(s)?.id === a.id)) {
+      push("info", "actor-lane-empty",
+        `actor lane "${a.actor}" has no screen in it yet.${a.kind === "system" ? " That is normal for a system actor, which may act on us without a page of its own." : ""}`, a.id);
+    }
+  }
+
+  // Not every actor is a person. Recorded as a note so the choice is visible to a reader.
+  for (const a of ir.actorLanes) {
+    if (a.kind === "system") {
+      push("info", "actor-is-a-system",
+        `"${a.actor}" is declared a system actor, not a person — the original definition allows "different people (or sometimes systems) interacting with our system".`, a.id);
+    }
+  }
+
+  // ONE SLICE, ONE ACTOR — the Conway rule's mirror image, and a much harder error. `slice-crosses-teams`
+  // is a WARNING because the book says a split across teams is often unavoidable and only asks you to say
+  // so out loud. A slice crossing two ACTORS is different: a slice is "the smallest possible work that can
+  // be handed to a developer", and one that needs two different people at two different screens is not one
+  // slice at all. There is nothing to acknowledge, so there is no `actors=` escape hatch — the fix is to
+  // split it.
+  for (const s of ir.slices) {
+    if (s.actors.length > 1) {
+      push("error", "slice-crosses-actors",
+        `slice "${s.name}" has screens in ${s.actors.length} actor lanes (${s.actors.join(", ")}). A slice is one piece of work for one person — if two actors each need a screen here, that is two slices. Unlike a team split, this one has no acknowledged form.`,
+        s.cells[0] ?? null);
+    }
+  }
+
+  // A JOURNEY THAT CROSSES ACTORS is the interesting kind, and the model can now say so. Recorded as a
+  // note rather than a finding: crossing is the point of a handover story, not a defect. It is also the
+  // one place the kit can state a fact the wireframes alone cannot — "this story passes through three
+  // pairs of hands" — which is what §3's lanes exist to make visible.
+  for (const j of ir.journeys ?? []) {
+    const walked = (j.slices ?? []).map((n) => ir.slices.find((s) => s.name === n)).filter(Boolean);
+    const crossed = [...new Set(walked.flatMap((s) => s.actors))];
+    if (crossed.length > 1) {
+      push("info", "journey-crosses-actors",
+        `journey "${j.journey ?? j.label}" passes through ${crossed.length} actors: ${crossed.join(" -> ")}. That is a handover, and the thing most worth walking end to end.`, j.id);
+    }
+  }
+  return d;
+}
+
 // --- swimlanes: stream boundaries -------------------------------------------
 //
 // A swimlane is NOT a team boundary. "Swimlanes define stream boundaries. Typically, all events in
@@ -1643,9 +1785,19 @@ function screenRules(ir) {
 // — and completeness() can only report it. Across a system the producer IS in the folder, so the
 // import resolves, and an event nobody publishes becomes an error instead of a note.
 
-const SIZE_BUDGET = 3200;   // px. The book's criterion is "read it left to right without visual
-                            // interruptions"; ours is the operational form of the same thing —
-                            // if you need tools/crop.mjs to look at it, the model is too big.
+// THERE IS NO WIDTH BUDGET, AND THERE USED TO BE ONE. `model-too-wide` warned above 3200px on the
+// reasoning that a model you cannot read in one render should be split. That conflated a symptom with
+// a cause. **What makes a model is one business context** — the book's own criterion — and some
+// business processes are simply long. A long process is one model and splitting it on a pixel count
+// would manufacture a context that is not a context.
+//
+// No rule can tell "wide because this is one long process" from "wide because two contexts were
+// merged", so the check could only ever guess, and it guessed wrong on any honest long model. The
+// kit's standing bar for a rule is that it never produces a false positive; this one produced them
+// structurally. Splitting is a judgement about the business and belongs to the human.
+//
+// The width is still REPORTED on the summary line, because a number with no verdict attached is
+// information rather than an accusation.
 
 function systemRules(models) {
   const d = [];
@@ -1680,10 +1832,6 @@ function systemRules(models) {
       }
     }
 
-    if (m.ir.width > SIZE_BUDGET) {
-      push("warn", "model-too-wide",
-        `${ctx} is ${m.ir.width}px wide, over the ${SIZE_BUDGET}px budget. It can no longer be read in one render, which is the point of keeping models small — split it, or move a chapter of slices into their own model.`, ctx);
-    }
 
     for (const e of m.ir.elements) {
       if (e.kind !== "external") continue;
@@ -2124,7 +2272,8 @@ function runOne(f) {
   // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while
   // its own cells still carry errors.
   const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
-                ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir), ...journeyRules(ir)];
+                ...actorRules(ir), ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir),
+                ...journeyRules(ir)];
   return { ir, findings: [...core, ...sliceRules(ir, core)] };
 }
 

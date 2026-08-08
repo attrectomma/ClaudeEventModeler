@@ -19,9 +19,10 @@ reference-implementations/
     generated/           both implementations
                          ALSO: DraftHistory, the one demonstration of a row that carries its
                          own child lines as a Type[] group. It lives here rather than in
-                         state-view because adding a tenth column there took that model to
-                         3500px, past the 3200 readability budget — which is the budget doing
-                         its job: state-view is full, and the next recipe wants its own model.
+                         state-view because that model already demonstrates six recipes and a
+                         seventh is a separate teaching point, not another column. (The original
+                         reason given was a 3200px width budget; that rule has been REMOVED —
+                         width was never the argument, "one model teaches one thing" is.)
   state-view/            the View pattern — six Marten read-model recipes, one model
     campaigns/           the event model
     generated/           the implementations

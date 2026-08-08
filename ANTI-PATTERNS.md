@@ -13,7 +13,7 @@ needs a human to notice, which is the whole reason this file exists.
 | 5 | [An "automation" with no view and no condition](#5) | yes — `grammar/automation-needs-view` |
 | 6 | [A command that crosses swimlanes](#6) | yes — `swimlane/command-crosses-swimlane` |
 | 7 | [A rename that is really a computation](#7) | yes — `completeness/mapping-crosses-types` |
-| 8 | [A model too wide to read](#8) | yes — `system/model-too-wide` |
+| 8 | [A model that is more than one business context](#8) | **no** — the width rule was removed, see below |
 | 9 | [A screen that is a repeated label](#9) | yes — `screen/screen-needs-slug` |
 | 10 | [A GWT that is right and useless](#10) | **no** |
 | 11 | [A state rule enforced at the periphery](#11) | **no** |
@@ -118,11 +118,19 @@ warning, because the alternative is a distributed transaction dressed up as a de
 generator acts on. Use `derived=` for a computation and `terminal=` for something arriving from
 context. Only a type mismatch is detectable — a same-typed lie still passes.
 
-## 8. A model too wide to read <a id="8"></a>
+## 8. A model that is more than one business context <a id="8"></a>
 
 *"I aim to capture one business context in each model, so I can read it from left to right without
-any visual interruptions."* If you reach for `crop.mjs` to look at a model, it is too big. The
-worked model started at 7760px and became three of 1940–2960px.
+any visual interruptions."* The worked model started at 7760px and became three of 1940–2960px — but
+what made that right was that it **held three contexts**, not that it was wide.
+
+**Width is not the test, and the rule that used to check it has been removed.** `model-too-wide`
+warned above 3200px; some business processes are simply long, a long process is one model, and no
+check can tell that apart from two contexts merged. Splitting on a pixel count creates a context that
+is not a context. `crop.mjs` is how you read a wide picture, not evidence of a defect.
+
+Nothing detects this one. Ask whether the model is one story a business person would tell in one
+breath.
 
 ## 9. A screen that is a repeated label <a id="9"></a>
 

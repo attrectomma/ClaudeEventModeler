@@ -22,8 +22,9 @@
 //   8 change-price      translation  append; two externals stacked in one band
 //   9 archive-item      automation   append; todo-list view + processor + command + event
 //
-// After round 9 the model is ~4000px and model-too-wide fires at 3200. That is the budget working,
-// not a defect in the fixture -- ch.18 is "Structuring an Event Model" for exactly this reason.
+// After round 9 the model is ~4000px. That used to trip `model-too-wide` at 3200px; the rule has been
+// REMOVED, because width is a symptom and one business context is the criterion. The cart is one
+// business context and one story, so its width was never a defect -- in the fixture or anywhere else.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
@@ -419,5 +420,5 @@ console.log(`\nidempotent re-run: ${before === after ? "byte-identical OK" : "CH
 if (before !== after) failed++;
 
 console.log(`\n${failed ? `FAIL — ${failed} round(s) had flow/slice/swimlane errors` : "OK — no flow/slice/swimlane errors in any round"}`);
-console.log(final.out.split("\n").filter((l) => /model-too-wide|findings|error|warn/i.test(l)).slice(-6).join("\n"));
+console.log(final.out.split("\n").filter((l) => /findings|error|warn/i.test(l)).slice(-6).join("\n"));
 process.exit(failed ? 1 : 0);

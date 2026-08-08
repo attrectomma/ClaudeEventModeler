@@ -64,6 +64,24 @@ argued with per slice — it is the stack.
 - Docker
 - Aspire — optional, only after an explicit feasibility check
 
+**A project may override a package version, and must say why.** Both `.csproj` files are `emit`, so a
+hand-edited version is reverted by the next regeneration — silently, with the symptom arriving later as
+behaviour rather than a build error. `<project>/package-versions.json` is where a pin survives:
+
+```json
+{ "_why": "DCB's consistency check is only real from Marten 9.4", "Marten": "9.*", "JasperFx": "2.*" }
+```
+
+Keys beginning with `_` are comments, and the reason is the point — a bare version with no
+justification is how a departure from this list becomes folklore. **An unknown package name is an error,
+not a no-op**, because a typo in a pin is exactly how the pin goes missing. Every override is printed on
+every `codegen` run, so a divergence from the stack above is visible rather than buried in a file.
+
+Do not solve this with MSBuild. A `Directory.Build.targets` carrying
+`<PackageReference Update="Marten" Version="9.*" />` inside a target reads correctly and `dotnet restore`
+**ignores it** — measured: restore resolved **Marten 2.10.3**, a 2018 package with a critical CVE, while
+the file looked right. A pin that fails must fail loudly; that one failed by downgrading.
+
 Wolverine, Marten and Alba each need continuously updated, LLM-friendly documentation available
 locally. Their APIs move faster than model knowledge, so anything generated against remembered API
 shapes will be subtly wrong — right shape, wrong method name, quietly deprecated overload. Codegen
@@ -755,6 +773,7 @@ node tools/verify-mcp.mjs              # re-prove the MCP read/write link end to
 
 node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at start|end|before:<s>|after:<s>]
 node tools/slice.mjs swimlane <file> --label <t> --streams <A> [--identity <f>]   # + the cascade
+node tools/slice.mjs actorlane <file> --actor <name> [--kind person|system]       # who USES the screens
 node tools/slice.mjs journey  <file> --journey <slug> --slices <a,b,c> [--then <outcome>]
 node tools/slice.mjs route    <file> --from <id> --to <id>    # allocates a routing y in the right band
 node tools/slice.mjs identity <file> --band <id>              # propagate the stream key onto its events
@@ -915,6 +934,8 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `command` | `action` | which Command this affordance issues — checked against the screen's edge |
 | `context` / `system` | model cell | which business context this model is, and which system it belongs to |
 | `public` | event | another model in this system may consume it. The only public surface there is |
+| `actor` | an **actor lane** | which person or system uses the screens drawn in this band. Makes the cell an actor lane, exactly as `streams=` makes one a swimlane |
+| `actorKind` | an actor lane | `person` (default) or `system`. Never a role — roles are an implementation detail both books refuse |
 | `from` | external | the sibling model that publishes it — **checked** |
 | `origin` | external | a genuinely foreign system — a claim on record, unverifiable |
 | `ingested` | external | `"true"` acknowledges that **we append this foreign event into a stream of ours**. Another claim on record |
@@ -1407,12 +1428,27 @@ know more."* Full ch. 15 translation (View → automation → command → extern
 system boundary. What the kit insists on is that the coupling is **declared**: undeclared is an
 error, declared is a note on the context map. Same treatment as a Conway split.
 
-### The size budget is one readable render
+### There is no size budget, and there used to be one
 
-The book's criterion is readability, not a slice count. This kit already has the operational form of
-that rule — *always render and look* — and `tools/crop.mjs` exists only because a model defeated it.
-So: **if you need `crop.mjs`, the model is too big.** `model.mjs` warns above **3200px** (≈10
-columns, ≈8 slices); it never blocks, because a genuinely linear ten-slice story is legitimate.
+**What makes a model is one business context — never a width.** Splitting is a judgement about the
+business, and some business processes are long. A long process is **one** model; splitting it because
+it got wide manufactures a context that is not a context, which is the opposite of what ch. 18 asks
+for.
+
+`model-too-wide` warned above 3200px and has been **removed**. It conflated a symptom with a cause,
+and no rule can tell *"wide because this is one long process"* from *"wide because two contexts got
+merged"* — so it could only guess, and it guessed wrong on any honest long model. The bar here is that
+a rule never produces a false positive; that one produced them structurally.
+
+`validate` still **prints** each model's width on its summary line. A number with no verdict attached
+is information; the verdict was the part that was wrong.
+
+**`crop.mjs` is therefore an inspection tool, not a smell.** It used to be documented as proof a model
+was too big. A wide model may be perfectly correct, and cropping is simply how you read a wide
+picture — the same way you scroll one.
+
+The real reasons to split are unchanged and are all about *content*: a second business context, or an
+alternative flow that would disrupt the story.
 
 Alternative flows are the other splitting axis: *"pick one flow and model it… Most of the time, it's
 easier to define a dedicated model"* for the error cases that would disrupt it. Cheap ones stay GWTs.
@@ -1469,6 +1505,54 @@ is a layout bug, and the fix is to reorder the columns.
 In practice this bites where a **screen reads a View drawn to its right**. Put the View's column
 first: the screen feed then runs forward, and the event feeding the View runs back under the
 exception.
+
+## Actor lanes: who USES it — and the word "swimlane" means three things
+
+**Read this before touching either kind of lane.** The two primary sources use "swimlane" for different
+things, and the kit implements both under different names:
+
+| | Where | Over what | Means | In the kit |
+| --- | --- | --- | --- | --- |
+| Dymitruk **§3 "The Story Board"** | **top**, the UI lane | wireframes | **ACTORS** | **actor lane**, `actor=` |
+| Dymitruk **§6 "Apply Conway's Law"** | bottom, the event lane | events | **TEAMS** | `owner=` on a lane |
+| *Understanding EventSourcing* **ch. 7** | bottom, the event lane | events | **STREAM BOUNDARIES** | **swimlane**, `streams=` |
+
+So `owner=` answers *who builds it*, `actor=` answers *who uses it*, and `streams=` answers *which
+stream*. Three questions, three notations, and the fact that two of them were once one word is why the
+actor half went unbuilt for five runs.
+
+```
+node tools/slice.mjs actorlane <file> --actor "Approver" [--kind person|system]
+node tools/slice.mjs add <file> --slice x --pattern state-change --aggregate A --actor "Approver"
+```
+
+**A screen's y IS its actor**, exactly as an event's y is its stream — derived from geometry, never
+declared twice. `--actor` places a screen the same way `--aggregate` places an event: the user supplies
+the domain fact, the tool supplies the geometry. With two or more lanes drawn, **`add` refuses to guess**.
+
+**Actor lanes subdivide the UI lane only.** §3 puts them there and never extends them below, which is
+also the only reading that does not collide with the stream bands inside the event lane. Adding one
+grows the UI lane and cascades everything below it, exactly as `swimlane` does for the event lane. **The
+first lane is placed to contain the screens already drawn**, so adopting a single-actor model costs no
+cell moves.
+
+**An actor may be a system** — *"different people (or sometimes systems) interacting with our system"*.
+A warehouse feed is an actor. Never assume a person.
+
+Four rules, and they are **opt-in**: a model with no actor lanes gets no findings at all, which is what
+keeps every model built before this byte-identically green.
+
+| | |
+| --- | --- |
+| `screen-outside-actor-lane` | **error** — a screen nobody owns, once the model draws lanes |
+| `screen-actor-disagrees` | **error** — cells sharing a `screen=` slug in two lanes. *"Instead of merging these flows into a single screen, I clearly separate them"* — if two people need the page, that is two screens |
+| `actor-lane-empty` | note — normal while modelling, and normal for ever for a system actor |
+| `actor-is-a-system` | note — the choice made visible to a reader |
+
+**Do not model technical roles.** *"how do we specify that the technical role 'admin' is necessary…
+Short answer: Typically I don't. That's an implementation detail."* An actor lane is a **business role**;
+*"you must hold the approver role"* is not model content. A rule about **identity** — "an approver may
+not approve their own claim" — is domain and belongs on a GWT.
 
 ## Swimlanes: stream boundaries, not team boundaries
 

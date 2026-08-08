@@ -2,7 +2,8 @@
 // Every geometric consequence of adding a slice to an event model. No domain facts, ever.
 //
 //   node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at <spec>] [--columns N] [--aggregate A]
-//   node tools/slice.mjs swimlane <file> --label <text> --streams <A[,B]> [--identity <f[,f]>] [--height N]
+//   node tools/slice.mjs swimlane  <file> --label <text> --streams <A[,B]> [--identity <f[,f]>] [--height N]
+//   node tools/slice.mjs actorlane <file> --actor <name> [--kind person|system] [--height N]
 //   node tools/slice.mjs journey  <file> --journey <slug> --slices <a,b,c> [--then <outcome>] [--label <t>]
 //   node tools/slice.mjs route    <file> --from <id> --to <id>
 //   node tools/slice.mjs identity <file> --band <id>
@@ -32,11 +33,23 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
-const COL_PITCH = 320, EL_W = 180, EL_H = 60, SCREEN_H = 300;
+const COL_PITCH = 320, EL_W = 180, EL_H = 60;
+// A SCREEN IS WIDER AND SHORTER THAN THE OTHER ELEMENTS, and both numbers are for the human eye.
+// 300 tall held ~10 stacked wireframe rows; real screens carry five or six, so the rest was dead white
+// space repeated down every actor lane. 240 still holds eight. The extra 20px of width is the slack
+// already inside the 220-wide slice band, so nothing else has to move; SCREEN_X_NUDGE re-centres the
+// screen on the column so it stays on the same axis as the command beneath it.
+// tools/wireframe.mjs KEEPS ITS OWN COPY OF SCREEN_H and resizes screens to it — the two must agree or
+// they fight, one growing what the other shrank.
+const SCREEN_H = 240, SCREEN_W = 200, SCREEN_X_NUDGE = (SCREEN_W - EL_W) / 2;
 const SLICE_W = 220, SLICE_PAD = 20;          // band is the column minus 20 either side
 const LANE_X = 40, PAGE_RIGHT_PAD = 60;
 const BAND_TOP_PAD = 25, BAND_ROW = 75, BAND_BOT_PAD = 10;
 const GWT_W = 300, GWT_H = 120, GWT_PITCH = 140, GWT_TOP = 30;
+// Actor bands subdivide the UI lane. ACTOR_TOP + SCREEN_H + padding is sized so the FIRST band contains
+// the screens `add` already places at uiY + 40, and UI_STRIP_H reserves the View -> Screen routing strip
+// that must stay below every band.
+const ACTOR_TOP = 25, ACTOR_PAD = 20, ACTOR_GAP = 10, UI_STRIP_H = 45;
 
 const STYLE = {
   screen:     "rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;",
@@ -163,6 +176,7 @@ function model(xml) {
     block: b, id: attr(b, "id"), em: attr(b, "em"), slice: attr(b, "slice"),
     label: attr(b, "label") ?? attr(b, "value"), g: geomOf(b),
     streams: attr(b, "streams"), identity: attr(b, "identity"),
+    actor: attr(b, "actor"),
     isEdge: /\bedge="1"/.test(b),
   });
   const cells = blocks.map(at);
@@ -170,6 +184,10 @@ function model(xml) {
   // streams= is what makes a cell a swimlane, not em=. buildIr selects on n.streams and then
   // subtracts those from `lanes`; get this wrong and every event looks misplaced.
   const swimlanes = cells.filter((c) => c.streams).sort((a, b) => a.g.y - b.g.y);
+  // Actor bands, top to bottom. Discriminated by actor= exactly as a stream band is by streams=, and
+  // kept out of `lanes` for the same reason: a band authored as an object would otherwise be found
+  // ahead of the lane-ui containing it.
+  const actorLanes = cells.filter((c) => c.actor && !c.streams).sort((a, b) => a.g.y - b.g.y);
   const lanes = {};
   for (const c of cells) if (!c.streams && c.id?.startsWith("lane-")) lanes[c.id] = c;
   const sliceCells = cells.filter((c) => c.em === "group" && c.slice);
@@ -193,7 +211,7 @@ function model(xml) {
     firstCol: elements.length ? Math.min(...elements.map((e) => e.g.x)) : LANE_X + 60,
     lastCol: elements.length ? Math.max(...elements.map((e) => e.g.x)) : null,
   };
-  return { blocks, cells, lanes, swimlanes, sliceCells, elements, gwts, edges, grid };
+  return { blocks, cells, lanes, swimlanes, actorLanes, sliceCells, elements, gwts, edges, grid };
 }
 
 const usedYs = (m, lo, hi) => {
@@ -319,6 +337,22 @@ function cmdAdd(target, o) {
   const wants = PATTERN_CELLS[o.pattern];
   const needsBand = wants.some(([k]) => k === "event" || k === "external");
 
+  // Which ACTOR band the screen goes in. Same rule as the stream band above: naming one is not
+  // inventing it, defaulting to the only band there is is a derivation, and guessing between two is
+  // not. A model with no actor lanes drawn keeps the old single-position behaviour entirely.
+  const needsActor = wants.some(([k]) => k === "screen");
+  let actorBand = null;
+  if (needsActor && m.actorLanes.length) {
+    actorBand = o.actor
+      ? m.actorLanes.find((a) => (a.actor ?? "").trim() === o.actor)
+      : (m.actorLanes.length === 1 ? m.actorLanes[0] : null);
+    if (!actorBand) {
+      die(o.actor
+        ? `no actor lane for "${o.actor}". Lanes: ${m.actorLanes.map((a) => a.actor).join(" | ")}.`
+        : `this model has ${m.actorLanes.length} actor lanes, so --actor is required: who uses this screen?`);
+    }
+  }
+
   // Which band the events go in. Positioning by an aggregate the user named is not inventing one;
   // defaulting to the only band there is, is a derivation. Guessing between two is not.
   let band = null;
@@ -395,7 +429,10 @@ function cmdAdd(target, o) {
     const x = x0 + COL_PITCH * col;
     let g, extra = ` em="${kind}" slice="${o.slice}"`;
     if (kind === "screen") {
-      g = { x, y: m.grid.uiY + 40, w: EL_W, h: SCREEN_H };
+      // A SCREEN'S Y IS ITS ACTOR, exactly as an event's y is its stream — so `--actor` places it the
+      // same way `--aggregate` places an event, and for the same reason: the user supplies the domain
+      // fact, the tool supplies the geometry. Without actor lanes drawn, the old default stands.
+      g = { x: x - SCREEN_X_NUDGE, y: actorBand ? actorBand.g.y + ACTOR_PAD : m.grid.uiY + 40, w: SCREEN_W, h: SCREEN_H };
       extra += ` screen="${o.slice}"`;
     } else if (kind === "event" || kind === "external") {
       const r = rows.get(x) ?? 0; rows.set(x, r + 1);
@@ -451,6 +488,78 @@ function siblingSlices(file) {
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------- actorlane
+//
+// The ORIGINAL definition's swimlane, and a different animal from the stream bands below. Dymitruk §3:
+// "The wireframes are generally put at the top of the blueprint. They can be divided into separate
+// swimlanes to show what each user sees if there is more than one." So an actor band subdivides the UI
+// lane, never the whole model — which is also the only reading that does not collide with the stream
+// bands already inside lane-evt.
+//
+// A band is tall enough to hold a screen and nothing else. THE FIRST BAND IS PLACED TO CONTAIN THE
+// SCREENS THAT ARE ALREADY THERE (`add` puts them at uiY + 40, height 300), so adopting an existing
+// single-actor model costs no cell moves — you draw one lane and everything is already inside it. Later
+// bands are for screens that do not exist yet.
+function cmdActorLane(target, o) {
+  const { file, xml } = read(target);
+  const m = model(xml);
+  if (!o.actor) die("actorlane needs --actor.");
+  if (o.kind && !["person", "system"].includes(o.kind)) {
+    die(`--kind must be person or system. An actor lane is a person OR A SYSTEM — never a role: roles are an implementation detail both books refuse.`);
+  }
+  const existing = m.actorLanes ?? [];
+  if (existing.some((a) => a.actor === o.actor)) {
+    console.log(`${target}: an actor lane for "${o.actor}" already exists — leaving it alone.`);
+    return;
+  }
+  const h = o.height ?? (ACTOR_PAD + SCREEN_H + ACTOR_PAD);
+  const last = existing[existing.length - 1];
+  const y = last ? last.g.y + last.g.h + ACTOR_GAP : m.grid.uiY + ACTOR_TOP;
+
+  // The UI lane must still hold the View -> Screen routing strip UNDER the last band, so it grows by
+  // whatever the new band pushes past the current bottom. Everything below lane-ui then shifts: the
+  // command lane, the event lane and its swimlanes, the GWT lane, every cell and every routing point.
+  const wantUiBottom = y + h + ACTOR_GAP + UI_STRIP_H;
+  const uiBottom = m.grid.uiY + m.lanes["lane-ui"].g.h;
+  const by = Math.max(0, wantUiBottom - uiBottom);
+  const plan = [];
+
+  let blocks = m.blocks;
+  if (by > 0) {
+    const s = shiftY(blocks, uiBottom, by);
+    blocks = s.blocks;
+    plan.push(`${s.cells} cell(s) below the UI lane shifted +${by}, ${s.points} routing point(s) moved`);
+    blocks = blocks.map((b) => {
+      const g = geomOf(b);
+      if (!g) return b;
+      if (/\bid="lane-ui"/.test(b)) return setGeom(b, { h: g.h + by });
+      if (/\bem="group"/.test(b)) return setGeom(b, { h: g.h + by });   // slice cells span every lane
+      return b;
+    });
+    plan.push(`UI lane +${by}, ${m.sliceCells.length} slice cell(s) grown +${by}`);
+  }
+
+  const extra = ` em="lane" actor="${esc(o.actor)}"` + (o.kind ? ` actorKind="${o.kind}"` : "");
+  const cell = box(`actor-${slug(o.actor)}`, o.actor, "swimlane", extra,
+    { x: LANE_X, y, w: m.grid.laneW, h });
+  plan.push(`actor lane "${o.actor}"${o.kind === "system" ? " (a system, not a person)" : ""} at y=${y}, height ${h}`);
+
+  // INSERT BEFORE THE ELEMENTS, for the same reason a swimlane is: mxGraph paints in document order and
+  // a band has an opaque fill, so a band written last is painted OVER every screen inside it. The cell
+  // does not move, does not error and does not warn — it simply stops being visible, while the model
+  // still validates at 0 errors. Anchored after the last actor lane, else after lane-ui.
+  const anchorId = existing.length ? existing[existing.length - 1].id : "lane-ui";
+  const at = blocks.findIndex((b) => new RegExp(`\\bid="${anchorId}"`).test(b));
+  const ordered = at >= 0 ? [...blocks.slice(0, at + 1), cell, ...blocks.slice(at + 1)] : [...blocks, cell];
+
+  let out = splice(xml, ordered);
+  out = setPage(out, { h: pageH(xml) + by });
+  finish(target, file, out, plan, o, existing.length ? [] : [
+    "first actor lane: it was placed to CONTAIN the screens already drawn, so nothing had to move.",
+    "Later lanes are for screens that do not exist yet — pass --actor to `add` to place one.",
+  ]);
 }
 
 // ---------------------------------------------------------------- swimlane
@@ -797,6 +906,8 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--journey") o.journey = v;
   else if (a === "--slices") o.slices = v;
   else if (a === "--then") o.then = v;
+  else if (a === "--actor") o.actor = v;
+  else if (a === "--kind") o.kind = v;
   else die(`unknown flag ${a}`);
 }
 if (!cmd || !target) {
@@ -804,7 +915,7 @@ if (!cmd || !target) {
     .slice(2, 10).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(2);
 }
-const ops = { add: cmdAdd, swimlane: cmdSwimlane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, reflow: cmdReflow };
+const ops = { add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, reflow: cmdReflow };
 if (!ops[cmd]) die(`unknown command "${cmd}". One of: ${Object.keys(ops).join(", ")}.`);
 if (cmd === "add" && (!o.slice || !o.pattern)) die("add needs --slice and --pattern.");
 ops[cmd](target, o);

@@ -105,7 +105,7 @@ trying to list the facts we know about the system."*
   a decision.
 - But **do not split prematurely** either. *"If you need to make a decision early, most of the time
   it's the best conscious decision to not split but keep everything in one system until you know
-  more."* One model until it hits the size budget or stops being one story.
+  more."* One model until it stops being one story — there is no size budget.
 
 Do not draw any elements yet. Do not suggest events.
 
@@ -442,10 +442,14 @@ to work on something outside the configured project.
 command or screen ever crosses. If two contexts need the same projection, each builds its own from
 the events it imports.
 
-**Split when a model stops being readable in one render.** The budget is 3200px (`model-too-wide`).
-If you reach for `tools/crop.mjs` to look at a model, it is too big. Alternative flows are the other
-splitting axis: *"pick one flow and model it"* — error paths that would disrupt the story become
-their own `<model>.<flow>.drawio`.
+**Split when a model holds more than one business context — never because it got wide.** Some
+business processes are long, and a long process is one model. `model-too-wide` used to warn above
+3200px and has been removed: it could not tell a genuinely long story from two contexts merged, so it
+was a false positive on every honest long model. `validate` still prints the width; there is no
+verdict attached to it, and `crop.mjs` is simply how you read a wide picture.
+
+Alternative flows are the other splitting axis: *"pick one flow and model it"* — error paths that
+would disrupt the story become their own `<model>.<flow>.drawio`.
 
 ## Drawing mechanics
 

@@ -81,8 +81,9 @@ Four levels. Only two of them are files.
 pointing left is one nobody can read, and it is an error — with a single deliberate exception
 (Event → View), because a read model is necessarily fed by events later than the point it is drawn.
 
-**A model must be readable in one render.** That is the size budget, and it is why the worked example
-is three files and not one. If you find yourself cropping a model to look at it, it is too big.
+**One model is one business context.** That is why the worked example is three files and not one —
+it held three contexts. **There is no width limit**: some business processes are long, and a long
+process is one model. The `model-too-wide` rule was removed for guessing wrong on exactly that.
 
 ---
 
@@ -357,7 +358,7 @@ Figma was evaluated and **deliberately dropped** for the POC — see the reasoni
 | `drawio.mjs render <file>` | export a PNG beside the file |
 | `drawio.mjs check <file>` | is this plain XML, or compressed? |
 | `drawio.mjs inflate <file>` | decompress in place, making it readable |
-| `crop.mjs <file> <x0> <x1> <out>` | an x-window of a too-wide model. Needing this is a smell |
+| `crop.mjs <file> <x0> <x1> <out>` | an x-window of a wide model, so it renders legibly. An inspection tool, not a smell |
 | `wireframe.mjs scaffold <file>` | grow the UI lane and scaffold bound wireframe cells |
 | `design.mjs sheet <dir>/` | screenshot every design page; build the contact sheet and index |
 | `design.mjs check <dir>/` | the styled pages against the model — the third leg of the three-way check |

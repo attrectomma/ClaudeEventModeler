@@ -1,0 +1,288 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="spend" id="context">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1975" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="model-spend" label="Departmental Spend&#10;Spend · spend" em="model" context="spend" system="Spend" note="A REFERENCE IMPLEMENTATION, not a domain. It exists to carry exactly one problem: an invariant that spans every Project stream of a Department, enforced by a command that appends to only one of them. Nothing here is a business claim.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="1900" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="550" width="1900" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="870" width="1900" height="235" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-department" label="Department stream — one per department" em="lane" streams="Department" identity="departmentId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="895" width="1900" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-project" label="Project stream — one per project" em="lane" streams="Project" identity="projectId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1000" width="1900" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1345" width="1900" height="590" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-department-spend" label="department-spend&#10;state-view · ready" em="group" slice="department-spend" pattern="state-view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="80" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-department-spend" label="DepartmentSpend" em="readmodel" slice="department-spend" identity="departmentId" fields="departmentId:Guid, budget:decimal, committed:decimal, available:decimal, projects:ProjectLine[]" children="ProjectLine: projectId:Guid, name:string, projectCommitted:decimal" derived="committed=Spend Committed+Commitment Released, available=budget+Spend Committed+Commitment Released, projectCommitted=Spend Committed+Commitment Released">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-set-budget" label="set-budget&#10;state-change · ready" em="group" slice="set-budget" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="400" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-set-budget" label="Department Desk" em="screen" slice="set-budget" screen="department-desk" displays="departmentId, budget, committed, available, projectId, name, projectCommitted" inputs="budget">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="410" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-set-budget" label="SetBudget" em="command" slice="set-budget" aggregate="Department" fields="departmentId:Guid, budget:decimal">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-set-budget" label="Department Budget Set" em="event" slice="set-budget" aggregate="Department" fields="departmentId:Guid, budget:decimal">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-set-budget--cmd-set-budget" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-set-budget" target="cmd-set-budget">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-set-budget--evt-set-budget" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-set-budget" target="evt-set-budget">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="slice-open-project" label="open-project&#10;state-change · ready" em="group" slice="open-project" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-open-project" label="Department Desk" em="screen" slice="open-project" screen="department-desk" displays="departmentId, budget, committed, available, projectId, name, projectCommitted" inputs="name">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="730" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-open-project" label="OpenProject" em="command" slice="open-project" aggregate="Project" fields="departmentId:Guid, name:string">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-open-project" label="Project Opened" em="event" slice="open-project" aggregate="Project" fields="projectId:Guid, departmentId:Guid, name:string" terminal="projectId:generated">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-open-project--cmd-open-project" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-open-project" target="cmd-open-project">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-open-project--evt-open-project" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-open-project" target="evt-open-project">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="slice-commit-spend" label="commit-spend&#10;state-change · ready" em="group" slice="commit-spend" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-commit-spend" label="Department Desk" em="screen" slice="commit-spend" screen="department-desk" displays="departmentId, budget, committed, available, projectId, name, projectCommitted" inputs="amount">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1050" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-commit-spend" label="CommitSpend" em="command" slice="commit-spend" aggregate="Project" fields="projectId:Guid, departmentId:Guid, amount:decimal">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-commit-spend" label="Spend Committed" em="event" slice="commit-spend" aggregate="Project" fields="projectId:Guid, departmentId:Guid, amount:decimal">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-commit-spend--cmd-commit-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-commit-spend" target="cmd-commit-spend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-commit-spend--evt-commit-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-commit-spend" target="evt-commit-spend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="slice-release-commitment" label="release-commitment&#10;state-change · ready" em="group" slice="release-commitment" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1360" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-release-commitment" label="Department Desk" em="screen" slice="release-commitment" screen="department-desk" displays="departmentId, budget, committed, available, projectId, name, projectCommitted" inputs="amount">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1370" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-release-commitment" label="ReleaseCommitment" em="command" slice="release-commitment" aggregate="Project" fields="projectId:Guid, departmentId:Guid, amount:decimal">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-release-commitment" label="Commitment Released" em="event" slice="release-commitment" aggregate="Project" fields="projectId:Guid, departmentId:Guid, amount:decimal">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-release-commitment--cmd-release-commitment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-release-commitment" target="cmd-release-commitment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-release-commitment--evt-release-commitment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-release-commitment" target="evt-release-commitment">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-evt-set-budget--rm-department-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-set-budget" target="rm-department-spend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="1120" />
+              <mxPoint x="190" y="1120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-open-project--rm-department-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-open-project" target="rm-department-spend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="1129" />
+              <mxPoint x="190" y="1129" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-commit-spend--rm-department-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-commit-spend" target="rm-department-spend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1150" y="1138" />
+              <mxPoint x="190" y="1138" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-release-commitment--rm-department-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-release-commitment" target="rm-department-spend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="1147" />
+              <mxPoint x="190" y="1147" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-department-spend--scr-set-budget" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-department-spend" target="scr-set-budget">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="505" />
+              <mxPoint x="500" y="505" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-department-spend--scr-open-project" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-department-spend" target="scr-open-project">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="513" />
+              <mxPoint x="820" y="513" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-department-spend--scr-commit-spend" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-department-spend" target="scr-commit-spend">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="521" />
+              <mxPoint x="1140" y="521" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-department-spend--scr-release-commitment" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-department-spend" target="scr-release-commitment">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="529" />
+              <mxPoint x="1460" y="529" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="gt-spend-1" label="A department with a budget and no projects has all of it available&#10;&#10;GIVEN Department Budget Set(budget=100000)&#10;THEN DepartmentSpend(budget=100000, committed=0, available=100000)" em="gwt" slice="department-spend" rule="A department with a budget and no projects has all of it available" given="Department Budget Set(budget=100000)" then="DepartmentSpend(budget=100000, committed=0, available=100000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-spend-2" label="Committed spend in ANY project reduces the department's available budget&#10;&#10;GIVEN Spend Committed(amount=40000)&#10;THEN DepartmentSpend(budget=100000, committed=40000, available=60000)" em="gwt" slice="department-spend" rule="Committed spend in ANY project reduces the department's available budget" given="Spend Committed(amount=40000)" then="DepartmentSpend(budget=100000, committed=40000, available=60000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-spend-3" label="A release puts the money back&#10;&#10;GIVEN Commitment Released(amount=40000)&#10;THEN DepartmentSpend(budget=100000, committed=0, available=100000)" em="gwt" slice="department-spend" rule="A release puts the money back" given="Commitment Released(amount=40000)" then="DepartmentSpend(budget=100000, committed=0, available=100000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1655" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-spend-4" label="The row carries one line per project&#10;&#10;GIVEN Project Opened(name=Rewire the hall)&#10;THEN DepartmentSpend(name=Rewire the hall, projectCommitted=0)" em="gwt" slice="department-spend" rule="The row carries one line per project" given="Project Opened(name=Rewire the hall)" then="DepartmentSpend(name=Rewire the hall, projectCommitted=0)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1795" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-budget-1" label="A department's budget is set&#10;&#10;GIVEN —&#10;WHEN SetBudget(budget=100000)&#10;THEN Department Budget Set(budget=100000)" em="gwt" slice="set-budget" rule="A department's budget is set" when="SetBudget(budget=100000)" then="Department Budget Set(budget=100000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-budget-2" label="The budget may be raised at any time&#10;&#10;GIVEN Department Budget Set(budget=100000)&#10;WHEN SetBudget(budget=150000)&#10;THEN Department Budget Set(budget=150000)" em="gwt" slice="set-budget" rule="The budget may be raised at any time" given="Department Budget Set(budget=100000)" when="SetBudget(budget=150000)" then="Department Budget Set(budget=150000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-open-1" label="A project is opened inside a department&#10;&#10;GIVEN —&#10;WHEN OpenProject(name=Rewire the hall)&#10;THEN Project Opened(name=Rewire the hall)" em="gwt" slice="open-project" rule="A project is opened inside a department" when="OpenProject(name=Rewire the hall)" then="Project Opened(name=Rewire the hall)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-commit-1" label="Spend within the department's remaining budget is committed&#10;&#10;GIVEN Department Budget Set(budget=100000)&#10;WHEN CommitSpend(amount=40000)&#10;THEN Spend Committed(amount=40000)" em="gwt" slice="commit-spend" rule="Spend within the department's remaining budget is committed" given="Department Budget Set(budget=100000)" when="CommitSpend(amount=40000)" then="Spend Committed(amount=40000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-commit-2" label="THE CROSS-AGGREGATE RULE — spend in ANOTHER project counts against the same budget&#10;&#10;GIVEN Spend Committed(projectId=$ProjectB, amount=70000)&#10;WHEN CommitSpend(projectId=$ProjectA, amount=40000)&#10;THEN error: DepartmentBudgetExceeded" em="gwt" slice="commit-spend" rule="Spend in another project of the same department counts against the budget" given="Spend Committed(projectId=$ProjectB, amount=70000)" when="CommitSpend(projectId=$ProjectA, amount=40000)" then="error: DepartmentBudgetExceeded">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-commit-3" label="Committing exactly the remaining budget is allowed&#10;&#10;GIVEN Spend Committed(amount=60000)&#10;WHEN CommitSpend(amount=40000)&#10;THEN Spend Committed(amount=40000)" em="gwt" slice="commit-spend" rule="Committing exactly the remaining budget is allowed" given="Spend Committed(amount=60000)" when="CommitSpend(amount=40000)" then="Spend Committed(amount=40000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1655" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-commit-4" label="A release frees the budget for a later commitment&#10;&#10;GIVEN Commitment Released(amount=70000)&#10;WHEN CommitSpend(amount=40000)&#10;THEN Spend Committed(amount=40000)" em="gwt" slice="commit-spend" rule="A release frees the budget for a later commitment" given="Commitment Released(amount=70000)" when="CommitSpend(amount=40000)" then="Spend Committed(amount=40000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1795" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-release-1" label="A released commitment returns to the available budget&#10;&#10;GIVEN Spend Committed(amount=40000)&#10;WHEN ReleaseCommitment(amount=40000)&#10;THEN Commitment Released(amount=40000)" em="gwt" slice="release-commitment" rule="A released commitment returns to the available budget" given="Spend Committed(amount=40000)" when="ReleaseCommitment(amount=40000)" then="Commitment Released(amount=40000)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-release-2" label="A project cannot release more than it committed&#10;&#10;GIVEN Spend Committed(amount=40000)&#10;WHEN ReleaseCommitment(amount=50000)&#10;THEN error: ReleaseExceedsCommitment" em="gwt" slice="release-commitment" rule="A project cannot release more than it committed" given="Spend Committed(amount=40000)" when="ReleaseCommitment(amount=50000)" then="error: ReleaseExceedsCommitment">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

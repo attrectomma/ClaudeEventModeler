@@ -178,19 +178,23 @@ makes you say it out loud. An undeclared cross-model reference is an **error**; 
 **note** on the context map. Full translation (read model → automation → command → external event)
 becomes required only when the boundary is a real system boundary.
 
-### Size budget: one readable render
+### There is no size budget — one business context is the whole criterion
 
-The book gives a criterion, not a number: read it left to right without visual interruption. This kit
-already has a hard-won practice that says the same thing operationally — **always render and look** —
-and a tool that exists only because the current model defeats it.
+The book gives a criterion and it is about **content**: *"I aim to capture one business context in
+each model."* Width is a consequence of that, never a test of it.
 
-So: **a model must be legible in a single render. If you need `crop.mjs`, it is too big.**
+**`model-too-wide` warned above 3200px and has been removed.** Some business processes are long, and
+a long process is one model — splitting it because the render got wide manufactures a context that is
+not a context. No rule can distinguish *"wide because this is one long story"* from *"wide because two
+contexts were merged"*, so the check could only guess, and it guessed wrong on every honest long
+model. Splitting is a judgement about the business, and it belongs to the human.
 
-As a warning threshold, ~3200px wide (≈10 columns, ≈8 slices). That number is a starting point to
-tune from the first few real renders, not a law. Above it, `model.mjs` says so; it never blocks,
-because a genuinely linear ten-slice story is a legitimate thing to have.
+`validate` still prints each model's width on its summary line — information, with no verdict
+attached. And **`crop.mjs` is an inspection tool, not a smell**: it is how you read a wide picture,
+the same way you scroll one.
 
-Expect models of **4–8 slices**. The four contexts below land in that range.
+Expect models of **4–8 slices** in practice, but that is an observation about the domains modelled so
+far, not a limit.
 
 ### Chapters: defined, deliberately not built
 
@@ -233,7 +237,7 @@ reads anything.
 
 ### What the split produced
 
-19 slices in one 7760px model became 20 slices in three models of 1940–2960px — all under the 3200px
+19 slices in one 7760px model became 20 slices in three models of 1940–2960px — three genuine contexts, not a width fix; all under the then-current 3200px
 budget and each legible in a single render. The extra slice is the `upstream-*` column each model needs
 for its imports.
 
@@ -256,7 +260,7 @@ might be in the wrong place. Left as-is: those two really were distinct lifecycl
    `clear` still take one file.
 2. **A `system` rule family.** Errors: `unpublished-import`, `unknown-source-model`, `self-import`,
    `import-field-missing`, `slice-name-collision`, `model-cell-duplicated`. Warnings:
-   `model-too-wide`, `model-needs-cell`, `model-context-mismatch`, `import-field-type`. Notes:
+   `model-needs-cell`, `model-context-mismatch`, `import-field-type`. Notes:
    `unconsumed-export`, `external-unattributed`, `context-cycle`.
 3. **`em="model"` is not an element.** Left in `elements` the model cell reported as unsliced and
    `laneOf()` tried to place a note belonging to no lane.

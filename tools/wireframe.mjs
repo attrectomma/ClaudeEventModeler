@@ -24,7 +24,10 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 
-const SCREEN_H = 300;          // tall enough for ~10 stacked rows plus a title and an action
+// MUST MATCH tools/slice.mjs. This resizes every screen it scaffolds, so a mismatch means one tool
+// grows what the other shrank. 240 holds eight rows plus a title and an action; real screens carry five
+// or six, and the rest was dead space repeated down every actor lane.
+const SCREEN_H = 240;
 const ROW_H = 22, PAD = 10, TITLE_H = 24, ACTION_H = 24;
 
 const [cmd, target] = process.argv.slice(2);
@@ -91,11 +94,12 @@ if (already) {
 }
 
 const sg = geom(screens[0]);
+// SIGNED, and it may legitimately be NEGATIVE. This used to refuse to shrink — which was fine while the
+// target only ever grew a screen, and became a bug the moment SCREEN_H dropped from 300 to 240: every
+// model drawn before that has 300-tall screens, so scaffolding a wireframe on one died with "screens are
+// already 300 tall, taller than the 240 target" and no way forward. The shift arithmetic below is
+// `+v + DELTA` throughout and is already correct for a negative: cells move up, the lanes close up.
 const DELTA = SCREEN_H - sg.h;
-if (DELTA < 0) {
-  console.error(`screens are already ${sg.h} tall, taller than the ${SCREEN_H} target.`);
-  process.exit(1);
-}
 // Everything at or below the old bottom edge of the screens moves down by exactly the growth.
 const THRESH = sg.y + sg.h;
 
@@ -182,4 +186,4 @@ xml = xml
   .replace(/pageHeight="(\d+)"/, (m, h) => `pageHeight="${+h + DELTA}"`);
 
 writeFileSync(file, crlf ? xml.replace(/\n/g, "\r\n") : xml, "utf8");
-console.log(`${target}: ${screens.length} screen(s) grown ${sg.h}->${SCREEN_H}px (+${DELTA} below), ${fields} bound field(s), ${cells.length} cell(s) added.`);
+console.log(`${target}: ${screens.length} screen(s) resized ${sg.h}->${SCREEN_H}px (${DELTA >= 0 ? "+" : ""}${DELTA} below), ${fields} bound field(s), ${cells.length} cell(s) added.`);

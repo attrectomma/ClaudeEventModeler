@@ -33,7 +33,7 @@ mistake.
 | 8 | 17 | `change-price` | `translation` | 2 | external `PriceChanged` → processor → `ChangePrice` → internal event |
 | 9 | 17 | `archive-item` | `automation` | 2 | `CartsWithProducts` todo list → processor → `ArchiveItem` → `ItemArchived` |
 
-Twelve columns. `40 + 12×320 + 60 = 3940px`, so the completed run trips `model-too-wide` at 3200px.
+Twelve columns. `40 + 12×320 + 60 = 3940px` — wide, and no longer a finding: `model-too-wide` is gone.
 **That is correct behaviour, not a defect in the spec** — the book devotes ch. 18 to structuring a
 model that has grown this way, and the budget firing is the kit noticing the same thing. The
 acceptance run should show the warning, not avoid it.
@@ -289,15 +289,15 @@ Replay the nine appends into a fresh copy of `templates/template.drawio`, from a
 2. `node tools/drawio.mjs render` succeeds, and the PNG is **looked at** at rounds 6, 7 and 9 — the
    swimlane cascade, the insert-at-0, and the two-event band. Layout defects are invisible in XML.
 3. Re-running the same command is a no-op: the file is byte-identical.
-4. After round 9, `model-too-wide` fires at 3940px. Expected, and the run should say so rather than
-   the fixture being trimmed to avoid it.
+4. After round 9 the model is 3940px wide, and **nothing fires** — `model-too-wide` has been removed.
+   The cart is one business context and one story, so its width was never a finding. The fixture must
+   still not be trimmed to keep it narrow.
 
 Then the regression that matters most: `git diff` between rounds touches only cells that had to move.
 A round that reformats the file has failed even if the picture is right.
 
 **Built.** `tools/slice.mjs`, `tools/fixtures/cart-replay.mjs`, and the model at `tools/fixtures/cart/`.
-The replay reaches **0 errors, 1 warning** (`model-too-wide`, asserted) at every round, and a
-re-run of any command is byte-identical.
+The replay reaches **0 errors** at every round, and a re-run of any command is byte-identical.
 
 ---
 

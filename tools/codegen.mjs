@@ -62,6 +62,77 @@ const OUT = resolve(PROJECT, flag("out", join("generated", NS)));
 const APP = join(OUT, "src", NS);
 const TESTS = join(OUT, "tests", `${NS}.IntegrationTests`);
 
+// --- package versions, and why a project may override them --------------------------------------
+//
+// Both .csproj files are `emit`, so a hand-edited version is REVERTED by the next regeneration —
+// silently, and with a symptom that arrives much later as a behavioural difference rather than a
+// build error. That is the worst shape a defect can have, so the pin needs somewhere to live that
+// regeneration does not own.
+//
+// The case that forced it: reference-implementations/cross-aggregate-invariant needs Marten 9,
+// because Marten 8.37.4 ships the whole DCB API — FetchForWritingByTags, DcbConcurrencyException —
+// WITHOUT `mt_dcb_tag_version`, the side table the docs call the serialization point, added in 9.4
+// to fix marten#4591. On 8 a DCB implementation compiles, runs, and can let both writers through.
+// A reference implementation that proves a concurrency guarantee cannot be pinned by hand to the one
+// version where the guarantee is real and then quietly reverted.
+//
+// THE OBVIOUS ALTERNATIVE WAS TRIED AND MEASURED WRONG. A `Directory.Build.targets` carrying
+// `<PackageReference Update="Marten" Version="9.*" />` inside a target reads correctly and
+// `dotnet restore` ignores it: restore resolved **Marten 2.10.3**, a 2018 package with a critical
+// CVE, while the file looked right. A pin that fails must fail loudly; that one failed by
+// downgrading. Hence a table here rather than MSBuild cleverness there.
+//
+//   <project>/package-versions.json     {"Marten": "9.*", "Marten.AspNetCore": "9.*", "JasperFx": "2.*"}
+//
+// An unknown package name is an ERROR rather than a no-op, because a typo in a pin is exactly how the
+// pin goes missing — the same silence this whole mechanism exists to remove.
+const PACKAGES = {
+  "Marten": "8.*",
+  "Marten.AspNetCore": "8.*",
+  "WolverineFx": "5.*",
+  "WolverineFx.Http": "5.*",
+  "WolverineFx.Http.Marten": "5.*",
+  "WolverineFx.Http.FluentValidation": "5.*",
+  "WolverineFx.Marten": "5.*",
+  "WolverineFx.FluentValidation": "5.*",
+  "Alba": "8.*",
+  "JasperFx": "1.*",
+  "Shouldly": "4.*",
+  "Testcontainers.PostgreSql": "4.*",
+  "xunit": "2.*",
+  "xunit.runner.visualstudio": "3.*",
+  "Microsoft.NET.Test.Sdk": "17.*",
+};
+
+const OVERRIDES = (() => {
+  const f = join(PROJECT, "package-versions.json");
+  if (!existsSync(f)) return {};
+  let o;
+  try {
+    o = JSON.parse(readFileSync(f, "utf8"));
+  } catch (e) {
+    console.error(`package-versions.json is not valid JSON: ${e.message}`);
+    process.exit(1);
+  }
+  // A key starting with "_" is a comment. JSON has none, and the REASON for a pin is the most
+  // valuable thing in this file — a bare version with no justification is how a departure from the
+  // enforced stack becomes folklore. Dropped before anything else looks at the object.
+  for (const k of Object.keys(o)) if (k.startsWith("_")) delete o[k];
+  const unknown = Object.keys(o).filter((k) => !(k in PACKAGES));
+  if (unknown.length) {
+    console.error(
+      `package-versions.json names package(s) this generator does not emit: ${unknown.join(", ")}\n` +
+      `  emitted: ${Object.keys(PACKAGES).join(", ")}\n` +
+      `  Refusing rather than ignoring: a typo in a pin is how the pin silently goes missing.`);
+    process.exit(1);
+  }
+  return o;
+})();
+
+/** One PackageReference line, project override beating the default. */
+const pkg = (name) =>
+  `<PackageReference Include="${name}" Version="${OVERRIDES[name] ?? PACKAGES[name]}" />`;
+
 // THE MODEL IS STACK-AGNOSTIC, SO THE TRANSLATION IS NOT ITS JOB — AND IT IS NOT THIS FILE'S EITHER.
 //
 // This used to be a hard-coded table whose every entry mapped a name to itself, with the comment
@@ -645,7 +716,13 @@ ${multi ? `///
 /// Fed from ${streams.length} streams (${streams.join(", ")}), so events must be grouped explicitly.
 /// Grouped by ${KEY.join(" + ")}${guessedKey ? " — GUESSED from the system key, because this read model\n/// declares no identity=. Declare it: a wrong grain groups the wrong rows together." : " (declared on the read model)"}.` : ""}
 /// </summary>
-public sealed class ${pascal(v.label)}Projection : ${multi
+// PARTIAL, AND IT IS NOT COSMETIC. Marten 9 dispatches a projection's conventional Apply/Create/ShouldDelete
+// methods through the compile-time JasperFx.Events.SourceGenerator, which can only emit into a partial class
+// and has NO runtime fallback. Without it the code still COMPILES — 0 errors, 0 warnings — and the host then
+// throws InvalidProjectionException("No source-generated dispatcher found") at startup, which is the AD11
+// failure shape: a green build proving nothing. Harmless on Marten 8, required on 9, so it is emitted always.
+// Measured in reference-implementations/cross-aggregate-invariant/; KIT-FINDINGS AD11.
+public sealed partial class ${pascal(v.label)}Projection : ${multi
       ? `MultiStreamProjection<${pascal(v.label)}, ${VIEW_ID}>`
       : `SingleStreamProjection<${pascal(v.label)}, ${VIEW_ID}>`}
 {
@@ -1513,13 +1590,13 @@ emit(join(APP, `${NS}.csproj`),
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Marten" Version="8.*" />
-    <PackageReference Include="Marten.AspNetCore" Version="8.*" />
-    <PackageReference Include="WolverineFx.Http" Version="5.*" />
-    <PackageReference Include="WolverineFx.Http.Marten" Version="5.*" />
-    <PackageReference Include="WolverineFx.Http.FluentValidation" Version="5.*" />
-    <PackageReference Include="WolverineFx.Marten" Version="5.*" />
-    <PackageReference Include="WolverineFx.FluentValidation" Version="5.*" />
+    ${pkg("Marten")}
+    ${pkg("Marten.AspNetCore")}
+    ${pkg("WolverineFx.Http")}
+    ${pkg("WolverineFx.Http.Marten")}
+    ${pkg("WolverineFx.Http.FluentValidation")}
+    ${pkg("WolverineFx.Marten")}
+    ${pkg("WolverineFx.FluentValidation")}
   </ItemGroup>
 
 </Project>
@@ -1537,14 +1614,14 @@ emit(join(TESTS, `${NS}.IntegrationTests.csproj`),
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Alba" Version="8.*" />
-    <PackageReference Include="WolverineFx" Version="5.*" />
-    <PackageReference Include="JasperFx" Version="1.*" />
-    <PackageReference Include="Shouldly" Version="4.*" />
-    <PackageReference Include="Testcontainers.PostgreSql" Version="4.*" />
-    <PackageReference Include="xunit" Version="2.*" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.*" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    ${pkg("Alba")}
+    ${pkg("WolverineFx")}
+    ${pkg("JasperFx")}
+    ${pkg("Shouldly")}
+    ${pkg("Testcontainers.PostgreSql")}
+    ${pkg("xunit")}
+    ${pkg("xunit.runner.visualstudio")}
+    ${pkg("Microsoft.NET.Test.Sdk")}
   </ItemGroup>
 
   <ItemGroup>
@@ -1656,6 +1733,12 @@ console.log(`  ${ir.shared.events.length} event records (${owned.length} ours, $
 console.log(`  ${ir.shared.aggregates.filter((a) => a.events.length).length} aggregates, ${ir.shared.views.length} views`);
 console.log(`  ${peripheryBySlice.size} validator(s) for periphery rules`);
 console.log(`  ${gwtCount} GWT test(s) across ${ir.slices.filter((s) => s.gwts.length).length} slice(s)`);
+// An override is a deliberate departure from the kit's enforced stack, so it is REPORTED on every run
+// rather than being visible only to whoever opens package-versions.json.
+if (Object.keys(OVERRIDES).length) {
+  console.log(`  package version override(s) from package-versions.json:`);
+  for (const [name, v] of Object.entries(OVERRIDES)) console.log(`    ${name}  ${PACKAGES[name]} -> ${v}`);
+}
 // REPORT IT ONLY WHEN IT CAN BE ACTED ON. The first version printed NO JOURNEY TESTS unconditionally,
 // including for a system with ONE slice — where a journey is not merely unwritten but impossible, because
 // journey-too-short is an error. A check that fires when you cannot act on it teaches people to stop

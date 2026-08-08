@@ -91,9 +91,12 @@ reads `new Revision(e.Subject, e.RevisedAt)`.
 
 **It lives in `state-change` and not `state-view`, and that is a finding rather than a preference.**
 `state-view` is the right home for a "what one row is" comparison, and adding a tenth column took it to
-**3500px, past the 3200 readability budget**. The budget did exactly what it exists for: that model is
-full, and the next recipe wants its own model rather than another column. Recorded in
+**3500px, past the then-current 3200px readability budget**. Recorded in
 `reference-implementations/README.md` so the next person does not re-litigate it.
+
+**Superseded in part by AD8:** the width budget has since been removed, so the *width* is no longer the
+argument. The decision stands on its own merit — one model teaches one thing, and a seventh recipe is a
+separate teaching point rather than a tenth column.
 
 ## B-3 — A view can exist with no registration, and nothing says so · **BROKEN** · ***now REPORTED***
 
@@ -2375,3 +2378,495 @@ Recorded because section X could not distinguish *"the kit is robust"* from *"th
   `AFreeDeskCanBeBookedForADay` starts failing on 2026-09-01 with `DateInThePast` — reading like a broken
   validator rather than a stale example. Left as-is: relative dates would stop testing the values the model
   states. The fix is the model's, and the notation cannot yet say "N days from now".
+
+---
+
+## AC. Actor lanes, built (2026-08-08) — closes Y2/Y3/Y5
+
+**What was missing**, per Y5: the original 2019 definition divides the wireframe row into a swimlane per
+actor, and the kit had no notation for it. Not a Dilger extension the kit could take or leave — part of
+the method as first defined, and the oldest unimplemented thing in the grammar.
+
+### The design, and why every piece of it is a copy
+
+The kit already had the answer in a working, tested form: **an event's y IS its stream**. Actor lanes are
+that mechanism applied to the other end of the model, so almost nothing here is new invention.
+
+| | Actor lanes | Copied from |
+| --- | --- | --- |
+| `actor=` makes a band an actor lane | `streams=` makes one a swimlane | same discriminator shape |
+| excluded from `lanes` in both parsers | swimlanes are, for the same reason | `laneOf()` takes the first containing match, so a band authored as an object is found ahead of the lane containing it |
+| a screen's y IS its actor | an event's y IS its stream | derived from geometry, never declared twice |
+| `--actor` on `add` | `--aggregate` on `add` | the user supplies the domain fact, the tool the geometry |
+| band insert **before** the elements | swimlane insert | mxGraph paints in document order and a band is opaque, so a band written last hides everything in it — silently, with the model still at 0 errors |
+| the downward cascade | `cmdSwimlane` | growing a lane shifts every cell, every routing point and every slice cell below it |
+
+**Three decisions that are the kit's own, and the reasons:**
+
+- **Actor lanes subdivide the UI lane only.** §3 puts them there and never extends them below, and it is
+  the only reading that does not collide with the stream bands inside the event lane.
+- **The first lane is placed to CONTAIN the screens already drawn.** `add` puts a screen at `uiY + 40`,
+  so a band at `uiY + 25` of height `20 + 300 + 20` swallows it. Adopting an existing single-actor model
+  therefore costs zero cell moves — you draw one lane and everything is already inside it.
+- **`actorKind` is `person` or `system`, and nothing else.** *"different people (or sometimes systems)"*.
+  It is deliberately **not** a role: roles are the thing ch. 40 refuses outright, and a free-text kind
+  would become one within a week.
+
+### Opt-in, which is the whole safety argument
+
+A model with no actor lanes gets **no findings at all** — the same treatment wireframes get. Verified
+after the change: all four reference implementations, the cart fixture, and the desk-booking model all
+report byte-identically what they reported before, `cart-replay.mjs` is still `OK` and byte-identical,
+and no committed fixture moved.
+
+### The four rules, each mutation-checked
+
+A rule that cannot fail proves nothing, so each was made to fire and then made to stop:
+
+| probe | fired |
+| --- | --- |
+| move a screen outside every band | `actor/screen-outside-actor-lane` |
+| put one `screen=` slug in two bands | `actor/screen-actor-disagrees` |
+| add a band with no screens | `actor/actor-lane-empty` |
+| set `actorKind="system"` | `actor/actor-is-a-system` |
+| control — unchanged model | *(nothing)* |
+
+`screen-actor-disagrees` is the one that makes the notation worth checking rather than merely drawing:
+it enforces *"instead of merging these flows into a single screen, I clearly separate them"* — if two
+people need the page, that is two screens.
+
+### Exercised on a three-actor model
+
+`ConwayTest/diagrams/expense-claims.drawio` — Employee, Approver, Finance Officer, one claim moving
+between them, 7 slices, **0 errors 0 warnings**. Built entirely through `actorlane` and `add --actor`,
+rendered and looked at: three named bands, each screen in its owner's lane.
+
+Two things the run confirmed beyond the notation itself:
+- **`add` refuses to guess.** With three lanes drawn and no `--actor`, it dies with *"this model has 3
+  actor lanes, so --actor is required: who uses this screen?"* — the same discipline `--aggregate`
+  already has.
+- **The identity rule stayed domain.** *"An approver may not approve their own claim"* is a GWT with
+  `enforce="aggregate"`, and the screen displays `employeeId` because that rule needs it. No role, no
+  permission, no technical anything reached the model — which was the other half of the test.
+
+### Second pass — deriving from the lanes rather than only checking them
+
+A lane that is merely drawn is worth little; what makes it earn its place is what the model can now
+*derive*. Two additions:
+
+**`slices[].actors` — who uses this slice**, read off the band each screen sits in, never declared twice.
+Exactly how `aggregate` is derived, and deliberately **empty for a slice with no screen**: a View or an
+Automation has no actor by construction, which is an answer rather than a gap. On expense-claims:
+
+```
+  approve-claim       Approver          my-claims           — (no screen)
+  reject-claim        Approver          claims-to-approve   — (no screen)
+  submit-claim        Employee          claims-to-pay       — (no screen)
+  pay-claim           Finance Officer
+```
+
+**`slice-crosses-actors` — an ERROR, and deliberately harsher than its Conway twin.**
+`slice-crosses-teams` is a *warning* with an acknowledged form (`owners=`), because the book says a team
+split is often unavoidable and only asks you to say so. A slice crossing two *actors* is different: a
+slice is *"the smallest possible work that can be handed to a developer"*, and one needing two different
+people at two different screens is not one slice. So there is no escape hatch — the fix is to split it.
+
+**`journey-crosses-actors` — a note, and the one thing the wireframes alone cannot say.** On
+expense-claims it reads:
+
+> `journey "claim-to-payment" passes through 3 actors: Employee -> Approver -> Finance Officer. That is a
+> handover, and the thing most worth walking end to end.`
+
+Which is precisely what §3's lanes exist to make visible, now stated by the model rather than inferred by
+a reader.
+
+**Both new rules mutation-checked, and the check found something worth keeping.** Dragging one
+`approvals` cell into another lane fires `screen-actor-disagrees` but **not** `slice-crosses-actors` —
+a state-change slice has only one screen cell, so its actor list stays length 1. The rules are therefore
+**not redundant**: `slice-crosses-actors` catches the one arrangement the other cannot, a slice with two
+*differently-slugged* screens in two lanes, confirmed by constructing exactly that. A rule that could
+never fire would have been dead weight, and this one can.
+
+### Still open, and one deliberate "no"
+
+- **codegen ignores actor lanes, and should keep ignoring them.** The IR carries them and nothing
+  generates from them. Pushing an actor into generated code sits right on the RBAC line **Y1** says stays
+  out; the correct split is *the model names who uses a screen, the stack decides who may*. Recorded as a
+  decision rather than a gap.
+- **`uijourney.mjs` does not know about actors**, though "which actor walks this journey" is exactly what
+  a UI journey should state — and `journey-crosses-actors` now computes it, so the wiring is short.
+- **No reference implementation has actor lanes**, so the notation has the same coverage gap Z7 records
+  for composite keys: CPOC03/ConwayTest depend on it and nothing the kit owns would notice if it broke.
+
+## AD. The kit assumes stream = consistency boundary, and Marten no longer requires that (POC001, 2026-08-08)
+
+Raised by the user during phase 3 of the neighborhood-library run, against a model where lending sits on
+the Copy stream and *"at most 5 active loans per member"* spans five of them. The kit's answer was
+"then it is not an invariant, hand it to `architect`". That answer is **incomplete**, and the user was
+right to push on it.
+
+### AD1 — `reference/llms/marten/events/dcb.md` exists and the kit never mentions it · **GAP**
+
+Marten ships **Dynamic Consistency Boundary**: strong-typed **tags** attached at append time,
+`FetchForWritingByTags<T>(EventTagQuery)` loading a cross-stream boundary aggregate, and
+`DcbConcurrencyException` at `SaveChangesAsync` when anything matching the same tag query landed since
+the read. The serialization point is a version row per tag value with `UPDATE … WHERE version =
+$captured`, and the docs are explicit that it *"works at PostgreSQL's default READ COMMITTED isolation;
+no SERIALIZABLE, no advisory locks."* `[BoundaryAggregate]` marks an aggregate with **no stream identity
+at all** — one that exists only as the projection of a tag query.
+
+Measured against the kit: `CLAUDE.md` builds its architecture story on *"we apply optimistic locking on
+individual event streams"*, `identity=` on a swimlane is presented as what decides which rules are real
+invariants, and `architect.mjs`'s `cross-stream-rule` question describes the situation as one optimistic
+concurrency *cannot* close. None of that is wrong about **streams**; all of it is incomplete about
+**Marten**. By the standing rule — *where the kit and the critter-stack docs disagree, the docs win and
+the kit is CHANGED* — this needs a decision, not a footnote.
+
+**Not yet checked and required before anyone builds on it:** the mirror documents `DcbStorageMode.HStore`
+as Marten 9 and `mt_dcb_tag_version` as a 9.4 schema object, while TagTables mode *"shipped in Marten 8"*.
+The mirror has been ahead of a pinned version before (`WaitForExecutionOf`, section on the mirror not being
+infallible). Check the pinned `Marten` version first.
+
+### AD2 — and the prior question is whether DCB is even needed · **OPEN, and it is the one to answer first**
+
+The user's position, recorded as the brief for that investigation: **DCB is not automatically the right
+implementation.** Marten should be able to enforce a cross-stream rule of this shape with **multi-stream
+aggregation**, and whether it can — and at what consistency guarantee — is the thing to establish before
+the kit recommends anything.
+
+What is already known and constrains the answer: `FetchForWriting` is **single-stream only**, and
+`FetchLatest` is documented as read-only — for an `Async` projection it advances the aggregate in memory
+past the daemon, so it is *current* but carries **no check at save time**. Current-but-unguarded is
+precisely the race. So the investigation is not "is a multi-stream projection current enough" but
+"**what supplies the guard**", and it must end in a measured answer against real Postgres, not a reading.
+
+Deliberately **not** done in the modelling session that raised it. Recorded so the next session starts
+from the facts rather than rediscovering them.
+
+### AD3 — "closing the books" is model content and the kit has no notation for it · **GAP**
+
+Same session, and this half belongs to modelling rather than to `architect`. `CLAUDE.md` already quotes
+the book — *"better to limit the length of a stream naturally by understanding the business processes"*,
+snapshots being *"the exception, not the rule"* — and `architect.mjs` folds stream growth into the
+boundary map as a prompt. **But nothing in the grammar lets a model say where a stream's books close**,
+and nothing checks a model that claims a stream is bounded while drawing events that recur on it for ever.
+
+On this model it produced a real defect the checker could never see: a Loan stream was introduced *in
+order to* keep the Copy stream short, and does not — the lending facts stay on the Copy stream and are
+**duplicated** into the Loan stream by an automation, so nothing is shortened and one episode is recorded
+twice. It validates, and it would generate.
+
+### AD4 — `reflow` grows lanes and never shrinks them, so the width budget reads stale · **BROKEN** · *not fixed*
+
+`cmdReflow` computes `wantLaneW = Math.max(m.grid.laneW, (lastCol - LANE_X) + EL_W + SLICE_PAD)` — the
+`Math.max` against the *current* width means a model that loses its rightmost columns keeps the old lane
+width and the old page width for ever. Measured on `POC001/diagrams/lending.drawio`: removing a swimlane
+and two columns left content ending at x=2200 while the lanes stayed 2820 wide, and `reflow` reported
+`page 2920 x 2055` with no drift line at all — the command whose stated job is *"recomputes lane widths,
+page width and page height from content, and reports drift"* reporting none while 640px of drift existed.
+
+It was not only cosmetic while the width budget existed: `buildIr` measures `width` as the max right edge
+of **elements *and lanes*** (`model.mjs:454`), so the stale lane *was* the measured width, and
+`model-too-wide` was checked against it — a model could be told to split purely because it once was wider.
+**AD8 removed that rule**, so the consequence is now confined to a stale number on the summary line and a
+band of empty canvas in the render. The bug is unchanged; only its blast radius shrank.
+
+Worked around by hand here (set every lane's `width=` and the page width, then re-run `reflow`, which
+then agrees). The fix is presumably to shrink as well as grow, but note that `Math.max` may be load-bearing
+for a case not tested here — a lane holding something `lastCol` does not see — so this is recorded rather
+than patched mid-session.
+
+### AD5 — the View → Screen routing strip is placed under the UI LANE, not under the last ACTOR band · **BROKEN** · *not fixed*
+
+With **two** actor lanes, every View → Screen edge is routed straight **through the second actor lane's
+screens**. Seen in the render of `POC001/diagrams/lending.drawio`, confirmed by cropping x 2200–3000: a
+horizontal run crosses both `Browse Books` cells in the Member band.
+
+The cause is one line. `route` allocates the UI strip at `nextY(m, m.grid.uiY + 345, 8, …)` —
+`slice.mjs:708` — a constant offset from the **UI lane's** top. `actorlane` meanwhile stacks bands from
+`uiY + ACTOR_TOP` and grows the lane, and its own comment says `UI_STRIP_H` *"reserves the View -> Screen
+routing strip that must stay below every band."* The reserve is made; the allocator ignores it. With one
+band (185–465) the strip at 505 is genuinely below it, which is why five earlier runs never saw this. With
+two, the second band is 475–755 and 505 is inside it.
+
+Two parts to the fix, and the second is easy to miss:
+
+1. Start the strip from the **last actor band's bottom**, not `uiY + 345`.
+2. `UI_STRIP_H` is 45, which at the 8px pitch holds **five** runs. This model has **twelve** View → Screen
+   edges — one per screen cell, and a screen slug repeated across five slices legitimately has five. The
+   reserve has to scale with the number of view→screen edges, or the strip overflows into the Commands lane.
+
+Invisible in XML, obvious in the PNG — the standing "always render and look" rule earning its keep again.
+
+### AD6 — `mapping-crosses-types` fires on every rename between a screen and a command · **NOISE**
+
+`BorrowCopy.copyId:Guid` mapped from a view field declared `nextAvailableCopyId:Guid` was reported as
+*"mapped from nextAvailableCopyId:**string**"*. The mapping's source resolved to the **screen**, whose
+`displays=` is a bare name list and carries no types, so the checker read the type as `string`.
+
+That makes the rule structurally unable to pass at that boundary — and the command layer is exactly where a
+rename is most legitimate, since a command's sources are *"the triggering screen's displays + inputs"*. The
+likely fix is to prefer a typed source when the screen's attribute is itself supplied by a typed View.
+
+Worked around by moving the rename one step later: the command carries `nextAvailableCopyId:Guid` and the
+**event** declares `mappings="copyId=nextAvailableCopyId"`, whose source (the command) is typed. Silent.
+
+### AD7 — `route` refuses a same-column View → Screen because of `SCREEN_X_NUDGE` · **BROKEN** · *not fixed*
+
+A state-view slice whose screen sits in its **own** column cannot be routed: `route` reports
+`flow/backward-connection`. The screen is placed at `x − SCREEN_X_NUDGE` (10px left, to centre a 200-wide
+screen on a 180-wide column) while the view sits at `x`, so the view is 10px to the **right** of the screen
+it feeds and the edge reads as pointing left.
+
+It is not a modelling error — `Event(s) → View → Screen` is the whole state-view pattern, and a read-only
+screen like `member-detail` has no command slice to its right to hold the screen instead. Five of five view
+slices hit it here.
+
+`add --pattern state-view` emits no screen placeholder, which is why the kit has never produced this
+geometry itself and never seen the refusal. Worked around by moving those five views to the band's left edge
+(`x − 20`). A proper fix compares column membership rather than raw x, or nudges the view left by default.
+
+### AD8 — the width budget was an invented limit on a business decision · **WRONG** · ***REMOVED***
+
+`model-too-wide` warned above `SIZE_BUDGET = 3200` px. Raised by the user on the neighborhood-library
+model, which validated at 0 errors and one warning telling it to split at 3920px:
+
+> *"Deciding whether a model is too big and should be split into multiple models is a thing driven by
+> the business. Some business processes are long, nothing to do about it. A long business process is one
+> model, you can't split that because of some arbitrary budget."*
+
+That is right, and the rule **conflated a symptom with a cause**. The book's criterion is *"one business
+context in each model"* — content. Width follows from content and is not a test of it. Splitting a long
+process because its render got wide manufactures a context that is not a context, which is the opposite
+of what ch. 18 asks for.
+
+The decisive property: **no rule can distinguish "wide because this is one long story" from "wide because
+two contexts were merged."** Only a human reading the model can. So the check could only ever guess, and
+on any honest long process it guessed wrong — a structural false positive, against a standing bar that a
+rule must never produce one. It also came with a **remedy** (*"split it, or move a chapter of slices into
+their own model"*), so acting on it meant damaging a correct model.
+
+Removed from `model.mjs`, with the reasoning left in place of the constant so it is not reintroduced.
+`validate` still **prints** each model's width on its summary line — a number with no verdict attached is
+information; the verdict was the wrong part.
+
+**And `crop.mjs` is reclassified.** Five documents said *"if you need `crop.mjs`, the model is too big"*,
+which made an inspection tool into evidence of a defect. A wide model can be perfectly correct, and
+cropping is how you read a wide picture — the same way you scroll one.
+
+Corrected in every place the claim lived, because a removed rule still argued for in prose is exactly how
+this kit ends up disagreeing with itself: `tools/model.mjs`, `CLAUDE.md`, `README.md`,
+`MODEL-ORGANIZATION.md`, `ANTI-PATTERNS.md` #8 (retitled — the anti-pattern is *more than one business
+context*, and nothing detects it), `.claude/skills/event-model/SKILL.md`, `tools/slice.spec.md`,
+`tools/fixtures/cart-replay.mjs` and `reference-implementations/README.md`. Section **B** above and
+**AD4** are annotated rather than rewritten, since they are historical records.
+
+**What is lost, stated honestly:** nothing now notices a model that has quietly become two contexts. That
+was never what the width rule detected either — it detected width — but it was the closest thing to a
+prompt. ANTI-PATTERNS #8 now carries the question a human has to ask instead: *is this one story a
+business person would tell in one breath?*
+
+### AD9 — `validate` passed 0/0 on a `.drawio` that draw.io could not parse · **BROKEN** · *not fixed*
+
+Rewriting a model with PowerShell 5.1 — `Get-Content -Raw ... | Set-Content -Encoding utf8` — corrupted
+it two ways at once. `Get-Content -Raw` decodes as the **system ANSI codepage** unless told otherwise, so
+every non-ASCII character in the file was mis-read and re-encoded: `·` became `Â·`, `—` became `â€"`
+throughout every lane label and the model cell. The BOM round-tripped into a literal `?` at byte 0, ahead
+of `<mxfile`.
+
+**`node tools/model.mjs validate` reported `0 error(s), 0 warning(s)`.** The renderer then failed with
+`Export failed`, which is the only reason it was caught.
+
+Two findings in one:
+
+- **The kit's own parser is more permissive than draw.io's.** `model.mjs` reads the file with regex
+  surgery — deliberately, and for good reasons documented in `slice.mjs` — so a junk prolog and mojibake
+  in every label are both invisible to it. A model can therefore be *validated* and *unopenable*. The
+  cheap fix is a well-formedness check at the top of `validate`: the file must start with `<mxfile` and
+  parse as XML. Nothing about that costs the regex approach anything.
+- **Never rewrite a `.drawio` through PowerShell 5.1 text cmdlets.** Use the Edit tool, or
+  `[IO.File]::ReadAllBytes` + explicit `UTF8Encoding($false)`. `Set-Content -Encoding utf8` on PS 5.1 also
+  *adds* a BOM, which the templates do not have. This belongs beside the existing CRLF note.
+
+Recovered by decoding the mojibake back through codepage 1252 and stripping the stray prolog byte.
+
+### AD10 — a project could not pin a package version, and the MSBuild workaround downgraded silently · **GAP** · ***FIXED***
+
+Both `.csproj` files are `emit`, so the kit had no way for a project to depart from the enforced stack:
+a hand edit was reverted by the next `codegen` run, silently, with the symptom arriving later as
+behaviour rather than a build error.
+
+Forced by `reference-implementations/cross-aggregate-invariant`, which must be on **Marten 9** — 8.37.4
+ships the whole DCB API without `mt_dcb_tag_version`, so the consistency check has no serialization
+point and a DCB implementation can let both writers through (AD1). A folder whose entire purpose is
+proving a concurrency guarantee cannot be pinned by hand to the one version where the guarantee exists
+and then quietly reverted.
+
+**The obvious fix was tried and is WRONG, which is the finding worth keeping.** A
+`Directory.Build.targets` carrying `<PackageReference Update="Marten" Version="9.*" />` inside a target
+`BeforeTargets="CollectPackageReferences"` reads correctly, and `dotnet restore` ignores it. Measured:
+restore resolved **Marten 2.10.3** — a 2018 package carrying a **critical** CVE — plus three more
+vulnerability warnings, while the targets file looked entirely correct. **A pin that fails must fail
+loudly; that one failed by downgrading to something ancient and vulnerable.**
+
+**Fixed** in `tools/codegen.mjs`: a `PACKAGES` table of defaults, overridden per project by
+`<project>/package-versions.json`. Keys starting with `_` are comments — the *reason* for a pin is the
+most valuable thing in the file. An unknown package name **exits 1** rather than being ignored, because
+a typo in a pin is how a pin goes missing; that strictness caught its own first `_why` key before the
+comment convention existed. Every override is printed on every run, so a departure from the enforced
+stack is visible rather than buried.
+
+Verified end to end: regenerate → `Marten 9.*` / `JasperFx 2.*` emitted and reported, 12 written /
+13 scaffolds kept, `dotnet build` 0 warnings 0 errors, and `cart-replay.mjs` unchanged.
+
+### AD11 — moving to Marten 9 costs three things a green build does not reveal · **MEASURED**
+
+Taking `cross-aggregate-invariant/` to Marten 9 surfaced three breaks in a row. **All three compiled at
+0 warnings 0 errors and failed at host startup** — which is the point: `dotnet build` was worthless as
+evidence of compatibility here, and only running the host settled anything.
+
+| | Symptom | Cause |
+| --- | --- | --- |
+| **Wolverine 5 cannot run on Marten 9** | `TypeLoadException: Could not load type 'Weasel.Core.IAdvisoryLock'` | Wolverine 5.40.1 is bound to the Weasel that shipped with Marten 8. `WolverineFx.Marten` **6.25.1** depends on Marten 9.22.2 — the Wolverine family has to move with Marten, as one |
+| **Projection subclasses must be `partial`** | `InvalidProjectionException: No source-generated dispatcher found` | Marten 9 dispatches conventional `Apply`/`Create`/`ShouldDelete` through a compile-time source generator with **no runtime fallback**. `codegen.mjs` emits projection classes non-partial |
+| **Wolverine 6 dropped the runtime compiler from core** | `InvalidOperationException: … no IAssemblyGenerator (Roslyn) is registered` (GH-2876) | needs the **`WolverineFx.RuntimeCompilation`** package, or pre-generated code with `TypeLoadMode.Static` |
+
+Two consequences for the kit:
+
+- ~~**`codegen.mjs` must emit `partial` on projection subclasses.**~~ ***FIXED (2026-08-08).*** Every
+  projection is now emitted `public sealed partial class`, with the reason stated at the emit site.
+  Harmless on Marten 8 — verified by regenerating `state-view/` fresh and building it at 0 warnings
+  0 errors — and required on 9. Note the fix reaches **new** files only: an existing view is `scaffold`
+  and is kept, so a project generated before this date still needs the one-word hand edit.
+- **`package-versions.json` overrides a version but cannot ADD a package**, and Wolverine 6 needs one the
+  generator has no reason to emit. Worked around with a `generated/Directory.Build.props` — which *is*
+  reliable for adding, unlike the `Update`-in-a-target that AD10 records as silently downgrading. An
+  `"_add"`-style key in the override file would close it properly.
+
+### AD12 — the race test that trusted the read model would have reported the budget intact · **MEASURED**
+
+Writing the control for `cross-aggregate-invariant/`, the first version asserted the broken invariant on
+the `DepartmentSpend` projection: *committed should be 140000 against a 100000 budget*. **It failed** —
+the view said 70000.
+
+The race breaks **two** things, not one. Both writers load the same department row, both apply their own
++70k, and the second inline projection update overwrites the first, because the two transactions touch no
+common stream and Postgres has no conflict to detect. So the read model **under-reports the damage**: the
+store holds 140k of commitments while a dashboard shows the budget comfortably intact.
+
+**A test asserting an invariant on a projection is asserting it on a derived artifact that the same race
+corrupts.** The fix is to compute it from the event store — `QueryRawEventDataOnly<SpendCommitted>()`
+summed across streams. Recorded because the wrong version *looked* more readable and would have
+under-stated the bug in exactly the direction that makes it survive review.
+
+### AD13 — DCB enforces the cross-aggregate invariant. It works, and it is not seamless · **MEASURED**
+
+`reference-implementations/cross-aggregate-invariant/`, against real Postgres:
+
+```
+15 tests, 15 passed, 5 consecutive runs, 0 flakes   (2026-08-08 — all four arms now green)
+
+CONTROL_two_projects_both_pass_the_naive_check_and_overspend   Passed   (race proven)
+CONTROL_stress_without_a_barrier_also_overspends               Passed   (race proven)
+sequentially_the_naive_check_does_hold_the_budget              Passed
+guard_row_*                             (arm 1)                Passed   <-- was RED; see AD14
+reservation_row_*                       (arm 2)                Passed
+advisory_lock_*                         (arm 3)                Passed
+dcb_*                                   (arm 4)                Passed
+```
+
+**All four mechanisms hold the invariant, so DCB is not the only answer** — which is the correction to the
+state this finding was first written in, when arm 1 was red and "DCB or nothing" was the tempting reading.
+Arms 1–3 work on **Marten 8 with no migration at all**, and that changes the adoption question below from
+*whether the guarantee is reachable* to *what each way of reaching it costs*:
+
+| Arm | Serialisation point | Loser gets | Cost |
+| --- | --- | --- | --- |
+| 1 guard row | one row per department, `UpdateRevision` | `Conflict`, retry | every commit contends on one hot row |
+| 2 reservation row | unique index on `(dept, sequence)` | `Conflict`, retry | a row per commit, unbounded; the sequence is an O(rows) count |
+| 3 advisory lock | `pg_advisory_xact_lock` before the read | `BudgetExceeded`, **no retry** | serialises every commit; contention becomes latency, not failure |
+| 4 DCB | `mt_dcb_tag_version` | `DcbConcurrencyException`, retry | needs Marten 9 + Wolverine 6 (AD11) |
+
+Arm 3 is the odd one and worth knowing about: because it locks *before* the read, the loser sees the
+winner's commit and is refused by the **ordinary business rule**. Ten writers against a budget for six
+produce exactly `6 Committed, 4 BudgetExceeded` every run — no conflicts, nothing wasted, nothing retried.
+
+Two writers, two **different** project streams, one department, one budget. The naive arm — read an
+`Inline` multi-stream projection, check, append — commits both and overspends. The DCB arm lets exactly
+one through and refuses the other with `DcbConcurrencyException`, and the event-store total holds.
+
+**The shape that makes it work, and it composes with an existing model.** `FetchForWritingByTags` folds
+every event carrying the department's tag across all its streams and records the tag's version; the event
+is then appended to **our own project stream** with the tag attached, not routed by the tag. The docs
+support this — *"every save that appends a tagged event, boundary or otherwise, also queues a
+producer-side bump against the same row"* — so a system keeps its own stream layout and gains the
+boundary. That matters for any kit-wide adoption: DCB is additive, not a re-modelling.
+
+**But "seamless" would be the wrong word, and the cost is front-loaded:**
+
+- It needs **Marten 9** (AD1) and therefore **Wolverine 6**, which cost three undocumented migration
+  breaks, every one of which compiled at 0/0 and failed at startup (AD11).
+- **Three public types are documented with no namespace, and none is where you would guess:**
+  `[BoundaryAggregate]` is `JasperFx.Events.Aggregation`, `EventTagQuery` is `JasperFx.Events.Tags`, and
+  `IRevisioned`/`ConcurrencyException` moved to `JasperFx`. All found by grepping the packages' `.xml`.
+- **The identity-less boundary aggregate does not work as documented.** `dcb.md` states such a type has
+  *"no `Id` property and no `[AggregateIdentity]`"*; on 9.22.5 `RegisterTagType(...).ForAggregate<T>()`
+  still routes it through the document mapper and throws
+  `InvalidDocumentException("Could not determine an 'id/Id' field")`. Adding an `Id` — as the docs' own
+  worked example does — fixes it. **Follow the example, not the prose.**
+
+So the recommendation for a kit-wide move is: the *capability* is proven; the *readiness* is a separate
+question, and the honest input to it is that every one of the four obstacles above was a doc-versus-package
+discrepancy rather than a design problem. **And with arms 1–3 green, the migration is no longer a
+prerequisite for the guarantee** — it buys the version being maintained *for* you rather than by hand.
+
+### AD14 — the guard row failed for one reason, and it was `Store()` supplying the wrong number · **MEASURED** · ***FIXED***
+
+Arm 1 of `cross-aggregate-invariant/` was red for three prior attempts — `IRevisioned` alone, pre-creating
+the row, `UseNumericRevisions(true)` — and **none of them was the cause**. All three change whether the
+version column is *enforced*; none changes **which number is supplied**.
+
+`documents/concurrency.md` says `Store()` on an `IRevisioned` document *"is essentially
+`UpdateRevision(entity, entity.Version)`"* — the version it **already has**. The enforcing rule is two
+sections later: a revision is *"rejected with a `ConcurrencyException` … if the version in the database is
+**equal or greater** than the supplied revision."* So a writer supplying its own current version asserts
+something already true, and no two writers can ever disagree. One line fixes it:
+
+```csharp
+session.UpdateRevision(guard, guard.Version + 1);   // NOT session.Store(guard)
+```
+
+Both racers read version N and both claim N+1; the first commits, and the second is rejected because
+N+1 >= N+1. **The `+1` is the entire mechanism.**
+
+Worth recording as a shape, not just a fix: **the three failed attempts all looked like configuration
+problems and the answer was an argument.** The docs state both halves plainly, one page apart, and neither
+half is wrong — the trap is that the sentence describing `Store()` reads as a convenience ("it does the
+right thing for you") when it is really a statement that `Store()` cannot conflict.
+
+### AD15 — `SessionOptions` resolves to the wrong type, so the error is CS0117 rather than "not found" · **MEASURED**
+
+`documents/sessions.md` writes `SessionOptions.ForTransaction(transaction)` bare, naming no namespace. The
+type is **`Marten.Services.SessionOptions`**. With `using Marten;` in scope the bare name still resolves —
+to a different type — so the compiler reports:
+
+```
+CS0117: 'SessionOptions' does not contain a definition for 'ForTransaction'
+```
+
+**That is the dangerous shape.** A "type or namespace not found" sends you looking for a namespace; *"does
+not contain a definition for"* says the type is right and the member is missing, which reads as a **version**
+problem — and on a folder deliberately pinned off the kit's stack, "the mirror is ahead of my package" is
+exactly the diagnosis the kit has already taught you to reach for (see the `WaitForExecutionOf<T>` note in
+CLAUDE.md). It cost a version hunt before a `.xml` grep settled it in seconds.
+
+Fifth entry in this folder's documented-with-no-namespace list, and the first where the misresolution is
+*silent*. The standing rule holds and gains a corollary: **grep the package `.xml` before suspecting the
+version, because a wrong namespace can imitate a wrong version but never the reverse.**
+
+Marten's own mechanism is `events/archiving.md`: the built-in `Archived(string Reason)` event, appended
+to a stream and processed by a single-stream projection, marks the whole stream archived; archived events
+drop out of LINQ queries and the async daemon by default, and `UseArchivedStreamPartitioning` moves them
+to a cold partition. The documented motivation is exactly this — *"maybe because a workflow is completed,
+maybe through time based expiry rules"*. So the stack half is solved and the **model** half is not: which
+stream closes, on what event, is a domain fact with nowhere to live.
