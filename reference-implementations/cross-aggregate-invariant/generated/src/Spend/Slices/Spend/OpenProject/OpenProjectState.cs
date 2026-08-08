@@ -32,18 +32,26 @@ public sealed record OpenProjectState
     /// </summary>
     public static Guid StreamKey(Guid projectId) => projectId;
 
-    public static OpenProjectState Apply(ProjectOpened e, OpenProjectState current)
-        // TODO(codegen): fold ProjectOpened into whatever OpenProject needs to decide.
-        // Carries: projectId, departmentId, name.
-        => current;
+    /// <summary>
+    /// Whether this project's stream already exists.
+    ///
+    /// The model gives open-project exactly one GWT and no rejection, so this fold decides nothing today.
+    /// It is still the right shape: the slice MINTS the id (terminal="projectId:generated"), so the stream
+    /// cannot exist when the command arrives, and the endpoint uses StartStream rather than fetching.
+    /// </summary>
+    public bool Opened { get; init; }
 
+    /// <summary>Whose department this project belongs to.</summary>
+    public Guid DepartmentId { get; init; }
+
+    public static OpenProjectState Apply(ProjectOpened e, OpenProjectState current)
+        => current with { Id = e.ProjectId, Opened = true, DepartmentId = e.DepartmentId };
+
+    // SpendCommitted and CommitmentReleased are folded because a state folds ALL of its stream's events,
+    // not only the ones its own slice appends — but neither carries anything this slice decides on.
     public static OpenProjectState Apply(SpendCommitted e, OpenProjectState current)
-        // TODO(codegen): fold SpendCommitted into whatever OpenProject needs to decide.
-        // Carries: projectId, departmentId, amount.
-        => current;
+        => current with { Id = e.ProjectId, DepartmentId = e.DepartmentId };
 
     public static OpenProjectState Apply(CommitmentReleased e, OpenProjectState current)
-        // TODO(codegen): fold CommitmentReleased into whatever OpenProject needs to decide.
-        // Carries: projectId, departmentId, amount.
-        => current;
+        => current with { Id = e.ProjectId, DepartmentId = e.DepartmentId };
 }

@@ -2936,3 +2936,39 @@ partial-match ambiguity.
 **Worth noting how it was found: by running the tool against the reference implementation built to study the
 very thing it was mis-detecting.** No test covered it, because the tool's own output was the only place the
 classification is visible. A rule family whose output nothing asserts on is one nobody is checking.
+
+### AD19 — choosing DCB changes what a GIVEN must be, and three tests passed for the wrong reason · **MEASURED**
+
+Implementing the 13 GWTs of `cross-aggregate-invariant/` with a **DCB** production decider, one test failed:
+
+```
+SpendInAnotherProjectOfTheSameDepartmentCountsAgainstTheBudget
+  Alba.ScenarioAssertionException : Expected status code 400, but was 204
+```
+
+`IntegrationContext.Given` appends straight to a stream — correct for a GWT, because *history is exactly
+what a GIVEN means*. But **a DCB boundary is folded from a tag query, and an untagged event is not in it.**
+So the seeded prior commitment was invisible, the boundary read zero, and the decider allowed spending it
+should have refused.
+
+**The failure was the lucky part.** The same cause was already corrupting two *passing* tests in the same
+file: "committing exactly the remaining budget is allowed" and "a release frees the budget" were both green
+because the boundary saw **nothing at all**, which is the same green as being allowed correctly. One
+rejection caught what two positive tests could not — the standing hazard of asserting that something is
+permitted.
+
+**The rule, and it generalises past DCB:** once a slice decides on a boundary that is not a stream, its
+GIVENs must be written into that boundary too, or they are not that slice's history. The same applies to a
+guard row (a GIVEN that skips it leaves the guard un-versioned) and to a reservation row (a GIVEN that skips
+it leaves the sequence wrong).
+
+**Nothing enforces this and nothing can.** The compiler sees a perfectly good append; the model cannot know
+which mechanism was chosen; the test reads exactly as it should. What is available is the discipline the kit
+already asks for elsewhere — **mutation-check the fold.** Done here: replacing `Apply(CommitmentReleased)`
+with a no-op fails exactly one test and no other, which is that test earning its place.
+
+**Consequence for `codegen`:** the generated GWT scaffold's stream-key hint is now incomplete for any slice
+whose `architect` decision picked a non-stream boundary. It says *"Stream key: `X.StreamKey(...)`"* and
+should also say *"this slice decides on a `<mechanism>` boundary — a raw GIVEN is invisible to it."* Not
+built: `codegen` does not read `ARCHITECTURE.md`, and making it do so is a larger change than this finding
+justifies on its own. Recorded so it is a decision rather than a drift.

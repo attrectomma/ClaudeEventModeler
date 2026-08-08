@@ -32,18 +32,27 @@ public sealed record ReleaseCommitmentState
     /// </summary>
     public static Guid StreamKey(Guid projectId) => projectId;
 
+    /// <summary>
+    /// What THIS project currently has committed — commitments minus releases, folded over this project's
+    /// own stream only.
+    ///
+    /// **This is the slice whose rule genuinely lives inside one stream**, and the contrast with
+    /// <c>CommitSpend</c> is the point of having both: "a project cannot release more than it committed"
+    /// is settled entirely by this stream, so `FetchForWriting`'s optimistic concurrency is a real guard
+    /// here. The budget rule next door reads across every project stream of the department and no stream's
+    /// version covers it. Same model, two slices, two different consistency problems.
+    /// </summary>
+    public decimal Committed { get; init; }
+
+    /// <summary>Whether the project exists at all. ProjectOpened carries no rule of its own here.</summary>
+    public bool Opened { get; init; }
+
     public static ReleaseCommitmentState Apply(ProjectOpened e, ReleaseCommitmentState current)
-        // TODO(codegen): fold ProjectOpened into whatever ReleaseCommitment needs to decide.
-        // Carries: projectId, departmentId, name.
-        => current;
+        => current with { Id = e.ProjectId, Opened = true };
 
     public static ReleaseCommitmentState Apply(SpendCommitted e, ReleaseCommitmentState current)
-        // TODO(codegen): fold SpendCommitted into whatever ReleaseCommitment needs to decide.
-        // Carries: projectId, departmentId, amount.
-        => current;
+        => current with { Id = e.ProjectId, Committed = current.Committed + e.Amount };
 
     public static ReleaseCommitmentState Apply(CommitmentReleased e, ReleaseCommitmentState current)
-        // TODO(codegen): fold CommitmentReleased into whatever ReleaseCommitment needs to decide.
-        // Carries: projectId, departmentId, amount.
-        => current;
+        => current with { Id = e.ProjectId, Committed = current.Committed - e.Amount };
 }

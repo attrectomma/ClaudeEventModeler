@@ -1,8 +1,8 @@
 # cross-aggregate-invariant — an invariant that spans streams
 
-**Status: the concurrency study is complete. All four mechanisms are built, green and stable.**
-The 13 generated GWT tests are still unimplemented, so this is not yet a complete slice implementation —
-see [What to do next](#what-to-do-next).
+**Status: complete. 28 tests, all green, stable across repeated runs.**
+Four concurrency mechanisms measured against one model, and all five slices implemented end to end —
+so this is a working system, not only a study.
 
 An advanced **state-change** pattern. Every other reference implementation answers *"what did this choice
 cost?"* for a shape that fits inside one stream. This one carries the shape that does not:
@@ -44,12 +44,18 @@ question with a runnable model behind it.
 ## Where it stands
 
 ```
-dotnet test --filter "FullyQualifiedName~CrossAggregateRaceTests"
+dotnet test
 
-Passed!  -  Failed: 0,  Passed: 15,  Skipped: 0,  Total: 15
+Passed!  -  Failed: 0,  Passed: 28,  Skipped: 0,  Total: 28
 ```
 
-15 tests, **5 consecutive runs, 0 flakes** (75 executions).
+**28 tests: 13 GWT/GT scenarios from the model, and 15 concurrency tests no GWT could express.**
+Stable across repeated runs, 0 flakes.
+
+**The 13 and the 15 are testing different things, and the split is the folder's argument in miniature.**
+Every GWT is sequential — it appends its GIVEN, sends one command, asserts — so *all four* `CommitSpend`
+scenarios pass against a decider with **no concurrency guard whatsoever**, including the cross-stream
+rejection. That is not a defect in them; it is what a GWT is, and it is why `architect` exists.
 
 | Arm | What guards it | Loser gets | State |
 | --- | --- | --- | --- |
@@ -120,11 +126,17 @@ node tools/codegen.mjs      reference-implementations/cross-aggregate-invariant/
                             --project reference-implementations/cross-aggregate-invariant --out generated
 
 cd reference-implementations/cross-aggregate-invariant/generated
-dotnet test --filter "FullyQualifiedName~CrossAggregateRaceTests"
+dotnet test                                                    # all 28
+dotnet test --filter "FullyQualifiedName~CrossAggregateRaceTests"   # just the 15 concurrency tests
 ```
 
-Needs Docker (Testcontainers). The 13 generated GWT tests still throw `NotImplementedException` — they
-are not part of this folder's argument yet and are filtered out above.
+Needs Docker (Testcontainers). No `package-versions.json` and no `Directory.Build.props`: this folder runs
+on the kit's own enforced stack.
+
+**To see the mechanisms actually bite, break one.** Replace `session.UpdateRevision(guard, guard.Version + 1)`
+with `session.Store(guard)` in `CommitMechanisms.GuardRow` and the guard-row arm goes red exactly as it did
+for three attempts before that line was understood. Or no-op `DepartmentBoundary.Apply(CommitmentReleased)`
+and precisely one GWT fails. A green concurrency test is the kind that proves least.
 
 ---
 
@@ -214,13 +226,22 @@ A test trusting the view would have shown the budget intact while the money was 
 
 ## What to do next
 
-**One item left.**
-
-**Fill the 13 GWT tests**, so the folder is a complete slice implementation and not only a concurrency
-study. They currently throw `NotImplementedException` and are filtered out of the command above. This is
-ordinary `codegen`-skill work — the model validates, the skeleton builds, and nothing about it is blocked.
+**Nothing outstanding.** What a future run could add: the *partial live model* read-side option
+(`FetchLatest` filling the async gap), which CLAUDE.md names as a third choice and which no reference
+implementation demonstrates; and a UI, which this folder deliberately has none of.
 
 ### Done, and what each one settled
+
+0. **The 13 GWTs are implemented**, so all five slices work end to end and the folder is a system rather
+   than a study. **The production decider uses DCB**, stated out loud in `CommitSpendEndpoint` because
+   nothing checks a mechanism choice — with the note that an advisory lock would waste no attempt, and that
+   DCB is preferred here for *maintenance* (Marten owns the version row) rather than for throughput.
+
+   **It immediately produced the sharpest finding in the folder.** A DCB boundary is folded from a tag
+   query, so an untagged `Given` is **invisible to it** — the seeded prior commitment read as zero and the
+   rejection test failed. Worse, the same cause was already corrupting two *passing* tests, which were
+   green because the boundary saw nothing at all. **Once a slice decides on a boundary that is not a
+   stream, its GIVENs must be written into that boundary too.** KIT-FINDINGS **AD19**.
 
 1. ~~**Finish arm 1.**~~ `session.Store(guard)` → **`session.UpdateRevision(guard, guard.Version + 1)`**.
    The three earlier attempts — `IRevisioned` alone, pre-creating the row, `UseNumericRevisions(true)` —

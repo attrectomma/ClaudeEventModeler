@@ -104,6 +104,9 @@ public partial class DepartmentBoundary
     public decimal Committed { get; set; }
 
     public void Apply(SpendCommitted e) => Committed += e.Amount;
+    // MUTATION-CHECKED: replacing this body with a no-op fails exactly one test —
+    // CommitSpendTests.AReleaseFreesTheBudgetForALaterCommitment — and no other. That is the test earning
+    // its place: every other scenario only ever adds, so nothing else can see a fold that ignores releases.
     public void Apply(CommitmentReleased e) => Committed -= e.Amount;
 }
 

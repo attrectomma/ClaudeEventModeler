@@ -32,18 +32,28 @@ public sealed record CommitSpendState
     /// </summary>
     public static Guid StreamKey(Guid projectId) => projectId;
 
+    /// <summary>The project exists. Its stream is opened by ProjectOpened.</summary>
+    public bool Opened { get; init; }
+
+    /// <summary>Whose budget this project spends against — needed to find the boundary.</summary>
+    public Guid DepartmentId { get; init; }
+
+    /// <summary>
+    /// THIS PROJECT'S committed total, and deliberately NOT what the budget rule uses.
+    ///
+    /// The rule is a DEPARTMENT total across every project stream, so this fold cannot answer it and
+    /// nothing in the endpoint asks it to. It is kept because it is the honest fold of this stream and
+    /// because the contrast is the whole subject of this folder: a state built from one stream is exactly
+    /// what an event-sourced decider normally decides on, and here it is not enough.
+    /// </summary>
+    public decimal Committed { get; init; }
+
     public static CommitSpendState Apply(ProjectOpened e, CommitSpendState current)
-        // TODO(codegen): fold ProjectOpened into whatever CommitSpend needs to decide.
-        // Carries: projectId, departmentId, name.
-        => current;
+        => current with { Id = e.ProjectId, Opened = true, DepartmentId = e.DepartmentId };
 
     public static CommitSpendState Apply(SpendCommitted e, CommitSpendState current)
-        // TODO(codegen): fold SpendCommitted into whatever CommitSpend needs to decide.
-        // Carries: projectId, departmentId, amount.
-        => current;
+        => current with { Id = e.ProjectId, DepartmentId = e.DepartmentId, Committed = current.Committed + e.Amount };
 
     public static CommitSpendState Apply(CommitmentReleased e, CommitSpendState current)
-        // TODO(codegen): fold CommitmentReleased into whatever CommitSpend needs to decide.
-        // Carries: projectId, departmentId, amount.
-        => current;
+        => current with { Id = e.ProjectId, DepartmentId = e.DepartmentId, Committed = current.Committed - e.Amount };
 }

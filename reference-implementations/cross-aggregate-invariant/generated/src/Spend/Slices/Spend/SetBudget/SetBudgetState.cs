@@ -32,8 +32,10 @@ public sealed record SetBudgetState
     /// </summary>
     public static Guid StreamKey(Guid departmentId) => departmentId;
 
+    /// <summary>The department's current budget. The latest DepartmentBudgetSet simply wins — the model's
+    /// GWT says "the budget may be raised at any time", so there is no rule to fold, only a value.</summary>
+    public decimal Budget { get; init; }
+
     public static SetBudgetState Apply(DepartmentBudgetSet e, SetBudgetState current)
-        // TODO(codegen): fold DepartmentBudgetSet into whatever SetBudget needs to decide.
-        // Carries: departmentId, budget.
-        => current;
+        => current with { Id = e.DepartmentId, Budget = e.Budget };
 }
