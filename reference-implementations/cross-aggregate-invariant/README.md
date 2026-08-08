@@ -128,20 +128,23 @@ are not part of this folder's argument yet and are filtered out above.
 
 ---
 
-## This folder is pinned OFF the kit's enforced stack, deliberately
+## This folder used to be pinned OFF the kit's stack. It is now ON it.
 
-`package-versions.json` moves it to **Marten 9.22.5 + Wolverine 6.25.1 + JasperFx 2**, and the file
-carries its own reasons. That mechanism is new — `codegen.mjs` reads it, an unknown package name is an
-error rather than a no-op, and every override prints on each run (KIT-FINDINGS **AD10**).
+**Both override files are gone** — `package-versions.json` and `generated/Directory.Build.props` — because
+the kit's enforced stack moved to **Marten 9.\* / Wolverine 6.\* / JasperFx 2.\* / Alba 8.\***, and
+`codegen.mjs` now emits `WolverineFx.RuntimeCompilation` itself. This folder needs no departure at all.
 
-**Why:** Marten 8.37.4 ships the whole DCB API — `FetchForWritingByTags`, `DcbConcurrencyException` —
-**without `mt_dcb_tag_version`**, the side table the docs call the serialization point, added in 9.4 to
-fix [marten#4591](https://github.com/JasperFx/marten/issues/4591). On Marten 8 a DCB implementation
-compiles, runs, and can let both writers through: the exact failure this folder exists to catch.
+**Why it needed one at the time:** Marten 8.37.4 ships the whole DCB API — `FetchForWritingByTags`,
+`DcbConcurrencyException` — **without `mt_dcb_tag_version`**, the side table the docs call the
+serialization point, added in 9.4 to fix
+[marten#4591](https://github.com/JasperFx/marten/issues/4591). On Marten 8 a DCB implementation compiles,
+runs, and can let both writers through: the exact failure this folder exists to catch.
 
-`generated/Directory.Build.props` adds `WolverineFx.RuntimeCompilation`, which Wolverine 6 needs and
-codegen has no reason to emit. Adding a package there is reliable; **re-versioning one in a target is
-not** — see AD10.
+That is now the whole kit's floor rather than this folder's exception, and **all five reference
+implementations were re-measured on it** — automation 15/15, translation 15/15, state-change 16/16,
+state-view 36/36, and this folder 15/15. The per-project pin mechanism (KIT-FINDINGS **AD10**) is still
+there for a project that genuinely needs to depart; it simply has no user right now, which is the healthy
+state for it.
 
 ---
 

@@ -2759,7 +2759,16 @@ corrupts.** The fix is to compute it from the event store — `QueryRawEventData
 summed across streams. Recorded because the wrong version *looked* more readable and would have
 under-stated the bug in exactly the direction that makes it survive review.
 
-### AD13 — DCB enforces the cross-aggregate invariant. It works, and it is not seamless · **MEASURED**
+### AD13 — DCB enforces the cross-aggregate invariant · **MEASURED** · *verdict corrected 2026-08-08*
+
+> **The original heading read "…and it is not seamless", and that was a miscategorisation rather than a
+> measurement.** Every cost it listed was the cost of moving to **Marten 9 / Wolverine 6** — which the kit
+> was going to pay anyway, and has now paid: the enforced stack is current and all five reference
+> implementations are re-measured green on it. Netting the migration out, DCB's own cost is a tag
+> registration, `FetchForWritingByTags`, and one documented-wrong detail (the boundary aggregate needs an
+> `Id`). **On the current stack DCB is additive and essentially seamless.** The migration costs below are
+> kept because they are true and were expensive to find — they are just not DCB's.
+
 
 `reference-implementations/cross-aggregate-invariant/`, against real Postgres:
 
@@ -2870,3 +2879,60 @@ drop out of LINQ queries and the async daemon by default, and `UseArchivedStream
 to a cold partition. The documented motivation is exactly this — *"maybe because a workflow is completed,
 maybe through time based expiry rules"*. So the stack half is solved and the **model** half is not: which
 stream closes, on what event, is a domain fact with nowhere to live.
+
+### AD16 — the docs mirror is always current, so a kit a major behind disagrees with its own reference · **MEASURED** · ***FIXED***
+
+Migrating `state-view/` to Marten 9 broke on:
+
+```
+CS0535: 'MessageToCampaignGrouper' does not implement interface member
+        'IJasperFxAggregateGrouper<Guid, IQuerySession>.Group(IQuerySession, IReadOnlyList<IEvent>, ...)'
+```
+
+`IAggregateGrouper<TId>` now derives from `IJasperFxAggregateGrouper<TId, IQuerySession>` and its batch
+parameter narrowed from `IEnumerable<IEvent>` to `IReadOnlyList<IEvent>`. A one-word fix — but **the mirror
+had said `IReadOnlyList` all along.**
+
+That is the finding, and it is structural rather than incidental. **`docs.mjs sync` mirrors the CURRENT
+docs.** A kit pinned a major behind therefore carries a reference that describes *the next* major, so the
+standing instruction — *"read the mirror before writing any generated code"* — is quietly conditional: on
+the write side the mirror is ahead of what will compile. The kit had already recorded one symptom of this
+(`WaitForExecutionOf<T>` documented, absent from Wolverine 5.40.1) and filed it as a curiosity rather than
+as the general problem.
+
+**Fixed by moving the enforced stack to current** (Marten 9, Wolverine 6, JasperFx 2, Alba 8), which makes
+the mirror and the packages agree. The lasting consequence for the kit: **a version bump is maintenance of
+the docs contract, not only of the packages** — falling a major behind silently degrades every "check the
+mirror" instruction in this repo.
+
+### AD17 — `partial` is required only for CONVENTION-dispatched projections · **MEASURED** · *refines AD11*
+
+AD11 recorded that Marten 9 needs `partial` on projection subclasses. Measured more precisely while
+migrating: it is required for projections whose `Apply`/`Create`/`ShouldDelete` are dispatched by
+**convention**, because that is what the compile-time source generator emits into. A projection configured
+**explicitly** does not need it.
+
+`MessageMetricsProjection` (a `FlatTableProjection`, entirely configured in its constructor with
+`Project<T>(map => …)`) was deliberately left non-partial through the migration, and all **36** `state-view`
+tests pass. `codegen.mjs` emits `partial` on every projection regardless, which is correct — it is harmless
+where unnecessary, and the generator cannot know which recipe a hand edit will choose.
+
+### AD18 — the cross-stream detector could not fire on a single-field stream key · **BROKEN** · ***FIXED***
+
+`architect.mjs` distinguishes a rule contended *within* one stream from one spanning streams, and Z1 records
+why: the same-aggregate-different-stream case was being reported as same-stream, asking for a race test that
+**passes** while the rule it protects stays untested. The fix compares the GWT's example data on the WHEN
+against each GIVEN — and was guarded by `key.length > 1`, matching the composite-key case that prompted it.
+
+**That guard made the detector blind to the simplest cross-stream rule there is.** `Project` is keyed by
+`projectId` alone; `gwt-commit-2` gives `Spend Committed(projectId=$ProjectB)` against
+`CommitSpend(projectId=$ProjectA)` — provably two streams, and the defining rejection of the
+`cross-aggregate-invariant/` folder. It was classified `contended-invariant`: **exactly the
+misclassification Z1 exists to prevent**, reintroduced by the guard added to fix it.
+
+Now `key.length`. The comparison is sound for a single field and arguably more so — one value to compare, no
+partial-match ambiguity.
+
+**Worth noting how it was found: by running the tool against the reference implementation built to study the
+very thing it was mis-detecting.** No test covered it, because the tool's own output was the only place the
+classification is visible. A rule family whose output nothing asserts on is one nobody is checking.

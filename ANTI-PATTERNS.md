@@ -343,3 +343,37 @@ the honest part of this entry: **nothing schedules it and nothing gates on it.**
 minutes, so `codegen` prints `NO UI JOURNEY` once two claimed slices have screens and stops there. A smell whose
 detector is opt-in is still a smell — and the sub-smell to watch for is a `frontend-agent` report that lists
 click-only states as unverified and treats *"a journey could cover this"* as though it had.
+
+## 17. A race test that asserts the invariant on a read model <a id="17"></a>
+
+**The smell.** A concurrency test proves the rule held by querying the projection — `DepartmentSpend.Committed
+should be 100000` — because that is where the number is readable and the assertion reads beautifully.
+
+**Why it is wrong, and why it is worse than merely wrong.** The race that breaks a cross-stream invariant
+breaks the read model **too, in the same instant and in the flattering direction**. Two writers on two streams
+each load the same view row, each apply their own increment, and the second `Store` overwrites the first — so
+the store held **140,000** of commitments while the view reported **70,000** against a 100,000 budget. The test
+passed. A dashboard built on that view would have shown the budget comfortably intact while the money was spent
+twice.
+
+**So a read model is not a witness to an invariant it is downstream of.** Compute it from the event store:
+
+```csharp
+var committed = await session.Events.QueryRawEventDataOnly<SpendCommitted>()
+    .Where(e => e.DepartmentId == dept).ToListAsync();
+```
+
+**The general form, which is the part worth carrying:** *never assert a property on an artifact that the
+failure you are testing for also corrupts.* The same shape shows up wherever a test asserts on something
+derived — a cache, a search index, a materialised total.
+
+**Not caught by anything, and it cannot be.** The wrong version compiles, runs, passes, and *reads more
+clearly* than the right one — which is the whole reason it survives review. `architect.mjs` now scaffolds the
+event-store helper and says why in the generated comment, but a human deleting it for something tidier gets no
+warning. KIT-FINDINGS **AD12**.
+
+**Its sibling smell: a race test with no control.** A guarded race test that passes proves nothing on its own,
+because "the mechanism refused the loser" and "the race never reproduced on this machine" are the same green.
+Every cross-stream scaffold now ships a `CONTROL_` test that asserts the invariant **breaks** unguarded, and it
+is expected to pass. A second sibling: a mechanism that refuses *everything* after the first write also passes
+"exactly one wins" — so assert that uncontended writes still succeed.

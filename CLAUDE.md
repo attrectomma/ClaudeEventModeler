@@ -57,20 +57,39 @@ argued with per slice — it is the stack.
 
 - .NET 10
 - Postgres
-- Wolverine (messaging, command handling)
-- Marten (event store, projections)
-- Alba (in-process HTTP integration testing)
+- **Wolverine 6.\*** (messaging, command handling)
+- **Marten 9.\*** (event store, projections)
+- **Alba 8.\*** (in-process HTTP integration testing)
+- **JasperFx 2.\*** — the shared library the other three now sit on
 - Testcontainers (real Postgres in tests)
 - Docker
 - Aspire — optional, only after an explicit feasibility check
+
+**The majors move together, and that is not tidiness.** Wolverine 5 *compiles* against Marten 9 and then
+dies at host startup with `TypeLoadException: Could not load type 'Weasel.Core.IAdvisoryLock'` —
+`WolverineFx.Marten` 6.25.1 depends on Marten 9.22.2, so the family is one decision. A mixed pin is not a
+conservative choice, it is a green build that cannot boot.
+
+**Current, deliberately, because `docs.mjs sync` always mirrors the CURRENT docs.** A kit pinned a major
+behind therefore has a mirror permanently *ahead* of its own packages, and *"read the mirror before writing
+generated code"* silently becomes conditionally true — a documented member that will not compile (the
+`WaitForExecutionOf<T>` note below) is that skew rather than a namespace mistake. It cost a real
+misdiagnosis: `IAggregateGrouper<TId>`'s batch parameter is `IReadOnlyList<IEvent>` and the mirror had said
+so all along, while the Marten 8 package wanted `IEnumerable<IEvent>`. Moving to current makes the mirror
+and the packages agree, which retires the whole class. **So a version bump is maintenance of the docs
+contract, not just of the packages.**
 
 **A project may override a package version, and must say why.** Both `.csproj` files are `emit`, so a
 hand-edited version is reverted by the next regeneration — silently, with the symptom arriving later as
 behaviour rather than a build error. `<project>/package-versions.json` is where a pin survives:
 
 ```json
-{ "_why": "DCB's consistency check is only real from Marten 9.4", "Marten": "9.*", "JasperFx": "2.*" }
+{ "_why": "held on Alba 7 until the harness rewrite lands; 8 changed IScenarioResult", "Alba": "7.*" }
 ```
+
+*(That example used to pin Marten to `9.*` — which is now the **default**, so it pinned nothing. The one
+project that needed it, `cross-aggregate-invariant/`, has had its override file deleted: the folder that
+had to depart from the stack is now on it.)*
 
 Keys beginning with `_` are comments, and the reason is the point — a bare version with no
 justification is how a departure from this list becomes folklore. **An unknown package name is an error,
@@ -1808,6 +1827,42 @@ Once the boundary is right, concurrency stops being a design question:
 
 > *"we apply optimistic locking not on the entire Event Store, but on **individual event streams**."* — ch. 4
 
+### …and a stream is the DEFAULT consistency boundary, not the only one
+
+**This section used to stop at the line above, and read as "a stream is the boundary, so a rule spanning
+streams cannot be an invariant."** That is false, and it is now measured false — four mechanisms, all
+green, in `reference-implementations/cross-aggregate-invariant/`, with a control proving the race
+reproduces deterministically without them.
+
+The organising sentence is Marten's own, and it generalises well past DCB:
+
+> *"the side-table mechanism **converts the predicate read into a row-level write conflict**, so concurrent
+> boundary saves serialize on a row lock at `READ COMMITTED` — no `SERIALIZABLE`, no advisory locks."*
+
+**Optimistic concurrency was never the problem; the thing being versioned was.** A version has to sit on
+something *both writers write*. Two writers on two streams share no row, so no stream's version can see
+them — but a document row, a unique index, a lock, or a DCB tag all can:
+
+| Mechanism | Serialisation point | Loser gets | Needs Marten 9? |
+| --- | --- | --- | --- |
+| **guard row** | one `IRevisioned` row per boundary, via `UpdateRevision(doc, doc.Version + 1)` | `Conflict`, retry | no |
+| **reservation row** | a unique index on `(boundary, sequence)`, via `Insert` | `Conflict`, retry | no |
+| **advisory lock** | `pg_advisory_xact_lock`, taken **before the read** | **the ordinary rule** — no retry | no |
+| **DCB** | `mt_dcb_tag_version`, maintained by Marten | `DcbConcurrencyException`, retry | yes |
+
+**`Store()` cannot conflict**, and that one fact cost three failed attempts: on an `IRevisioned` document it
+supplies the version the entity *already has*, while rejection needs the stored version to be **equal or
+greater** than the one supplied — so it asserts something already true. The `+1` is the mechanism.
+
+**None of this becomes notation**, and the rule above is unchanged: concurrency is not a modelling concern.
+The model already states the rule — a GWT whose GIVEN names another stream *is* the cross-stream invariant —
+and `architect` chooses the mechanism. `command-crosses-swimlane` also stands: these commands **append** to
+one stream and merely **read** across, which is why the worked model validates at 0 errors.
+
+**DCB is additive, not a re-modelling.** The event is still appended to its own stream with the tag
+attached; the tag is a boundary marker, not a stream key. An existing model keeps its stream layout and
+gains the boundary.
+
 **The gap was that nothing read the model and ASKED.** That is the `architect` step: it derives six families
 of question from the IR, answers none of them, and the skill answers them against `reference/llms/` — writing
 each decision, its reason and **its cost** into `<project>/ARCHITECTURE.md`.
@@ -1823,7 +1878,7 @@ node tools/architect.mjs check       # unanswered, still TODO, or orphaned by a 
 | `stream-boundaries/<ctx>` | the boundary map — every stream, its key, its writers. A rule inside one key is a true invariant; the same rule against a wider key is a projection check two writers both pass |
 | `no-stream-key/<lane>` | events we append with no `identity=`: no boundary exists at all |
 | `contended-invariant/<slice>/<gwt>` | **a rejection depending on state in the stream its own command appends to** — two callers at the same instant can both pass it. Gets a **race test**, because every generated GWT is sequential |
-| `cross-stream-rule/<slice>/<gwt>` | **the sharpest.** A GIVEN in a stream the command does not write, so enforcing it means *reading* another stream — and optimistic concurrency on *our* version cannot close that window |
+| `cross-stream-rule/<slice>/<gwt>` | **the sharpest.** A GIVEN in a stream the command does not write, so enforcing it means *reading* another stream, and no stream's version covers it. **Four mechanisms close it** — guard row, reservation row, advisory lock, DCB — and a rejection here now gets its own generated race test, with a **control** |
 | `stale-read/<View>` | fed by more than one stream type (**Marten defaults multi-stream to `Async`**), or read by a screen that also feeds it — read-your-own-write |
 | `view-identity/<View>/<field>` | a key value no feeding event carries. Metadata means **append** time (ANTI-PATTERNS #15) |
 | `replay-safety/<slice>` | an automation or translation: a replay, a redelivery and a restarted sweep all run it twice |
