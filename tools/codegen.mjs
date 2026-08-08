@@ -86,17 +86,33 @@ const TESTS = join(OUT, "tests", `${NS}.IntegrationTests`);
 //
 // An unknown package name is an ERROR rather than a no-op, because a typo in a pin is exactly how the
 // pin goes missing — the same silence this whole mechanism exists to remove.
+// THE MAJORS MOVE TOGETHER, AND THAT IS NOT A STYLE CHOICE. Wolverine 5 COMPILES against Marten 9 and
+// then dies at host startup with `TypeLoadException: Could not load type 'Weasel.Core.IAdvisoryLock'` —
+// it is bound to the Weasel that shipped with Marten 8. WolverineFx 6.25.1 depends on Marten 9.22.2, so
+// the whole family is one decision. Mixing them is not a supported combination, it is a green build that
+// cannot boot. KIT-FINDINGS AD11.
+//
+// WHY LATEST IS THE DEFAULT RATHER THAN A CONSERVATIVE PIN: `docs.mjs sync` always mirrors the CURRENT
+// docs. A kit pinned a major behind therefore has a mirror permanently ahead of its own packages, and
+// "read the mirror before writing generated code" becomes conditionally true — the documented member
+// that will not compile (CLAUDE.md's `WaitForExecutionOf<T>` note) is that skew, not a namespace error.
+// Moving to current makes the mirror and the packages agree, which retires the whole class.
 const PACKAGES = {
-  "Marten": "8.*",
-  "Marten.AspNetCore": "8.*",
-  "WolverineFx": "5.*",
-  "WolverineFx.Http": "5.*",
-  "WolverineFx.Http.Marten": "5.*",
-  "WolverineFx.Http.FluentValidation": "5.*",
-  "WolverineFx.Marten": "5.*",
-  "WolverineFx.FluentValidation": "5.*",
+  "Marten": "9.*",
+  "Marten.AspNetCore": "9.*",
+  "WolverineFx": "6.*",
+  "WolverineFx.Http": "6.*",
+  "WolverineFx.Http.Marten": "6.*",
+  "WolverineFx.Http.FluentValidation": "6.*",
+  "WolverineFx.Marten": "6.*",
+  "WolverineFx.FluentValidation": "6.*",
+  // Wolverine 6 DROPPED THE RUNTIME COMPILER FROM CORE (GH-2876). Without this package the app builds
+  // at 0/0 and throws `InvalidOperationException: ... no IAssemblyGenerator (Roslyn) is registered` the
+  // moment a handler is needed. Emitted rather than left to package-versions.json, which can override a
+  // version but cannot ADD a package — the gap that forced a Directory.Build.props workaround before.
+  "WolverineFx.RuntimeCompilation": "6.*",
   "Alba": "8.*",
-  "JasperFx": "1.*",
+  "JasperFx": "2.*",
   "Shouldly": "4.*",
   "Testcontainers.PostgreSql": "4.*",
   "xunit": "2.*",
@@ -1597,6 +1613,7 @@ emit(join(APP, `${NS}.csproj`),
     ${pkg("WolverineFx.Http.FluentValidation")}
     ${pkg("WolverineFx.Marten")}
     ${pkg("WolverineFx.FluentValidation")}
+    ${pkg("WolverineFx.RuntimeCompilation")}
   </ItemGroup>
 
 </Project>

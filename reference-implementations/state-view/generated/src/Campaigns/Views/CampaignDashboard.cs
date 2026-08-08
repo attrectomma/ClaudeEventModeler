@@ -166,7 +166,15 @@ public sealed class MessageToCampaignGrouper : IAggregateGrouper<Guid>
 {
     private readonly ConcurrentDictionary<Guid, Guid> _campaignOf = new();
 
-    public async Task Group(IQuerySession session, IEnumerable<IEvent> events, IEventGrouping<Guid> grouping)
+    // IReadOnlyList, NOT IEnumerable — the interface is still IAggregateGrouper<TId>, but on Marten 9 it
+    // derives from IJasperFxAggregateGrouper<TId, IQuerySession> and the batch parameter narrowed. So the
+    // break is CS0535 "does not implement interface member", naming a type nothing in this file mentions.
+    //
+    // WORTH KNOWING WHY THE MIRROR DID NOT WARN US: it never disagreed. multi-stream-projections.md has
+    // said IReadOnlyList all along, because docs.mjs mirrors the CURRENT docs — so while the kit sat on
+    // Marten 8, this file was written against the package and the mirror was already describing the next
+    // major. That skew is the thing moving to the current stack retires. KIT-FINDINGS AD16.
+    public async Task Group(IQuerySession session, IReadOnlyList<IEvent> events, IEventGrouping<Guid> grouping)
     {
         var outcomes = events.Where(e => e.Data is MessageDelivered or MessageBounced).ToList();
         if (outcomes.Count == 0) return;

@@ -8,13 +8,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Marten" Version="8.*" />
-    <PackageReference Include="Marten.AspNetCore" Version="8.*" />
-    <PackageReference Include="WolverineFx.Http" Version="5.*" />
-    <PackageReference Include="WolverineFx.Http.Marten" Version="5.*" />
-    <PackageReference Include="WolverineFx.Http.FluentValidation" Version="5.*" />
-    <PackageReference Include="WolverineFx.Marten" Version="5.*" />
-    <PackageReference Include="WolverineFx.FluentValidation" Version="5.*" />
+    <PackageReference Include="Marten" Version="9.*" />
+    <PackageReference Include="Marten.AspNetCore" Version="9.*" />
+    <PackageReference Include="WolverineFx.Http" Version="6.*" />
+    <PackageReference Include="WolverineFx.Http.Marten" Version="6.*" />
+    <PackageReference Include="WolverineFx.Http.FluentValidation" Version="6.*" />
+    <PackageReference Include="WolverineFx.Marten" Version="6.*" />
+    <PackageReference Include="WolverineFx.FluentValidation" Version="6.*" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" Version="6.*" />
   </ItemGroup>
 
 </Project>

@@ -10,8 +10,8 @@
 
   <ItemGroup>
     <PackageReference Include="Alba" Version="8.*" />
-    <PackageReference Include="WolverineFx" Version="5.*" />
-    <PackageReference Include="JasperFx" Version="1.*" />
+    <PackageReference Include="WolverineFx" Version="6.*" />
+    <PackageReference Include="JasperFx" Version="2.*" />
     <PackageReference Include="Shouldly" Version="4.*" />
     <PackageReference Include="Testcontainers.PostgreSql" Version="4.*" />
     <PackageReference Include="xunit" Version="2.*" />

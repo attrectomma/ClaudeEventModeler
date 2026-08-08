@@ -49,7 +49,9 @@ public sealed record StockLevels
 /// been silently re-coupled to a black box. That is why a Given/Then asserting what a view IGNORES is worth more
 /// here than any of the happy paths.
 /// </remarks>
-public sealed class StockLevelsProjection : SingleStreamProjection<StockLevels, Guid>
+// `partial` required on Marten 9 — source-generated dispatcher, no runtime fallback, and the failure is at
+// HOST STARTUP with a clean build. Hand-added: this file is a scaffold. KIT-FINDINGS AD11.
+public sealed partial class StockLevelsProjection : SingleStreamProjection<StockLevels, Guid>
 {
     public static StockLevels Apply(StockLevelSet e, StockLevels current) =>
         current with

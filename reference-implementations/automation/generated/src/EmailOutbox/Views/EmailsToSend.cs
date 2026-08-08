@@ -63,7 +63,11 @@ public sealed record EmailsToSend
 /// Contrast the write side, which registers nothing and folds live.
 
 /// </summary>
-public sealed class EmailsToSendProjection : SingleStreamProjection<EmailsToSend, Guid>
+// `partial` IS REQUIRED ON MARTEN 9 and was not on 8: conventional Apply/Create/ShouldDelete methods are
+// dispatched by the compile-time JasperFx.Events.SourceGenerator, with NO runtime fallback. Without it the
+// build is 0/0 and the HOST throws InvalidProjectionException("No source-generated dispatcher found").
+// Hand-added because this file is a scaffold — the generator does not reach backwards. KIT-FINDINGS AD11.
+public sealed partial class EmailsToSendProjection : SingleStreamProjection<EmailsToSend, Guid>
 {
     /// <summary>
     /// Puts the row on the list. The only event here that means "there is work to do".

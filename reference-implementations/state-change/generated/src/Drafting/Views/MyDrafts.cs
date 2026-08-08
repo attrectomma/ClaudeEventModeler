@@ -37,7 +37,9 @@ public sealed record MyDrafts
 /// Contrast the write side, which registers nothing and folds live.
 
 /// </summary>
-public sealed class MyDraftsProjection : SingleStreamProjection<MyDrafts, Guid>
+// `partial` required on Marten 9 — source-generated dispatcher, no runtime fallback, and the failure is at
+// HOST STARTUP with a clean build. Hand-added: this file is a scaffold. KIT-FINDINGS AD11.
+public sealed partial class MyDraftsProjection : SingleStreamProjection<MyDrafts, Guid>
 {
     /// <summary>Puts the row on the list.</summary>
     public static MyDrafts Apply(EmailDrafted e, MyDrafts current) => current with

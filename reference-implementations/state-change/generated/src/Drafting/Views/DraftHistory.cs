@@ -102,7 +102,9 @@ public sealed record DraftHistory
 ///
 /// It stays Inline, so the three GIVEN/THENs assert immediately rather than waiting on the daemon.
 /// </summary>
-public sealed class DraftHistoryProjection : SingleStreamProjection<DraftHistory, Guid>
+// `partial` required on Marten 9 — source-generated dispatcher, no runtime fallback, and the failure is at
+// HOST STARTUP with a clean build. Hand-added: this file is a scaffold. KIT-FINDINGS AD11.
+public sealed partial class DraftHistoryProjection : SingleStreamProjection<DraftHistory, Guid>
 {
     /// <summary>
     /// Opens the row. <c>Revisions</c> is deliberately NOT assigned: the property initialiser already
