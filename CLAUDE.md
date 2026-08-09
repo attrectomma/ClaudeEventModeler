@@ -565,6 +565,13 @@ tooling-catches-it column made explicit. Read it before trusting a green run.
 | **[KIT-FINDINGS.md](KIT-FINDINGS.md)** | **what is still open.** Short, and the one to read. Also carries the standing rules |
 | **[KIT-HISTORY.md](KIT-HISTORY.md)** | the archive: every run, every fixed bug, and the reasoning that produced the fix |
 | **[ANTI-PATTERNS.md](ANTI-PATTERNS.md)** | smells no tooling catches |
+| **[reference/BOOK-INDEX.md](reference/BOOK-INDEX.md)** | **where every rule in this file comes from.** Chapter map into both books, by line number, plus what the books license that the kit has not built |
+
+**Both books are committed, as extracted text, in `reference/`.** *The little Eventmodeling Book* is free
+and *Understanding Eventsourcing* is pay-what-you-want; the PDFs stay out (64 MB of binary git cannot
+diff) and `tools/pdf-text.mjs` regenerates the text. **Read the index before asserting what a book says** —
+grepping them only finds what you already suspect exists, which is how an entire chapter got paraphrased
+uncredited for months (KIT-FINDINGS AD20).
 
 **Finding IDs (`W6`, `AD11`, `Z6`) are stable and never reused**, and a citation resolves with
 `grep -n "AD11" KIT-FINDINGS.md KIT-HISTORY.md` — an ID lives in whichever file matches its status, and

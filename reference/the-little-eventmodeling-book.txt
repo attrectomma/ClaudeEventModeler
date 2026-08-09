@@ -1,0 +1,981 @@
+
+
+===== page 1 =====
+
+
+===== page 2 =====
+
+
+===== page 3 =====
+MARTIN DILGER
+The little Eventmodeling Book
+Typical Eventmodeling Questions - quickly answered
+
+===== page 4 =====
+Copyright © 2025 by Martin Dilger
+All rights reserved. No part of this publication may be
+reproduced, stored or transmitted in any form or by any
+means, electronic, mechanical, photocopying, recording,
+scanning, or otherwise without written permission from the
+publisher. It is illegal to copy this book, post it to a website, or
+distribute it by any other means without permission.
+First edition
+This book was professionally typeset on Reedsy.
+Find out more at reedsy.com
+
+===== page 5 =====
+Contents
+1 Why this (little) book? 1
+2 Why you must learn Event Modeling 4
+3 Event Modeling in Miro 6
+4 Do you need Event Sourcing to do Event Modeling? 9
+5 What is the “information completeness check”? 12
+6 State Change Slice 15
+7 State View Slice 18
+8 Third Party Integration 23
+9 Should you model the information flow
+in external systems? 29
+10 Can one Command change multiple Aggregates? 34
+11 Can a Command create multiple Events? 37
+12 Can we have multiple Commands in one Slice? 39
+13 How to work with Jira and Event Modeling 43
+14 Can we have multiple Read Models at-
+tached to one Slice? 51
+15 “Command” and “API” - are they the same? 54
+16 How do you handle technical details like
+Ids in the Event... 57
+17 Are there different ways to implement
+Read Models? 60
+18 How to quickly get started with your Team 63
+19 Book recommendations 70
+
+===== page 6 =====
+
+
+===== page 7 =====
+1
+Why this (little) book?
+In July 2024, I began writing my book, “Understanding Event
+Sourcing”. I could never have imagined how many people would
+eventually read it. In just two months, the book sold 1000
+copies—an achievement I never thought possible.
+The book compiles the knowledge I’ve gained over 15 years in
+the IT industry.
+Practical know-how about Event Sourcing is not widely avail-
+able. If you want to learn about Event Sourcing, you need to be
+skilled at Googling, have the patience to sift through incomplete
+tutorials, and invest significant time in research.
+With Understanding Event Sourcing, I aimed to change this by
+creating a single resource you can rely on—one that answers
+your burning questions. Above all, I wanted to include some-
+thing essential: code. Running, practical code examples for
+non-trivial problems—problems you’re likely to encounter in
+real-world projects.
+1
+
+===== page 8 =====
+THE LITTLE EVENTMODELING BOOK
+Questions like:
+How do you version events (if at all)?
+How do you design event streams?
+How do you handle… well, you name it.
+The book, however, isn’t a quick-start reference. At over
+600 pages—and still growing—it’s a comprehensive guide.
+I’m constantly adding “Missing Chapters” requested by the
+community, with updates every two weeks.
+This little book is different. It’s designed to be your go-to
+reference, providing concise answers to the most frequently
+asked questions. My hope is that it will help you get started
+even faster on your event-driven (and perhaps event-sourced)
+journey.
+I plan to continue adding questions to this book, answering them
+as briefly as possible while ensuring the depth necessary to fully
+address each topic.
+If you have a burning question you’d like me to include, feel free
+to email me at martin@nebulit.de. I’ll either respond to you
+directly or add it to the book.
+If your team plans to work with EventModeling and/or Event
+Sourcing, I’d be happy to help.
+If you’re ready to explore this new paradigm and this innovative
+way to develop software, I highly recommend buying the book
+as a first step. I’ve priced it as affordably as possible so that
+2
+
+===== page 9 =====
+WHY THIS (LITTLE) BOOK?
+everyone can access it.
+I appreciate every single reader.
+Here is what you should do now to stay in touch:
+Subscribe to the newsletter, if you aren´t subscribed yet. I write
+about on in depth topic once per week.
+https://newsletter.nebulit.de
+If you want to dive right into the book, you can find it here ( and
+get a discount applied with Code : UJjf7TIg2zg3 )
+https://leanpub.com/eventmodeling-and-eventsourcing
+Martin
+January 2025
+3
+
+===== page 10 =====
+2
+Why you must learn Event Modeling
+Event Modeling addresses one of the most persistent challenges
+in the IT industry: communication.
+How does it achieve this? At first glance, it might seem like
+nothing more than a collection of sticky notes on a board,
+connected by arrows. Technically, that’s true—but these sticky
+notes create a shared language. And that is precisely what has
+been missing for so long.
+One of the greatest unresolved challenges has been establishing
+a common language that everyone involved in a project can
+understand. Event Modeling provides just that—a universal
+language that describes requirements so clearly and precisely
+that both business stakeholders and developers can fully grasp
+what needs to be built.
+No special skills are needed to understand, within moments,
+how the functionality of a simple to-do app is structured.
+4
+
+===== page 11 =====
+WHY YOU MUST LEARN EVENT MODELING
+Event Modeling enables software to be visualized step by step,
+breaking it down into small, manageable tasks that can be
+tackled one at a time. This process creates the “story” of the
+system, which can be read—and ultimately implemented—from
+left to right.
+What’s truly remarkable about Event Modeling is how it stays
+closely aligned with the actual implementation while avoiding
+unnecessary technical complexity.
+5
+
+===== page 12 =====
+3
+Event Modeling in Miro
+I maintain the Event Modeling-Toolkit for Miro.
+It´s a Miro Extension, that automates a lot of the Modelling for
+you.
+You can install it for free in the Community-Version directly
+from the Marketplace in Miro:
+https://miro.com/marketplace/Event Modeling/
+Some of the features it provides in the Community Version:
+ᑴ Free
+ᑴ Complete Modeling Support using Slices, Commands, Events,
+Read Models, Screens and Automations
+ᑴ Maintain Schemas on each Element
+ᑴ Data Ownership - no data leaves your Miro Board. Everything
+is stored directly in the Board
+6
+
+===== page 13 =====
+EVENT MODELING IN MIRO
+That alone already helps a lot, but it makes even more sense
+with the commercial Features on top:
+ᑴ Community Features included
+ᑴ Dynamic Navigation Tree
+ᑴ Live Model Validation
+ᑴ Email Support
+ᑴ Unlimited users, boards, and models
+ᑴ Custom Code Generators
+ᑴ Export to Eventcatalog (example here)
+ᑴ Axon Framework Code Generator
+ᑴ Information Completeness Check
+ᑴ Data Path Analysis
+ᑴ Classic System Modeling
+ᑴ Aggregate View
+ᑴ Live In-Browser Prototype – validate models live directly
+ᑴ 14-day free trial (ends automatically)
+There is a free Online-Course that guides you through the
+features. Best send an E-Mail with “Course” to info@nebulit.de,
+you´ll get access within an hour typically.
+If you want to learn about the Code Generation Features, there
+is a free 8-Day nline Course, that guides you through the steps
+necessary to build a custom code generator.
+You can access it here:
+https://newsletter.nebulit.de/generator
+If you want to know how to get started quickly, jump to the
+7
+
+===== page 14 =====
+THE LITTLE EVENTMODELING BOOK
+chapter “How to quickly get started using Event Modeling”
+8
+
+===== page 15 =====
+4
+Do you need Event Sourcing to do
+Event Modeling?
+The answer is a clear no.
+Event Modeling is entirely technology-neutral in its initial
+phase, allowing information systems to be described in detail
+without any dependence on implementation.
+Event Sourcing is just one of many possible ways to implement
+a system modeled with Event Modeling.
+9
+
+===== page 16 =====
+THE LITTLE EVENTMODELING BOOK
+In the blog post Documenting and Understanding Legacy Systems
+with Event Modeling, you’ll find a detailed explanation of how
+traditional, existing systems can also be described using Event
+Modeling. Typically, in addition to event notation, we include
+database tables beneath the event swimlane to illustrate where
+data is stored.
+It doesn’t matter whether you’re working with relational tables
+or a NoSQL database like MongoDB—Event Modeling maps the
+flow of data and how it is used within the system.
+Why document an existing system with Event Modeling? Is the
+effort even worth it?
+10
+
+===== page 17 =====
+DO YOU NEED EVENT SOURCING TO DO EVENT MODELING?
+One of the most common shortcomings in software projects is
+the lack of proper documentation. At best, you might find a few
+scattered Confluence pages, but often, there’s little more than
+that. This gap makes onboarding and feature development un-
+necessarily challenging. In larger systems, it’s not uncommon
+for no one to fully understand how everything works anymore.
+So, where should you even begin?
+My suggestion: start on the left.
+Begin modeling the software step by step, involving everyone
+who can contribute their knowledge.
+What’s truly remarkable is how quickly results emerge. In no
+time, you’ll have the first flows clearly outlined, bringing much-
+needed clarity and direction to the system.
+11
+
+===== page 18 =====
+5
+What is the “information completeness
+check”?
+12
+
+===== page 19 =====
+WHAT IS THE “INFORMATION COMPLETENESS CHECK”?
+Event Modeling provides a clear and concise language consisting
+of only four patterns to describe the individual steps in a soft-
+ware system in an easy-to-understand manner. In addition, it
+automatically provides a crucial tool for verifying and validating
+assumptions: the Information Completeness Check.
+Information Completeness Check
+The Command doesn’t supply all fields for the Event.
+Read models are based on data already stored in the system in
+the form of events. This ensures that we never assume data
+is available without actually checking if it is. A major reason
+software projects get delayed is due to incorrect assumptions
+about data. We assume data is available, only to discover during
+the implementation phase that it’s not. It’s too easy to make
+assumptions.
+The Information Completeness Check forces us to look at each
+attribute in a Read Model and verify that the data for each
+attribute is provided by an Event.
+This check doesn’t just apply to Read Models and state views;
+it applies to all elements in general. For every attribute in an
+Element, you should always verify that the data is provided by
+the connected sources. This prevents us from making (wrong)
+assumptions, that become more expensive the later we uncover
+them.
+13
+
+===== page 20 =====
+THE LITTLE EVENTMODELING BOOK
+You can do it manually, you can use tooling to do it while building
+up the model.
+How it works in Miro:
+The Nebulit Miro Tooling provides the live Information Com-
+pleteness Check. Whenever you connect two elements, it
+automatically checks if all the data in the target is available
+from the connected sources.
+You can install it for free and use the 14-day trial that ends
+automatically. No cancellation required.
+https://nebulit.de/Event Modeling-tooling
+If any data is missing, the connection is automatically high-
+lighted in red. The implementation cannot begin until this check
+is passed. This can be useful in larger Event Models, as it allows
+you to quickly confirm that all the arrows are black, and you
+have the assurance that all data is available.
+14
+
+===== page 21 =====
+6
+State Change Slice
+State Change Slice
+15
+
+===== page 22 =====
+THE LITTLE EVENTMODELING BOOK
+When to apply
+State Change Slices are the only way to bring information into
+the system. It is always a source ( which can be a Screen, or an
+Automation ) that triggers a Command, which results in one or
+more Events.
+Variations
+None.
+Typical Questions
+Can we have more than one Event?
+Yes, that is possible but should not be the rule.
+Can we have more than one Command?
+No.
+Invariants
+The Command provides all Information for the business logic
+to decide if a Command can be executed or not.
+Implementation Hints
+Point of discussion is always how much “infrastructure” to
+put into the Command Handler. My opinion - the Command
+Handler should be pure. All necessary information is passed via
+16
+
+===== page 23 =====
+STATE CHANGE SLICE
+the Command Object. That means no external dependencies, no
+Event Store. To test a Command Handler, you ideally don´t need
+to mock anything.
+Benefits: Easier testing and the Command Handler naturally
+shields the domain from infrastructure concerns.
+How to test?
+Scenario is always a “Given / When / Then”
+GIVEN a Set of Events, WHEN Command, THEN a new Set
+of Events
+17
+
+===== page 24 =====
+7
+State View Slice
+18
+
+===== page 25 =====
+STATE VIEW SLICE
+When to apply
+State View Slices are the only way to get information out of the
+system. It is always one or several source Events, that point
+towards a Read Model. This indicates that the Read Model is
+populated using the linked Events.
+The Read Model can serve as an Input to a screen or an automa-
+tion.
+19
+
+===== page 26 =====
+THE LITTLE EVENTMODELING BOOK
+Variations
+None.
+Typical Questions
+Can a Read Model link to another Read Model?
+No.
+Is there a limit of Events, that can be linked to a Read Model?
+No. But the more Arrows point towards a Read Model, the more
+it couples different slices. So the less, the better.
+Can I use In-Memory Read Models?
+Yes, absolutely. It´s a very simple approach and can always be
+migrated to a database-projection later.
+Invariants
+All Attributes from a Read Model must be clearly come from a
+linked Event.
+Implementation Hints
+I work with 2 kinds of Read Models.
+Live Model: reads directly from the Event-Stream.
+20
+
+===== page 27 =====
+STATE VIEW SLICE
+Benefits / Drawbacks Live-Modell: No eventual consistency.
+Typically first choice when the Read Model only uses one
+Aggregate or Stream. Is limited by the number of events that
+can be processed per request.
+Live Models can live purely in-memory.
+Database Projection ( query using SQL or Axon Query Handlers
+for example )
+Benefits / Drawbacks Database-Projection: Persistent. So no
+projection-overhead at runtime. Works for very long streams.
+Can be replayed. Typically eventually consistent.
+How to test?
+Scenario is always a “Given / Then” ( skipping the “When” Part
+)
+21
+
+===== page 28 =====
+THE LITTLE EVENTMODELING BOOK
+22
+
+===== page 29 =====
+8
+Third Party Integration
+23
+
+===== page 30 =====
+THE LITTLE EVENTMODELING BOOK
+When to apply
+Third Party Integrations are always modelled as Automations
+using the Gear Symbol. The automation represents the external
+API Call ( or any other way how the system is integrated ).
+Most of the time an Automation results in one and only one
+Command.
+Variations
+Often this variation is discussed, which is a shift of responsibility.
+In this case, the processor contains the busines logic and acts
+on the result of the external API Call and issues different
+Commands.
+Drawbacks: Distribution of Business Logic to the infrastructure
+( Automations ). Makes the system harder to test and reason
+about. Oftentimes it´s much easier to issue the command using
+the requested data from the external system and let Domain
+decide based on the provided data.
+24
+
+===== page 31 =====
+THIRD PARTY INTEGRATION
+Typical Questions
+Can an automation issue several commands?
+See #Variations above. Typical this indicates too much logic in
+the Automation.
+25
+
+===== page 32 =====
+THE LITTLE EVENTMODELING BOOK
+Invariants
+None.
+Implementation Hints
+As always with Automations, the implementation is highly
+dependent on the framework and the technology stack. Au-
+tomations are part of the infrastructure. An Automation can be
+as simple as an Eventlistener and issueing the API Call.
+It can also be a fully scheduled Job, polling for a TODO-List-Read
+Modell every few seconds.
+How to test?
+You can test Automations in 2 ways.
+Test Automation using Given / Then
+This can be helpful if you want to highlight the infrastructure
+part. Given these 2 Events, we expect the automation to run
+automatically, make the external API Call and result in another
+Event.
+26
+
+===== page 33 =====
+THIRD PARTY INTEGRATION
+Test the state change slices using Given / When / Then
+This only tests the domain part of the automation. Given the
+System is in a certain state, and given we have the additional in-
+formation from an external system ( indicated by new Attributes
+in the command for example ), we expect the system to be in
+this new State.
+27
+
+===== page 34 =====
+THE LITTLE EVENTMODELING BOOK
+28
+
+===== page 35 =====
+9
+Should you model the information flow
+in external systems?
+The answer to this question depends on the context. Typically,
+when dealing with external systems, you treat them as black
+boxes. You make an API call, and you expect a response. The
+implementation details of the external system usually don’t
+matter.
+Consider a system that translates book titles via an API call to an
+AI service like DeepLink. Here’s how this is typically modeled,
+but it often confuses people:
+29
+
+===== page 36 =====
+THE LITTLE EVENTMODELING BOOK
+Why is the command “Save Title” and not “Request Title”?
+Isn’t the command the API call?
+No, the command is not the API call. The API call is handled by
+the processor, and the command in our system simply stores
+the result of that call.
+The confusion arises because we intentionally abstract away
+30
+
+===== page 37 =====
+SHOULD YOU MODEL THE INFORMATION FLOW IN EXTERNAL SYSTEMS?
+part of the process.
+Where does the API call happen?
+The API call occurs in the first gear symbol, which mimics the
+internals of DeepLink. We’re not concerned with the specific
+implementation details. What matters is that we know we’ll
+request the translation, and the AI will return the result.
+It’s about the information flow, not the implementation.
+31
+
+===== page 38 =====
+THE LITTLE EVENTMODELING BOOK
+“I´m trying to map this to the implementation, and I´m con-
+fused”
+What’s the distinction here?
+From the perspective of our system, there is no “Translate
+Title”, “Title Translated”, or even a “Translated Titles” read
+model. The goal is simply to visualize the flow of information.
+Avoid the temptation to directly map this to the code that needs
+to be written.
+32
+
+===== page 39 =====
+SHOULD YOU MODEL THE INFORMATION FLOW IN EXTERNAL SYSTEMS?
+Make it visible
+How do you know which slices belong to our system and need to
+be implemented and which slices are just showcasing informa-
+tion flow?
+Make it visible.
+In my models Slices are typically surrounded by a black border.
+Slices that just mimic information flow aren´t. Very easy to see.
+33
+
+===== page 40 =====
+10
+Can one Command change multiple
+Aggregates?
+Don´t touch multiple Aggregates
+34
+
+===== page 41 =====
+CAN ONE COMMAND CHANGE MULTIPLE AGGREGATES?
+The answer is—of course, it can. But that doesn’t mean it’s a
+good idea. If you frequently encounter use cases that require
+interacting with multiple aggregates, it might indicate that your
+aggregate boundaries are incorrectly defined.
+What is an Aggregate?
+An aggregate is a consistency boundary. It ensures consistency
+within a specific and limited scope of responsibility.
+If a single command touches multiple aggregates or swimlanes,
+it suggests there are two effects in the system that need to
+occur atomically. If that’s the case, these aren’t two separate
+aggregates—they’re one.
+What I often observe in such scenarios is a thought process like
+this:
+“When I book my hotel, I also need to book the car.”
+That’s certainly true, but does it really need to be consistent at
+all times?
+Is it acceptable to book the hotel first and then book the car?
+And if the car isn’t available, cancel the hotel booking?
+Most processes don’t need to be consistent immediately—they
+just need to be consistent eventually.
+35
+
+===== page 42 =====
+THE LITTLE EVENTMODELING BOOK
+Same principle applies to the infamous bank account example.
+There is no atomic operation that deposits money in one account
+and withdraws it in another. It´s two eventually consistent
+operations.
+36
+
+===== page 43 =====
+11
+Can a Command create multiple Events?
+The answer is simple—of course.
+But it should be the exception, not the rule.
+In most cases, there’s a direct correlation between a command
+and an event: an action and its result. However, there are
+situations where a single command can generate multiple
+events, and that’s entirely valid.
+Let’s consider a concrete example. Imagine we’re managing a
+customer database where each customer can have one or more
+addresses. When a new customer is created, we might record
+two events: one capturing the fact that the customer was created
+(Customer Created) and another reflecting that their initial
+address was assigned (Address Assigned).
+37
+
+===== page 44 =====
+THE LITTLE EVENTMODELING BOOK
+Often, instead of having a single action result in multiple events,
+you can break it down into several steps using one or more
+automations triggered by the initial event.
+One important rule I personally follow: a single command
+should never interact with multiple swimlanes or aggregates.
+The moment you do this, you introduce the need for a transac-
+tional boundary around the operation, which adds unnecessary
+complexity. (We discussed this in one of the previous chapters
+as well.)
+38
+
+===== page 45 =====
+12
+Can we have multiple Commands in one
+Slice?
+39
+
+===== page 46 =====
+THE LITTLE EVENTMODELING BOOK
+I would strongly recommend not to do so. This basically always
+hides two processes in one step and it´s always easier to express
+both steps separately.
+If it´s an Automation, it´s also always an indication that there is
+too much logic in the Automation. The infrastructure layer has
+to make the decision to issue either one Command or the other.
+40
+
+===== page 47 =====
+CAN WE HAVE MULTIPLE COMMANDS IN ONE SLICE?
+In this case, the Read Model can be reused if it represents the
+exact same concept—but we make it explicit.
+You might ask, “Isn’t it just the same thing modeled in multiple
+steps?” Not quite. By distinguishing between steps, we can
+clearly define and illustrate through examples when “Step 1” is
+active and when “Step 2” is active.
+Here, we apply the TODO List Pattern with two distinct Read
+Models, each serving its unique purpose.
+Can you spot the business rule?
+41
+
+===== page 48 =====
+THE LITTLE EVENTMODELING BOOK
+42
+
+===== page 49 =====
+13
+How to work with Jira and Event
+Modeling
+When to apply
+Jira is your main Task Management System. You want to use it
+in combination with Event Modeling.
+Variations
+Same principle applies to all Task Management Systems.
+Typical Questions
+How do we combine Jira with Event Modeling?
+Miro has a Jira Integration. You can use it to create Jira-Cars
+on the Board. These can be linked to Slices. A Slice typically
+becomes a Ticket. A chapter ( blue arrow ) typically is an Epic.
+The Jira Ticket can be used to describe the implementation in
+43
+
+===== page 50 =====
+THE LITTLE EVENTMODELING BOOK
+more detail.
+How do we change a Slice?
+I treat changes to existing Slices like new Slices. Assuming the
+implemented Slice “Register Customer”.
+44
+
+===== page 51 =====
+HOW TO WORK WITH JIRA AND EVENT MODELING
+I typically make a screenshot and set it back to Status “Created”.
+This typically happens for all slices that need adjustment. Also
+for example Read Models impacted by new Events. So one
+change could have impact on several Slices. From then on the
+same cycle as described in “Implementation Hints” starts again.
+45
+
+===== page 52 =====
+THE LITTLE EVENTMODELING BOOK
+Implementation Hints
+I use these Slice-States.
+“Created” - Slice is defined but not modelled out. Basically just
+a frame like “Register Customer” without any details.
+46
+
+===== page 53 =====
+HOW TO WORK WITH JIRA AND EVENT MODELING
+“Planned” - Slice has been modelled including Fields and Given
+/ When / Thens and agreed with the customer.
+“Assigned” - Slice is scheduled to be implemented and assigned.
+47
+
+===== page 54 =====
+THE LITTLE EVENTMODELING BOOK
+“Review” - Slice is implemented and can be reviewed by the
+custmomer.
+48
+
+===== page 55 =====
+HOW TO WORK WITH JIRA AND EVENT MODELING
+“Blocked” - something is blocking progress on the Slice.
+“Done” - it´s done and agreed by the customer. Any change to
+the slice is treated like a new Slice.
+49
+
+===== page 56 =====
+THE LITTLE EVENTMODELING BOOK
+Benefits: You always see with one view on the Eventmodel where
+tasks are still open.
+How to test?
+Scenario is always a “Given / When / Then”
+50
+
+===== page 57 =====
+14
+Can we have multiple Read Models
+attached to one Slice?
+51
+
+===== page 58 =====
+THE LITTLE EVENTMODELING BOOK
+When to Apply
+Yes, it’s absolutely possible to have multiple Read Models.
+However, the more Read Models you have, the more your slice
+becomes coupled to various aspects of the system. A high
+number of Read Models can often indicate suboptimal modeling
+of the information flow.
+My rule of thumb:
+I aim to provide one dedicated Read Model per UI component.
+52
+
+===== page 59 =====
+CAN WE HAVE MULTIPLE READ MODELS ATTACHED TO ONE SLICE?
+While this might not always cover every decision-making sce-
+nario, it’s a solid starting point and gives you a good gut feeling
+for where to begin.
+Problems
+Fine-grained Read Models can sometimes be an attempt to
+overly denormalize the Read Models, similar to what you might
+do in a traditional database system.
+For example:
+“We’ll need the customer status in many slices; let’s build a Customer
+Status Read Model so it’s reusable.”
+While this may seem practical at first, it typically leads to a
+leakage of implementation details into the Event Model. Over
+time, this makes the model increasingly difficult to maintain
+and erodes its clarity and usability.
+53
+
+===== page 60 =====
+15
+“Command” and “API” - are they the
+same?
+That´s a very common misconception. The Command “should”
+be the same as the API of a system. This allows clients to directly
+submit Commands via API or a User Interface.
+But what if you have additional data that needs to be passed with
+the Command to execute some business logic?
+54
+
+===== page 61 =====
+“COMMAND” AND “API” - ARE THEY THE SAME?
+If the requirements specify that a user can only add items with a
+valid price to their cart session, you obviously can’t rely on the
+client to submit the correct price. The submitted price might be
+outdated—or, in the worst case, an attempt at fraud.
+When the Command itself acts as the API, there’s no reliable
+way to handle this validation unless the business logic operates
+directly on the data provided in the Command.
+In my view, the Command should include only the data neces-
+sary for the business logic to function correctly. In this case,
+that means it should contain the accurate, current price.
+But where do you get the current prices from?
+I recommend retrieving the latest prices from a trusted source
+in a layer above the Command Handler. For instance, a Price
+55
+
+===== page 62 =====
+THE LITTLE EVENTMODELING BOOK
+Service could query a projection of past events, such as *Price
+Changed*, to provide the most up-to-date price.
+It might be tempting to embed the *Price Service* directly
+within the Command Handler, neatly encapsulating it behind
+the Command Handler interface. However, this approach comes
+with a significant drawback: the Command Handler is no longer
+“pure” and gains unnecessary dependencies.
+This added dependency complicates testing. To write effective
+tests, you’ll need a mocking framework to mock the *Price
+Service*, making the testing process more complex and less
+straightforward.
+Implementation Example
+(events: Event[], command: AddItemCommand):
+Promise<Event[]>
+56
+
+===== page 63 =====
+16
+How do you handle technical details like
+Ids in the Event Model vs.
+Implementation?
+It´s always a back and forth how much technical details should
+we put into the Event Model. The answer typically varies on who
+you ask.
+Developers love to put as much technical detail into the Model
+as possible to leave no questions for the later implementation.
+Business people on the other side do not care about technical
+details at all and would skip them altogether.
+Who is right?
+57
+
+===== page 64 =====
+THE LITTLE EVENTMODELING BOOK
+Best example - look at the “accountId”. Is the “accountId”
+relevant for the information flow? Does it matter whether it´s
+a string or a UUID? Does it even matter if it is available? In the
+end, every Event will have some kind of Id to identify the Stream
+( if eventsourced ) or something to serve as an Primary Key if a
+relational database is used.
+To discuss the business flow with an expert, it doesn´t add any
+business value.
+58
+
+===== page 65 =====
+HOW DO YOU HANDLE TECHNICAL DETAILS LIKE IDS IN THE EVENT...
+Typically in the first few sessions, we don´t care at all about
+these details and leave them out as often as possible.
+We can always add them later when all business discussions are
+clarified - right before we give the Slice into implementation.
+So my tipp - if in doubt - leave these attributes out and focus on the
+core information, not the supporting information ( like Ids ).
+Miro Toolkit Tip
+The Miro Toolkit allows to mark certain attributes as “tech-
+nical”, they are then automatically hidden from the sticky
+notes ( but still apply to information completeness and all other
+features.
+So if you forget to add the “accountId” attribute to the command,
+information completeness would still mark the connection red.
+Miro Toolkit “technical” Attributes
+59
+
+===== page 66 =====
+17
+Are there different ways to implement
+Read Models?
+For sure there are. A Read Model is nothing more than an
+indicator, that information is retrieved from a system. It doesn´t
+make any assumption about how that happens.
+60
+
+===== page 67 =====
+ARE THERE DIFFERENT WAYS TO IMPLEMENT READ MODELS?
+The timesheets Read Model in the example above could be a
+projection from an Event Store reading all “TimeSheet created”
+Events on the Fly for every Request
+In this case building the Read Model would be a projection of all
+Events.
+The Read Model could as well indicate the data retrieved from a
+relational table.
+In this case the Read Model could be a simple SQL Script.
+In the Context of an automation, the Read Model might be a
+simple Event Listener reacting to an Event. You will not find any
+61
+
+===== page 68 =====
+THE LITTLE EVENTMODELING BOOK
+implementation of it in the Source Code.
+Re-Read the last paragraph. This is typically an “Aha”
+Moment for many developers.
+Always keep in mind, that the Event Model showcases the
+logical information flow using a simple handful of patterns. The
+implementation of these patterns can vary from use-case to
+use-case.
+62
+
+===== page 69 =====
+18
+How to quickly get started with your
+Team
+Oftentimes, it’s not an easy task to introduce new methodologies
+to a team. I like to compare this with the advent of Scrum and
+agile methodologies many years ago. Many teams struggled to
+apply the principles on their own, which cost a lot of time and,
+most probably, even more money.
+Here are the basic steps to get started:
+Do this in a larger group.
+Step 1 - Event Modeling Introduction
+You need one person with some experience in Event Modeling
+who can explain it to the teams. This can be someone from the
+team. Reading my book will certainly help. If you don’t have
+someone, feel free to contact me at martin@nebulit.de. I can
+provide this introduction to your team(s).
+63
+
+===== page 70 =====
+THE LITTLE EVENTMODELING BOOK
+Step 2 - Brainstorming Phase
+Gather all events in a large brainstorming session. The more
+people involved, the better. The goal is to identify all relevant
+events in the system. This is the chaotic part.
+Step 3 - Storyboarding
+Bring the events in order and try to find “the story” in your
+system.
+64
+
+===== page 71 =====
+HOW TO QUICKLY GET STARTED WITH YOUR TEAM
+Step 4 - Grouping of Events
+Try to define the first clusters in your storyline. This doesn’t
+have to be perfect; it’s just an initial indication of what the
+grouping might be. Later, it could evolve into something
+completely different.
+From here go into smaller, more focused Groups
+Step 5 - Introduce first screens to make it visual
+65
+
+===== page 72 =====
+THE LITTLE EVENTMODELING BOOK
+Step 6 - Add Commands, Read Models & Automations
+Now add commands, read models, and automations. You don’t
+have to do this for the entire model; you can focus on one group
+defined in step 4.
+66
+
+===== page 73 =====
+HOW TO QUICKLY GET STARTED WITH YOUR TEAM
+Step 7 -Define Swimlanes
+At this stage, we typically try to identify the first swimlanes.
+These often correlate with the groupings defined in step 4. This
+is also where the first discussions about system boundaries take
+place.
+Step 8 - Model Slices in Detail Flow by Flow
+At this stage, you model each flow in detail, using all the
+attributes and ensuring no assumptions are made. Remember—
+67
+
+===== page 74 =====
+THE LITTLE EVENTMODELING BOOK
+one well-executed slice is more valuable than four half-finished
+ones.
+Be very clear about the details. After step 8, the model should
+be detailed enough to be implemented by anyone.
+Accelerate
+To make Event Modeling more accessible to teams, my company
+offers the “Accelerate Program.”
+Let’s call it a guided introduction to Event Modeling and Event
+Sourcing for your teams.
+Accelerate Program
+ᑴ 2 hour Onboarding call for the team Faster Modelling and
+Feedback in Miro using the ᑴ Event Modeling Tooling
+ᑴ 30 min / weekly Call to answer questions / model reviews /
+feedback for the team(s) - you book the Calls yourself or we use
+a fixed schedule.
+ᑴ Possibility to post questons directly on the Board with me or
+someone from my Team answering typically within 24 hours
+Company wide access to online courses in our education center
+( currently in the making )
+ᑴ Fixed monthly rate and flexible contract duration - cancel
+anytime.
+68
+
+===== page 75 =====
+HOW TO QUICKLY GET STARTED WITH YOUR TEAM
+If that is something interesting, next step would be to schedule
+a 30 minute call, just to have quick chat about your problems,
+your teams and how this approach might help.
+If we agree after the call, that it´s no match right now, it´s
+absolutely fine. Really looking to help.
+If you think that would be helpful, send an E-Mail to info@neb-
+ulit.de - use “ACCELERATE” in the subject. I´ll send you more
+information on the program.
+If you want to take the next step - let´s have a chat. Feel free to
+book a Call with me. Happy to talk!
+https://outlook.office365.com/book/NebulitGmbH@nebulit.
+de/s/SchaAYI1q02_E0rbpW5Xhw2
+Or send me a direct message on LinkedIn, if that better suits
+you: https://www.linkedin.com/in/martindilger/
+69
+
+===== page 76 =====
+19
+Book recommendations
+The only book currently addressing Event Modeling specifically
+is my own book, Understanding Event Sourcing (as far as I know).
+Martin Dilger - Understanding Eventsourcing
+There are a couple of books I would also recommend:
+Eric Evans - Domain Driven Design
+Vlad Khononov - Learning Domain Driven Design
+Vaughn Vernon - Implementing Domain Driven Design
+Matthew Skelton - Team Topologies
+Alberto Brandolini - Introducing Eventstorming
+Maciej (MJ) Jedrzejewski - Master Software Architecture
+70
+
+===== page 77 =====
+BOOK RECOMMENDATIONS
+Vlad Khononov - Balancing Coupling in Software Design
+71
+
+===== page 78 =====

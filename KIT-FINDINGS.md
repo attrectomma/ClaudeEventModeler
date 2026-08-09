@@ -89,6 +89,66 @@ compensating-transaction story, it is what makes the todo-list pattern a saga re
 the kit tests it. *"The task stays open and is retried"* is precisely the property a green suite does not
 check.
 
+### BK1 — an automation sweeping an ASYNC todo View can silently lose work · **GAP**
+
+`UES` **ch. 32** names the exact failure: *"we had this eventually consistent Read Model that was used by
+a **processor**. Because of the eventually consistent nature, in certain situations, it could happen that
+**entries get lost if the processor was running before the model got updated**."* That is the kit's
+automation pattern — `Event(s) → todo View → Trigger` — with the View registered `Async`, which is what
+`codegen` picks for any multi-stream view. **No test can see it and nothing warns.** The chapter's answer
+is the *partially synchronous projection* (a bounded in-memory queue filled by a synchronous handler),
+which CLAUDE.md already names as the missing third read-side option and no reference implementation builds.
+→ [BOOK-INDEX.md](reference/BOOK-INDEX.md) gap 1
+
+### BK2 — the Reservation Pattern is a fifth cross-aggregate mechanism, and the cheapest · **GAP**
+
+`UES` **ch. 36**: make the contested value **the stream id**, because *"there can only ever be one
+aggregate for a given ID at any point in time."* No guard row, no unique index, no lock, no DCB — and the
+kit's own `ConcurrencyHarness` already classifies its failure (`ExistingStreamIdCollisionException`).
+`architect` offers *"make the contested thing ONE stream"* as an option with no name and no worked
+example; `cross-aggregate-invariant/` builds four mechanisms and not this one.
+
+### BK3 — the kit emits no metadata: no correlation ID, no causation ID · **GAP**
+
+`UES` **ch. 39**. *"Event Sourcing is about preserving all data, and that includes metadata"*, and
+*"we'll deal with metadata later"* is named as the trap. `codegen` generates no metadata strategy at all.
+
+### BK4 — GDPR has no notation, and part of it is model content · **GAP**
+
+`UES` **ch. 41**. Crypto shredding and forgettable payloads are implementation; **data minimalism is
+modelling** — keep events fine-grained so personal data lands in one event instead of a fat one, because
+a replay is what purges projections and the model is what tells you which ones to replay. No PII notation
+exists.
+
+### BK5 — event order is only guaranteed WITHIN a stream, and the kit never says so · **GAP**
+
+`UES` **ch. 30**: *"If more than one stream is used as a source for the projection table... the order of
+events typically is only guaranteed within one stream, not over several streams."* The kit generates
+multi-stream projections routinely and states this nowhere.
+
+### BK6 — the right-to-left validation walk is not implemented · **GAP**
+
+`UES` **ch. 7** gives *two* validation tricks. The kit has the left-to-right narrative one. The second:
+uncover events **from the right**, one at a time, checking each has everything it needs from its
+predecessors. That checks **sequence sufficiency**; name-based completeness cannot.
+
+### BK7 — a slice that is not ours to implement has no marker · **GAP**
+
+`LEB` **ch. 9**: *"Slices that just mimic information flow"* get no border — an explicit visual marker for
+a slice drawn as context, belonging to another system. The kit has `pattern=` and `status=` and nothing
+for this, so **`codegen` would try to generate it**.
+
+### BK8 — Lookup Tables, which answer T5 · **GAP**
+
+`UES` **ch. 37**. The ID → name problem, modelled explicitly or implicitly, with the rule *keep them local
+to a slice and accept the duplication*. Closes the "foreign key that is not our key" gap conceptually.
+
+### BK9 — "fenced polling" is the answer the UI findings point at · **GAP**
+
+`UES` **ch. 42**. Return the aggregate sequence from the command, persist the projection's version beside
+it, poll only until they match. The kit's `ui-journey` rule *"if an assertion only passed on retry, that is
+a finding"* is correct and has never said what to do about it. This is what.
+
 ### AD3 — "closing the books" is model content and the kit has no notation · **GAP**
 
 Both books prefer bounding a stream by a business period over snapshotting — *"better to limit the length
