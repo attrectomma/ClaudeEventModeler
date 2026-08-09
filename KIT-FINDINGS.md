@@ -63,6 +63,23 @@ let one rule carry two questions. The orphan report is the only reason this was 
 doing its job — but it fires *after* the answer exists, and a model written this way from the start
 produces no orphan and no question.
 
+**A SECOND, WORSE INSTANCE — and here nothing reported anything.** `register-driver`'s
+`EmailAlreadyRegistered` and `CardAlreadyRegistered` are unique-across-**all** Driver streams. The tool
+filed both as `contended-invariant` from the very first run, so they inherited the boilerplate answer
+*"the stream key already contains the contested thing, so optimistic concurrency refuses the loser."*
+
+**That is false, and following it ships a slice with no guard at all that passes every GWT** — `driverId`
+is `terminal="driverId:generated"`, so every call mints a new stream and the fold is empty by
+construction; two callers collide on nothing. Only a race test catches it, and the race test is
+scaffolded from the same misclassification.
+
+**The information was on the cell.** The GWT's own label reads *"No two drivers may share an email.
+Spans streams: each driver is their own."* The classifier compares example key values and never reads it.
+Two cheap improvements, either of which would have caught this: compare the aggregate **instance** where
+the example data gives one, and treat a `terminal="…:generated"` key as *"a new stream every time,
+therefore the fold cannot see other instances"* — which is precisely the condition that makes a
+same-aggregate rule cross-stream.
+
 ### V5 — `status=` cannot be both "which tests run" and "how far along is this" · **BROKEN**
 
 `status=` is read at **scaffold time** to decide whether a GWT's test is born with `[Fact(Skip=…)]`, and
