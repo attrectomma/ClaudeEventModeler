@@ -557,6 +557,20 @@ Everything a generator cannot decide, and the traps found by running rather than
 **Smells the checker cannot see are catalogued in [ANTI-PATTERNS.md](ANTI-PATTERNS.md)**, with the
 tooling-catches-it column made explicit. Read it before trusting a green run.
 
+### The four documents, and which one to open
+
+| | |
+| --- | --- |
+| **CLAUDE.md** (this file) | how the kit works. The instruction set |
+| **[KIT-FINDINGS.md](KIT-FINDINGS.md)** | **what is still open.** Short, and the one to read. Also carries the standing rules |
+| **[KIT-HISTORY.md](KIT-HISTORY.md)** | the archive: every run, every fixed bug, and the reasoning that produced the fix |
+| **[ANTI-PATTERNS.md](ANTI-PATTERNS.md)** | smells no tooling catches |
+
+**Finding IDs (`W6`, `AD11`, `Z6`) are stable and never reused**, and a citation resolves with
+`grep -n "AD11" KIT-FINDINGS.md KIT-HISTORY.md` — an ID lives in whichever file matches its status, and
+only ever travels from findings to history. Citations elsewhere in this file say *"KIT-FINDINGS X"*
+because that was the single file's name until the split; they are not stale.
+
 ## Keep it simple, but prepare for evolution
 
 The standing principle for codegen, and the reason for several choices that would otherwise look
@@ -1088,7 +1102,7 @@ not, the missing scenario is an event one.
 
 ### Promotion to error, and what is holding it
 
-All four reference implementations validate at **0 errors, 0 warnings**. The only `derived-without-example`
+All **five** reference implementations validate at **0 errors, 0 warnings**. The only `derived-without-example`
 left anywhere is **two in `tools/fixtures/cart/`** — `Submit Cart.orderedProducts` and
 `Cart Submitted.totalPrice`, both on the `submit-cart` slice.
 

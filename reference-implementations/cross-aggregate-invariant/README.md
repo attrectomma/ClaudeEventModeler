@@ -65,7 +65,9 @@ rejection. That is not a defect in them; it is what a GWT is, and it is why `arc
 | **3 — advisory lock** | `pg_advisory_xact_lock`, taken before the read | **`BudgetExceeded`** | **GREEN** |
 | **4 — DCB** | `mt_dcb_tag_version`, one row per tag value | `DcbConcurrencyException` | **GREEN** |
 
-**The headline: arms 1–3 need no migration.** They work on the kit's own Marten 8 stack. DCB is the
+**The headline: arms 1–3 need no Marten 9.** They were measured on Marten 8, which is what the kit
+enforced when this folder was built — it has since moved to 9, so the point now reads the other way round:
+a project that cannot migrate still gets the guarantee. DCB is the
 version-maintained-for-you option, not the only door — which is the opposite of the conclusion this
 folder pointed at while arm 1 was red, and the reason its README warned against drawing one early.
 
@@ -112,7 +114,7 @@ Arms 1 and 2 are the same idea hand-rolled — on a document row's revision, and
 opts out of the framing entirely: it does not version anything, it just refuses to let the two reads
 happen at once.
 
-**Arms 1–3 are all green, so the guarantee is available on Marten 8 with no migration.** What DCB buys is
+**Arms 1–3 are all green, so the guarantee does not depend on Marten 9.** What DCB buys is
 not the capability but the maintenance: Marten owns the version row, so nothing in your code has to
 remember to write it.
 

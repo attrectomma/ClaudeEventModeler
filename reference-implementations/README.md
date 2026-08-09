@@ -9,13 +9,16 @@ expert has to stand behind. The archived POC that these replaced was a half-fini
 half-finished is what made it dangerous: it read as a reference example while asserting things nobody
 agreed to.
 
+**Five folders, and every one is green on the kit's current stack** — Marten 9.\*, Wolverine 6.\*,
+JasperFx 2.\*, Alba 8.\*. Each was re-measured against it rather than assumed.
+
 ```
 reference-implementations/
-  automation/            the Automation pattern — four ways to wake a trigger, one model
+  automation/            the Automation pattern — four ways to wake a trigger, one model    15/15
     email-outbox/        the event model
     generated/           the implementations
-  state-change/          the Command pattern on an EXISTING stream — the aggregate handler
-    drafting/            the event model                     workflow, with and without HTTP
+  state-change/          the state-change pattern on an EXISTING stream — the aggregate     16/16
+    drafting/            the event model                 handler workflow, with and without HTTP
     generated/           both implementations
                          ALSO: DraftHistory, the one demonstration of a row that carries its
                          own child lines as a Type[] group. It lives here rather than in
@@ -23,9 +26,16 @@ reference-implementations/
                          seventh is a separate teaching point, not another column. (The original
                          reason given was a 3200px width budget; that rule has been REMOVED —
                          width was never the argument, "one model teaches one thing" is.)
-  state-view/            the View pattern — six Marten read-model recipes, one model
+  state-view/            the state-view pattern — six Marten read-model recipes, one model   36/36
     campaigns/           the event model
     generated/           the implementations
+  translation/           the Translation pattern — four ways a FOREIGN event lands: an HTTP  15/15
+    stock-feed/          the event model      endpoint, a table they INSERT into, a broker,
+    generated/           the implementations  a poll of their API
+  cross-aggregate-invariant/   an invariant that spans STREAMS — four ways to guard it:      28/28
+    spend/               the event model      a guard row, a reservation row behind a unique
+    generated/           the implementations  index, an advisory lock, and DCB. Plus a CONTROL
+                         proving the race reproduces without one. The advanced state-change case.
 ```
 
 Each folder has its own README with the measured comparison. Each is self-contained: its own model, its own
@@ -78,8 +88,8 @@ Written out once, so that no future folder here has to rediscover it:
 
 | `pattern=` | Same blocks on the canvas, genuinely different implementations |
 | --- | --- |
-| `command` | aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. Wolverine message; `StartStream` where the slice creates the stream. The transport is not in the model, so the transport must not change the behaviour — which is why `state-change/` asserts every GWT against both |
-| `view` | a green box says only "derived from these events". It may be a live fold with no table, a snapshot, a per-event transformation, a cross-stream rollup, or a SQL table. `state-view/` builds six |
+| `state-change` | aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. Wolverine message; `StartStream` where the slice creates the stream. The transport is not in the model, so the transport must not change the behaviour — which is why `state-change/` asserts every GWT against both. **And when the deciding facts live in another stream, four more:** guard row, reservation row, advisory lock, DCB — `cross-aggregate-invariant/` |
+| `state-view` | a green box says only "derived from these events". It may be a live fold with no table, a snapshot, a per-event transformation, a cross-stream rollup, or a SQL table. `state-view/` builds six |
 | `automation` | the four wakeup mechanisms above |
 | `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll of their API — and that is the *only* choice: the foreign event is never persisted by us, so the arrival is the wakeup and the automation choice does not arise. Built and measured in `translation/` |
 
@@ -89,15 +99,25 @@ it took.
 
 ## The decision table
 
-Reasoned, not yet measured — the whole point of the implementations below is to test it.
+**Measured, not reasoned** — every row below is built and run in `automation/`. **Ask two questions, in
+this order: is the trigger event ours to append, and can you afford to lose one?** The second usually
+decides it, and it is *not* the same question as "does ordering matter".
 
 | When | Implementation | Why |
 | --- | --- | --- |
-| the trigger event is **ours**, appended in our own transaction | **event forwarding → handler** | immediate, outbox-durable, no polling. The common case. |
-| ours, and **ordering or replay** matters | **Marten `ISubscription`** | ordered, durable checkpoint, runs in the async daemon |
-| ours, and the decision is a function of **the view row** | **projection `RaiseSideEffects`** | fires exactly when the row changes |
-| the trigger event is **foreign** — we never append it | **sweep a todo View on a clock** | there is no transaction of ours to hook |
+| the trigger event is **ours**, losing one is survivable, cheap + immediate wins | **event forwarding → handler** | ~1s, no daemon, one class. But a delivery that never happens is lost — no record of intent outside the moment |
+| ours, and **losing one is unacceptable** | **Marten `ISubscription`** | durable checkpoint, so a host that was down catches up. Costs the async daemon |
+| the trigger event is **foreign but WE INGEST IT** — the normal shape of a `translation` | **whichever of the two rows above the durability answer picks** | once we append it, it is ours from that moment: there IS a transaction of ours to hook |
+| the trigger event is **foreign and never ingested** | **sweep a todo View on a clock** | genuinely no transaction of ours to hook |
 | there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
+| "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model |
+
+**The third row was missing, and its absence was worse than a gap.** A translation slice matched *"the
+trigger event is foreign"* on the surface while failing its stated reason — the model draws the external
+event inside one of our own swimlanes with `aggregate=` set, so something of ours appends it, so there *is*
+a transaction to hook. As written, `translation` had **no correct row**, and the row it did match sends you
+to a clock you do not need. Anyone reading the verdict rather than the justification writes a sweep, and
+everything stays green.
 
 **Nothing checks this.** No rule family, no compiler, no test can tell you the choice was wrong — so a
 slice has to say which row it was in and why.
@@ -264,9 +284,14 @@ assert what a view **ignores**, because the drawing already claims which events 
 made that claim executable. All of those were mutation-checked: break the fold on purpose, confirm that one
 test and only that one fails.
 
-All three suites pass and are stable across repeated runs. Every folder has also been **run as an app**,
-because each pattern has at least one failure mode a green suite cannot see: an automation that nothing
-wakes, and an async projection that nothing processes.
+**All five suites pass — 110 tests — and are stable across repeated runs.** Every folder has also been
+**run as an app**, because each pattern has at least one failure mode a green suite cannot see: an
+automation that nothing wakes, an async projection that nothing processes, a foreign feed that never
+arrives.
+
+**And all five were re-measured, not assumed, when the enforced stack moved to Marten 9 / Wolverine 6.**
+That mattered: a green *build* proved nothing — the migration's breaks all compiled at 0 warnings 0 errors
+and failed at host startup. Only running each suite settled it.
 
 Each folder's own README carries its measured findings. Two are worth knowing before opening any of them:
 
