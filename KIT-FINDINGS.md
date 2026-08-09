@@ -34,6 +34,30 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V4 — every MOBILE review shot of a data-driven page is a picture of the loading state · **BROKEN**
+
+`shoot.mjs` renders below `MIN_HONEST_WIDTH = 520` inside an `<iframe>`, which is the correct fix for the
+sub-500px Windows layout lie it was written for. But the iframe is **cross-origin** (`file://` inside
+`file://`), so it gets its own renderer process, and `--virtual-time-budget` — which advances a clock in
+the *main* frame rather than sleeping — does not pause for the iframe's pending `fetch`. The shot is taken
+before the data arrives.
+
+**Measured on Voltway's `bay-finder`** at `--settle` 0, 4000 and 20000: identical loading-state shot every
+time. Shooting at 520 gets real data — and then `review.mjs`'s sheet hard-codes `img { width:${w}px }`
+(line ~161), so a 520px shot placed in a 390px column is **silently downscaled to 0.75×**. The port's type
+then looks a quarter smaller than the design's, side by side, under a caption that says *"at 1:1"*.
+
+So the two failure modes compose: shoot honestly and you photograph a spinner; shoot wide enough to get
+data and the sheet lies about the scale. **This affects every data-driven screen in the kit at mobile
+width**, and `design.mjs` is unaffected only because a static design page fetches nothing.
+
+**The workaround in the project is a same-origin shim** (`web/_shot390.html`: a 390px iframe scaled
+×1.333 so the main frame owns the fetch and the layout viewport is a true 390). It works and it is not
+where the fix belongs. **The real fix is in `tools/shoot.mjs`** — either wait on a real-time condition
+rather than virtual time, or drop the iframe entirely and use
+`--force-device-scale-factor=2` at 780 physical pixels, which needs no iframe and no shim. Delete the
+shim when that lands.
+
 ### V2 — a documented Marten `Apply` overload is SILENTLY SKIPPED on a multi-stream projection · **BROKEN** *(in Marten, not the kit)*
 
 `marten/events/projections/conventions.md` lists **`Task<T> Apply(TEvent, IQuerySession, T)`** as valid
