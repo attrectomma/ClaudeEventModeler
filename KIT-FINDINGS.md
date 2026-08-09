@@ -44,13 +44,30 @@ So on a concurrent duplicate, a generated HTTP state-change slice throws
 `EventStreamUnexpectedMaxEventIdException` straight out to the caller — **a 500, not the ordinary
 business refusal the kit claims.** Every HTTP state-change slice this kit has ever generated has this.
 
-**Verified three ways, not argued:**
+**Verified BEHAVIOURALLY, and the first evidence offered for it was worthless.** The claim was originally
+supported by *"the generated HTTP endpoint has no try/catch"*. **That proves nothing** — dumping all 27
+generated files with `codegen write` shows **zero catch blocks anywhere, message handlers included**.
+Wolverine's retry lives in the message *executor* around the generated code, not inside it, so its absence
+from a generated method is expected in both cases. Recorded because it is exactly the kind of
+plausible-looking evidence that survives review.
 
-| | |
-| --- | --- |
-| the generated code | dumping Wolverine's generated endpoint with `codegen write` shows `FetchForWriting` → `Handle` → `AppendMany` → `SaveChangesAsync` with **no try/catch anywhere in the method** |
-| the mirror | `wolverine/guide/handlers/error-handling.md`: *"When using `IMessageBus.InvokeAsync()` to execute a message inline, only the 'Retry' and 'Retry With Cooldown' error policies are applied **automatically**"* — the retry belongs to the message path |
-| the HTTP docs | `wolverine/guide/http/exception-handling.md` documents an `OnException` **middleware convention that swallows** the exception, and **no retry policy at all** |
+The decisive test is behavioural: a probe endpoint in the **default scaffolded shape** (decider IS the
+endpoint, `[WriteAggregate]` as middleware), raced by two callers released together against one hold.
+
+```
+JasperFx.Events.EventStreamUnexpectedMaxEventIdException
+  at Marten...DocumentSessionBase.SaveChangesAsync
+  at Internal.Generated.WolverineHandlers.POST_charging_probeInlineCancel.Handle(HttpContext)
+  at Microsoft.AspNetCore.Routing.EndpointRoutingMiddleware...
+```
+
+**The exception leaves the endpoint and reaches the client.** No retry engaged. (The `Polly` frame further
+down is Marten's own batch resiliency, not Wolverine's policy.)
+
+The docs corroborate rather than prove: `wolverine/guide/handlers/error-handling.md` says *"When using
+`IMessageBus.InvokeAsync()` to execute a message inline, only the 'Retry' and 'Retry With Cooldown' error
+policies are applied **automatically**"*, and neither `guide/http/policies.md` nor
+`guide/http/exception-handling.md` documents any retry — only an `OnException` convention that **swallows**.
 
 **Why KIT-FINDINGS BM6 did not catch it:** that finding verified the retry on `automation/`, where commands
 arrive by `InvokeAsync`. The HTTP path was never the tested one.
