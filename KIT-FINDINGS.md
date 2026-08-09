@@ -34,6 +34,34 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V1 — a race test for a lock taken BEFORE the read can pass without the writers ever overlapping · **BROKEN**
+
+`architect.mjs tests` scaffolds, and `reference-implementations/cross-aggregate-invariant/` ships, an
+advisory-lock race test that is a bare `Task.WhenAll` of two writers. **The reference implementation
+explains why it cannot use the `Barrier(2)` every other arm uses** — a read-barrier deadlocks against a
+lock taken before the read, since preventing simultaneous reads is exactly what that lock does — and then
+asserts an outcome *shape* instead. That reasoning is correct and the conclusion is still not safe:
+nothing in either version proves the two writers overlapped at all.
+
+**Measured on Voltway's `hold-bay`.** Written that way the test went green; **mutating the advisory key to
+a random value left it green**, because each writer read and committed before the other reached its read.
+The guard was never exercised.
+
+**What works is a delay seam rather than a barrier.** The writer holding the lock waits between its read
+and its append while the other writer is blocked at the lock; remove the lock and the second writer reads
+straight through the open window and both commit. Mutation-checked in both directions —
+`HoldBayMechanism.HoldAsync` carries a test-only `afterRead` hook, null on every production path.
+
+**It is still not sound as written**, which is the open half: the same test passes inside the suite and
+fails **0 of 6** times run alone, so it is order-dependent on first-run costs (container start, schema
+creation, Wolverine codegen) rather than merely flaky. Wanted: a deterministic seam — a
+`TaskCompletionSource` the lock-holder signals once past the lock and before its append, awaited only by
+the second writer, which cannot deadlock because nothing waits on a lock it also holds.
+
+**And the reference implementation's arm 3 should be re-measured the same way**, because if its two
+writers never overlap either, the arm that CLAUDE.md calls "the odd one and often the best" is green for
+a reason unrelated to the lock.
+
 ### AD9 — `validate` passes 0/0 on a `.drawio` draw.io cannot open · **BROKEN**
 
 The parser is more tolerant than the editor. A model can be green in the kit and unopenable by the human
