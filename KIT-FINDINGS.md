@@ -34,6 +34,56 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V7 — the concurrency retry does NOT apply to an HTTP endpoint, and every generated one says it does · **BROKEN**
+
+**`Program.cs` carries `opts.OnException<ConcurrencyException>().RetryTimes(3)`, and every generated
+state-change endpoint carries a comment saying the collision "reaches the retry policy in Program.cs".
+That is a MESSAGE-pipeline policy. A Wolverine.HTTP endpoint never enters that pipeline.**
+
+So on a concurrent duplicate, a generated HTTP state-change slice throws
+`EventStreamUnexpectedMaxEventIdException` straight out to the caller — **a 500, not the ordinary
+business refusal the kit claims.** Every HTTP state-change slice this kit has ever generated has this.
+
+**Verified three ways, not argued:**
+
+| | |
+| --- | --- |
+| the generated code | dumping Wolverine's generated endpoint with `codegen write` shows `FetchForWriting` → `Handle` → `AppendMany` → `SaveChangesAsync` with **no try/catch anywhere in the method** |
+| the mirror | `wolverine/guide/handlers/error-handling.md`: *"When using `IMessageBus.InvokeAsync()` to execute a message inline, only the 'Retry' and 'Retry With Cooldown' error policies are applied **automatically**"* — the retry belongs to the message path |
+| the HTTP docs | `wolverine/guide/http/exception-handling.md` documents an `OnException` **middleware convention that swallows** the exception, and **no retry policy at all** |
+
+**Why KIT-FINDINGS BM6 did not catch it:** that finding verified the retry on `automation/`, where commands
+arrive by `InvokeAsync`. The HTTP path was never the tested one.
+
+**Why `hold-bay` looked fine:** it owns its transaction for the advisory lock and retries *inside its own
+mechanism*, so it never depended on the policy. The first slice to use the plain aggregate handler workflow
+over HTTP is the first that could expose this.
+
+**The fix used in `cancel-hold`** is a 5-line endpoint that invokes the decider through the bus, putting it
+back on the message path where the retry is real. Same route, same body, same status codes — the wire is
+unchanged.
+
+**And the cheaper fix is wrong, with a test to prove it.** Translating the collision to a rule name via
+Wolverine.HTTP's `OnException` convention is tempting and produces a lie: **a version conflict does not mean
+the business rule failed.** Voltway's Bay stream is shared with the estate context, so a fault report or a
+service job appending concurrently also collides — and the translation would refuse a perfectly live hold
+with `NoLiveHold`. `AnUnrelatedConcurrentAppendDoesNotRefuseTheCancel` is red under a translation and green
+under a retry, because a retry **re-reads** instead of guessing.
+
+**Wanted:** `codegen.mjs` should emit the mediator hop for HTTP state-change slices, or stop claiming the
+retry applies. Right now the comment is the most confidently wrong sentence the generator produces.
+
+### V8 — the concurrency scaffold is generated from the wrong GWT · **BROKEN**
+
+`architect.mjs tests` picks a slice's contended GWT and writes its rule name into the scaffold's header and
+its suggested assertion. On `cancel-hold` it picked **`NotTheHolder`**, which is **not contended at all** —
+Ben is refused whether or not Ada is cancelling at the same instant. The genuinely simultaneous case is the
+holder cancelling twice, and its refusal is `NoLiveHold`.
+
+The scaffold's suggested assertion (`Title == "NotTheHolder"`) would therefore have been **wrong**, and a
+test written to it passes while pinning nothing. Contention is a property of *whether two callers can both
+reach the rule*, not of the rule being a rejection — and the tool currently uses the second.
+
 ### V6 — adding a same-stream precondition HIDES a cross-stream rule from the classifier · **BROKEN**
 
 `architect.mjs` classifies each GWT into one question family. A rejection whose GIVEN names another

@@ -238,6 +238,18 @@ for the stream you write. And once middleware owns the save, a decider cannot ca
 collision, so the translation moves to `opts.OnException<...>().RetryTimes(3)`, which the generator emits:
 on the retry the middleware re-fetches and **the ordinary rule** refuses it.
 
+**THAT RETRY IS A MESSAGE-PIPELINE POLICY AND DOES NOT REACH AN HTTP ENDPOINT.** A Wolverine.HTTP endpoint
+never enters that pipeline, so a concurrent duplicate leaves as a **500** rather than the ordinary refusal
+— measured by dumping the generated method, which has no `try`/`catch` at all, and corroborated by the
+mirror: the retry is documented as applying to `IMessageBus.InvokeAsync`, and `guide/http/exception-handling`
+offers only an exception-**swallowing** `OnException` convention with no retry. KIT-FINDINGS **V7**.
+
+So **an HTTP state-change slice needs a five-line endpoint that invokes its decider through the bus**,
+which puts it back on the path where the retry is real. Do **not** translate the collision into a rule name
+instead: a version conflict does not mean the business rule failed, and on a stream shared with another
+context an unrelated concurrent append collides too — the translation then refuses a valid command with a
+rule name that is untrue. A retry re-reads; a translation guesses.
+
 A rejected rule returns **ProblemDetails with the rule name as the Title**, which is what
 Wolverine.HTTP already does for FluentValidation failures — so `then="error: RuleName"` asserts the
 same shape whether the rule was caught at the periphery or in the decider.

@@ -1014,9 +1014,25 @@ namespace ${NS}.Slices.${pascal(s.context)};
 /// <c>[WriteAggregate(..., AlwaysEnforceConsistency = true)]</c> for a stream you only READ so Marten
 /// version-checks it too. The command already carries a key member for every such stream.
 ///
-/// A CONCURRENT DUPLICATE IS NOT CAUGHT HERE. The middleware owns the save, so the collision reaches the
-/// retry policy in Program.cs; on the retry this decider runs again against the winner's state and the
-/// ordinary rule below refuses it. Do not re-implement that as a try/catch.
+/// A CONCURRENT DUPLICATE IS NOT CAUGHT HERE, and WHERE IT GOES DEPENDS ON HOW THIS IS INVOKED.
+///
+///   as a MESSAGE (IMessageBus.InvokeAsync)  -> Program.cs's OnException(...).RetryTimes(3) applies, the
+///                                              middleware re-fetches, and THE ORDINARY RULE below refuses
+///                                              the loser. This is the shape the kit describes.
+///   as an HTTP ENDPOINT                     -> IT DOES NOT. A Wolverine.HTTP endpoint never enters the
+///                                              message pipeline, so that policy is not reached and the
+///                                              collision leaves as a 500. KIT-FINDINGS V7, measured by
+///                                              dumping this method with the codegen-write command:
+///                                              FetchForWriting -> Handle -> AppendMany -> SaveChangesAsync,
+///                                              with no try/catch anywhere in it.
+///
+/// So an HTTP state-change slice that relies on the retry needs a 5-line endpoint that invokes this
+/// decider through the bus. Do NOT instead translate the collision with Wolverine.HTTP's OnException
+/// convention: a version conflict does not mean the business rule failed — on a stream shared with another
+/// context, an unrelated concurrent append collides too, and the translation refuses a valid command with
+/// a rule name that is untrue. A retry re-reads; a translation guesses.
+///
+/// Either way, do not re-implement it as a try/catch in the decider: the decider stays a pure function.
 /// </summary>
 public static class ${pascal(cmd)}${http ? "Endpoint" : "Handler"}
 {
