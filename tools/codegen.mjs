@@ -839,9 +839,24 @@ for (const s of ir.slices) {
     const owner = ir.slices.find((x) => x.generates && x.commands.length
       && ir.shared.aggregates.find((g) => g.commands.some((c) => c.label === x.commands[0]))?.name === a.name);
     if (!owner) return "";
+    // QUALIFY THE STATE TYPE BY ITS OWN CONTEXT, because the slice that owns an aggregate's key is not
+    // necessarily in the same namespace as the command using it. State classes live in
+    // `<NS>.Slices.<Context>`, and with TWO MODELS one aggregate is legitimately written from both: in
+    // Voltway the Bay stream carries the estate team's commissioning and faults AND the charging team's
+    // holds and charges, so charging's CancelHold resolved its key through estate's AutoWithdrawState and
+    // did not compile — CS0103, six times. Latent until a system had a second model, which is exactly the
+    // class of defect a one-model kit cannot find.
+    //
+    // `global::` IS LOAD-BEARING, not decoration. A plain `Allocation.Slices.Allocation.ReserveSlotState`
+    // written INSIDE namespace `Allocation.Slices.Allocation` resolves relative to the current namespace
+    // and looks for `Allocation.Slices.Allocation.Allocation.…` — CS0234. Voltway happened to compile
+    // without it only because its system name (Voltway) differs from its context names (Charging, Estate);
+    // every reference implementation, where system and context are the same word, did not. Caught by
+    // regenerating three of them rather than by reading the diff.
+    const qualified = `global::${NS}.Slices.${pascal(owner.context)}.${stateName(owner)}`;
     return `
     /// <summary>${why}</summary>
-    public ${STREAM_ID} ${memberName} => ${stateName(owner)}.StreamKey(${keys.map((k) => {
+    public ${STREAM_ID} ${memberName} => ${qualified}.StreamKey(${keys.map((k) => {
       const f = fields.find((x) => x.name === k);
       // The state's StreamKey takes the field's own type for a composite key and the STORE's id type for
       // a single one — so a single Guid key on a string-identity store needs .ToString().
@@ -1001,9 +1016,17 @@ namespace ${NS}.Slices.${pascal(s.context)};
 /// ordinary rule below refuses it. Do not re-implement that as a try/catch.
 /// </summary>
 public static class ${pascal(cmd)}${http ? "Endpoint" : "Handler"}
-{${http ? `
-    public const string Route = "/${camel(s.context)}/${camel(s.name)}";
-` : ""}${rejections.map((g) => `    public const string ${ruleName(g)} = "${ruleName(g)}";`).join("\n")}${rejections.length ? "\n" : ""}
+{
+${http ? `    public const string Route = "/${camel(s.context)}/${camel(s.name)}";
+` : ""}${
+// ONE CONSTANT PER DISTINCT RULE NAME, NOT PER GWT — and the difference is a project that does not
+// compile. Two GWTs on one slice legitimately share a rejection: "there is nothing to cancel on a free
+// bay" and "a hold that already lapsed cannot be cancelled" are both `error: NoLiveHold`, because the
+// caller genuinely gets the same refusal for two different histories. That is good modelling, and it
+// emitted `public const string NoLiveHold` twice — CS0102, five times over, on the first model that had
+// one. Found by the scaffold gate rather than by reading, which is the whole reason that gate exists.
+[...new Set(rejections.map((g) => ruleName(g)))]
+  .map((n) => `    public const string ${n} = "${n}";`).join("\n")}${rejections.length ? "\n" : ""}
 ${http ? `    [WolverinePost(Route), EmptyResponse]
     public static ${emitted.length === 1 ? pascal(emitted[0]) : "Events"} Handle(
 ` : `    public static Events Handle(
