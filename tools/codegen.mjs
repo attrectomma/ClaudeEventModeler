@@ -839,8 +839,16 @@ for (const s of ir.slices) {
   const keyMemberFor = (a, memberName, why) => {
     const keys = a?.identity ?? [];
     if (!keys.length || !keys.every((k) => fields.some((f) => f.name === k))) return "";
-    const owner = ir.slices.find((x) => x.generates && x.commands.length
-      && ir.shared.aggregates.find((g) => g.commands.some((c) => c.label === x.commands[0]))?.name === a.name);
+    const writesThis = (x) => x.generates && x.commands.length
+      && ir.shared.aggregates.find((g) => g.commands.some((c) => c.label === x.commands[0]))?.name === a.name;
+    // PREFER A SLICE IN THIS COMMAND'S OWN CONTEXT. Any slice writing the aggregate can compose the key —
+    // they all delegate to the same identity — but picking the first in IR order is arbitrary, and with two
+    // models it reached ACROSS CONTEXTS: charging's LapseHold resolved its stream key through estate's
+    // AutoWithdrawState. Correct, and confusing to read and fragile to a rename in a context that has no
+    // other reason to care. Falls back to any writer, because a command may legitimately write an aggregate
+    // its own context never otherwise touches.
+    const owner = ir.slices.find((x) => x.context === s.context && writesThis(x))
+               ?? ir.slices.find(writesThis);
     if (!owner) return "";
     // QUALIFY THE STATE TYPE BY ITS OWN CONTEXT, because the slice that owns an aggregate's key is not
     // necessarily in the same namespace as the command using it. State classes live in
