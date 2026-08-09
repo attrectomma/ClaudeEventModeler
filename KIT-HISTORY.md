@@ -3051,3 +3051,138 @@ The kit's `automation/` folder measures **four ways to wake a trigger**. It does
 
 Item 2 is the one with teeth: **"the task stays open and is retried" is exactly the property a green test
 suite does not check**, and it is the same family as `NOTHING EVER WAKES THIS`.
+
+---
+
+# The sixth run — `reference-implementations/reservation/`, ch. 36's other half (BL)
+
+**What was run.** A new reference implementation for the two-step **reserve → execute** workflow of
+*Understanding EventSourcing* ch. 36 — the half that is a workflow rather than a concurrency mechanism.
+Model authored by hand, then the kit's standing sequence: `model.mjs validate` → `architect record` +
+answer → `codegen.mjs` → `architect tests` → implement → `dotnet test`. **29 tests green, 0 warnings,
+0 errors, stable across three repeated runs**, every load-bearing line mutation-checked.
+
+Full measured write-up: [reference-implementations/reservation/README.md](reference-implementations/reservation/README.md).
+
+## BK2 — the Reservation Pattern, both halves · **BUILT** · ***CLOSED***
+
+Ch. 36 has two halves and the kit now has both. The **mechanism** half is `cross-aggregate-invariant/`
+arms 2 and 5 (a unique index; a stream-id collision), built in the previous run — arm 2 a week before
+anyone read the chapter it comes from. The **workflow** half is `reservation/`.
+
+**The headline is that nothing was added to the notation, and that was the thing being tested.** No
+`pattern="reservation"`, no attribute, no marker saying two slices are a pair. It is a state change
+followed by an automation, plus a second automation for the compensating path — the kit's existing grammar
+covers every edge, and the completeness check accepts the composition with nothing told to it. A fifth
+pattern would have been a mistake: what makes this the Reservation Pattern is *which stream the first step
+writes to*, and that is `identity=` on a swimlane.
+
+## BL1 — a primitive array on a READ MODEL crashed `codegen.mjs` outright · **BROKEN** · ***FIXED***
+
+`fields="takenSlots:int[]"` with no `children=` — which CLAUDE.md explicitly documents as legal, *"a list
+of primitives is not a group"* — killed the generator with
+`TypeError: Cannot read properties of undefined (reading 'map')`.
+
+**`[].every(...)` is `true`.** The child-group hint looked up `v.children?.[f.type] ?? []` and asked
+whether every child field was supplied by the event; for `int[]` there are no children, so the vacuous
+`every` matched, and `v.children["int"]` was then `undefined` when the hint tried to render it.
+
+It had never fired because **every primitive array in the kit until now was on a command or an event**
+(`recipients:string[]` in `state-view/`), and neither reaches that line. The first one on a *view* took
+the whole run down. Fixed by requiring the group to be **declared** rather than merely absent:
+`f.collection && v.children?.[f.type]?.length && …`. Reasoning at the emit site.
+
+## BL8 — you cannot build a broken reserver on ONE stream, and that reshaped the control · **MEASURED**
+
+Writing the race tests, the obvious control was the same enumerated slots appended *without*
+`FetchForWriting`. **It does not reproduce a double-booking.** Marten 9 refuses the second concurrent
+append with `EventStreamUnexpectedMaxEventIdException :: duplicate key value violates unique constraint
+"pk_mt_events_stream_and_version"` — `Won=1, VersionConflict=1`, deterministically, with no
+optimistic-concurrency API involved anywhere.
+
+So the guarantee is in the event table's primary key, not in the API call: **`FetchForWriting` buys the
+fold and a clean exception, not the safety.** Two consequences worth carrying:
+
+- A missing `FetchForWriting` on a single-stream decider is not automatically a live over-allocation bug.
+  It is still wrong — you lose the fold and get an ugly exception — but the invariant holds.
+- The control had to become a different **design**: per-grant streams and a running total, where two
+  writers share no row and Postgres has nothing to detect. That is arm 0 of `cross-aggregate-invariant/`
+  in miniature, and it restates the pattern's whole claim from the other side.
+
+Marten's own docs say Quick mode *"can alleviate concurrency issues from trying to append events to the
+same stream without utilizing optimistic or exclusive locking"*. Read as *"concurrent appends to one
+stream are permitted"*, that is wrong: they still collide on `(stream_id, version)`.
+
+## BL9 — a create-collision guard is not enough once a unit can come BACK · **MEASURED**
+
+`cross-aggregate-invariant/` arm 5 guards a reservation with `StartStream`, and that is correct for ch. 36's
+e-mail address — claimed once, never released. **A slot that a failed execution gives back has a stream
+that already exists**, so there is no creation to collide on and such a guard would let every
+re-reservation through. `Two_reservers_re_taking_a_freed_unit_only_one_wins` asserts `StreamCollision == 0`
+for exactly this reason: what refuses the loser is the stream's **version**, so the decider must fetch and
+fold a `Held` flag.
+
+Which is what ch. 36's own code does — `@CreationPolicy(CREATE_IF_MISSING)` plus
+`var reserved: Boolean = false` — while its prose emphasises the creation trick. **Follow the example, not
+the prose**, again.
+
+## BL10 — the ch. 32 hazard, reproduced deterministically, and it changed a registration · **MEASURED**
+
+See **BK1** and **BL2** in [KIT-FINDINGS.md](KIT-FINDINGS.md). Short version: register a todo View Async —
+which is what `codegen` does for any multi-stream view, following Marten's own guidance — and a wakeup that
+arrives inside the request that appended the trigger event reads an empty list and never fires again. The
+reservation is never executed and never compensated. 200, clean log, green suite.
+
+`ViewRegistrations` in `reservation/` therefore registers both todo Views **Inline**, with the reasoning at
+the line, while the human-facing `PoolAvailability` stays Async. This is the standing *"where the kit and
+the docs disagree, the docs win"* rule meeting its first genuine exception — and the reason it is one is
+that Marten's sentence is about a view somebody **reads**, not about a view an automation's **liveness**
+depends on.
+
+## BL11 — a mutation went uncaught, and the model had already asked about it · **MEASURED**
+
+`model.mjs validate` emits `derived-on-todo-view` for both todo Views, asking *"would getting the fold
+wrong change which events appear, and would a GWT catch that?"*
+
+Measured: break `SlotsToIssue.Apply(GrantIssued)` so a successful grant never ticks its row off, and **all
+26 tests passed**. The note was right to ask, and the answer was no.
+
+**And the note's suggested remedy does not apply**, which is the part worth recording. The wrong fold does
+not change which events appear: the row stays pending, every later wakeup re-issues, `AlreadyIssued`
+refuses each one, and the event stream is byte-identical. What it produces is an unbounded leak of *wasted
+work* — a decider call per wakeup per grant, for ever.
+
+So the honest answer is not an event scenario. `Automation/TodoListTests.cs` asserts on the todo rows **on
+purpose**, and is deliberately outside `Slices/` because a slice's contract is its events and none of this
+is part of it. With it, the same mutation fails exactly one test. **A recipe worth reusing: where a todo
+View's fold has no event-level consequence, the test belongs with the machinery and must say so.**
+
+## BL12 — what "one single web-request" actually costs
+
+Ch. 36: *"Although it is modeled as Event, Read Model and Processor — the whole cycle of reservation and
+execution can be done within one single web-request."* Both modes are built and measured; both satisfy
+every GWT unchanged, because the GWTs name the command and only what *sends* it differs.
+
+The book does not mention the price, and it is the last row of the folder's table: **in-request has no
+record of intent outside the moment**, so a process that dies between the two commits leaves a unit held
+for ever and nothing knows. Out-of-request keeps a pending row in a durable store and the next wakeup
+executes it. That is the same property the `automation/` folder identified as what a subscription buys over
+event forwarding, arriving here as the difference between recovering a crash and not noticing one.
+
+**And "one request" is not "one transaction".** Two commits, in both modes — if reserve and execute could
+be atomic there would be nothing to reserve *against*, which is why `IGrantExecutor` is an interface and
+why a refusal is an **event** rather than a rejected command.
+
+## BL13 — the reservation has no EXPIRY, and that is deliberate and load-bearing
+
+`reservation/` has no sweep that releases stale reservations. Every mechanism it builds recovers a
+*crashed* execution; none recovers an execution that was never woken. A real system needs the sweep, and it
+would be a **third automation slice** rather than a new mechanism — `Slot Reserved` → a stale-reservations
+View → a sweeper → `ReleaseSlot`.
+
+It is left out because it teaches nothing the folder does not already teach, and because adding it would
+make the *absence* of a recovery path invisible. **Two `accept the window` answers in that folder's
+`ARCHITECTURE.md` depend on the absence**: `issue-grant` reads the Slot stream and accepts that nothing
+will change it meanwhile, which holds only because the sole other writer is the compensation and the
+compensation cannot run until this execution has refused. Add an expiry sweep and both answers stop being
+true, with nothing to say so. That is what the file is for.

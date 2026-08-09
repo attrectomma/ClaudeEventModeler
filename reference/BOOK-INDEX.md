@@ -60,11 +60,11 @@ upcasters, replays) is the conceptually portable one; the rest is Axon API walkt
 | 29 | 10230 | what this part is about | — |
 | 30 | 10264 | **Database Projected Read Model** | ✅ the default recipe |
 | 31 | 10428 | **Live Model** | ✅ recipe 1 |
-| 32 | 10521 | **The (partially) synchronous Projection** | ❌ **named in CLAUDE.md, never built** |
+| 32 | 10521 | **The (partially) synchronous Projection** | ~ the HAZARD is demonstrated + defended (`reservation/`); the recipe is unbuilt |
 | 33 | 10626 | **The Logic Read Model** | ~ `derived=` exists; the *constraint* is not stated |
 | 34 | 10696 | **Snapshots** | ✅ quoted ("neither modeled nor mentioned") |
 | 35 | 10821 | **Processor-TODO-List** | ✅ the automation pattern — credited since AD20 |
-| 36 | 11104 | **The Reservation Pattern** | ❌ **a 5th cross-aggregate mechanism** |
+| 36 | 11104 | **The Reservation Pattern** | ✅ both halves — `cross-aggregate-invariant/` arms 2+5, and `reservation/` |
 | 37 | 11235 | **Lookup Tables** | ❌ nothing; answers T5 |
 
 ### UES Part V — The missing chapters (11311–13322)
@@ -103,22 +103,28 @@ upcasters, replays) is the conceptually portable one; the rest is Axon API walkt
 
 Ordered by how much a project would miss them.
 
-**1. `UES` ch. 32 — the (partially) synchronous projection, and the hazard it exists for.**
+**1. `UES` ch. 32 — the (partially) synchronous projection.** *Narrowed 2026-08-09: the HAZARD is now
+demonstrated and defended against; only the chapter's own RECIPE is still unbuilt.*
 CLAUDE.md names this as the third read-side option and says it is *"not in the kit's six-recipe menu"*.
 The book gives the recipe: a **bounded in-memory queue** filled by a *subscribing* (synchronous) handler
 beside the async projection. But the important part is **why** — *"we had this eventually consistent Read
 Model that was used by a **processor**. Because of the eventually consistent nature, in certain
 situations, it could happen that **entries get lost if the processor was running before the model got
-updated**."* (10541) **That is the kit's automation pattern: a trigger sweeping an Async todo View can
-silently skip work.** Nothing in the kit says so, and no test could see it.
+updated**."* (10541) **That is the kit's automation pattern: a trigger reading an Async todo View can
+silently skip work** — and `reference-implementations/reservation/` now reproduces it deterministically
+(`CONTROL_an_async_todo_view_silently_loses_the_work`) and defends against it by registering todo Views
+`Inline`. What is still missing is the chapter's own recipe, and the generator still picks Async for a todo
+View — KIT-FINDINGS **BK1**/**BL2**.
 
-**2. `UES` ch. 36 — the Reservation Pattern: a fifth cross-aggregate mechanism.**
-*"helps to synchronize concurrent access to a limited resource **across aggregate boundaries**"* (11131).
-The trick: make the contested value **the stream id** — *"there can only ever be one aggregate for a given
-ID at any point in time. So if we define the E-Mail address as the aggregate-id, it ensures that an E-Mail
-can only be taken once."* (11178) `architect` already offers *"make the contested thing ONE stream"* but
-has no worked example, no name, and `cross-aggregate-invariant/` builds four mechanisms without this one —
-which is the **cheapest** of them and needs no extra row, index or lock.
+**2. `UES` ch. 36 — the Reservation Pattern.** ✅ ***BOTH HALVES BUILT 2026-08-09.***
+The **mechanism** half — *"helps to synchronize concurrent access to a limited resource **across aggregate
+boundaries**"* (11131), with the contested value made **the stream id** (11178) — is arms 2 and 5 of
+`cross-aggregate-invariant/`, and arm 5 is the cheapest of the five: no extra row, index or lock.
+The **workflow** half — *"The Reservation-Pattern always consists of two steps. Reservation … Execution"*
+(11117) — is `reference-implementations/reservation/`, together with the compensating path and a
+measurement of what *"the whole cycle … within one single web-request"* (11144) costs. **It needed no new
+notation**, which was the thing being tested: a state change followed by two automations, 0 errors,
+0 warnings.
 
 **3. `UES` ch. 39 — metadata. The kit emits none.** Correlation ID, causation ID, trace ID, the user who
 triggered it. *"Event Sourcing is about preserving all data, and that includes metadata."* (11616)

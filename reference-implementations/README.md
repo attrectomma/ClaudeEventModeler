@@ -9,7 +9,7 @@ expert has to stand behind. The archived POC that these replaced was a half-fini
 half-finished is what made it dangerous: it read as a reference example while asserting things nobody
 agreed to.
 
-**Five folders, and every one is green on the kit's current stack** — Marten 9.\*, Wolverine 6.\*,
+**Six folders, and every one is green on the kit's current stack** — Marten 9.\*, Wolverine 6.\*,
 JasperFx 2.\*, Alba 8.\*. Each was re-measured against it rather than assumed.
 
 ```
@@ -36,6 +36,12 @@ reference-implementations/
     spend/               the event model      a guard row, a reservation row behind a unique
     generated/           the implementations  index, an advisory lock, and DCB. Plus a CONTROL
                          proving the race reproduces without one. The advanced state-change case.
+  reservation/           the Reservation Pattern's WORKFLOW half — reserve, execute, and       29/29
+    allocation/          the event model      give the unit back when the execution fails.
+    generated/           the implementations  Two execution modes measured (in one web request
+                         vs. woken by a subscription), and the first executable demonstration
+                         of UES ch. 32's lost-work hazard. NOT a fifth pattern: a state change
+                         plus two automations, with NO new notation — which is the finding.
 ```
 
 Each folder has its own README with the measured comparison. Each is self-contained: its own model, its own
@@ -261,6 +267,8 @@ the endpoint honours a supplied id and mints one only when it is absent.
 | `state-change/` | `command` | both deciders — with and without Wolverine.HTTP — asserted against the same GWTs, **plus `DraftHistory`: a row carrying its own child lines as a `Type[]` group** | **16** |
 | `state-view/` | `view` | six Marten read-model recipes over two stream types, **each now with Given/Thens specifying its fold** | **35** |
 | `translation/` | `translation` | three ways a foreign notice LANDS — webhook, external database table, poll on a clock — and the finding that a translation needs **no** wakeup mechanism and persists **no** foreign event | **15** |
+| `cross-aggregate-invariant/` | advanced `state-change` | five ways to guard an invariant that spans streams, plus a control proving the race reproduces without one | **28** |
+| `reservation/` | **a COMPOSITION** — `state-change` + two `automation`s | the two-step reserve → execute workflow of UES ch. 36, its compensating path, and what "the whole cycle in one web-request" costs. **It needed no new notation, which is the point** | **29** |
 
 **All four patterns now have one, and the last one corrected the table above it.** `translation/` was built twice.
 The first version persisted the foreign event onto one of our own streams and woke a trigger off it with a Marten
@@ -284,7 +292,14 @@ assert what a view **ignores**, because the drawing already claims which events 
 made that claim executable. All of those were mutation-checked: break the fold on purpose, confirm that one
 test and only that one fails.
 
-**All five suites pass — 110 tests — and are stable across repeated runs.** Every folder has also been
+**A sixth folder exists and it is not a fifth pattern.** `reservation/` builds ch. 36's two-step workflow
+as what it is — a state change followed by an automation, with a second automation for the compensating
+path — and the thing being tested was whether the notation needed anything new. It did not: 0 errors,
+0 warnings, and the completeness check accepts the composition with nothing told to it. **If a future run
+finds itself wanting a `pattern=` value for a named pattern from either book, that is a finding about the
+pattern, not a gap in the grammar.**
+
+**All six suites pass — 139 tests — and are stable across repeated runs.** Every folder has also been
 **run as an app**, because each pattern has at least one failure mode a green suite cannot see: an
 automation that nothing wakes, an async projection that nothing processes, a foreign feed that never
 arrives.

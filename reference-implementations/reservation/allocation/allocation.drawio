@@ -1,0 +1,351 @@
+<mxfile host="Electron" agent="Claude" type="device">
+  <diagram name="allocation" id="context">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2300" pageHeight="2155" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <object id="model-allocation" label="Allocation of a limited pool&#10;Allocation · allocation" em="model" context="allocation" system="Allocation" note="A REFERENCE IMPLEMENTATION, not a domain. It carries exactly one problem: the Reservation Pattern of Understanding EventSourcing ch. 36 — reserve a unit of a limited resource, then execute against the reservation, and give back the unit when the execution fails. Nothing here is a business claim. NOTE WHAT IS NOT ON THIS CANVAS: no pattern= value called 'reservation', no new attribute, no marker saying these two slices are a pair. The pattern is a COMPOSITION of a state change and an automation, and that is the finding this folder exists to state.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="2200" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="550" width="2200" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="870" width="2200" height="415" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-pool" label="Pool stream — one per pool. The limited resource itself" em="lane" streams="Pool" identity="poolId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="895" width="2200" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-slot" label="Slot stream — ONE STREAM PER UNIT OF THE POOL. The contested thing IS the stream id, which is the whole trick of ch. 36" em="lane" streams="Slot" identity="poolId, slotNumber">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1000" width="2200" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="swim-grant" label="Grant stream — one per execution. What the reservation was FOR" em="lane" streams="Grant" identity="grantId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1105" width="2200" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1525" width="2200" height="590" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-pool-availability" label="pool-availability&#10;state-view · ready" em="group" slice="pool-availability" pattern="state-view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="80" y="140" width="220" height="1150" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-pool-availability" label="PoolAvailability" em="readmodel" slice="pool-availability" identity="poolId" fields="poolId:Guid, capacity:int, taken:int, remaining:int, takenSlots:int[]" derived="taken=Slot Reserved+Slot Released, remaining=capacity+Slot Reserved+Slot Released, takenSlots=Slot Reserved+Slot Released" note="A HINT, NEVER THE DECIDER'S INPUT. It spans the Pool stream and every Slot stream, so it is multi-stream and therefore Async — it is allowed to be stale. The reserve decider must not read it to enforce the limit (ANTI-PATTERNS #17): the guarantee lives on the Slot stream, and this row only tells a human, and the handler's first guess, where to look.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-open-pool" label="open-pool&#10;state-change · ready" em="group" slice="open-pool" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="400" y="140" width="220" height="1150" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-open-pool" label="Pool Setup" em="screen" slice="open-pool" screen="pool-setup" inputs="capacity" note="Deliberately a SECOND screen rather than a second affordance on the desk. The desk displays a capacity that already exists; this one types the capacity of a pool that does not — same word, opposite meaning, and a name-match cannot tell them apart. Keeping them separate is also what stops this model needing joins=.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="410" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-open-pool" label="OpenPool" em="command" slice="open-pool" aggregate="Pool" fields="poolId:Guid, capacity:int" terminal="poolId:generated" note="capacity is the ONLY thing that makes the resource limited. Everything downstream — the slot numbers, the exhaustion rule, the compensating release — is arithmetic on this one number.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-pool-opened" label="Pool Opened" em="event" slice="open-pool" aggregate="Pool" fields="poolId:Guid, capacity:int, openedAt:DateTimeOffset" terminal="openedAt:clock" note="The one event on the Pool stream. Note what it does NOT do: it keeps no running count of reservations. A counter here would be the thing two concurrent reservers race on, and it is exactly what the pattern replaces.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-reserve-slot" label="reserve-slot&#10;state-change · ready" em="group" slice="reserve-slot" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="140" width="220" height="1150" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="scr-reserve-slot" label="Pool Desk" em="screen" slice="reserve-slot" screen="pool-desk" displays="poolId, capacity, taken, remaining, takenSlots" note="Everything it shows comes from an Async view, so everything it shows may be stale. That is survivable HERE and nowhere else in this model: a human who asks for a slot that has just gone gets a refusal, not a double booking.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="730" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-reserve-slot" label="ReserveSlot" em="command" slice="reserve-slot" aggregate="Slot" fields="poolId:Guid, grantId:Guid" terminal="grantId:generated" note="STEP ONE OF TWO. It does not name a slot number: which unit you get is the decider's answer, not the caller's request. grantId is minted here so that step two has something to execute against before step two has run.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-slot-reserved" label="Slot Reserved" em="event" slice="reserve-slot" aggregate="Slot" fields="poolId:Guid, slotNumber:int, grantId:Guid, reservedAt:DateTimeOffset" terminal="slotNumber:generated, reservedAt:clock" note="THE RESERVATION. It is appended to the stream slot:{poolId}:{slotNumber}, so two reservers who pick the same number are two writers on ONE stream and ordinary optimistic concurrency separates them. slotNumber is terminal=generated because the decider picks it — the kit has no terminal kind for 'chosen by the decider from state', and generated is the closest honest one.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-issue-grant" label="issue-grant&#10;automation · ready" em="group" slice="issue-grant" pattern="automation" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="140" width="540" height="1150" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-slots-to-issue" label="SlotsToIssue" em="readmodel" slice="issue-grant" identity="grantId" fields="grantId:Guid, poolId:Guid, slotNumber:int, status:string" derived="status=Slot Reserved+Grant Issued+Grant Refused" note="The todo list of ch. 35. A reservation puts the row on it; either outcome of the execution ticks it off. Being fed by two stream types makes it multi-stream and therefore Async — which is the hazard of UES ch. 32 in this model, and is measured rather than assumed in the README.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="auto-grant-issuer" label="GrantIssuer" em="automation" slice="issue-grant" note="STEP TWO OF TWO. The book says the whole cycle 'can be done within one single web-request' — so what wakes this cell is not drawn, exactly as in ../automation. Two implementations of this box are in ../generated, and one of them is not woken at all: it is called synchronously by step one.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="580" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-issue-grant" label="IssueGrant" em="command" slice="issue-grant" aggregate="Grant" fields="grantId:Guid, poolId:Guid, slotNumber:int" note="It carries the slot it is executing against, so a grant can never exist without the reservation that paid for it.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="650" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-grant-issued" label="Grant Issued" em="event" slice="issue-grant" aggregate="Grant" fields="grantId:Guid, poolId:Guid, slotNumber:int, issuedAt:DateTimeOffset" terminal="issuedAt:clock" note="The execution succeeded. The reservation is now spent, and nothing ever releases the slot.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1115" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-grant-refused" label="Grant Refused" em="event" slice="issue-grant" aggregate="Grant" fields="grantId:Guid, poolId:Guid, slotNumber:int, reason:string, refusedAt:DateTimeOffset" terminal="reason:generated, refusedAt:clock" note="THE EVENT THE WHOLE PATTERN EXISTS FOR. Execution failing is not a rejected command — the command was legal and the work said no — so it is recorded as a fact, and that fact is what opens the compensating slice. reason is terminal=generated only because the kit has no kind for 'an answer from the work the command performed'; see the README's findings.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1210" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="slice-release-slot" label="release-slot&#10;automation · ready" em="group" slice="release-slot" pattern="automation" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1680" y="140" width="540" height="1150" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="rm-slots-to-release" label="SlotsToRelease" em="readmodel" slice="release-slot" identity="grantId" fields="grantId:Guid, poolId:Guid, slotNumber:int, reason:string, status:string" derived="status=Grant Refused+Slot Released" note="The compensation's own todo list. A refusal opens the row, the release closes it — and a release that itself fails simply leaves the row open to be retried, which is ch. 35's answer to the whole saga question and needs no framework.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="auto-slot-releaser" label="SlotReleaser" em="automation" slice="release-slot" note="THE COMPENSATING TRANSACTION, and it is an ordinary automation cell. Nothing on this canvas says it is compensating anything; that is carried entirely by which events feed its todo list.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="580" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cmd-release-slot" label="ReleaseSlot" em="command" slice="release-slot" aggregate="Slot" fields="poolId:Guid, slotNumber:int, grantId:Guid, reason:string" note="It appends back onto the Slot stream — the same stream the reservation opened — so the release is subject to the same optimistic concurrency as the reservation was.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="650" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="evt-slot-released" label="Slot Released" em="event" slice="release-slot" aggregate="Slot" fields="poolId:Guid, slotNumber:int, grantId:Guid, reason:string, releasedAt:DateTimeOffset" terminal="releasedAt:clock" note="The unit goes back into the pool. This event is why the reserve decider cannot be a bare StartStream collision: a released slot's stream already exists, so re-reserving it has to be a FETCH AND FOLD, not a create.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-open-pool--cmd-open-pool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-open-pool" target="cmd-open-pool">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-open-pool--evt-pool-opened" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-open-pool" target="evt-pool-opened">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-scr-reserve-slot--cmd-reserve-slot" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-reserve-slot" target="cmd-reserve-slot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-reserve-slot--evt-slot-reserved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-reserve-slot" target="evt-slot-reserved">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-evt-pool-opened--rm-pool-availability" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-pool-opened" target="rm-pool-availability">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="1300" />
+              <mxPoint x="190" y="1300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-slot-reserved--rm-pool-availability" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-slot-reserved" target="rm-pool-availability">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="1309" />
+              <mxPoint x="190" y="1309" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-slot-released--rm-pool-availability" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-slot-released" target="rm-pool-availability">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2110" y="1318" />
+              <mxPoint x="190" y="1318" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-pool-availability--scr-reserve-slot" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-pool-availability" target="scr-reserve-slot">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="190" y="505" />
+              <mxPoint x="830" y="505" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-slot-reserved--rm-slots-to-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-slot-reserved" target="rm-slots-to-issue">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="736" />
+              <mxPoint x="1150" y="736" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-grant-issued--rm-slots-to-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-grant-issued" target="rm-slots-to-issue">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="1327" />
+              <mxPoint x="1150" y="1327" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-grant-refused--rm-slots-to-issue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-grant-refused" target="rm-slots-to-issue">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="1336" />
+              <mxPoint x="1150" y="1336" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-slots-to-issue--auto-grant-issuer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-slots-to-issue" target="auto-grant-issuer">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1320" y="630" />
+              <mxPoint x="1320" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-auto-grant-issuer--cmd-issue-grant" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auto-grant-issuer" target="cmd-issue-grant">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-issue-grant--evt-grant-issued" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-issue-grant" target="evt-grant-issued">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-issue-grant--evt-grant-refused" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-issue-grant" target="evt-grant-refused">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1300" y="680" />
+              <mxPoint x="1300" y="1240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-grant-refused--rm-slots-to-release" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-grant-refused" target="rm-slots-to-release">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1620" y="1240" />
+              <mxPoint x="1620" y="744" />
+              <mxPoint x="1790" y="744" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-evt-slot-released--rm-slots-to-release" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-slot-released" target="rm-slots-to-release">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2110" y="1345" />
+              <mxPoint x="1790" y="1345" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-slots-to-release--auto-slot-releaser" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-slots-to-release" target="auto-slot-releaser">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1960" y="630" />
+              <mxPoint x="1960" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-auto-slot-releaser--cmd-release-slot" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="auto-slot-releaser" target="cmd-release-slot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-release-slot--evt-slot-released" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-release-slot" target="evt-slot-released">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="gt-availability-1" label="A pool nobody has reserved from shows all of its capacity&#10;&#10;GIVEN Pool Opened(capacity=3)&#10;THEN PoolAvailability(capacity=3, taken=0, remaining=3)" em="gwt" slice="pool-availability" rule="A pool nobody has reserved from shows all of its capacity" given="Pool Opened(capacity=3)" then="PoolAvailability(capacity=3, taken=0, remaining=3)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1555" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-availability-2" label="A reserved slot is taken, and is named&#10;&#10;GIVEN Pool Opened(capacity=3), Slot Reserved(slotNumber=1)&#10;THEN PoolAvailability(taken=1, remaining=2, takenSlots=1)" em="gwt" slice="pool-availability" rule="A reserved slot is taken, and is named" given="Pool Opened(capacity=3), Slot Reserved(slotNumber=1)" then="PoolAvailability(taken=1, remaining=2, takenSlots=1)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1695" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-availability-3" label="A released slot goes back into the pool&#10;&#10;GIVEN Pool Opened(capacity=3), Slot Reserved(slotNumber=1), Slot Released(slotNumber=1)&#10;THEN PoolAvailability(taken=0, remaining=3)" em="gwt" slice="pool-availability" rule="A released slot goes back into the pool" given="Pool Opened(capacity=3), Slot Reserved(slotNumber=1), Slot Released(slotNumber=1)" then="PoolAvailability(taken=0, remaining=3)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1835" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gt-availability-4" label="WHAT IT IGNORES — issuing a grant consumes no further capacity&#10;&#10;GIVEN Pool Opened(capacity=3), Slot Reserved(slotNumber=1), Grant Issued(slotNumber=1)&#10;THEN PoolAvailability(taken=1, remaining=2)" em="gwt" slice="pool-availability" rule="Issuing a grant against an already reserved slot consumes no further capacity" given="Pool Opened(capacity=3), Slot Reserved(slotNumber=1), Grant Issued(slotNumber=1)" then="PoolAvailability(taken=1, remaining=2)" note="The reservation is what costs a unit; the execution costs nothing. Nothing but this GT makes that claim executable, and it is the one thing a projection fed by three streams can most easily get wrong.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="1975" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-open-pool-1" label="A pool is opened with a fixed capacity&#10;&#10;GIVEN —&#10;WHEN OpenPool(capacity=3)&#10;THEN Pool Opened(capacity=3)" em="gwt" slice="open-pool" rule="A pool is opened with a fixed capacity" when="OpenPool(capacity=3)" then="Pool Opened(capacity=3)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1555" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-open-pool-2" label="A pool with no capacity is refused&#10;&#10;GIVEN —&#10;WHEN OpenPool(capacity=0)&#10;THEN error: CapacityMustBePositive" em="gwt" slice="open-pool" rule="A pool with no capacity is refused" when="OpenPool(capacity=0)" then="error: CapacityMustBePositive" enforce="periphery" note="The request alone settles it, so it is the one rule in this model that belongs in a validator.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="1695" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reserve-1" label="The first reservation takes the lowest slot&#10;&#10;GIVEN Pool Opened(capacity=3)&#10;WHEN ReserveSlot&#10;THEN Slot Reserved(slotNumber=1)" em="gwt" slice="reserve-slot" rule="The first reservation takes the lowest slot" given="Pool Opened(capacity=3)" when="ReserveSlot" then="Slot Reserved(slotNumber=1)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1555" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reserve-2" label="A second reservation takes the next slot&#10;&#10;GIVEN Pool Opened(capacity=3), Slot Reserved(slotNumber=1)&#10;WHEN ReserveSlot&#10;THEN Slot Reserved(slotNumber=2)" em="gwt" slice="reserve-slot" rule="A second reservation takes the next slot" given="Pool Opened(capacity=3), Slot Reserved(slotNumber=1)" when="ReserveSlot" then="Slot Reserved(slotNumber=2)" enforce="aggregate">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1695" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reserve-3" label="THE LIMIT — a pool with every slot taken refuses a reservation&#10;&#10;GIVEN Pool Opened(capacity=1), Slot Reserved(slotNumber=1)&#10;WHEN ReserveSlot&#10;THEN error: PoolExhausted" em="gwt" slice="reserve-slot" rule="A pool with every slot taken refuses a reservation" given="Pool Opened(capacity=1), Slot Reserved(slotNumber=1)" when="ReserveSlot" then="error: PoolExhausted" enforce="aggregate" note="The rule the resource is limited BY. It is sequential, like every GWT, so it passes against a decider with no concurrency guard at all — which is why the race tests exist and why architect asks.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1835" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-reserve-4" label="A released slot can be reserved again&#10;&#10;GIVEN Pool Opened(capacity=1), Slot Reserved(slotNumber=1), Slot Released(slotNumber=1)&#10;WHEN ReserveSlot&#10;THEN Slot Reserved(slotNumber=1)" em="gwt" slice="reserve-slot" rule="A released slot can be reserved again" given="Pool Opened(capacity=1), Slot Reserved(slotNumber=1), Slot Released(slotNumber=1)" when="ReserveSlot" then="Slot Reserved(slotNumber=1)" enforce="aggregate" note="THE RULE THAT DECIDES THE MECHANISM. A slot that can come back means the reservation stream already exists on the second attempt, so 'reserve' cannot be a bare StartStream collision — it must fetch and fold. That is exactly the book's ReserveEmailAggregate, which checks a reserved flag rather than relying on creation.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1975" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-issue-1" label="A reserved slot is executed into a grant&#10;&#10;GIVEN Slot Reserved(grantId=$AcceptedGrant, slotNumber=1)&#10;WHEN IssueGrant(grantId=$AcceptedGrant)&#10;THEN Grant Issued(grantId=$AcceptedGrant, slotNumber=1)" em="gwt" slice="issue-grant" rule="A reserved slot is executed into a grant" given="Slot Reserved(grantId=$AcceptedGrant, slotNumber=1)" when="IssueGrant(grantId=$AcceptedGrant)" then="Grant Issued(grantId=$AcceptedGrant, slotNumber=1)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1555" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-issue-2" label="A grant already issued is not issued twice&#10;&#10;GIVEN Slot Reserved(grantId=$AcceptedGrant), Grant Issued(grantId=$AcceptedGrant)&#10;WHEN IssueGrant(grantId=$AcceptedGrant)&#10;THEN error: AlreadyIssued" em="gwt" slice="issue-grant" rule="A grant already issued is not issued twice" given="Slot Reserved(grantId=$AcceptedGrant), Grant Issued(grantId=$AcceptedGrant)" when="IssueGrant(grantId=$AcceptedGrant)" then="error: AlreadyIssued" enforce="aggregate" note="Every wakeup mechanism in this kit is at-least-once, so this is what makes any of them safe. The rule catches the sequential duplicate; the stream's own version catches the simultaneous one.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1695" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-issue-3" label="EXECUTION THAT THE WORK REFUSES IS RECORDED, NOT THROWN AWAY&#10;&#10;GIVEN Slot Reserved(grantId=$RefusedGrant, slotNumber=1)&#10;WHEN IssueGrant(grantId=$RefusedGrant)&#10;THEN Grant Refused(grantId=$RefusedGrant, slotNumber=1)" em="gwt" slice="issue-grant" rule="Execution the work refuses is recorded as a fact rather than thrown away" given="Slot Reserved(grantId=$RefusedGrant, slotNumber=1)" when="IssueGrant(grantId=$RefusedGrant)" then="Grant Refused(grantId=$RefusedGrant, slotNumber=1)" enforce="aggregate" note="Same GIVEN and same WHEN as the happy path — only the example data differs, because whether the work succeeds is not something the model can state. $RefusedGrant is the seeded id the test executor says no to. This is the one place the notation genuinely runs out.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1835" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-release-1" label="A refused grant gives its slot back&#10;&#10;GIVEN Slot Reserved(slotNumber=1), Grant Refused(slotNumber=1)&#10;WHEN ReleaseSlot(slotNumber=1)&#10;THEN Slot Released(slotNumber=1)" em="gwt" slice="release-slot" rule="A refused grant gives its slot back" given="Slot Reserved(slotNumber=1), Grant Refused(slotNumber=1)" when="ReleaseSlot(slotNumber=1)" then="Slot Released(slotNumber=1)">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1555" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-release-2" label="A slot already given back is not released twice&#10;&#10;GIVEN Slot Reserved(slotNumber=1), Grant Refused(slotNumber=1), Slot Released(slotNumber=1)&#10;WHEN ReleaseSlot(slotNumber=1)&#10;THEN error: AlreadyReleased" em="gwt" slice="release-slot" rule="A slot already given back is not released twice" given="Slot Reserved(slotNumber=1), Grant Refused(slotNumber=1), Slot Released(slotNumber=1)" when="ReleaseSlot(slotNumber=1)" then="error: AlreadyReleased" enforce="aggregate" note="A compensating command is redelivered like any other, and a second release would hand the same unit back twice — so the pool would grow past its own capacity.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1695" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

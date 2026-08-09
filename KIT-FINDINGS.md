@@ -50,6 +50,17 @@ wrong in a way nothing reports. → [detail](KIT-HISTORY.md)
 With actor lanes drawn, the strip lands inside the lanes instead of below them, so feeds cut through
 screens. Latent until a model has two actors. → [detail](KIT-HISTORY.md)
 
+### BL3 — a codegen run that CRASHES leaves partial scaffolds, and the next run reports them as `kept` · **BROKEN**
+
+Measured: `codegen.mjs` died partway through view generation (BL1), and the re-run after the fix printed
+`29 file(s) written, 4 kept (already filled in)`. Nobody had filled anything in — those four were the
+crashed run's own half-written scaffolds, and `kept` means *regeneration will never touch them again*. The
+count looks healthy, which is the same failure shape as **Z5**: the report actively lies.
+
+`rm -rf generated build` and re-run is the workaround, and it is only obvious if you already suspect it. A
+scaffold written by a run that did not finish is not a scaffold anybody owns; either write scaffolds last,
+or write them to a staging name and rename on success.
+
 ### AD7 — `route` refuses a same-column View → Screen because of `SCREEN_X_NUDGE` · **BROKEN**
 
 The one edge ch. 16 of the book requires — a View feeding the screen in its own column — is the one the
@@ -89,32 +100,36 @@ compensating-transaction story, it is what makes the todo-list pattern a saga re
 the kit tests it. *"The task stays open and is retried"* is precisely the property a green suite does not
 check.
 
-### BK1 — an automation sweeping an ASYNC todo View can silently lose work · **GAP**
+### BK1 — an automation's todo View can silently lose work · ***DEMONSTRATED 2026-08-09*** · **still BROKEN in the generator**
 
-`UES` **ch. 32** names the exact failure: *"we had this eventually consistent Read Model that was used by
-a **processor**. Because of the eventually consistent nature, in certain situations, it could happen that
-**entries get lost if the processor was running before the model got updated**."* That is the kit's
-automation pattern — `Event(s) → todo View → Trigger` — with the View registered `Async`, which is what
-`codegen` picks for any multi-stream view. **No test can see it and nothing warns.** The chapter's answer
-is the *partially synchronous projection* (a bounded in-memory queue filled by a synchronous handler),
-which CLAUDE.md already names as the missing third read-side option and no reference implementation builds.
+`UES` **ch. 32** names the failure: *"entries get lost if the processor was running before the model got
+updated"*. **It is no longer a claim.** `reference-implementations/reservation/` reproduces it
+deterministically — `ExecutionModeTests.CONTROL_an_async_todo_view_silently_loses_the_work`: the wakeup
+arrives inside the request that appended the trigger event, the async daemon cannot have caught up, the
+trigger reads an empty todo list, and the reservation is never executed and never compensated. A 200
+response, a clean log, a green suite, and a unit of a limited resource held for ever.
+
+**The defence is to register a todo View `Inline`**, which puts the row in the append's own transaction.
+Costs exactly what the book says Inline costs: the write side stops being independently scalable, and a
+projection exception aborts the business transaction. Both accepted there, with the reasoning at the line.
+
+What remains open is **BL2 below** — the generator still picks Async for these. And the chapter's own
+answer, the *partially synchronous projection* (a bounded in-memory queue filled by a synchronous handler),
+is still built nowhere; it is the third read-side option CLAUDE.md names.
 → [BOOK-INDEX.md](reference/BOOK-INDEX.md) gap 1
 
-### BK2 — the Reservation Pattern · ***BUILT 2026-08-09*** · *and the gap was half as wide as recorded*
+### BL2 — `codegen` registers a TODO View like any other multi-stream view, which ships the hazard above as a default · **BROKEN**
 
-`UES` **ch. 36** gives the pattern **two** implementations, and the kit already had one of them.
-*"Using a database to synchronize access"* with a unique constraint **is arm 2**, built a week before
-anyone read the chapter it comes from. Only *"using aggregates to ensure consistency"* — the contested
-value as the **stream id** — was missing.
+A todo View is not a view somebody reads. Marten's *"register the lookup projection inline and the
+multi-stream projection async"* is guidance about the latter; an automation's **liveness** depends on the
+former, and BK1 is what Async costs it. `codegen` cannot tell them apart today and picks Async for both.
 
-Now **arm 5** in `cross-aggregate-invariant/`, and it is the cheapest of the five: no document, no index,
-no registration, no lock, no Marten 9. The event store already enforces uniqueness on its stream table, so
-`StartStream` is claim and guard in one operation. 18/18 green, stable, both mutations checked.
+It has the information: a View consumed by an `em="automation"` cell on the same slice is a todo View, and
+the IR already carries that edge. Either register those Inline, or emit the report — `TODO VIEW REGISTERED
+ASYNC` — by the same logic as every other report the generator owes. Worked defence and the deterministic
+reproduction: `reference-implementations/reservation/`.
 
-**What is still open is the other half of ch. 36** — the two-step **reserve → execute workflow**, for
-linearising a process across systems where ACID cannot reach. That is a composition of the existing four
-patterns and needs no new notation, which is the interesting thing about it; it wants its own reference
-implementation rather than an arm. See the handover.
+### BK2 — the Reservation Pattern, both halves · ***BUILT 2026-08-09*** → [detail](KIT-HISTORY.md)
 
 ### BK3 — the kit emits no metadata: no correlation ID, no causation ID · **GAP**
 
@@ -198,6 +213,39 @@ A screen's `string` input legitimately becomes a typed command field.
 Dilger draws the tick-off edge (`Event → todo View`) **dashed**, *"to indicate that this is not part of the
 Flow but just updating the data of the Read Model."* The kit's grammar already permits that edge — it is
 the single `Event → View` exception — but does not distinguish it. A real reader aid on a busy automation.
+
+### BL4 — `architect.mjs` and the reference-implementation layout disagree about where things live · **NOISE**
+
+`architect` reads `<project>/diagrams/` and writes race tests into `<project>/generated/<System>/tests/…`.
+A reference implementation keeps its model in a named folder (`allocation/allocation.drawio`) and its code
+in `generated/{src,tests}` — so **both halves need a scratch project and a copy back**, which is
+undiscoverable and was rediscovered this run. `codegen.mjs` already takes the model path explicitly;
+`architect` could take the same argument. Recipe, until it does:
+`reference-implementations/reservation/README.md`, *Running it*.
+
+### BL5 — the view scaffold's doc comment hard-codes "registered INLINE in Program.cs" · **NOISE**
+
+Every generated view says *"Multi-stream projection, registered INLINE in Program.cs"* whatever lifecycle
+`ViewRegistrations` actually emits — so three views in `reservation/` claimed Inline while being registered
+Async. Two errors in one sentence: the lifecycle is not read from the registration, and **the registration
+has not been in `Program.cs` since it moved to the `ViewRegistrations` scaffold**. Cosmetic, and it is the
+comment a reader trusts when deciding whether a test must wait.
+
+### BL6 — `cross-stream-rule` cannot tell a CONTEXT given from a DECIDING given · **NOISE**
+
+On `reservation/` it fires on **8 of 15 GWTs** and exactly one (`gwt-reserve-3`) is genuinely contended.
+The rest either read a value nothing ever rewrites (`capacity`, written once by the create slice) or name a
+prior event for *context* while the fact that actually refuses the command sits in the stream the command
+appends to. Each still costs a decision, a reason and a cost in `ARCHITECTURE.md`, which is how the one
+that matters gets skimmed. A cheap improvement: rank a question below the others when every GIVEN outside
+the appended-to stream comes from a stream with a single writing slice.
+
+### BL7 — `terminal=` has no kind for a value the WORK answers · **OPEN**
+
+`Grant Refused.reason` is the executor's verdict — not `actor`, not `clock`, not `const`, and not really
+`generated` either, which is what it had to be declared as. A `result` kind would fit. One model wanting
+one is not a case for adding it; recorded so it is a decision rather than an omission.
+`reference-implementations/reservation/`.
 
 ### Z7 / T6 / W4 / W5 / B5 — smaller things, recorded not fixed
 

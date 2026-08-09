@@ -768,7 +768,14 @@ ${v.from.map((l) => {
         const wanted = v.mappings?.[c.name] ?? c.name;
         return ev?.fields.some((ef) => ef.name === wanted);
       };
-      const group = v.fields.find((f) => f.collection && (v.children?.[f.type] ?? []).every(supplies));
+      // A LIST OF PRIMITIVES IS NOT A GROUP, and `[].every(...)` is TRUE. `takenSlots:int[]` declares no
+      // children= — CLAUDE.md is explicit that it needs none — so `v.children["int"]` is undefined, the
+      // `?? []` made every() vacuously true, and `shape.map` then crashed codegen outright. The first
+      // primitive array on a READ MODEL took the whole run down; the ones that already existed
+      // (`recipients:string[]`) are on a command and an event, which never reach this line. So the group
+      // has to be DECLARED, not merely absent. KIT-FINDINGS BK3.
+      const group = v.fields.find((f) => f.collection && v.children?.[f.type]?.length
+                                      && v.children[f.type].every(supplies));
       const shape = group ? v.children[group.type] : null;
       return `    public static ${pascal(v.label)} Apply(${pascal(l)} e, ${pascal(v.label)} current)
 ${group

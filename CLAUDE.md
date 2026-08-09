@@ -215,6 +215,24 @@ same shape whether the rule was caught at the periphery or in the decider.
 | **write** — the state a slice folds to decide | **nothing** | live aggregation: `FetchForWriting` folds on demand |
 | **read**, one row = one stream | **`ProjectionLifecycle.Inline`** | updated in the append's own transaction, so a GWT's THEN can be asserted the moment the request returns |
 | **read**, one row spans streams | **`ProjectionLifecycle.Async`** + the daemon | Marten's own guidance: *"register the lookup projection inline and the multi-stream projection async"*. Not assertable immediately — a test must **wait** |
+| a **todo View an automation's liveness depends on** | **`Inline`, even when it spans streams** | the exception, and it is measured. See below |
+
+**The third row is a deliberate exception to Marten's guidance, and it is the only one.** That guidance is
+about a view somebody **reads**. A todo View is not that: a trigger's liveness depends on it, and
+*Understanding EventSourcing* ch. 32 names what Async costs it — *"entries get lost if the processor was
+running before the model got updated"*. Reproduced deterministically in
+`reference-implementations/reservation/`: the wakeup arrives inside the request that appended the trigger
+event, the daemon cannot have caught up, the trigger reads an empty list, and **the work is never done and
+never compensated** — with a 200 response, a clean log and a green suite. Inline puts the row in the
+append's own transaction, so anything woken by the event finds it already committed.
+
+It costs what the book says Inline costs, and both are real: the write side stops being independently
+scalable, and **a projection exception now aborts the business transaction that appended the event**, so a
+bug in a todo list can refuse a command. Accepted, because the alternative fails silently.
+
+**`codegen` does not yet know the difference** and registers a todo View Async like any other multi-stream
+view — KIT-FINDINGS **BL2**. Until it does, this is a hand edit in the `ViewRegistrations` scaffold, which
+is exactly what that scaffold exists for.
 
 Those two rows are the **starting point**, not the only option — Marten offers six read-model recipes and
 several of them cannot be `Inline`. See *…and what one row is decides WHICH projection* below, and note
@@ -1849,6 +1867,15 @@ stack:
 | `state-view` | six Marten recipes — live aggregation, single-stream, `EventProjection`, multi-stream, flat table, composite — and `Inline` vs `Async` | `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger: event forwarding, `ISubscription`, `RaiseSideEffects`, a clock | `reference-implementations/automation/` |
 | `translation` | the automation choice, plus **how the foreign event lands**: a webhook, a table they write, a broker, or a poll of their API | `reference-implementations/translation/` |
+| a **composition** of the above — e.g. the book's Reservation Pattern | which stream the first step writes to; whether the second step runs **in the same web request** or is woken later; and what the compensating path costs | `reference-implementations/reservation/` |
+
+**A named pattern from either book is usually a COMPOSITION, not a fifth `pattern=` value.** Ch. 36's
+Reservation Pattern is a state change followed by an automation, with a second automation for the
+compensating path — built as exactly that, at 0 errors and 0 warnings, with the completeness check
+accepting it untold. What makes it *the Reservation Pattern* is which stream the reservation writes to,
+and that is `identity=` on a swimlane. **If a run finds itself wanting a new `pattern=` value, that is a
+finding about the pattern rather than a gap in the grammar** — and the burden is to show which of the four
+sequences the drawing violates.
 
 Two consequences, and the second is the one that keeps being learned the hard way:
 
@@ -2038,8 +2065,9 @@ The second is the one that usually decides it, and it is not the same question a
 | the trigger event is **foreign and never ingested** — nothing of ours ever appends it | **sweep a todo View on a clock** | genuinely no transaction of ours to hook |
 | there is **no event at all** — the trigger is *time* | **sweep** | nothing to subscribe to |
 | "is there work?" genuinely means "did this row change" | **projection `RaiseSideEffects`** | fires on the row, already knowing. The only one that reaches INTO the read model. It does NOT force the view Async any more: side effects are processed only during async processing **by default**, and running them on an `Inline` projection needs `opts.Events.EnableSideEffectsOnInlineProjections = true` |
+| the trigger event is ours and the **same request** may as well finish the job | **run the trigger in the request that appended it** | no daemon, no subscription, no clock — and **no record of intent outside the moment**, so a process that dies mid-cycle leaves the work undone with nothing to recover from. The book licenses it for the Reservation Pattern specifically; measured in `reference-implementations/reservation/` |
 
-All four are **built and measured** against one shared model in
+The first four are **built and measured** against one shared model in
 `reference-implementations/automation/` — read that before writing one.
 
 **On a translation slice, do not ask this question at all — ask how the foreign event gets here.** The four

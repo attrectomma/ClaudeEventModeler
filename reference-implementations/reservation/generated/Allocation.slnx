@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/Allocation/Allocation.csproj" />
+  <Project Path="tests/Allocation.IntegrationTests/Allocation.IntegrationTests.csproj" />
+</Solution>
