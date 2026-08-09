@@ -431,8 +431,11 @@ const gtHint = (s) => {
       ? `\n    //   ${mine.join(", ")} ${mine.length === 1 ? "is" : "are"} multi-stream and therefore registered ASYNC, so`
         + "\n    //    it is NOT current when the append returns. Wait first:"
         + "\n    //      await Store.WaitForNonStaleProjectionDataAsync(5.Seconds());"
-        + "\n    //    (Marten.Events.TestingExtensions — no doc page states that namespace.) Asserting without the"
-        + "\n    //    wait fails intermittently and looks exactly like a broken projection."
+        + "\n    //    The import is `using Marten.Events;` — TestingExtensions is a STATIC CLASS in that"
+        + "\n    //    namespace, not a namespace itself, so `using Marten.Events.TestingExtensions;` is CS0138."
+        + "\n    //    (Settled from Marten.xml: `M:Marten.Events.TestingExtensions.WaitForNonStale…`. No doc"
+        + "\n    //    page states it. Overloads exist on both IHost and IDocumentStore, so Store.… is right.)"
+        + "\n    //    Asserting without the wait fails intermittently and looks exactly like a broken projection."
       : "");
 };
 
@@ -2088,7 +2091,9 @@ namespace ${NS}.IntegrationTests.Journeys;
 ///   WAIT FOR THE DAEMON IF THE OUTCOME IS AN ASYNC VIEW. WhenPosting wraps each request in Wolverine's
 ///   ExecuteAndWaitAsync, which blocks until all CASCADING MESSAGE work is done — it knows nothing about
 ///   Marten's async daemon. An Inline view is assertable immediately; an Async one needs
-///   <c>await Store.WaitForNonStaleProjectionDataAsync(timeout)</c> — an extension in Marten.Events.TestingExtensions.
+///   <c>await Store.WaitForNonStaleProjectionDataAsync(timeout)</c> — an extension on the STATIC CLASS
+///   <c>Marten.Events.TestingExtensions</c>, so the import is <c>using Marten.Events;</c> and
+///   <c>using Marten.Events.TestingExtensions;</c> is CS0138.
 ///   The tell is a partial result rather than an empty one: the count from step two present, step three's
 ///   missing. A journey has the longest gap in the suite between the first write and the last assertion,
 ///   so this bites hardest here and is easiest to misread as a composition bug.

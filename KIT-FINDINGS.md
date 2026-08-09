@@ -34,6 +34,42 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V2 — a documented Marten `Apply` overload is SILENTLY SKIPPED on a multi-stream projection · **BROKEN** *(in Marten, not the kit)*
+
+`marten/events/projections/conventions.md` lists **`Task<T> Apply(TEvent, IQuerySession, T)`** as valid
+return type 4 — *"allows you to use immutable aggregate types while also using external data read through
+IQuerySession"*. On **Marten 9.22.5 / JasperFx.Events 2.42.2** it compiles, the host boots, the daemon
+runs, and **that one `Apply` does nothing**: no exception, no warning, no log line. Measured on Voltway's
+`AvailableBays` — the row came back with `bayId`, `siteId`, `bayLabel`, `connectorType` and `maxKw` all at
+their type defaults while every other `Apply` on the same projection worked. Reproduced `static` and
+instance.
+
+**This is the worst failure shape there is** — a documented API that compiles and silently does nothing —
+and nothing in this kit would have caught it. The model validates, the code compiles, the suite is green,
+and the read model is empty. It was found because the slice gate says *look at the endpoint*, and the
+agent looked.
+
+**What works instead is `EnrichEventsAsync`**, which is an `override` and therefore cannot be silently
+skipped. `enrichment.md` says the hook exists *"at least for SingleStreamProjection classes"*; the
+`JasperFx.Events.xml` doc file puts it on `JasperFxAggregationProjectionBase`, the base of **both**, and it
+runs fine on a multi-stream projection. Its two halves live in namespaces no page states —
+`JasperFx.Events` for `IEvent<T>`/`EventSlice`, `JasperFx.Events.Grouping` for `SliceGroup`. It also
+batches, so it avoids the N+1 the docs warn about in the same breath as the shape that does not work.
+
+**Wanted:** confirm against a newer Marten and report upstream if it survives. Until then, treat
+`IQuerySession` in an `Apply` signature as non-functional on multi-stream projections and reach for
+`EnrichEventsAsync`. This is the third entry in the *"the mirror is not infallible either"* family and the
+first where the documented member **exists, compiles and lies**.
+
+### V3 — the generated Async-view test hint names a namespace that does not exist · **BROKEN** · ***FIXED***
+
+`codegen.mjs` told every Async view's test to import `Marten.Events.TestingExtensions`. That is a **static
+class**, not a namespace, so the `using` is `CS0138` — settled from `Marten.xml`, where the member is
+`M:Marten.Events.TestingExtensions.WaitForNonStaleProjectionDataAsync`. The hint appeared on all five of
+`bay-availability`'s scaffolded GTs and would have sent every implementing agent down the same path. Fixed
+in both hint sites; the correct import is `using Marten.Events;`. Checked while fixing: overloads exist on
+**both** `IHost` and `IDocumentStore`, so the hint's `Store.…` receiver was right.
+
 ### V1 — a race test for a lock taken BEFORE the read can pass without the writers ever overlapping · **BROKEN**
 
 `architect.mjs tests` scaffolds, and `reference-implementations/cross-aggregate-invariant/` ships, an
