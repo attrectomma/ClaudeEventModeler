@@ -1650,8 +1650,17 @@ namespace ${NS}.Landing;
 ///
 /// IT ARRIVES ON A DURABLE LOCAL QUEUE. Program.cs sets <c>Policies.UseDurableLocalQueues()</c>, so
 /// whatever sends this message hands it to Postgres before this method is ever called: the envelope is
-/// persisted on arrival, retried if this throws, and dead-lettered if it keeps throwing. That is the
-/// durable record of what they told us, and it is why nothing here has to write durability code.
+/// persisted on arrival and survives a restart. That is the durable record of what they told us.
+///
+/// **BUT IT IS NOT RETRIED UNLESS YOU CONFIGURE A RETRY, and this comment used to claim it was.** Wolverine
+/// moves a message to the dead letter queue when it "exhausts all its configured retry/requeue slots" — and
+/// with no policy configured there are no slots, so the FIRST throw dead-letters. For an at-least-once feed
+/// that is usually wrong: a transient database blip loses a notice that the far side will never re-send.
+///
+/// Add one in this slice's <c>&lt;Slice&gt;Wakeup.ConfigureWolverine</c>, and prefer <c>RetryWithCooldown</c>:
+/// the docs state that only "Retry" and "Retry With Cooldown" are applied automatically to an inline
+/// <c>InvokeAsync</c>, so any other policy works in production and silently does nothing in the suite —
+/// which is the worst possible split. KIT-FINDINGS T1b.
 ///
 /// IT IS ALSO THE TODO LIST. \`Event(s) -> View -> Trigger -> Command\` does not require the View to be a
 /// materialised projection, and on a translation it CANNOT be one — the foreign event is never in our

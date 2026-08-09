@@ -34,6 +34,61 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V9 — `architect` and `codegen` disagree about what "multi-stream" MEANS, so four Async views were never questioned · **BROKEN**
+
+Two tools, two definitions, and the gap between them is silent:
+
+| | decides multi-stream by |
+| --- | --- |
+| `codegen.mjs` (`isMultiStream`) | one feeding stream **and** `identity=` equal to that stream's key → single. **Otherwise multi** |
+| `architect.mjs` (`const multi`) | `streamTypes.length > 1` — the count of feeding aggregate types |
+
+A view fed by **one** stream but keyed by something **other than that stream's key** is multi-stream to the
+generator and single-stream to the architect. `codegen` registers it **Async**; `architect` never raises
+`stale-read` for it; nobody ever decides whether that staleness is acceptable.
+
+**Measured on Voltway — four views, every one of them Async and unquestioned:**
+
+```
+CardDirectory          architect: single   codegen: ASYNC   never asked
+ChargePointDirectory   architect: single   codegen: ASYNC   never asked
+OpenSessions           architect: single   codegen: ASYNC   never asked
+SessionsToPrice        architect: single   codegen: ASYNC   never asked
+```
+
+**Two of those are the correspondence lookups a translation resolves every foreign notice through**, so the
+unasked question is *"can a charge arrive before the bay that produced it has projected?"* — which is
+exactly the question the record should have forced. The implementing agents hit it anyway and answered it
+in code; the record is silent.
+
+**Wanted:** one definition, shared. `isMultiStream` already exists in `codegen.mjs` and is the correct one —
+it is what actually decides the registration. `architect.mjs` should import it rather than re-derive a
+weaker test. The general lesson is the kit's own: **two copies of a rule are two rules.**
+
+### T1b — the ingest seam promised a retry that does not exist by default · **BROKEN** · ***comment FIXED, policy still not emitted***
+
+The T1 fix — a foreign event arriving as a message on a durable local queue — shipped with a scaffold
+comment saying the envelope is *"persisted on arrival, **retried if this throws**, and dead-lettered if it
+keeps throwing."* **The middle clause is false as generated.** Wolverine moves a message to the dead letter
+queue when it *"exhausts all its configured retry/requeue slots"*, and a project with no policy configured
+has none — so the **first** throw dead-letters.
+
+**Found by implementing `translate-charge-start`**, whose translator refuses a notice it cannot resolve on
+the assumption that the queue will retry it. `ARCHITECTURE.md` had inherited the same false claim —
+*"the durable queue retries it, so nothing is lost"* — and the slice had to add
+`RetryWithCooldown` in its `<Slice>Wakeup.ConfigureWolverine` to make the record true.
+
+**Why this matters more than a wrong comment:** for an at-least-once feed that never re-sends, a transient
+database blip loses a notice permanently, and the suite stays green because a test hands the notice to the
+handler directly and never exercises a failure. It is the same shape as T4.
+
+**`RetryWithCooldown` specifically**, not any other policy: the docs state only *"Retry"* and *"Retry With
+Cooldown"* are applied automatically to an inline `InvokeAsync`. Anything else works in production and does
+nothing in the suite — the worst possible split.
+
+**Wanted:** `codegen.mjs` should EMIT a retry policy for ingest rather than describing one. The comment now
+tells the truth and points at the fix, which is the smaller half.
+
 ### V7 — the concurrency retry does NOT apply to an HTTP endpoint, and every generated one says it does · **BROKEN**
 
 **`Program.cs` carries `opts.OnException<ConcurrencyException>().RetryTimes(3)`, and every generated

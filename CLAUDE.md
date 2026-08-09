@@ -2163,9 +2163,25 @@ discovery, whose body is a `TODO(codegen)` for the translation itself and which 
 `INGEST NOT WIRED` until that is closed. **One handler per foreign event, not per slice** — two slices
 consuming one notice would otherwise get two handlers for one message type and Wolverine would run both.
 
-`Program.cs` already sets `Policies.UseDurableLocalQueues()`, so this needed no new configuration: the message
-is written to the Postgres envelope tables before the handler runs, retried when it throws, and dead-lettered
-when it keeps throwing. **That queue is the durable inbox the paragraph above calls the todo View.**
+`Program.cs` already sets `Policies.UseDurableLocalQueues()`, so the message is written to the Postgres
+envelope tables before the handler runs and survives a restart. **That queue is the durable inbox the
+paragraph above calls the todo View.**
+
+**IT IS NOT RETRIED UNLESS A RETRY IS CONFIGURED, and this section used to claim it was.** Wolverine
+dead-letters when a message *"exhausts all its configured retry/requeue slots"* — with no policy there are
+none, so the **first** throw dead-letters and the notice is gone. For an at-least-once feed that never
+re-sends, one transient database blip is a permanently missing charge. Add a policy in the slice's
+`<Slice>Wakeup.ConfigureWolverine`, and use **`RetryWithCooldown`**: only *Retry* and *Retry With Cooldown*
+are applied automatically to an inline `InvokeAsync`, so any other policy works in production and silently
+does nothing in the suite. KIT-FINDINGS **T1b**.
+
+**And a REFUSAL IS NOT A RETRY** — the sharper half, measured on `translate-charge-stop`. A decider that
+*returns* an outcome has **succeeded** as far as the transport is concerned: Wolverine acks the envelope and
+deletes it. So *"we refuse it, therefore it will be retried"* is false, and a stop that arrived before its
+start is dropped for ever while looking exactly like the correct handling of a duplicate. If a notice must
+be kept for later the handler must **throw** — and a thrown rejection then needs the policy above to
+survive. A returned rejection and a thrown one are indistinguishable in a green suite and completely
+different in production.
 
 A test drives it with `WhenReceiving(new ForeignEvent(...))` on `IntegrationContext`, which is
 `IHost.InvokeMessageAndWaitAsync` — the same handler, the same queue, the same retries as production.
