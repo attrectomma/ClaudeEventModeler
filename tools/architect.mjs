@@ -165,7 +165,7 @@ function derive() {
           "accept that a wider-than-key rule is a best-effort check against a projection, and say who agreed",
           "close the books on a long-lived stream by putting a business period in its key — the book prefers this to snapshots outright, and calls snapshots the exception rather than the rule",
         ],
-        mirror: "marten/events/appending and optimistic concurrency; the kit uses FetchForWriting<T>(streamKey) because [Aggregate] cannot resolve a composite key. For growth: marten snapshots, but read the book's preference for a business period first",
+        mirror: "marten/events/appending and optimistic concurrency. DEFAULT to Wolverine's aggregate handler workflow — [WriteAggregate] resolves the stream from a MEMBER of the command, and codegen emits an assembled StreamKey member even for a composite key, so a composite key does NOT rule it out (that claim was wrong; KIT-FINDINGS BM1). FetchForWriting is for a decider that must SEARCH for its stream, or one implementing a concurrency mechanism. For growth: marten snapshots, but read the book's preference for a business period first",
         weight: 3,
       });
     }

@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Wolverine;
+using Wolverine.ErrorHandling;         // OnException<T>() is an extension on IWithFailurePolicies; no doc page names it
 using Xunit;
 
 namespace EmailOutbox.IntegrationTests;

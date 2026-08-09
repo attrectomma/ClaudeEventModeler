@@ -12,6 +12,7 @@ using Weasel.Core;
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
+using Wolverine.ErrorHandling;         // OnException<T>() is an extension on IWithFailurePolicies; no doc page names it
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
@@ -60,6 +61,25 @@ builder.Services.AddResourceSetupOnStartup();
 builder.Host.UseWolverine(opts =>
 {
     opts.Policies.AutoApplyTransactions();
+
+    // WHERE THE OPTIMISTIC-CONCURRENCY GUARD LIVES ONCE THE MIDDLEWARE OWNS THE SAVE.
+    //
+    // A decider written in the aggregate handler workflow does not call SaveChangesAsync, so it cannot
+    // catch the collision that a SIMULTANEOUS duplicate produces — two runs that both folded before
+    // either appended, both legitimately passing the business rule. The kit used to catch
+    // EventStreamUnexpectedMaxEventIdException inside each decider and translate it into that slice's
+    // rejection, which meant every slice carried a second, hand-written copy of a rule it already had.
+    //
+    // Retrying is better and it is what the Marten page means by "you're going to want some resiliency
+    // and selective retry capabilities for concurrent access violations": on the retry the middleware
+    // re-fetches, the state now includes the winner's event, and THE ORDINARY RULE refuses it. One source
+    // of the refusal instead of two that have to be kept in agreement.
+    //
+    // Both names, because they are the same verdict and Marten has used both: ConcurrencyException moved
+    // to JasperFx in Marten 9, and an append that collides on (stream_id, version) surfaces as
+    // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
+    opts.OnException<ConcurrencyException>().RetryTimes(3);
+    opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
 

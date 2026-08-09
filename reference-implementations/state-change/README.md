@@ -22,9 +22,11 @@ must not change the behaviour.
 
 ## What made this possible at all
 
-**A single-field stream key.** `[WriteAggregate]` reads *one* value, so a composite key has nothing for it to
-read — the mechanical form of "the aggregate handler workflow does not fit a composite stream key". Two
-generator changes followed, both derived from the model rather than assumed:
+**A single-field stream key** — which is what this model happens to have, and which is *not* a precondition
+of the workflow. This README used to say `[WriteAggregate]` "reads one value, so a composite key has nothing
+for it to read". **Retracted, measured false:** it reads a *member*, and a computed property is one, so
+`reference-implementations/reservation/` runs the same workflow on a `(poolId, slotNumber)` key.
+KIT-FINDINGS **BM1**. Two generator changes still followed from this model, both derived rather than assumed:
 
 - `StreamIdentity` is now `AsGuid` when every band has one `Guid` identity field, `AsString` otherwise.
 - a single-field key **is** the field. It used to be `$"email:{id}"`, and a prefixed key can never equal the

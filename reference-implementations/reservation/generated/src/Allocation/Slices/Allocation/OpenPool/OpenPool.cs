@@ -12,4 +12,11 @@ namespace Allocation.Slices.Allocation;
 /// Emitted for every command, whether or not the slice has periphery rules — a validator-free
 /// command still needs a type.
 /// </summary>
-public sealed record OpenPool(Guid PoolId, int Capacity);
+public sealed record OpenPool(Guid PoolId, int Capacity)
+{
+    /// <summary>The stream this command WRITES to, assembled from the identity fields the model says it carries.
+    /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
+    /// and a get-only property is one — which is what lets a composite-keyed stream use
+    /// <c>[WriteAggregate(nameof(OpenPool.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
+    public string StreamKey => OpenPoolState.StreamKey(PoolId.ToString());
+}

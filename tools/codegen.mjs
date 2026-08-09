@@ -307,21 +307,22 @@ const seedConstants = () => {
   return lines.join("\n");
 };
 
-// WHAT KEYS A STREAM, in the store's terms — and this decides whether Wolverine's aggregate handler
-// workflow is available at all.
-//
-// [WriteAggregate] resolves the stream identity from a member of the COMMAND (or an HTTP route argument),
-// so the identity has to be a single value of the store's identity type. A composite key cannot satisfy
-// that: there is no one member to read, which is why CLAUDE.md says [Aggregate] does not fit one. Making
-// it mechanical rather than a remark:
+// WHAT KEYS A STREAM, in the store's terms. Marten fixes stream identity once per store, so this is a
+// whole-system decision derived from every band's identity=:
 //
 //   every keyed band has ONE Guid identity field  ->  StreamIdentity.AsGuid, key IS the field
 //   every keyed band has ONE field                ->  AsString, key IS the field
-//   any band has a composite key                  ->  AsString, key is a prefixed join, and the
-//                                                     aggregate handler workflow is unavailable
+//   any band has a composite key                  ->  AsString, key is a prefixed join
 //
-// The prefix mattered: a key of `email:{id}` can never equal the `emailId` a command carries, so even a
-// single-field key blocked the workflow while it was being decorated.
+// IT NO LONGER DECIDES WHETHER THE AGGREGATE HANDLER WORKFLOW IS AVAILABLE, and this comment used to say
+// it did — "a composite key cannot satisfy [WriteAggregate]: there is no one member to read". Wrong, and
+// wrong in the expensive direction: it sent every composite-keyed slice in the kit to a hand-rolled
+// FetchForWriting. [WriteAggregate] resolves a stream from a public MEMBER, and a computed get-only
+// property is one, so the command carries an assembled StreamKey and the workflow applies to any key
+// shape. Measured in reference-implementations/reservation/; KIT-FINDINGS BM1.
+//
+// The prefix still mattered for a different reason: a key of `email:{id}` can never equal the `emailId` a
+// command carries, so a single-field key must BE the field for the convention-based form to work.
 const keyedAggs = ir.shared.aggregates.filter((a) => (a.identity ?? []).length);
 const identityFieldOf = (a) => {
   const name = a.identity[0];
@@ -614,9 +615,20 @@ ${keyed.length === 1 ? `    /// <summary>
     /// </summary>
     public static ${STREAM_ID} StreamKey(${STREAM_ID} ${camel(keyed[0])}) => ${camel(keyed[0])};
 ` : keyed.length ? `    /// <summary>
-    /// A COMPOSITE key, so it is a joined string and the aggregate handler workflow is unavailable for this
-    /// stream: [WriteAggregate] reads one member, and there is no single member to read. Use
-    /// FetchForWriting(streamKey) instead — same optimistic concurrency, honest about the key.
+    /// A COMPOSITE key, so it is a joined string. THAT DOES NOT PUT THE AGGREGATE HANDLER WORKFLOW OUT OF
+    /// REACH, and this comment used to say it did — in five places across the kit, for five runs, untested.
+    ///
+    /// <c>[WriteAggregate]</c> resolves the stream from a public MEMBER of the command, and a computed
+    /// get-only property is a member. So a command that carries every part of this key exposes
+    /// <c>StreamKey</c> (emitted on the command for exactly that reason) and opts straight in:
+    ///
+    ///     [WriteAggregate(nameof(TheCommand.StreamKey), Required = false)] TheState? state
+    ///
+    /// Measured against a composite-keyed stream in reference-implementations/reservation/, whose whole
+    /// suite passes against a pure decider with no session in it. KIT-FINDINGS BM1.
+    ///
+    /// This method stays, because a decider that must SEARCH for its stream — a reservation walking
+    /// candidate slots — has no key to hand the middleware, and calls FetchForWriting itself.
     /// </summary>
     /// CULTURE-INVARIANT, AND EVERY DATE PART EXPLICITLY FORMATTED. A composite key is BUILT BY STRING
     /// INTERPOLATION, so without this the machine's culture leaks into the stream id: a DateOnly renders
@@ -804,6 +816,61 @@ for (const s of ir.slices) {
   const cmd = s.commands[0];
   const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === cmd));
   const fields = agg?.commands.find((c) => c.label === cmd)?.fields ?? [];
+
+  // THE STREAM KEY, AS A MEMBER OF THE COMMAND — and this exists because a claim this kit repeated in five
+  // places turned out to be false.
+  //
+  // The claim was: "[WriteAggregate] resolves the stream identity from ONE member, so a COMPOSITE key
+  // cannot satisfy it and the aggregate handler workflow is unavailable." Measured, and wrong. Wolverine
+  // reads any public MEMBER — a computed, get-only property counts — so a command that carries every part
+  // of the key can expose the assembled key and opt straight into the workflow:
+  //
+  //     [WriteAggregate(nameof(ReleaseSlot.StreamKey), Required = false)] ReleaseSlotState? slot
+  //
+  // Emitted only when the command actually carries every identity field. Where it does not — a create
+  // slice whose id is minted, or a decider that must SEARCH for its stream — there is genuinely no key to
+  // assemble, and that is a real limit rather than the one the kit used to state. KIT-FINDINGS BM1.
+  // Renders `SomeState.StreamKey(A, B)` for an aggregate, given a slice whose state type can compose it.
+  // DELEGATED rather than re-interpolated, so the key format has exactly one definition: two copies of a
+  // composite key format is how two call sites end up addressing two different streams.
+  const keyMemberFor = (a, memberName, why) => {
+    const keys = a?.identity ?? [];
+    if (!keys.length || !keys.every((k) => fields.some((f) => f.name === k))) return "";
+    const owner = ir.slices.find((x) => x.generates && x.commands.length
+      && ir.shared.aggregates.find((g) => g.commands.some((c) => c.label === x.commands[0]))?.name === a.name);
+    if (!owner) return "";
+    return `
+    /// <summary>${why}</summary>
+    public ${STREAM_ID} ${memberName} => ${stateName(owner)}.StreamKey(${keys.map((k) => {
+      const f = fields.find((x) => x.name === k);
+      // The state's StreamKey takes the field's own type for a composite key and the STORE's id type for
+      // a single one — so a single Guid key on a string-identity store needs .ToString().
+      const needsToString = keys.length === 1 && STREAM_ID === "string" && cs(f?.type) !== "string";
+      return pascal(k) + (needsToString ? ".ToString()" : "");
+    }).join(", ")});
+`;
+  };
+
+  const ownKey = fields.some((f) => f.name === "streamKey") ? "" : keyMemberFor(agg, "StreamKey",
+    `The stream this command WRITES to, assembled from the identity fields the model says it carries.
+    /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
+    /// and a get-only property is one — which is what lets a composite-keyed stream use
+    /// <c>[WriteAggregate(nameof(${pascal(cmd)}.StreamKey))]</c> instead of a hand-rolled FetchForWriting.`);
+
+  // AND THE STREAMS IT ONLY READS. A command whose fields carry another aggregate's whole key is a
+  // cross-stream slice — exactly the ones `architect` raises as `cross-stream-rule` — and Wolverine can
+  // fetch that stream too, with `AlwaysEnforceConsistency = true` to version-check it even though nothing
+  // is appended there. Without the member there is no seam and the answer defaults to "accept the window".
+  const otherKeys = ir.shared.aggregates
+    .filter((a) => a.name !== agg?.name)
+    .map((a) => keyMemberFor(a, `${pascal(a.name)}StreamKey`,
+      `A stream this command READS but does not write. Hand it to a second
+    /// <c>[WriteAggregate(nameof(${pascal(cmd)}.${pascal(a.name)}StreamKey), AlwaysEnforceConsistency = true)]</c>
+    /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.`))
+    .join("");
+
+  const streamKeyMember = ownKey + otherKeys;
+
   emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}.cs`),
     `${banner(`${cmd} — the command as the model declares it`)}
 ${fields.some((f) => f.nullable) ? `// A nullable field means a '?' annotation, and the BANNER above makes this file auto-generated in the
@@ -819,7 +886,8 @@ ${fields.some((f) => f.nullable) ? `// A nullable field means a '?' annotation, 
 /// Emitted for every command, whether or not the slice has periphery rules — a validator-free
 /// command still needs a type.
 /// </summary>
-public sealed record ${pascal(cmd)}(${params(fields)});
+public sealed record ${pascal(cmd)}(${params(fields)})${streamKeyMember ? `
+{${streamKeyMember}}` : ";"}
 `);
 }
 
@@ -873,6 +941,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Wolverine;
+using Wolverine.ErrorHandling;         // OnException<T>() is an extension on IWithFailurePolicies; no doc page names it
 using Xunit;
 
 namespace ${NS}.IntegrationTests;
@@ -1218,6 +1287,7 @@ public sealed record ${sweepMessage(s)};`).join("\n\n")}
         `${banner(`${a} — the automated trigger for slice "${s.name}"`)}
 using Marten;
 using Wolverine;
+using Wolverine.ErrorHandling;         // OnException<T>() is an extension on IWithFailurePolicies; no doc page names it
 using ${NS}.Contracts;
 using ${NS}.Views;
 
@@ -1273,6 +1343,7 @@ public static class ${pascal(a)}
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
+using Wolverine.ErrorHandling;         // OnException<T>() is an extension on IWithFailurePolicies; no doc page names it
 using Wolverine.Marten;
 using ${NS}.Contracts;
 
@@ -1477,6 +1548,7 @@ using Weasel.Core;
 using JasperFx.Events.Projections;
 using Marten;
 using Wolverine;
+using Wolverine.ErrorHandling;         // OnException<T>() is an extension on IWithFailurePolicies; no doc page names it
 using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
@@ -1543,6 +1615,25 @@ ${automations.map((s) => `${pascal(s.name)}Wakeup.ConfigureStore(marten);`).join
 builder.Host.UseWolverine(opts =>
 {
     opts.Policies.AutoApplyTransactions();
+
+    // WHERE THE OPTIMISTIC-CONCURRENCY GUARD LIVES ONCE THE MIDDLEWARE OWNS THE SAVE.
+    //
+    // A decider written in the aggregate handler workflow does not call SaveChangesAsync, so it cannot
+    // catch the collision that a SIMULTANEOUS duplicate produces — two runs that both folded before
+    // either appended, both legitimately passing the business rule. The kit used to catch
+    // EventStreamUnexpectedMaxEventIdException inside each decider and translate it into that slice's
+    // rejection, which meant every slice carried a second, hand-written copy of a rule it already had.
+    //
+    // Retrying is better and it is what the Marten page means by "you're going to want some resiliency
+    // and selective retry capabilities for concurrent access violations": on the retry the middleware
+    // re-fetches, the state now includes the winner's event, and THE ORDINARY RULE refuses it. One source
+    // of the refusal instead of two that have to be kept in agreement.
+    //
+    // Both names, because they are the same verdict and Marten has used both: ConcurrencyException moved
+    // to JasperFx in Marten 9, and an append that collides on (stream_id, version) surfaces as
+    // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
+    opts.OnException<ConcurrencyException>().RetryTimes(3);
+    opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
 ${automations.length === 0 ? "" : `${automations.map((s) => `    ${pascal(s.name)}Wakeup.ConfigureWolverine(opts);`).join("\n")}`}

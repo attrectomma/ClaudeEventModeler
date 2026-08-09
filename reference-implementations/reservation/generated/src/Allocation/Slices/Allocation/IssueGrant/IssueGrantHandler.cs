@@ -4,84 +4,93 @@
 #nullable enable
 
 using JasperFx.Events;
-using Marten;
+using Wolverine.Marten;
 using Allocation.Contracts;
 
 namespace Allocation.Slices.Allocation;
 
 /// <summary>
-/// STEP TWO of the two-step workflow: the decider for <see cref="IssueGrant"/>.
+/// STEP TWO of the two-step workflow, in the aggregate handler workflow — two streams, one transaction,
+/// and no <c>IDocumentSession</c> anywhere in the file.
 ///
-/// A Wolverine MESSAGE handler and not an HTTP endpoint because nobody types this command — the trigger
-/// issues it in process. Giving it a route would invent public surface the model does not draw, and would
-/// make the automation look runnable when the thing that runs it is missing, which is the failure the
-/// automation folder documents.
+/// TWO <c>[WriteAggregate]</c> PARAMETERS, AND ONLY ONE OF THEM IS WRITTEN. The grant stream is where the
+/// outcome is appended. The slot stream is only READ — to confirm the unit is still held by this grant —
+/// and <c>AlwaysEnforceConsistency = true</c> is what makes that read safe:
 ///
-/// Its one rule is <c>AlreadyIssued</c>, and it is load-bearing rather than defensive. Every wakeup
-/// mechanism here is at-least-once, so without it a redelivery calls the WORK a second time — and the work
-/// is exactly the thing that is not idempotent, which is why there is a reservation in the first place.
+///   > "Marten will enforce an optimistic concurrency check on this stream even if no events are appended…
+///   >  useful for cross-stream operations where you want to ensure referenced aggregates have not changed
+///   >  since they were fetched."     — Wolverine.Marten 6.25.1, WriteAggregateAttribute
 ///
-/// TWO GUARDS, NOT ONE. `Decided` on the folded state catches the sequential duplicate; the stream's own
-/// version, captured by FetchForWriting, catches the simultaneous one — two runs that both folded before
-/// either appended, and both legitimately saw `Decided == false`. Neither is sufficient alone. That is the
-/// same complementary pair the automation folder measured under a real double delivery.
+/// THIS FIXES A HAZARD THIS FOLDER SHIPPED. `ARCHITECTURE.md` used to answer `cross-stream-rule/issue-grant`
+/// with *"accept the window — the only other writer to that Slot stream is the compensation, which cannot
+/// run until this execution has refused."* True of the model, unenforced by anything, and a later slice
+/// that released a slot for any other reason would break it silently. Measured with a barrier that moves
+/// the slot stream between the middleware's fetch and its save:
+///
+///   with AlwaysEnforceConsistency     EventStreamUnexpectedMaxEventIdException — expected 1 but was 2
+///   without it                        the grant is issued against a slot somebody else has released
+///
+/// Both outcomes are pinned by <c>CrossStreamConsistencyTests</c>, control included.
+///
+/// WHAT IT COSTS. A read is now a contention point: an unrelated release of the same slot makes this
+/// command retry rather than proceed. That is the correct trade here — the alternative is issuing a grant
+/// against a unit nobody holds — but it is a trade, and on a hot stream that is read by many slices it
+/// would be the wrong one.
+///
+/// NOT A PURE FUNCTION, AND THAT IS THE HONEST LIMIT. <c>IGrantExecutor</c> is the actual work, it is
+/// genuinely I/O, and it cannot be hoisted above the decider because it must not run unless the
+/// preconditions hold. The book's ch. 15 complaint is about a dependency that COULD have been resolved in
+/// a layer above — a price lookup — and this one cannot. So the A-Frame here removes every PERSISTENCE
+/// dependency and leaves exactly one real one, which is testable with a stub and no database:
+/// <c>IssueGrantDeciderTests</c>.
 /// </summary>
 public static class IssueGrantHandler
 {
     public const string AlreadyIssued = "AlreadyIssued";
     public const string SlotNotHeld = "SlotNotHeld";
 
+    /// <summary>
+    /// IT TAKES <c>IEventStream&lt;T&gt;</c> RATHER THAN THE BARE AGGREGATE, and that is forced rather than
+    /// chosen. The docs say it in one line and it costs a debugging round to learn the hard way:
+    ///
+    ///   > "For appending to multiple streams though, for now you will have to directly target
+    ///   >  <c>IEventStream&lt;T&gt;</c> to help Marten know which stream you're appending events to."
+    ///
+    /// With two <c>[WriteAggregate]</c> parameters, a returned <c>Events</c> has no unambiguous destination,
+    /// so Wolverine appends it NOWHERE — silently. Measured: five tests failed with `should have single item
+    /// but had 0`, a clean build, no exception, and nothing in the log. A single-stream decider like
+    /// <c>ReleaseSlotHandler</c> can still return its events, and does.
+    ///
+    /// The slot stays a bare <c>ReserveSlotState?</c> — it is only read, so there is nothing to append to it,
+    /// and the version check comes from the attribute rather than from the parameter's type.
+    /// </summary>
     public static async Task<SliceOutcome> Handle(
         IssueGrant command,
-        IDocumentSession session,
+        [WriteAggregate(nameof(IssueGrant.StreamKey), Required = false)] IEventStream<IssueGrantState> grant,
+        [WriteAggregate(nameof(IssueGrant.SlotStreamKey), Required = false, AlwaysEnforceConsistency = true)]
+            ReserveSlotState? slot,
         IGrantExecutor executor,
         ILogger logger,
         CancellationToken cancellation)
     {
-        var stream = await session.Events.FetchForWriting<IssueGrantState>(
-            IssueGrantState.StreamKey(command.GrantId.ToString()), cancellation);
-
-        if (stream.Aggregate is { Decided: true })
+        // The SEQUENTIAL duplicate. The simultaneous one is caught by the grant stream's own version and
+        // retried by the policy in Program.cs — on the retry this rule is what refuses it, so there is one
+        // statement of "do not execute twice" rather than two that must agree.
+        if (grant.Aggregate is { Decided: true })
             return SliceOutcome.Rejected(AlreadyIssued,
                 $"Grant {command.GrantId} has already been decided. At-least-once delivery makes this the normal case, not an error in the caller.");
-
-        // THE RESERVATION IS A PRECONDITION, and reading it is a cross-stream read this slice's
-        // ARCHITECTURE.md entry accepts a window on. It is safe only because the sole other writer to that
-        // Slot stream is the compensation, which cannot have run before this has refused. That is an
-        // ordering property of the MODEL, not of this code, and nothing enforces it — see the README.
-        var slot = await session.Events.FetchLatest<ReserveSlotState>(
-            ReserveSlotState.StreamKey(command.PoolId, command.SlotNumber), cancellation);
 
         if (slot is not { Held: true } || slot.GrantId != command.GrantId)
             return SliceOutcome.Rejected(SlotNotHeld,
                 $"Slot {command.SlotNumber} of pool {command.PoolId} is not held by grant {command.GrantId}, so there is nothing to execute against.");
 
         // THE WORK. Everything above is bookkeeping; this is the line the reservation was taken to protect,
-        // and the one that cannot be rolled back.
+        // and the only one that cannot be rolled back.
         var verdict = await executor.Execute(command.GrantId, command.PoolId, command.SlotNumber, cancellation);
 
-        stream.AppendOne(verdict.Accepted
+        grant.AppendOne(verdict.Accepted
             ? new GrantIssued(command.GrantId, command.PoolId, command.SlotNumber, DateTimeOffset.UtcNow)
             : new GrantRefused(command.GrantId, command.PoolId, command.SlotNumber, verdict.Reason, DateTimeOffset.UtcNow));
-
-        try
-        {
-            await session.SaveChangesAsync(cancellation);
-        }
-        catch (EventStreamUnexpectedMaxEventIdException)
-        {
-            // A CONCURRENT duplicate — the reason the Decided check is not sufficient on its own. From the
-            // caller's point of view this IS AlreadyIssued, so it is translated rather than rethrown: left
-            // as an exception it becomes a failed message, a logged stack trace and a Wolverine retry,
-            // which is how a green forwarding test once printed what looked like a failure.
-            //
-            // WORTH SAYING PLAINLY: the work has now run twice and only one of the two runs is recorded.
-            // That is unavoidable at this seam and it is the strongest argument for the reservation being
-            // a separate step — the unit was claimed once, so the second run is at worst wasted, never
-            // over-allocation.
-            return SliceOutcome.Rejected(AlreadyIssued,
-                $"Grant {command.GrantId} was decided concurrently.");
-        }
 
         logger.LogInformation(
             "issue-grant: grant {GrantId} on slot {SlotNumber} of pool {PoolId} was {Verdict}.",

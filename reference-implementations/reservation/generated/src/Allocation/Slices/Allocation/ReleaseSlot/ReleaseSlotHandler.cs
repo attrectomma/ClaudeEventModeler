@@ -3,72 +3,78 @@
 // </auto-generated-scaffold>
 #nullable enable
 
-using JasperFx.Events;
-using Marten;
+using Wolverine.Marten;
 using Allocation.Contracts;
 
 namespace Allocation.Slices.Allocation;
 
 /// <summary>
-/// THE COMPENSATING TRANSACTION, and it is an ordinary decider. Nothing in this file knows it is
-/// compensating anything — that is carried entirely by which events feed its trigger's todo list, which is
-/// ch. 35's answer to "where are the sagas": <em>"We do not define a specific Process-Orchestrator or
-/// Saga-Process-Definition but simply act on the facts in the system."</em>
+/// THE COMPENSATING TRANSACTION, written as a PURE DECIDER: <c>(command, state) -&gt; events</c>.
 ///
-/// It appends back onto the SAME Slot stream the reservation opened, so the release is subject to the same
-/// optimistic concurrency the reservation was — and <c>AlreadyReleased</c> matters more than its twin in
-/// issue-grant. A duplicate issue wastes a call; a duplicate release hands the SAME UNIT back twice, so
-/// the pool would grow past its own capacity and the limit this whole folder exists to hold would break
-/// through the very mechanism meant to protect it.
+/// No <c>IDocumentSession</c>, no <c>FetchForWriting</c>, no <c>SaveChangesAsync</c>, no try/catch. Wolverine's
+/// aggregate handler workflow does all of it as middleware — which is what both books ask for and what this
+/// kit spent five folders hand-rolling:
+///
+///   > "the Command Handler is no longer 'pure' and gains unnecessary dependencies. This added dependency
+///   >  complicates testing. To write effective tests, you'll need a mocking framework"
+///   >                                                     — The little Eventmodeling Book, ch. 15
+///
+/// and the book's own implementation example is this signature: <c>(events, command) -&gt; events</c>.
+/// Wolverine calls it the Decider pattern and says so on the page; its best-practices page says the team
+/// "leans hard into that A-Frame Architecture idea". The two agree, and the kit did not.
+///
+/// THIS FILE IS ALSO THE DISPROOF OF A CLAIM THE KIT REPEATED IN FIVE PLACES. The Slot stream is keyed by
+/// <c>(poolId, slotNumber)</c> — a COMPOSITE key — and CLAUDE.md, codegen.mjs, architect.mjs, the architect
+/// skill and state-change/README.md all said the aggregate handler workflow was therefore unavailable,
+/// because "[WriteAggregate] reads one member and there is no single member to read".
+///
+/// It reads a **member**, and a computed get-only property is one. <c>ReleaseSlot.StreamKey</c> assembles
+/// the composite key from the fields the model already says the command carries, and the middleware
+/// resolves <c>slot:{poolId}:{n}</c>, folds it, and appends to it. Measured, not argued: every test in
+/// ReleaseSlotTests passes unchanged against this file. KIT-FINDINGS **BM1**.
+///
+/// WHERE THE CONCURRENCY GUARD WENT. The old version caught
+/// <c>EventStreamUnexpectedMaxEventIdException</c> and translated it into <c>AlreadyReleased</c>, because a
+/// simultaneous duplicate passes the <c>Held</c> rule — both runs fold before either appends. That catch is
+/// gone, and nothing was lost: the middleware owns the save, so the exception now reaches Wolverine's error
+/// policy, which retries. On the retry the middleware re-folds, <c>Held</c> is false, and **the ordinary
+/// rule refuses it**. One source of the refusal instead of two that must be kept in agreement.
+/// See <c>Program</c>'s concurrency policy, registered by the generator.
 /// </summary>
 public static class ReleaseSlotHandler
 {
     public const string AlreadyReleased = "AlreadyReleased";
     public const string NotHeldByThisGrant = "NotHeldByThisGrant";
 
-    public static async Task<SliceOutcome> Handle(
+    /// <summary>
+    /// A pure function. Given the command and the folded state, which events should exist — and it can be
+    /// unit-tested with no database at all, which <c>ReleaseSlotDeciderTests</c> does.
+    /// </summary>
+    public static (SliceOutcome, Events) Handle(
         ReleaseSlot command,
-        IDocumentSession session,
-        ILogger logger,
-        CancellationToken cancellation)
+        [WriteAggregate(nameof(ReleaseSlot.StreamKey), Required = false)] ReleaseSlotState? slot)
     {
-        var stream = await session.Events.FetchForWriting<ReleaseSlotState>(
-            ReleaseSlotState.StreamKey(command.PoolId, command.SlotNumber), cancellation);
+        var events = new Events();
 
-        var slot = stream.Aggregate;
-
+        // Required = false, deliberately. Left required, a missing stream is a framework 404 whose body
+        // carries no rule name — and this kit's contract is that the rule name IS the machine-readable
+        // outcome, because a GWT says then="error: AlreadyReleased". So the decider takes the null and
+        // answers for itself.
         if (slot is not { Held: true })
-            return SliceOutcome.Rejected(AlreadyReleased,
-                $"Slot {command.SlotNumber} of pool {command.PoolId} is not held, so there is nothing to give back.");
+            return (SliceOutcome.Rejected(AlreadyReleased,
+                $"Slot {command.SlotNumber} of pool {command.PoolId} is not held, so there is nothing to give back."), events);
 
-        // NOT THE SAME CHECK AS THE ONE ABOVE, and the difference is a real leak. Held-by-somebody-else
-        // means this unit has ALREADY been released and re-reserved by a later grant. Releasing it now
-        // would take a unit away from a holder who did nothing wrong — the compensation running late and
-        // stealing. The refusal is correct: the row this command came from is stale, and the grant it
-        // names has long since had its unit returned.
+        // NOT THE SAME CHECK, and the difference is a real leak. Held-by-somebody-else means this unit has
+        // already been released and re-reserved by a later grant. Releasing it now would take a unit from a
+        // holder who did nothing wrong — the compensation running late and stealing. The row this command
+        // came from is stale, and the grant it names had its unit returned long ago.
         if (slot.GrantId != command.GrantId)
-            return SliceOutcome.Rejected(NotHeldByThisGrant,
-                $"Slot {command.SlotNumber} of pool {command.PoolId} is held by grant {slot.GrantId}, not {command.GrantId}.");
+            return (SliceOutcome.Rejected(NotHeldByThisGrant,
+                $"Slot {command.SlotNumber} of pool {command.PoolId} is held by grant {slot.GrantId}, not {command.GrantId}."), events);
 
-        stream.AppendOne(new SlotReleased(
-            command.PoolId, command.SlotNumber, command.GrantId, command.Reason, DateTimeOffset.UtcNow));
+        events += new SlotReleased(
+            command.PoolId, command.SlotNumber, command.GrantId, command.Reason, DateTimeOffset.UtcNow);
 
-        try
-        {
-            await session.SaveChangesAsync(cancellation);
-        }
-        catch (EventStreamUnexpectedMaxEventIdException)
-        {
-            // Two compensations for one refusal, folded before either appended. Same translation and the
-            // same reasoning as issue-grant: from the caller's point of view the unit is back.
-            return SliceOutcome.Rejected(AlreadyReleased,
-                $"Slot {command.SlotNumber} of pool {command.PoolId} was released concurrently.");
-        }
-
-        logger.LogInformation(
-            "release-slot: slot {SlotNumber} of pool {PoolId} returned to the pool after {Reason}.",
-            command.SlotNumber, command.PoolId, command.Reason);
-
-        return SliceOutcome.Ok();
+        return (SliceOutcome.Ok(), events);
     }
 }

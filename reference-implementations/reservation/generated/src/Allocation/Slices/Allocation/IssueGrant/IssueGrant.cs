@@ -12,4 +12,21 @@ namespace Allocation.Slices.Allocation;
 /// Emitted for every command, whether or not the slice has periphery rules — a validator-free
 /// command still needs a type.
 /// </summary>
-public sealed record IssueGrant(Guid GrantId, Guid PoolId, int SlotNumber);
+public sealed record IssueGrant(Guid GrantId, Guid PoolId, int SlotNumber)
+{
+    /// <summary>The stream this command WRITES to, assembled from the identity fields the model says it carries.
+    /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
+    /// and a get-only property is one — which is what lets a composite-keyed stream use
+    /// <c>[WriteAggregate(nameof(IssueGrant.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
+    public string StreamKey => IssueGrantState.StreamKey(GrantId.ToString());
+
+    /// <summary>A stream this command READS but does not write. Hand it to a second
+    /// <c>[WriteAggregate(nameof(IssueGrant.PoolStreamKey), AlwaysEnforceConsistency = true)]</c>
+    /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
+    public string PoolStreamKey => OpenPoolState.StreamKey(PoolId.ToString());
+
+    /// <summary>A stream this command READS but does not write. Hand it to a second
+    /// <c>[WriteAggregate(nameof(IssueGrant.SlotStreamKey), AlwaysEnforceConsistency = true)]</c>
+    /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
+    public string SlotStreamKey => ReleaseSlotState.StreamKey(PoolId, SlotNumber);
+}

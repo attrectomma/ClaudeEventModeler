@@ -91,10 +91,21 @@ Once the boundary is right, concurrency is mechanical rather than a design probl
 > *"we apply optimistic locking not on the entire Event Store, but on **individual event streams**."*
 > — Understanding EventSourcing, ch. 4
 
-On this stack that is `FetchForWriting<T>(streamKey)`, which gives the optimistic concurrency check and the
-live fold together. `[Aggregate]` cannot resolve a composite key, so it does not fit any stream keyed by more
-than one field. Reading *another* stream is `session.Events.FetchLatest<T>(streamKey)` — on
-`IDocumentSession.Events`, not the query session.
+On this stack that is **Wolverine's aggregate handler workflow**, which does the fetch, the fold, the
+optimistic concurrency check and the save as middleware — leaving a decider that is a pure function of
+`(command, state)`. Both books ask for exactly that (`LEB` ch. 15), and Wolverine calls it the Decider
+pattern.
+
+**A composite key does not rule it out.** That claim was in this file for five runs and is retracted:
+`[WriteAggregate]` resolves the stream from a public **member**, and `codegen` emits an assembled
+`StreamKey` member on any command carrying the whole identity. KIT-FINDINGS **BM1**.
+
+**Reading *another* stream is a second `[WriteAggregate]` with `AlwaysEnforceConsistency = true`** — Marten
+then version-checks that stream even though nothing is appended to it, which turns *"accept the window"*
+into an enforced answer. Prefer it over `FetchLatest`, which adds no check at all.
+
+`FetchForWriting` by hand is for two cases only: a decider that must **search** for its stream (no key to
+hand the middleware), and a slice implementing a concurrency **mechanism** that has to own its transaction.
 
 **For a `cross-stream-rule`, the honest answers are:**
 
