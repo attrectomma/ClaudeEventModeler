@@ -703,6 +703,19 @@ and therefore stays invisible to plain Read.
   human does not save. If hand-editing ever starts, canonicalising both serializers is the fix; until
   then `git checkout -- <file>` reverts an accidental save, which is the standing reason to commit the
   model at every milestone.
+- **NEVER rewrite a `.drawio` (or any kit file) with PowerShell `Get-Content -Raw` + `Set-Content`.**
+  PS 5.1 reads as the ANSI codepage and writes UTF-8, so every non-ASCII character is double-encoded:
+  one round trip turned every `—` in a model into `â€"`. **`drawio.mjs check` still reported "OK" and
+  `model.mjs validate` still passed at 0 errors**, so nothing catches it — the corruption is only
+  visible by reading a label. `Set-Content -Encoding utf8` does not save you either; it adds a BOM.
+  Use the `Edit`/`Write` tools, or Node's `readFileSync`/`writeFileSync` with explicit `utf8`. A
+  CP1252 round-trip reverses it if it has already happened.
+- **`dotnet test --no-build` after restoring a file with `Move-Item`/`Copy-Item` runs the OLD binary.**
+  Both preserve the source's original mtime, so the restored file looks *older* than the assembly,
+  MSBuild judges the build up to date, and the previous compilation is what runs. That silently
+  invalidates any mutation test: the mutation never reached the binary. It produced a confident,
+  wrong "this test is order-dependent, 0 of 6" in this kit's own findings — see KIT-FINDINGS **V1**.
+  Restore by *writing* the file (which updates mtime), and prefer letting the build run.
 - **MCP and memory are both cwd-scoped.** A session started outside this folder sees neither
   `.mcp.json` nor this project's memory. Durable knowledge belongs in this file.
 - **`code <folder>` hijacks an empty VS Code window.** Pass `--new-window` when the current
