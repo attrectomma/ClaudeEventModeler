@@ -55,6 +55,32 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V11 — the scaffolded race test RE-STAGES the mechanism instead of calling it, so it is blind to every mutation inside it · **BROKEN**
+
+`architect.mjs tests` scaffolds a deterministic race test that opens two sessions and stages the append
+**itself** — `session.Events.StartStream(claim, …)` — rather than invoking the slice's own guard. So it
+proves *"`StartStream` collides"*, which is a fact about Marten, and proves **nothing about the code that
+ships**.
+
+Measured on `commission-bay`: mutant M5 replaced the claim's `StartStream` with `Append`, turning the guard
+into no guard, and the scaffolded `ExactlyOneWriterWins` **stayed green**, as did all six sequential GWTs.
+The only thing left standing between that and a broken invariant was an HTTP race, which the database may
+serialise anyway.
+
+**And it reaches backwards into a slice already called done.** `register-driver` has the same shape —
+verified, not inferred: its race test stages `session.Events.StartStream(claim, …)` directly and never calls
+`RegisterDriverMechanism`. Both of its uniqueness guards are therefore unpinned by the test written to pin
+them.
+
+The fix has been demonstrated: the implementing agent added `ExactlyOneMechanismCallerWins`, which drives
+`CommissionBayMechanism.CommissionAsync` and uses the mechanism's own `afterRead` seam as the barrier, and
+it fails against M5. **The scaffold should call the slice's guard through a seam, not reproduce it** — which
+means the generator needs the mechanism to expose one, and that is the part not yet designed.
+
+This is the same family as **V1** (a race test that passes for a non-reason) and **V8** (a race scaffold
+generated from a non-contended GWT). Three findings now say the concurrency scaffolding produces tests that
+look like proof and are not, which makes it the weakest generated artifact in the kit.
+
 ### Z5 — two labels that PascalCase to one identifier: one is silently dropped, and reported as `kept` · **BROKEN**
 
 `Stock Level Set` and `StockLevelSet` become the same C# identifier. The second file overwrites the first

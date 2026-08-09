@@ -722,6 +722,15 @@ and therefore stays invisible to plain Read.
   visible by reading a label. `Set-Content -Encoding utf8` does not save you either; it adds a BOM.
   Use the `Edit`/`Write` tools, or Node's `readFileSync`/`writeFileSync` with explicit `utf8`. A
   CP1252 round-trip reverses it if it has already happened.
+- **NEVER pipe a file-writing command into `Select-Object -First N`. It TRUNCATES THE FILE TO 0 BYTES.**
+  `-First` stops the upstream pipeline as soon as it has N objects, and against a native command PowerShell
+  does that by **killing the process** — so `node tools/slice.mjs promote <file> | Select-Object -First 1`
+  kills `node` mid-write. Measured: four promotes in one line left **both** `.drawio` files at **0 bytes**,
+  and the tool had printed success for all four first. `Select-String`, `Where-Object` and `Out-String` read
+  the whole stream and are safe; `-First`/`-Last` on a *completed* capture (`$o = cmd | Out-String`) is safe
+  too. The rule is only about `-First` **in a live pipe from a process that writes files**. Recovery is
+  `git show HEAD:<path>` written back as a **Buffer** via Node — never a PowerShell redirect, per the bullet
+  above. This is the standing reason to commit the model at every milestone.
 - **`dotnet test --no-build` after restoring a file with `Move-Item`/`Copy-Item` runs the OLD binary.**
   Both preserve the source's original mtime, so the restored file looks *older* than the assembly,
   MSBuild judges the build up to date, and the previous compilation is what runs. That silently
