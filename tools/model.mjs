@@ -1117,6 +1117,69 @@ function gwtRules(ir) {
           el.id);
       }
     }
+
+    // A TICK-OFF EDGE SUPPLIES NOTHING, AND THE NAME-BASED CHECK COULD NOT SEE THAT (KIT-FINDINGS V10).
+    //
+    // An automation or translation slice draws two kinds of edge into its todo View, and they look
+    // identical to a name lookup:
+    //
+    //   Event(s) from ELSEWHERE  -> View     the SUPPLY edge. This is where a row comes from
+    //   the slice's OWN event    -> View     the TICK-OFF edge. This is how a row is closed
+    //
+    // Measured on Voltway: SessionsToPrice declared driverId and pricePerKwh; its supply edge
+    // (Charging Stopped) carried NEITHER, and both names resolved against Session Priced — the event
+    // the automation appends when it FINISHES the row. Zero errors, and the slice was unbuildable: the
+    // trigger cannot issue PriceSession without driverId, so it can never emit Session Priced, so the
+    // field is never supplied. A circular source read as a satisfied one.
+    //
+    // WHY THIS IS SCOPED TO THE COMMAND'S FIELDS rather than all of the View's. A todo View may quite
+    // legitimately carry a field only its own completion event supplies — a pricedAt timestamp, a
+    // closedBy — because that field describes the tick-off itself and nothing upstream could know it.
+    // What is never satisfiable is a field the trigger needs IN ORDER TO ISSUE THE COMMAND. So the rule
+    // asks exactly that question, which is why it has no false-positive case and can be an error.
+    //
+    // No new notation. Dilger draws the tick-off dashed, and adopting that would be a second place the
+    // same fact lives — "an event this slice itself emits" already says it, from the drawing alone.
+    for (const rmId of s.readModels) {
+      const rm = byId.get(rmId);
+      if (!rm?.fields?.length) continue;
+
+      const feeds = (rm.upstream ?? []).map((id) => byId.get(id))
+        .filter((u) => u && (u.kind === "event" || u.kind === "external"));
+      // A TICK-OFF IS AN EVENT WE APPEND, so `external` is excluded and that is not a detail: on a
+      // translation slice the foreign event is drawn INSIDE the slice, so "is it in s.events" is true
+      // for the supply edge as well. Measured — the first cut of this rule called Transaction Started
+      // a tick-off and reported the one honest supply edge in the slice as missing.
+      const tickOff = feeds.filter((u) => u.kind === "event" && s.events.includes(u.id));
+      if (!tickOff.length) continue;                       // no tick-off edge: nothing to confuse
+
+      const supply = feeds.filter((u) => !tickOff.includes(u));
+      const supplied = new Set(supply.flatMap((u) => (u.fields ?? []).map((f) => f.name)));
+      const carries = new Set(rm.fields.map((f) => f.name));
+
+      for (const cid of s.commands) {
+        const cmd = byId.get(cid);
+        for (const f of cmd?.fields ?? []) {
+          if (supplied.has(f.name)) continue;              // a real supply edge carries it
+          if (!carries.has(f.name)) continue;              // the View never claimed to supply it
+          if (cmd.terminal?.[f.name]) continue;            // arrives from context, not the flow
+          if (cmd.derived?.[f.name] || rm.derived?.[f.name]) continue;
+          if (cmd.mappings?.[f.name] || rm.mappings?.[f.name]) continue;
+
+          d.push({
+            family: "completeness", severity: "error", rule: "tickoff-is-not-a-source",
+            message:
+              `${cmd.label}.${f.name} is supplied to the trigger only by ${rm.label}, and the only feed of ` +
+              `${rm.label} that carries ${f.name} is ${tickOff.map((t) => t.label).join(" / ")} — which is ` +
+              `this slice's OWN event, the tick-off that CLOSES the row. So the trigger cannot issue ` +
+              `${cmd.label} until it has already run. Draw an edge from an event that carries ${f.name} ` +
+              `before the work happens (${supply.map((u) => u.label).join(", ") || "there is no supply edge at all"}).`,
+            at: rm.id, attribute: f.name,
+            connections: tickOff.map((t) => ({ from: t.id, to: rm.id })),
+          });
+        }
+      }
+    }
   }
 
   return d;

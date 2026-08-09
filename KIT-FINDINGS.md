@@ -28,6 +28,33 @@ An ID that moves from here to the archive has been fixed — that is the only di
 
 These pass every check the kit has. That is what makes them the top of the list.
 
+### V10 — the completeness check cannot tell a SUPPLY edge from a TICK-OFF edge, so a todo View can be "sourced" by its own output · **BROKEN**
+
+**A todo View passed the completeness check while being fed, for two of its fields, by the automation's own
+completion event.** `SessionsToPrice` declares `driverId` and `pricePerKwh`. Its drawn feeds were
+`Charging Stopped` — which carries **neither** — and `Session Priced`, which carries both and *is the event
+the automation appends when it finishes the row*. The check is name-based, both names resolved, zero errors.
+
+**A row fed only by its own completion could never be built in the first place.** The automation cannot issue
+its command without `driverId`, so it can never emit `Session Priced`, so the field is never supplied — a
+circular source the check reads as a satisfied one. Found by the implementing agent, which needed the value
+and discovered nothing supplies it; confirmed on the model, where `Charging Started` (carrying both) had no
+edge at all. Fixed in Voltway by drawing the missing edge.
+
+**The notation to fix it with is already on the canvas.** Dilger draws the tick-off edge dashed — *"to
+indicate that this is not part of the Flow but just updating the data of the Read Model"* — and CLAUDE.md
+records that convention as understood but **not adopted**. Voltway's `Session Priced → SessionsToPrice` edge
+is *already drawn dashed grey*, by eye, carrying no meaning. Adopting it as notation turns a cosmetic reader
+aid into the check: **an edge marked as a tick-off supplies nothing**, and a field whose only source is one
+is unsourced.
+
+That upgrades the earlier judgement. The kit had filed the dashed line under "cosmetic, and a real reader aid
+on a busy automation slice"; it is the missing half of the completeness check on every automation and
+translation slice in the kit, which is the pattern family where the source of a field is hardest to see.
+
+**Suspect every automation and translation slice already built**, not just this one — the check has never been
+able to see the difference, so nothing that passed proves anything here.
+
 ### Z5 — two labels that PascalCase to one identifier: one is silently dropped, and reported as `kept` · **BROKEN**
 
 `Stock Level Set` and `StockLevelSet` become the same C# identifier. The second file overwrites the first
