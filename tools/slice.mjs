@@ -8,6 +8,7 @@
 //   node tools/slice.mjs route    <file> --from <id> --to <id>
 //   node tools/slice.mjs identity <file> --band <id>
 //   node tools/slice.mjs demote   <file> [--slice <n>]... | --from-diff
+//   node tools/slice.mjs promote  <file> --slice <n>... [--to <status>]
 //   node tools/slice.mjs reflow   <file>
 //   ... any of the above with --dry-run
 //
@@ -804,6 +805,47 @@ function cmdDemote(target, o) {
      "Slices... Also for example Read Models impacted by new Events.\""]);
 }
 
+// ---------------------------------------------------------------- promote
+//
+// The symmetric twin of `demote`, and it exists because without it moving a slice forward was a hand
+// edit of two places that must agree — status= and the label's third line. Doing that by hand is how
+// hold-bay sat at `in-progress` after it was finished, which is half of why the model's statuses stopped
+// matching the code. KIT-FINDINGS V5.
+//
+// It will not skip a step and it will not go backwards: `demote --slice x` is how you go back, and it
+// says so, because "promote" that silently reverses is a command nobody can trust in a diff.
+
+export const STATUSES = ["in-design", "ready", "in-progress", "in-review", "closed"];
+
+function cmdPromote(target, o) {
+  const { file, xml } = read(target);
+  const m = model(xml);
+  const names = o.slice ?? [];
+  if (!names.length) die("promote needs --slice <name> (repeatable).");
+  if (o.to && !STATUSES.includes(o.to))
+    die(`--to must be one of: ${STATUSES.join(", ")}.`);
+
+  const plan = [];
+  const blocks = m.blocks.map((b) => {
+    if (!/\bem="group"/.test(b)) return b;
+    const s = attr(b, "slice");
+    if (!names.includes(s)) return b;
+    const from = attr(b, "status") ?? "in-design";
+    // No --to means "one step forward", which is the common case and cannot typo into a wrong state.
+    const to = o.to ?? STATUSES[Math.min(STATUSES.indexOf(from) + 1, STATUSES.length - 1)];
+    if (to === from) { plan.push(`${s}: already ${from} — unchanged`); return b; }
+    if (STATUSES.indexOf(to) < STATUSES.indexOf(from))
+      die(`${s}: ${from} -> ${to} is backwards. Use "demote --slice ${s}", which records why.`);
+    plan.push(`${s}: ${from} -> ${to}`);
+    return setAttr(setAttr(b, "status", to), "label", `${s}\n${attr(b, "pattern")} · ${to}`);
+  });
+  const moved = plan.filter((l) => !l.includes("unchanged"));
+  if (!moved.length) { console.log(`${target}: nothing to promote.`); return; }
+  finish(target, file, splice(xml, blocks), plan, o,
+    ["status= is advisory: a .drawio in git provides no mutual exclusion, so two agents on two",
+     "branches can both set in-progress. Real exclusion is one branch per slice."]);
+}
+
 // ---------------------------------------------------------------- reflow
 
 function cmdReflow(target, o) {
@@ -890,7 +932,7 @@ for (let i = 0; i < argv.length; i++) {
   if (a === "--dry-run") { o.dryRun = true; continue; }
   if (a === "--from-diff") { o.fromDiff = true; continue; }
   const v = argv[++i];
-  if (a === "--slice" && cmd === "demote") o.slice.push(v);
+  if (a === "--slice" && (cmd === "demote" || cmd === "promote")) o.slice.push(v);
   else if (a === "--slice") o.slice = v;
   else if (a === "--pattern") o.pattern = v;
   else if (a === "--at") o.at = v;
@@ -915,7 +957,7 @@ if (!cmd || !target) {
     .slice(2, 10).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(2);
 }
-const ops = { add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, reflow: cmdReflow };
+const ops = { add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, promote: cmdPromote, reflow: cmdReflow };
 if (!ops[cmd]) die(`unknown command "${cmd}". One of: ${Object.keys(ops).join(", ")}.`);
 if (cmd === "add" && (!o.slice || !o.pattern)) die("add needs --slice and --pattern.");
 ops[cmd](target, o);

@@ -883,7 +883,11 @@ node tools/slice.mjs journey  <file> --journey <slug> --slices <a,b,c> [--then <
 node tools/slice.mjs route    <file> --from <id> --to <id>    # allocates a routing y in the right band
 node tools/slice.mjs identity <file> --band <id>              # propagate the stream key onto its events
 node tools/slice.mjs demote   <file> --from-diff              # impacted slices back to in-design
+node tools/slice.mjs promote  <file> --slice <n> [--to <s>]   # forward one step, or to a named status
 node tools/slice.mjs reflow   <file>                          # re-derive lane/page geometry
+
+node tools/progress.mjs                # what is BUILT, against what status= claims. Reads the code
+node tools/progress.mjs --stale        # only where the diagram and the code disagree
 node tools/fixtures/cart-replay.mjs          # the book's cart model in nine appends — the MODEL half of the suite
 
 node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound wireframe cells

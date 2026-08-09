@@ -91,6 +91,16 @@ because its failure mode is silent. Options, none free:
 
 Until then, say out loud which convention a project is using, because the model does not.
 
+**MITIGATED, not fixed.** `node tools/progress.mjs` reads the generated **code** rather than the claim
+and prints both side by side — `N/20 built · NNN holes left` — with a `STATUS DOES NOT MATCH THE CODE`
+section naming the exact `slice.mjs promote` command to reconcile it. `--stale` shows only the
+disagreements. And `slice.mjs promote` now exists as the symmetric twin of `demote`, so moving a slice
+forward is one command rather than a hand edit of two places that must agree — which is how `hold-bay`
+came to sit at `in-progress` after it was finished.
+
+That makes the drift **visible and cheap to correct**. It does not remove the conflict: `status=` still
+cannot be both things at once, and the run-time-skip option above is still the only answer that does.
+
 ### V4 — every MOBILE review shot of a data-driven page is a picture of the loading state · **BROKEN**
 
 `shoot.mjs` renders below `MIN_HONEST_WIDTH = 520` inside an `<iframe>`, which is the correct fix for the
