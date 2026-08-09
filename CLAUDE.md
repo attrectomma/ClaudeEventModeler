@@ -1766,6 +1766,56 @@ and the thing that stops the processor working the same row twice.
 Per the same source, if there is no view and no conditional logic, it is not an automation at all
 — it is just a command that emits several events.
 
+### That pattern has a name, and it is the reason this kit needs no saga notation
+
+The paragraph above is **Dilger's "Processor-TODO-List" pattern**, *Understanding EventSourcing* **ch. 35**
+(pp. 490–504) — an entire chapter the kit had been paraphrasing without citing. Its two framing questions
+are the ones to ask of any automation:
+
+> *"How does the Processor get a new task to execute? … What needs to happen for this task to get checked
+> off the Processor-Todo-List?"*
+
+**And it is explicitly the answer to "where are the sagas?"** Ch. 35 asks *"How does this relate to the
+Saga-Pattern?"* and answers:
+
+> *"We do not define a specific Process-Orchestrator or Saga-Process-Definition but simply act on the
+> facts in the system. That's it."*
+
+Dymitruk says the same on the notational side — *"any of these where you find these larger patterns,
+they're always replaced by this to-do list pattern"* — and the cheat sheet this kit already cites for the
+four patterns carries it: *"the view that the automated process monitors is a simple todo list."*
+
+**Neither of them says a saga is wrong, and the kit must not either.** Dymitruk keeps sagas as an
+*implementation* detail deliberately hidden from the notation — *"you don't have to throw that in the
+garbage"* — and Dilger hedges every time he states his preference: *"I typically don't use Sagas at all"*,
+*"I personally don't use Sagas most of the time"*, and immediately *"only because I like to use this
+approach doesn't mean it is the best approach. Make your decisions on a case by case basis."*
+
+So the kit's position, which is now stated rather than accidental: **a saga is an implementation of an
+automation slice, exactly like the four wakeup mechanisms** in `reference-implementations/automation/`.
+It gets no notation for the same reason concurrency gets none — it is technical, and the model carries
+domain knowledge and information flow. `pattern="automation"` is the contract; a saga library is one way
+to honour it, and a todo View is the one both authors reach for first.
+
+**Compensation is not an exception to this**, which is the part worth knowing before anyone reaches for a
+saga framework. Ch. 35 works the canonical distributed rollback — order → payment → inventory — entirely as
+todo lists: `InventoryReservationFailed` is translated into `PaymentRefundRegistered`, which *opens* a todo
+for the refund processor; the command issues, `PaymentRefunded` *closes* it, and **a refund that fails
+simply leaves the row open to be retried on the next schedule**, dead-lettering to a human if it never
+succeeds. That is the compensating transaction, with the retry semantics falling out of the pattern rather
+than being written.
+
+Two smaller things from the same chapter, neither adopted here:
+
+- **The "back-channel" dotted line.** Dilger draws the tick-off edge (`Event → todo View`) dashed, *"to
+  indicate that this is not part of the Flow but just updating the data of the Read Model."* The kit's
+  grammar already permits that edge — it is the single `Event → View` exception to left-to-right — but does
+  not distinguish it visually. Cosmetic, and a real reader aid on a busy automation slice.
+- **Replay safety is the pattern's own argument for itself.** Ch. 33 notes an `@EventHandler` action fires
+  again on replay and names ch. 35 as *"one solution"*: a todo list recomputed from current state has
+  nothing to re-fire. That is the same conclusion `architect`'s `replay-safety` question reaches from the
+  other direction.
+
 ### A pattern is a contract, not an implementation
 
 The four patterns say **which blocks connect, and in which direction**. They say nothing about which

@@ -2972,3 +2972,63 @@ whose `architect` decision picked a non-stream boundary. It says *"Stream key: `
 should also say *"this slice decides on a `<mechanism>` boundary — a raw GIVEN is invisible to it."* Not
 built: `codegen` does not read `ARCHITECTURE.md`, and making it do so is a larger change than this finding
 justifies on its own. Recorded so it is a decision rather than a drift.
+
+### AD20 — the kit already implements the saga answer and never named it · **RESEARCH** · *and corrects a claim made here*
+
+**Prompted by a question, and it corrects something stated in this session's own summary.** The gap list
+I gave after the concurrency run named *"sagas — no notation, no reference implementation, and Wolverine
+has first-class support the kit has never touched"* as an outstanding capability. **That framing was
+wrong**, and both primary sources say so.
+
+#### What the sources actually say
+
+| Source | Says |
+| --- | --- |
+| Dilger, *Understanding EventSourcing* **ch. 35** (pp. 490–504) | an entire chapter, *"Pattern: Processor-TODO-List"*. Asks *"How does this relate to the Saga-Pattern?"* and answers: *"We do not define a specific Process-Orchestrator or Saga-Process-Definition but simply act on the facts in the system. That's it."* |
+| Dilger, same book, **p. 145 / p. 155** | *"you will learn that I typically don't use Sagas at all"*; *"I personally don't use Sagas most of the time but rely on a simple Processor-TODO List Pattern"* |
+| Dilger, **eventmodelers.ai** newsletter | *"The TODO List Pattern is simple and often my first choice."* |
+| Dymitruk, **SE Radio 539** | *"any of these where you find these larger patterns, they're always replaced by this to-do list pattern"* |
+| **eventmodeling.org cheat sheet** — already cited by this kit for the four patterns | *"the view that the automated process monitors is a simple todo list"* |
+
+**So the kit has been implementing ch. 35 all along without citing it.** CLAUDE.md's *"the View an automation
+watches is a todo list: the event puts a row on it, the automation works the row and issues a command, and
+the resulting event ticks the row off"* is that chapter, paraphrased. `saga` appeared **zero** times
+anywhere in the kit before this entry.
+
+#### The strong form of the claim is not supported, and that matters
+
+*"The TODO list fully replaces the saga"* is stronger than either author states, and the hedges are not
+throat-clearing — they are load-bearing:
+
+- **Dymitruk's claim is about NOTATION, not implementation.** The point is to keep the pattern out of the
+  diagram *"without needing to bubble up all the information about the platform to the business"*, and he
+  is explicit that an existing saga implementation is fine: *"you don't have to throw that in the garbage."*
+- **Dilger refuses to universalise, in the same breath every time:** *"Only because I like to use this
+  approach doesn't mean it is the best approach. Make your decisions on a case by case basis."*
+
+**The kit's position, now written down rather than merely acted on:** a saga is an *implementation* of an
+automation slice, ranking beside the four measured wakeup mechanisms. It gets no notation for exactly the
+reason concurrency gets none.
+
+#### Compensation is covered, which is the part that would otherwise justify a saga
+
+Ch. 35 works the canonical order → payment → inventory rollback purely as todo lists:
+`InventoryReservationFailed` → `PaymentRefundRegistered` **opens** a refund todo → `RefundPayment` →
+`PaymentRefunded` **closes** it — and *"if the refund does not work, the task will not get closed and will
+be retried on the next processor schedule"*, dead-lettering to a human eventually. Retry and compensation
+fall out of the pattern instead of being written.
+
+#### What is therefore ACTUALLY missing, which is narrower than "sagas"
+
+The kit's `automation/` folder measures **four ways to wake a trigger**. It does not demonstrate:
+
+1. **A multi-step process** — a chain of todo lists across slices, which is the shape ch. 35 uses to make
+   the saga comparison. Every automation the kit has built is one step.
+2. **The failure direction** — a command that fails, leaves its row open, is retried on the next sweep, and
+   dead-letters after N. This is the whole compensating-transaction story and nothing in the kit tests it.
+3. **The back-channel dotted line** — ch. 35 draws the tick-off edge dashed, *"not part of the Flow but just
+   updating the data of the Read Model."* Already legal in the grammar (the `Event → View` exception); just
+   not distinguished.
+
+Item 2 is the one with teeth: **"the task stays open and is retried" is exactly the property a green test
+suite does not check**, and it is the same family as `NOTHING EVER WAKES THIS`.
