@@ -50,6 +50,30 @@ wrong in a way nothing reports. → [detail](KIT-HISTORY.md)
 With actor lanes drawn, the strip lands inside the lanes instead of below them, so feeds cut through
 screens. Latent until a model has two actors. → [detail](KIT-HISTORY.md)
 
+### BM3 — the kit had 156 tests and not one of them was a unit test · **GAP** · *partly closed*
+
+Not a testing preference — a **consequence**. A decider holding `IDocumentSession` cannot be tested any
+other way, which is precisely the cost `LEB` ch. 15 warns about (*"you'll need a mocking framework"*), paid
+in Testcontainers instead of mocks. With the deciders converted (**BM1**) the tier became possible:
+`reservation/` has 12 and `automation/` 4, running in **~150 ms with Docker stopped**.
+
+**Still open for the other four folders**, and for the shape worth copying: a unit test can assert things no
+integration test can reach — `an_already_decided_grant_does_not_call_the_work_again` checks that the
+executor was not invoked a second time, which leaves no trace in the event store and is the thing that
+cannot be undone.
+
+### BM4 — three namespaces no doc page states, all found the same way · **NOISE** · *recorded, not fixable*
+
+The AD15 class, three more in one session. `IEventStream<T>` is in **`JasperFx.Events`**, not
+`Marten.Events`. `OnException<T>()` is an extension on `IWithFailurePolicies` in
+**`Wolverine.ErrorHandling`** — the docs show both `opts.OnException<T>()` and
+`opts.Policies.OnException<T>()` and **neither compiles** without that using. `StubEventStream<T>` exposes
+`EventsAppended` and `Key`, while the docs' own unit-test example uses `.Events` and `.Id` — and `Id` is
+documented as *"Guid.Empty when the stream is keyed by string"*, so it silently addresses nothing on a
+string-identity store.
+
+Standing rule unchanged and earning its keep: **read the mirror, grep the package `.xml`, then compile.**
+
 ### BL3 — a codegen run that CRASHES leaves partial scaffolds, and the next run reports them as `kept` · **BROKEN**
 
 Measured: `codegen.mjs` died partway through view generation (BL1), and the re-run after the fix printed
@@ -70,12 +94,13 @@ router will not draw. → [detail](KIT-HISTORY.md)
 
 ## 2. Missing capability
 
-### A11 — `codegen` scaffolds no endpoint for a State Change slice · **GAP**
+### A11 — `codegen` scaffolds no decider · ***FIXED 2026-08-09*** → [detail](KIT-HISTORY.md)
 
-The command record, the fold and the test are generated; **the decider is not**, so every state-change
-slice starts with an empty folder and a hand-written file. Confirmed still true on 2026-08-09: implementing
-`cross-aggregate-invariant`'s five slices meant hand-writing five endpoints, all of which followed the same
-shape. That shape is scaffoldable.
+It now scaffolds one per command slice — an HTTP endpoint for `state-change`, a message handler for
+`automation`/`translation` — in the A-Frame shape, with the middleware attributes, the stream-key member to
+resolve and one TODO per rule the model states. **The absent scaffold was not just a gap, it was the
+mechanism of BM1**: with nothing to copy, every hand-written decider reached for `IDocumentSession` and
+`FetchForWriting`, and the kit's own docs said the alternative was unavailable.
 
 ### T1 — no ingest seam for a foreign event · **GAP**
 

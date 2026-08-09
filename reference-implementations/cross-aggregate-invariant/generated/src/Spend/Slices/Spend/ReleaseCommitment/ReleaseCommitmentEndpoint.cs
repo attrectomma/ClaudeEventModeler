@@ -31,6 +31,20 @@ public static class ReleaseCommitmentEndpoint
 
     public const string ExceedsCommitment = "ReleaseExceedsCommitment";
 
+    /// <remarks>
+    /// STILL HAND-ROLLED, WITH A REASON — and the reason is the second of the two CLAUDE.md allows.
+    ///
+    /// Every other decider in this kit is now a pure function in Wolverine's aggregate handler workflow.
+    /// This one is not, because the event it appends carries a **DCB tag**: it is built with
+    /// <c>session.Events.BuildEvent(...)</c> and decorated with <c>WithTag(new DepartmentTag(...))</c>, and
+    /// that tag is what maintains <c>mt_dcb_tag_version</c> — the side table the DCB arm's whole guarantee
+    /// rests on. Building a tagged event needs the session, so the slice implementing a concurrency
+    /// MECHANISM owns its transaction, exactly as <see cref="CommitSpendEndpoint"/> does.
+    ///
+    /// That is a narrow exemption, not a licence: it applies to the two slices that ARE the mechanism this
+    /// folder measures. <c>SetBudgetEndpoint</c> and <c>OpenProjectEndpoint</c>, which decide nothing about
+    /// concurrency, are both in the workflow.
+    /// </remarks>
     [WolverinePost(Route)]
     public static async Task<IResult> Release(Guid projectId, ReleaseCommitment command, IDocumentSession session)
     {

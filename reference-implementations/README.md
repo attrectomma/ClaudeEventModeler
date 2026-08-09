@@ -14,7 +14,7 @@ JasperFx 2.\*, Alba 8.\*. Each was re-measured against it rather than assumed.
 
 ```
 reference-implementations/
-  automation/            the Automation pattern — four ways to wake a trigger, one model    15/15
+  automation/            the Automation pattern — four ways to wake a trigger, one model    19/19
     email-outbox/        the event model
     generated/           the implementations
   state-change/          the state-change pattern on an EXISTING stream — the aggregate     16/16
@@ -32,11 +32,11 @@ reference-implementations/
   translation/           the Translation pattern — four ways a FOREIGN event lands: an HTTP  15/15
     stock-feed/          the event model      endpoint, a table they INSERT into, a broker,
     generated/           the implementations  a poll of their API
-  cross-aggregate-invariant/   an invariant that spans STREAMS — four ways to guard it:      28/28
+  cross-aggregate-invariant/   an invariant that spans STREAMS — five ways to guard it:      31/31
     spend/               the event model      a guard row, a reservation row behind a unique
     generated/           the implementations  index, an advisory lock, and DCB. Plus a CONTROL
                          proving the race reproduces without one. The advanced state-change case.
-  reservation/           the Reservation Pattern's WORKFLOW half — reserve, execute, and       29/29
+  reservation/           the Reservation Pattern's WORKFLOW half — reserve, execute, and       43/43
     allocation/          the event model      give the unit back when the execution fails.
     generated/           the implementations  Two execution modes measured (in one web request
                          vs. woken by a subscription), and the first executable demonstration
@@ -292,6 +292,45 @@ assert what a view **ignores**, because the drawing already claims which events 
 made that claim executable. All of those were mutation-checked: break the fold on purpose, confirm that one
 test and only that one fails.
 
+## Every decider here is now an A-Frame decider, and it used to be the opposite
+
+**The kit spent five runs hand-rolling `IDocumentSession` + `FetchForWriting` + `SaveChangesAsync` +
+try/catch in every decider, on the strength of a claim that was never tested** — that a composite stream key
+put Wolverine's aggregate handler workflow out of reach. It does not: `[WriteAggregate]` resolves a stream
+from a public **member**, and a computed property is one. KIT-FINDINGS **BM1**.
+
+What replaced it is what both books ask for and what Wolverine builds. `LEB` ch. 15 argues for a pure command
+handler — *"the Command Handler is no longer 'pure' and gains unnecessary dependencies… you'll need a mocking
+framework"* — and its implementation example is the decider signature. Wolverine's Marten page names the
+**Decider pattern** and its best-practices page says the team *"leans hard into that A-Frame Architecture
+idea"*. So:
+
+```csharp
+public static (SliceOutcome, Events) Handle(
+    ReleaseSlot command,
+    [WriteAggregate(nameof(ReleaseSlot.StreamKey), Required = false)] ReleaseSlotState? slot)
+```
+
+**Read a decider here before writing one**, and note the two exemptions that survive, both stated at their
+site: a decider that must **search** for its stream (`reservation/SlotReservation`), and a slice that IS a
+concurrency mechanism and has to own its transaction (`cross-aggregate-invariant`'s DCB-tagged appends).
+
+**Three consequences worth knowing before converting anything:**
+
+- **More than one `[WriteAggregate]` means returned events go nowhere, silently** — target `IEventStream<T>`
+  for the stream you write. Clean build, no exception, nothing logged.
+- **`AlwaysEnforceConsistency = true` on a stream you only READ** makes Marten version-check it anyway, which
+  turns an *"accept the window"* answer into an enforced one. Measured in `reservation/`, with a control.
+- **The concurrency catch moves out of the decider** into `OnException<…>().RetryTimes(3)`, emitted by the
+  generator: on the retry the middleware re-fetches and the ordinary rule refuses. `translation/` lost a
+  fifteen-line hand-written retry loop to it.
+
+**And the tier that was impossible before.** 156 tests across these folders, every one booting Testcontainers
+Postgres — not a preference but a consequence of deciders holding a session. `reservation/` and `automation/`
+now also have **pure decider unit tests** that run in ~150 ms with Docker stopped, and one of them asserts
+something no integration test can reach: that an already-decided command did not call the external work a
+second time, which leaves no trace in the event store.
+
 **A sixth folder exists and it is not a fifth pattern.** `reservation/` builds ch. 36's two-step workflow
 as what it is — a state change followed by an automation, with a second automation for the compensating
 path — and the thing being tested was whether the notation needed anything new. It did not: 0 errors,
@@ -299,7 +338,7 @@ path — and the thing being tested was whether the notation needed anything new
 finds itself wanting a `pattern=` value for a named pattern from either book, that is a finding about the
 pattern, not a gap in the grammar.**
 
-**All six suites pass — 139 tests — and are stable across repeated runs.** Every folder has also been
+**All six suites pass — 160 tests — and are stable across repeated runs.** Every folder has also been
 **run as an app**, because each pattern has at least one failure mode a green suite cannot see: an
 automation that nothing wakes, an async projection that nothing processes, a foreign feed that never
 arrives.

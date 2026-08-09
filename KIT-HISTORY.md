@@ -3186,3 +3186,124 @@ make the *absence* of a recovery path invisible. **Two `accept the window` answe
 will change it meanwhile, which holds only because the sole other writer is the compensation and the
 compensation cannot run until this execution has refused. Add an expiry sweep and both answers stop being
 true, with nothing to say so. That is what the file is for.
+
+---
+
+# The seventh run — the A-Frame correction (BM)
+
+**Prompted by the human**, and the prompt was right: *"you probably still don't understand how to use the
+critter stack properly. Wolverine has openly stated to promote the A-Frame architecture which is exactly
+what the books describe."*
+
+## BM1 — the aggregate handler workflow does NOT need a single-field key, and the kit said it did in five places · **BROKEN** · ***FIXED***
+
+The claim, verbatim from `codegen.mjs`: *"[WriteAggregate] resolves the stream identity from a member of the
+COMMAND, so the identity has to be a single value of the store's identity type. A composite key cannot
+satisfy that: there is no one member to read."* It was also in CLAUDE.md, `architect.mjs`, the `architect`
+skill and `state-change/README.md`. **Five runs, never tested.**
+
+It reads a **member**, and a computed get-only property is one:
+
+```csharp
+public sealed record ReleaseSlot(Guid PoolId, int SlotNumber, Guid GrantId, string Reason)
+{
+    public string StreamKey => ReleaseSlotState.StreamKey(PoolId, SlotNumber);
+}
+
+public static (SliceOutcome, Events) Handle(
+    ReleaseSlot command,
+    [WriteAggregate(nameof(ReleaseSlot.StreamKey), Required = false)] ReleaseSlotState? slot)
+```
+
+`reservation/`'s Slot stream is keyed `(poolId, slotNumber)`, and every one of that slice's existing tests
+passed unchanged against a decider with **no `IDocumentSession` in it at all**.
+
+**The kit was disagreeing with both of its sources at once**, which is the part worth keeping. `LEB` ch. 15
+is an argument for a pure command handler — *"the Command Handler is no longer 'pure' and gains unnecessary
+dependencies. This added dependency complicates testing. To write effective tests, you'll need a mocking
+framework"* — and its implementation example is the decider signature `(events, command) -> events`.
+Wolverine's Marten page names the **Decider pattern** outright and its best-practices page says the team
+*"leans hard into that A-Frame Architecture idea"*. The book and the stack agreed all along.
+
+**How the drift happened is the more useful finding, and it is A11.** `codegen` scaffolded no decider, so
+every one was hand-written from scratch, and the only worked examples to copy were the earlier hand-written
+ones. The generator now scaffolds the A-Frame shape per command slice — which is why closing A11 is the fix
+rather than a separate improvement.
+
+**Two of the six folders were already doing it right.** `state-change/` and `state-view/` used
+`[WriteAggregate]` on HTTP endpoints, with the reasoning recorded — including the non-obvious part, that the
+kit's per-slice fold naming (`ReviseSubjectState`) defeats both of Wolverine's conventions, so the identity
+must be named explicitly. That discovery is what made the generalisation to composite keys a one-line change
+rather than a research project.
+
+## BM2 — `AlwaysEnforceConsistency` makes a cross-stream READ enforceable, and it fixed a hazard shipped the day before · **MEASURED**
+
+From `Wolverine.Marten` 6.25.1's own XML: *"Marten will enforce an optimistic concurrency check on this
+stream **even if no events are appended**… useful for cross-stream operations where you want to ensure
+referenced aggregates have not changed since they were fetched."* Nothing in the kit mentioned it.
+
+`reservation/issue-grant` appends to the Grant stream while only READING the Slot stream, and
+`ARCHITECTURE.md` answered that with *"accept the window"* — reasoning that the only other writer is the
+compensation, which cannot run until this execution has refused. **True of the model, enforced by nothing.**
+
+Measured with a barrier that releases the slot between the middleware's fetch and its save:
+
+| | outcome |
+| --- | --- |
+| `[WriteAggregate(..., AlwaysEnforceConsistency = true)]` | `EventStreamUnexpectedMaxEventIdException` — *expected 1 but was 2* |
+| the same handler without it | **the grant is issued against a unit somebody had already handed back** |
+
+Both arms are permanent tests. The control is green while asserting the invariant breaks.
+
+**It does NOT solve `cross-aggregate-invariant/`'s problem**, and the distinction is the point. That folder's
+rule spans *every* Project stream of a Department — there is no single referenced stream to version-check, so
+its five mechanisms stand. `AlwaysEnforceConsistency` answers the narrower and far more common shape: *read
+one specific other stream, write this one*. Two different cross-stream problems that the phrase
+"cross-stream invariant" had been hiding.
+
+**The first attempt at this test was invalid and passing.** It raced two handlers that both only READ the
+slot stream, so nothing advanced it and both correctly succeeded — a green test proving nothing, which is the
+control-shaped mistake the kit already has a standing rule about.
+
+## BM5 — with MORE THAN ONE `[WriteAggregate]`, returned events go NOWHERE, silently · **MEASURED**
+
+The docs say it in one line — *"For appending to multiple streams though, for now you will have to directly
+target `IEventStream<T>` to help Marten know which stream you're appending events to"* — and skipping it
+costs a debugging round: **a clean build, no exception, nothing logged, and five tests failing with `should
+have single item but had 0`**. A single-stream decider can still return its events, and does.
+
+## BM6 — where the concurrency guard goes once middleware owns the save
+
+Every hand-rolled decider in the kit caught `EventStreamUnexpectedMaxEventIdException` and translated it into
+that slice's rejection — `AlreadySent`, `AlreadyApplied`, `AlreadyReleased`. `translation/` went further and
+carried a hand-written **retry loop**: `for (var attempt = 1; ; attempt++)`, `EjectAllPendingChanges()`, an
+`Attempts` constant. About fifteen lines whose entire subject was the database.
+
+A decider in the workflow cannot catch it, because it does not save. So the generator now emits, once per
+system:
+
+```csharp
+opts.OnException<ConcurrencyException>().RetryTimes(3);
+opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+```
+
+On the retry the middleware re-fetches and **the ordinary business rule** refuses it. Strictly better than
+the translation it replaces: one statement of the rule instead of two hand-written ones that have to agree,
+and it is what the Marten page means by *"you're going to want some resiliency and selective retry
+capabilities for concurrent access violations"*. Verified by the folder that produced a real double delivery
+— `automation/`, 19 green including the forwarding test.
+
+## BM7 — a scaffolded method named after its command does not compile
+
+`public static PoolOpened OpenPool(OpenPool command, …)` inside `OpenPoolEndpoint` gives
+`CS0119: 'OpenPoolEndpoint.OpenPool(...)' is a method, which is not valid in the given context` — the method
+name shadows the type in `nameof(OpenPool.StreamKey)`. Slice names and command names are the same word in
+this kit by convention, so this is the normal case rather than an edge one. Both scaffolds are named
+`Handle`.
+
+## What this run did not change
+
+**The GWT tests are untouched, and that is the evidence.** Every conversion was judged by whether the
+existing model-derived tests still passed — 160 across six folders, and not one assertion was edited to
+accommodate a decider. The model constrains the contract; this run only changed how the contract is honoured,
+which is the same claim the reference implementations make about every other choice they measure.

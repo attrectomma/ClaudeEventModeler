@@ -136,10 +136,10 @@ Options, with what each costs:
 
 **Read first:** marten/events/dcb (FetchForWritingByTags, the mt_dcb_tag_version side table) and marten/documents/concurrency (UpdateRevision, and why Store() asserts a version already true). Reading another stream is session.Events.FetchLatest<T>(streamKey) on IDocumentSession.Events, not the query session. Worked comparison: reference-implementations/cross-aggregate-invariant/
 
-**Decision:** **Accept the window.**
+**Decision:** ~~Accept the window.~~ **ENFORCE IT** — a second `[WriteAggregate]` on the Slot stream with `AlwaysEnforceConsistency = true`. *Re-decided 2026-08-09.*
 
-**Because:** The GIVEN is `Slot Reserved`, read from the Slot stream to confirm the unit is held. The only other writer to that stream is the compensating `release-slot`, which cannot run until this execution has already produced a `Grant Refused` — so there is no interleaving to lose.
-**It costs:** That is an **ordering property of the model, not of the code**, and nothing enforces it. A later slice that releases a slot for any other reason — an expiry sweep for a reservation nobody executed, which this model deliberately does not have — would break this answer silently. See *What this model does not do* in the README.
+**Because:** The first answer reasoned that the only other writer to the Slot stream is the compensation, which cannot run until this execution has refused — true of the model, **enforced by nothing**, and exactly the class of answer that is right until somebody adds a slice. Then the mechanism turned out to exist and to be one attribute property: Marten *"will enforce an optimistic concurrency check on this stream **even if no events are appended**"*. **Measured with a barrier** that releases the slot between the middleware's fetch and its save — guarded, the save is refused with `expected 1 but was 2`; unguarded, the grant is issued against a unit somebody had already handed back. Both arms are pinned by `CrossStreamConsistencyTests`, and the control is green while asserting the invariant breaks. So this was never a window that reasoning made safe; it was a live hazard that nothing had provoked.
+**It costs:** A read is now a contention point — an unrelated release of the same slot makes this command **retry** rather than proceed, and the retry policy is what turns that into a clean refusal instead of a 500. Correct here, because the alternative is a grant against a unit nobody holds; it would be the wrong trade on a hot stream read by many slices, where the honest answer really is to accept the window and say who agreed.
 
 ### `cross-stream-rule/allocation/issue-grant/gwt-issue-3`
 
@@ -159,10 +159,10 @@ Options, with what each costs:
 
 **Read first:** marten/events/dcb (FetchForWritingByTags, the mt_dcb_tag_version side table) and marten/documents/concurrency (UpdateRevision, and why Store() asserts a version already true). Reading another stream is session.Events.FetchLatest<T>(streamKey) on IDocumentSession.Events, not the query session. Worked comparison: reference-implementations/cross-aggregate-invariant/
 
-**Decision:** **Accept the window** — same as `gwt-issue-1`.
+**Decision:** **ENFORCE IT** — same as `gwt-issue-1`, and the same one attribute property covers both scenarios. *Re-decided 2026-08-09.*
 
-**Because:** Same read of the same `Slot Reserved`, with the same single other writer that cannot yet have run.
-**It costs:** Same as `gwt-issue-1`.
+**Because:** Same read of the same `Slot Reserved`. The refusal path matters as much as the happy one: an execution that refuses against a slot somebody else already released would open a compensation row for a unit that is not held, and `release-slot`'s `NotHeldByThisGrant` rule would then be the only thing between that and a unit handed back twice.
+**It costs:** Same retry-under-contention as `gwt-issue-1`.
 
 ### `cross-stream-rule/allocation/release-slot/gwt-release-1`
 

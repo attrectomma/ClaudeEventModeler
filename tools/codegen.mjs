@@ -927,6 +927,99 @@ ${gwts.map((g) => `        // ${ruleName(g)}: ${(g.rule ?? "").replace(/\s+/g, "
 `);
 }
 
+// --- the decider: an A-FRAME seam per command slice --------------------------------------------
+//
+// KIT-FINDINGS A11 for five runs: "the command record, the fold and the test are generated; THE DECIDER IS
+// NOT, so every state-change slice starts with an empty folder and a hand-written file." Every one of those
+// hand-written files then reached for `IDocumentSession` + `FetchForWriting` + `SaveChangesAsync` + a
+// try/catch, because nothing showed them the alternative — and the kit's own docs told them the alternative
+// was unavailable (BM1). The absent scaffold is *how* the drift happened, so closing the gap is also the fix.
+//
+// What is emitted is the SHAPE, never the decision: the signature, the middleware attributes, the stream
+// key member to resolve, and one TODO per rule the model states. SCAFFOLD, so a hand edit survives.
+//
+//   state-change   an HTTP endpoint — somebody types this command
+//   automation     a message HANDLER — the trigger issues it in process, and giving it a route would
+//   translation    invent public surface the model does not draw
+for (const s of ir.slices) {
+  if (!s.generates || !s.commands.length) continue;
+  const cmd = s.commands[0];
+  const agg = ir.shared.aggregates.find((a) => a.commands.some((c) => c.label === cmd));
+  const fields = agg?.commands.find((c) => c.label === cmd)?.fields ?? [];
+  const carriesKey = (agg?.identity ?? []).length && agg.identity.every((k) => fields.some((f) => f.name === k));
+  const http = s.pattern === "state-change";
+  const rejections = (s.gwts ?? []).filter((g) => !isPeriphery(g) && /^error:/i.test((g.then ?? "").trim()));
+  const emitted = (s.emits ?? []);
+
+  // A decider that must SEARCH for its stream has no key to hand the middleware. Say so instead of
+  // emitting an attribute that cannot work — reference-implementations/reservation/SlotReservation is the
+  // worked example, and it is the honest limit of the workflow rather than the one the kit used to state.
+  const aggregateParam = carriesKey
+    ? `        [WriteAggregate(nameof(${pascal(cmd)}.StreamKey), Required = false)] ${stateName(s)}? state`
+    : `        // TODO(codegen): this command does not carry ${agg?.name ?? "the aggregate"}'s whole key
+        //   (${(agg?.identity ?? []).join(" + ") || "no identity="}), so the middleware has no stream to resolve.
+        //   Either add the missing field to the command on the MODEL, or fetch the stream by hand — see
+        //   reference-implementations/reservation/SlotReservation, a decider that has to search for its stream.
+        IDocumentSession session`;
+
+  scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}${http ? "Endpoint" : "Handler"}.cs`),
+    `${banner(`${s.name} — the decider. Scaffolded once, then hand-owned.`)}
+#nullable enable
+
+using JasperFx.Events;
+using Marten;
+using Wolverine.Marten;${http ? `
+using Wolverine.Http;` : ""}
+using ${NS}.Contracts;
+
+namespace ${NS}.Slices.${pascal(s.context)};
+
+/// <summary>
+/// A PURE DECIDER: <c>(command, state) -&gt; events</c>. No session, no fetch, no save, no try/catch —
+/// Wolverine's aggregate handler workflow does all of it as middleware, which is the "A-Frame" shape its
+/// own docs recommend and the Decider pattern its Marten page names.
+///
+/// It is also what both books ask for. <em>The little Eventmodeling Book</em> ch. 15 warns that a command
+/// handler which reaches for its own dependencies "is no longer pure" and that testing it then "requires a
+/// mocking framework"; its implementation example is exactly this signature.
+///
+/// <c>Required = false</c> so a MISSING stream reaches the decider as null instead of becoming a framework
+/// 404 with no rule name in the body — this kit's contract is that the rule name is the machine-readable
+/// outcome, because a GWT says <c>then="error: X"</c>.${http ? `
+///
+/// <c>[EmptyResponse]</c> makes a returned event get APPENDED rather than serialised as the response body.
+/// Drop it and return <c>(IResult, Events)</c> as soon as this slice can REFUSE: with [EmptyResponse] a
+/// returned ProblemDetails is silently discarded and the endpoint reports success for a rejected command.` : ""}
+///
+/// APPENDING TO MORE THAN ONE STREAM? Returned events then have no unambiguous destination and are appended
+/// NOWHERE, silently. Take <c>IEventStream&lt;T&gt;</c> for the stream you write, and add a second
+/// <c>[WriteAggregate(..., AlwaysEnforceConsistency = true)]</c> for a stream you only READ so Marten
+/// version-checks it too. The command already carries a key member for every such stream.
+///
+/// A CONCURRENT DUPLICATE IS NOT CAUGHT HERE. The middleware owns the save, so the collision reaches the
+/// retry policy in Program.cs; on the retry this decider runs again against the winner's state and the
+/// ordinary rule below refuses it. Do not re-implement that as a try/catch.
+/// </summary>
+public static class ${pascal(cmd)}${http ? "Endpoint" : "Handler"}
+{${http ? `
+    public const string Route = "/${camel(s.context)}/${camel(s.name)}";
+` : ""}${rejections.map((g) => `    public const string ${ruleName(g)} = "${ruleName(g)}";`).join("\n")}${rejections.length ? "\n" : ""}
+${http ? `    [WolverinePost(Route), EmptyResponse]
+    public static ${emitted.length === 1 ? pascal(emitted[0]) : "Events"} Handle(
+` : `    public static Events Handle(
+`}        ${pascal(cmd)} command,
+${aggregateParam})
+    {
+${rejections.map((g) => `        // ${ruleName(g)}: ${(g.rule ?? "").replace(/\s+/g, " ")}
+        // TODO(codegen): if (state is ...) return ${http ? "the refusal" : "no events"};`).join("\n\n")}${rejections.length ? "\n" : ""}
+        // TODO(codegen): decide, and return the event(s) this slice promises:
+${emitted.map((e) => `        //   ${pascal(e)}`).join("\n") || "        //   (the model names none)"}
+        throw new NotImplementedException("TODO(codegen): the decision for ${s.name}.");
+    }
+}
+`);
+}
+
 // --- the Alba harness -------------------------------------------------------------------------
 
 emit(join(TESTS, "AppFixture.cs"),

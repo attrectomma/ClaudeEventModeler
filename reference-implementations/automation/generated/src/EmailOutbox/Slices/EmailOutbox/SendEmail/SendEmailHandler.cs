@@ -3,7 +3,7 @@
 // </auto-generated-scaffold>
 #nullable enable
 using JasperFx.Events;
-using Marten;
+using Wolverine.Marten;
 using EmailOutbox.Contracts;
 
 namespace EmailOutbox.Slices.EmailOutbox;
@@ -29,59 +29,53 @@ namespace EmailOutbox.Slices.EmailOutbox;
 /// </summary>
 public static class SendEmailHandler
 {
-    /// <summary>What the trigger reads back. See <see cref="SendOutcome"/> for why it is not ProblemDetails.</summary>
-    public static async Task<SendOutcome> Handle(
+    /// <summary>
+    /// A PURE DECIDER: <c>(command, state) -&gt; (outcome, events)</c>. No session, no fetch, no save, no
+    /// try/catch — Wolverine's aggregate handler workflow does all of it as middleware.
+    ///
+    /// WHERE THE SECOND GUARD WENT, because this file used to be the kit's clearest statement of it. The old
+    /// version caught <c>EventStreamUnexpectedMaxEventIdException</c> and translated it into
+    /// <c>AlreadySent</c>, and the reasoning was right: every wakeup mechanism here is at-least-once, and
+    /// under a genuine double delivery two runs fold this stream BEFORE either appends, so both legitimately
+    /// see <c>Sent == false</c> and both pass the rule. The rule catches the sequential duplicate; the
+    /// stream's version catches the simultaneous one.
+    ///
+    /// That is all still true. What changed is who says it. The middleware owns the save, so the collision
+    /// reaches Wolverine's error policy — <c>OnException&lt;EventStreamUnexpectedMaxEventIdException&gt;()
+    /// .RetryTimes(3)</c>, emitted into Program.cs — which re-runs this decider against the re-fetched
+    /// stream, where <c>Sent</c> is now true and **the ordinary rule** refuses it.
+    ///
+    /// So the outcome a duplicate delivery produces is unchanged, and the kit no longer keeps two
+    /// hand-written statements of one rule that have to agree. Measured by the forwarding test, which is the
+    /// one that produced a real double delivery in the first place.
+    ///
+    /// <see cref="SendOutcome"/> rather than ProblemDetails, because an automation has no HTTP caller.
+    /// </summary>
+    public static (SendOutcome, Events) Handle(
         SendEmail command,
-        IDocumentSession session,
-        CancellationToken cancellation)
+        [WriteAggregate(nameof(SendEmail.StreamKey), Required = false)] SendEmailState? email)
     {
-        var stream = await session.Events.FetchForWriting<SendEmailState>(
-            SendEmailState.StreamKey(command.EmailId), cancellation);
-        var email = stream.Aggregate ?? new SendEmailState();
+        var events = new Events();
 
-        if (!email.Prepared)
-            return SendOutcome.Rejected("NotPrepared",
-                $"No email {command.EmailId} has been prepared, so there is nothing to send.");
+        // A missing stream and a stream nobody prepared into fold to the same thing, so one check covers
+        // both. Required = false is what lets the decider answer rather than the framework 404-ing with no
+        // rule name in the body.
+        if (email is not { Prepared: true })
+            return (SendOutcome.Rejected("NotPrepared",
+                $"No email {command.EmailId} has been prepared, so there is nothing to send."), events);
 
         if (email.Sent)
-            return SendOutcome.Rejected("AlreadySent",
-                $"Email {command.EmailId} has already been sent. At-least-once delivery makes this the normal case, not an error in the caller.");
+            return (SendOutcome.Rejected("AlreadySent",
+                $"Email {command.EmailId} has already been sent. At-least-once delivery makes this the normal case, not an error in the caller."), events);
 
         // terminal="providerMessageId:generated" and terminal="sentAt:clock" — both come from the handler,
         // not from the data flow, which is what the model's terminal= records. In a real system this is
         // where the provider call goes, and the id is whatever it hands back.
         var providerMessageId = $"prov-{Guid.NewGuid():n}";
 
-        stream.AppendOne(new EmailSent(command.EmailId, providerMessageId, DateTimeOffset.UtcNow));
+        events += new EmailSent(command.EmailId, providerMessageId, DateTimeOffset.UtcNow);
 
-        try
-        {
-            await session.SaveChangesAsync(cancellation);
-        }
-        catch (EventStreamUnexpectedMaxEventIdException)
-        {
-            // A CONCURRENT duplicate, and the reason the AlreadySent check above is not sufficient on its own.
-            //
-            // Every wakeup mechanism here is at-least-once. When a delivery arrives twice, two runs fold this
-            // stream BEFORE either appends, so both legitimately see Sent == false and both pass the rule.
-            // What stops the second one is Marten's optimistic concurrency: FetchForWriting captured the
-            // stream version, and the second append collides on it.
-            //
-            // So the rule catches the sequential duplicate and the transaction catches the simultaneous one.
-            // They are complementary, not redundant — a decider with only the rule sends twice under a double
-            // delivery, and one with only the version check reports a crash where a plain refusal is the truth.
-            //
-            // Translated rather than rethrown: from the caller's point of view this IS AlreadySent. Left as an
-            // exception it becomes a failed message, a logged stack trace and a Wolverine retry — which is how
-            // the forwarding test first passed while printing what looked like a failure.
-            //
-            // This stream only ever holds EmailPrepared then EmailSent, so a collision here can only be a
-            // concurrent send. On a stream with other writers, re-read and re-decide instead of assuming.
-            return SendOutcome.Rejected("AlreadySent",
-                $"Email {command.EmailId} was sent concurrently by another run; this one lost the version race.");
-        }
-
-        return SendOutcome.Delivered(command.EmailId, providerMessageId);
+        return (SendOutcome.Delivered(command.EmailId, providerMessageId), events);
     }
 }
 

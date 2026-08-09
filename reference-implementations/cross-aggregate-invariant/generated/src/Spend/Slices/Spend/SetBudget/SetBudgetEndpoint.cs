@@ -2,7 +2,7 @@
 //   set-budget — the decider. Hand-written; regeneration keeps this file.
 // </auto-generated-scaffold>
 #nullable enable
-using Marten;
+using Wolverine.Marten;
 using Spend.Contracts;
 using Wolverine.Http;
 
@@ -26,14 +26,24 @@ public static class SetBudgetEndpoint
 {
     public const string Route = "/departments/{departmentId}/budget";
 
-    [WolverinePost(Route)]
-    public static async Task<IResult> Set(Guid departmentId, SetBudget command, IDocumentSession session)
-    {
-        var stream = await session.Events.FetchForWriting<SetBudgetState>(departmentId);
-        stream.AppendOne(new DepartmentBudgetSet(departmentId, command.Budget));
-
-        // AutoApplyTransactions() commits. Returning NoContent rather than the event: an event returned
-        // from a Wolverine endpoint is a CASCADING MESSAGE, not a response body.
-        return Results.NoContent();
-    }
+    /// <summary>
+    /// THE WHOLE SLICE, in one expression. The aggregate handler workflow resolves the stream, folds it,
+    /// captures its version and saves; <c>[EmptyResponse]</c> makes the returned event get APPENDED to that
+    /// stream rather than serialised as a response body — which is also the answer to the note this method
+    /// used to carry, that "an event returned from a Wolverine endpoint is a cascading message". It is,
+    /// unless the endpoint is in the aggregate workflow, and then it is an event.
+    ///
+    /// THE FOLDED STATE IS DELIBERATELY UNUSED. Setting a budget decides nothing from history — the model
+    /// says the budget may be raised at any time — so the parameter is here to opt this endpoint into the
+    /// workflow and to get optimistic concurrency on the Department stream. Naming it <c>_</c> says that
+    /// out loud rather than leaving a reader hunting for the read.
+    ///
+    /// <c>Required = false</c> because the first call to this endpoint is what CREATES the stream.
+    /// </summary>
+    [WolverinePost(Route), EmptyResponse]
+    public static DepartmentBudgetSet Set(
+        Guid departmentId,
+        SetBudget command,
+        [WriteAggregate(nameof(SetBudget.StreamKey), Required = false)] SetBudgetState? _)
+        => new(departmentId, command.Budget);
 }

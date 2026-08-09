@@ -5,7 +5,7 @@
 #nullable enable
 
 using JasperFx.Events;
-using Marten;
+using Wolverine.Marten;
 using StockFeed.Contracts;
 
 namespace StockFeed.Slices.StockFeed;
@@ -40,55 +40,46 @@ namespace StockFeed.Slices.StockFeed;
 public static class ApplyStockNoticeHandler
 {
     /// <summary>
-    /// How many times to re-read and re-decide after losing a version race. Small, because a collision means
-    /// another writer got there first and re-deciding is cheap; bounded, because a stream under permanent
-    /// contention should surface as a failure rather than spin.
+    /// A PURE DECIDER: <c>(command, state) -&gt; (outcome, events)</c>.
+    ///
+    /// THE RETRY LOOP THAT USED TO BE HERE IS GONE, AND IT IS THE CLEAREST BEFORE/AFTER IN THE KIT. This
+    /// method previously carried a hand-written <c>for (var attempt = 1; ; attempt++)</c> around a
+    /// <c>FetchForWriting</c>, a <c>SaveChangesAsync</c>, a catch of
+    /// <c>EventStreamUnexpectedMaxEventIdException</c>, a call to <c>EjectAllPendingChanges()</c> and an
+    /// <c>Attempts</c> constant — about fifteen lines whose entire subject was the database.
+    ///
+    /// Every one of them is now <c>opts.OnException&lt;…&gt;().RetryTimes(3)</c> in Program.cs, emitted once
+    /// for the whole system by the generator. The semantics are identical and better argued: the old comment
+    /// justified re-reading rather than assuming <c>AlreadyApplied</c>, and a framework retry re-reads by
+    /// construction — the middleware re-fetches, this decider runs again against the winner's state, and
+    /// whichever rule is now true is the one returned.
+    ///
+    /// What is left is the two rules the model states, and nothing else.
     /// </summary>
-    private const int Attempts = 3;
-
-    public static async Task<ApplyOutcome> Handle(
+    public static (ApplyOutcome, Events) Handle(
         ApplyStockNotice command,
-        IDocumentSession session,
-        CancellationToken cancellation)
+        [WriteAggregate(nameof(ApplyStockNotice.StreamKey), Required = false)] TranslateStockNoticeState? state)
     {
-        for (var attempt = 1; ; attempt++)
-        {
-            var stream = await session.Events.FetchForWriting<TranslateStockNoticeState>(
-                TranslateStockNoticeState.StreamKey(command.ProductId), cancellation);
-            var stock = stream.Aggregate ?? new TranslateStockNoticeState();
+        var events = new Events();
+        var stock = state ?? new TranslateStockNoticeState();
 
-            // ORDER IS LOAD-BEARING. A redelivery of the notice we last accepted satisfies BOTH conditions —
-            // its sequence equals the accepted one — and the model names them as different rules with different
-            // meanings. "You already told us this" is the truthful one; reporting StaleNotice would send a
-            // caller looking for a clock problem.
-            if (stock.HasApplied(command.NoticeId))
-                return ApplyOutcome.Rejected("AlreadyApplied",
-                    $"Notice {command.NoticeId} has already been translated. Every landing mechanism here is at-least-once, so this is the normal case rather than an error in the caller.");
+        // ORDER IS LOAD-BEARING. A redelivery of the notice we last accepted satisfies BOTH conditions —
+        // its sequence equals the accepted one — and the model names them as different rules with different
+        // meanings. "You already told us this" is the truthful one; reporting StaleNotice would send a
+        // caller looking for a clock problem.
+        if (stock.HasApplied(command.NoticeId))
+            return (ApplyOutcome.Rejected("AlreadyApplied",
+                $"Notice {command.NoticeId} has already been translated. Every landing mechanism here is at-least-once, so this is the normal case rather than an error in the caller."), events);
 
-            if (command.Sequence <= stock.AcceptedSequence)
-                return ApplyOutcome.Rejected("StaleNotice",
-                    $"Notice {command.NoticeId} carries sequence {command.Sequence}, and we have already accepted {stock.AcceptedSequence}. Across a boundary nothing guarantees arrival order, so an older notice is old news and not a correction.");
+        if (command.Sequence <= stock.AcceptedSequence)
+            return (ApplyOutcome.Rejected("StaleNotice",
+                $"Notice {command.NoticeId} carries sequence {command.Sequence}, and we have already accepted {stock.AcceptedSequence}. Across a boundary nothing guarantees arrival order, so an older notice is old news and not a correction."), events);
 
-            // terminal="setAt:clock" — the model says so, and the handler is where a clock value enters.
-            stream.AppendOne(new StockLevelSet(
-                command.ProductId, command.NoticeId, command.OnHand, command.Sequence, DateTimeOffset.UtcNow));
+        // terminal="setAt:clock" — the model says so, and the handler is where a clock value enters.
+        events += new StockLevelSet(
+            command.ProductId, command.NoticeId, command.OnHand, command.Sequence, DateTimeOffset.UtcNow);
 
-            try
-            {
-                await session.SaveChangesAsync(cancellation);
-                return ApplyOutcome.Accepted(command.ProductId, command.NoticeId, command.OnHand);
-            }
-            catch (EventStreamUnexpectedMaxEventIdException) when (attempt < Attempts)
-            {
-                // RE-READ AND RE-DECIDE. Now that only StockLevelSet is ever appended here, this stream has
-                // exactly one writer — so the automation folder's shortcut of translating the collision into
-                // AlreadyApplied would in fact be defensible. It is still not taken, because re-deciding is
-                // cheap and returns the TRUE rule rather than an assumed one, and because the assumption stops
-                // holding the moment anything else ever writes to the Stock stream. Asserting an invariant that
-                // a future slice can silently break is how the first version of this folder went wrong.
-                session.EjectAllPendingChanges();
-            }
-        }
+        return (ApplyOutcome.Accepted(command.ProductId, command.NoticeId, command.OnHand), events);
     }
 }
 

@@ -1,6 +1,6 @@
 # reservation — the two-step reserve → execute workflow
 
-**Status: complete. 29 tests, all green, stable across three repeated runs, 0 warnings 0 errors.**
+**Status: complete. 43 tests — 31 integration, 12 pure unit — all green, 0 warnings 0 errors.**
 Both execution modes measured against one model, all five slices implemented end to end, every
 load-bearing line mutation-checked.
 
@@ -73,7 +73,7 @@ being a running total two writers can both read. There are exactly N keys and ea
 ```
 dotnet test
 
-Passed!  -  Failed: 0,  Passed: 29,  Skipped: 0,  Total: 29
+Passed!  -  Failed: 0,  Passed: 43,  Skipped: 0,  Total: 43
 ```
 
 | | |
@@ -82,6 +82,8 @@ Passed!  -  Failed: 0,  Passed: 29,  Skipped: 0,  Total: 29
 | 5 | reservation race tests, including a control that asserts the invariant BREAKS |
 | 6 | execution-mode tests, each booting its own host, including two controls |
 | 3 | todo-list tests, which exist because a mutation went uncaught — see below |
+| 2 | cross-stream consistency tests: the guarded read, and a control proving the unguarded one commits |
+| **12** | **pure decider unit tests — no container, no host, ~150 ms with Docker stopped** |
 
 ---
 
@@ -225,6 +227,52 @@ So there is no event-level scenario for it. `Automation/TodoListTests.cs` is the
 assert on the todo rows **on purpose**, and are deliberately not in `Slices/` because a slice's contract is
 its events and none of this is part of it. With them, the same mutation fails exactly one test.
 
+### The cross-stream read, and the hazard this folder shipped for a day
+
+`issue-grant` appends to the Grant stream and only READS the Slot stream, to confirm the unit is still held.
+No stream's version covers that — they share no row — and `ARCHITECTURE.md` first answered it with *"accept
+the window"*.
+
+`AlwaysEnforceConsistency = true` on the second `[WriteAggregate]` closes it, and the docs describe it for
+exactly this: *"Marten will enforce an optimistic concurrency check on this stream **even if no events are
+appended**."* Measured with a barrier that releases the slot between the middleware's fetch and its save:
+
+| | outcome |
+| --- | --- |
+| **guarded** | `EventStreamUnexpectedMaxEventIdException` — *expected 1 but was 2*; the retry then refuses it by the ordinary `SlotNotHeld` rule |
+| **control**, same interleaving, no check | **a grant issued against a unit already handed back** |
+
+`CrossStreamConsistencyTests` pins both, and the control is green while asserting the invariant breaks.
+
+**It does not generalise to `cross-aggregate-invariant/`**, which is the distinction worth carrying: that
+folder's rule spans *every* Project stream of a Department, so there is no single referenced stream to
+version-check and its five mechanisms stand. This one answers the narrower and far commoner shape — *read one
+specific other stream, write this one*. "Cross-stream invariant" had been hiding two different problems.
+
+**The first attempt at this test passed and proved nothing**, which is the control-shaped mistake the kit
+already warns about: it raced two handlers that both only READ the slot stream, so nothing advanced it and
+both correctly succeeded.
+
+### Every decider here is a pure function, and that is new
+
+`ReleaseSlotHandler` is `(command, state) -> (outcome, events)` and `IssueGrantHandler` is the two-stream
+version of the same shape. Neither holds an `IDocumentSession`. That is Wolverine's aggregate handler
+workflow — the **Decider pattern**, which its own docs name — and it is what `LEB` ch. 15 is asking for when
+it warns that a handler gaining dependencies means *"you'll need a mocking framework"*.
+
+**The kit believed this was unavailable here**, because a composite `(poolId, slotNumber)` key supposedly
+had no single member for `[WriteAggregate]` to read. It reads a *member*, and a computed property is one.
+KIT-FINDINGS **BM1**.
+
+What it buys is `Deciders/` — **12 unit tests in ~150 ms with Docker stopped**, against 43 integration tests
+taking over a minute. They do not replace the GWT tests, which are the only thing that can see a wrong stream
+key or a missing registration. What they add is reach: `an_already_decided_grant_does_not_call_the_work_again`
+asserts the executor was not invoked twice, which leaves **no trace in the event store** and is the one thing
+that cannot be undone.
+
+`reserve-slot` stays hand-rolled and says why: a decider that must **search** for its stream has no key to
+hand the middleware. That is the honest limit of the workflow, as against the one the kit used to state.
+
 ### Mutation checks
 
 Every load-bearing line was broken on purpose:
@@ -270,10 +318,13 @@ automation slice**, not a new mechanism: `Slot Reserved` → a stale-reservation
 `ReleaseSlot`. It is left out because it teaches nothing this folder does not already teach, and because
 adding it would make the *absence* of a recovery path invisible — which is the thing worth seeing.
 
-**Two `accept the window` decisions in ARCHITECTURE.md depend on that absence.** `issue-grant` reads the
-Slot stream and accepts that nothing will change it in the meantime, which is true only because the sole
-other writer is the compensation, and the compensation cannot run before this execution has refused. Add an
-expiry sweep and both answers stop being true, with nothing to say so. That is what the file is for.
+**Two `accept the window` decisions in ARCHITECTURE.md used to depend on that absence — and are now
+enforced instead.** `issue-grant` reads the Slot stream while appending to the Grant stream, and the original
+answer reasoned that nothing would change it meanwhile because the only other writer is the compensation.
+True of the model, enforced by nothing. `AlwaysEnforceConsistency = true` on that second `[WriteAggregate]`
+makes Marten version-check the read stream anyway, and the interleaving it prevents is measured with a
+control — see *The cross-stream read* below. The lesson generalises: **"accept the window" is an answer of
+last resort, and it was reached here before checking whether the stack had a mechanism.**
 
 ---
 
