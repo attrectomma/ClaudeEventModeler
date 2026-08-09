@@ -1233,6 +1233,24 @@ public abstract class IntegrationContext(AppFixture fixture) : IAsyncLifetime
             async () => { result = await Host.Scenario(configure); }, timeoutInMilliseconds);
         return (tracked, result);
     }
+
+    /// <summary>
+    /// WHEN: a message ARRIVES, rather than a person posting. The other half of <see cref="WhenPosting"/>,
+    /// and the seam a translation slice is tested through.
+    ///
+    /// A foreign event has no endpoint of ours to be posted to — something outside hands it to Wolverine and
+    /// a handler picks it up. So a test hands it to Wolverine too, and by doing that it drives THE PRODUCTION
+    /// PATH rather than a test-only shortcut: the same handler, the same local queue, the same retries.
+    ///
+    /// Waits for all cascading work exactly as WhenPosting does, so the command the translation issues and
+    /// the event it appends have both landed before the assertion runs.
+    ///
+    /// WHAT IT STILL CANNOT SEE, and it is the one thing worth remembering: whether anything in production
+    /// ever sends this. The transport in front of the queue — a webhook, a table they INSERT into, a broker,
+    /// a poll — is hand-owned, and a feed wired to nothing at all leaves this test green. KIT-FINDINGS T4.
+    /// </summary>
+    protected Task<ITrackedSession> WhenReceiving(object message, int timeoutInMilliseconds = 10000) =>
+        Host.InvokeMessageAndWaitAsync(message, timeoutInMilliseconds);
 }
 `);
 
@@ -1457,8 +1475,18 @@ namespace ${NS}.Automation;
 ///   the trigger event is OURS, appended in our own transaction   -> event forwarding to a handler
 ///   ours, and ordering or replay matters                         -> Marten ISubscription
 ///   ours, and the decision is a function of the VIEW ROW         -> projection RaiseSideEffects
-///   the trigger event is FOREIGN — we never append it            -> sweep the View on a clock
-///   there is no event at all — the trigger is TIME               -> sweep
+///   the trigger event is FOREIGN — we never append it            -> THE ARRIVAL IS THE WAKEUP: see below
+///   there is no event at all — the trigger is TIME               -> sweep the View on a clock
+///
+/// THE FOREIGN ROW IS THE ONE PEOPLE GET WRONG, and this file used to send you to a clock for it. For a
+/// 1:1 translation there is nothing to sweep: the notice is not in our store and no Marten projection can
+/// fold it, so the handler in Landing/ IS the trigger — it arrives, it translates, it issues the command,
+/// and the durable local queue underneath it is the todo list. Nothing else has to wake anything, and
+/// ${sweepMessage(s)} goes unused.
+///
+/// A translation needs a wakeup from the table above only when it is CONDITIONAL — deciding from several
+/// notices accumulated over time rather than mapping one. That needs a todo View fed by events of OURS,
+/// which means the handler records something first, and then every row above applies again.
 ///
 /// Worked implementations of all of these, against one shared model, are in
 /// reference-implementations/automation/. Read that before writing this.
@@ -1487,7 +1515,12 @@ public static class ${pascal(s.name)}Wakeup
         // TODO(codegen): choose how ${s.name} is woken, then delete this line.
         //
         // Until it is gone, codegen reports this slice under AUTOMATION NOT WOKEN — because an
-        // automation nothing ever runs passes every test it has, and that is not hypothetical.
+        // automation nothing ever runs passes every test it has, and that is not hypothetical.${s.pattern === "translation" ? `
+        //
+        // THIS IS A TRANSLATION, so the answer is very often "nothing here". If the ingest handler in
+        // Landing/ translates each notice as it arrives, the arrival IS the wakeup and this file has no
+        // work to do — delete the line above and leave every hook empty. That is a decision, not a
+        // shortcut, and the report going quiet is what records that you made it.` : ""}
     }
 
     /// <summary>
@@ -1510,6 +1543,134 @@ public static class ${pascal(s.name)}Wakeup
 }
 `);
   }
+}
+
+// --- how a foreign event ARRIVES --------------------------------------------------------------
+//
+// The counterpart of the wakeup hooks above, and it was missing for five runs. KIT-FINDINGS T1: the
+// generator emitted a foreign event's RECORD and a SeedData note about it, and nothing whatever in the
+// application — so no production path existed by which one could enter the system, and "nothing ever
+// ingests this" was invisible to a green suite in exactly the way "nothing ever wakes this" was.
+//
+// WHAT IS DERIVABLE, and therefore generated: that a foreign event needs a way in, and that it arrives as
+// a MESSAGE on a durable local queue. Program.cs already sets opts.Policies.UseDurableLocalQueues(), so
+// the queue Wolverine routes this message to is backed by the Postgres envelope tables — persisted on
+// arrival, retried on failure, dead-lettered when it keeps failing. None of that is code anybody writes.
+//
+// WHAT IS NOT, and stays hand-owned: the transport IN FRONT of that queue. A webhook they call, a table
+// they INSERT into, a broker they publish to, or a poll of their API differ in durability and in who is
+// responsible for a notice that goes missing — a decision the model cannot make and this generator must
+// not. Whichever is chosen, its only job is to send this message, which is the seam that stops three
+// transports each growing their own copy of the translation. reference-implementations/translation/
+// measures all four.
+//
+// ONE HANDLER PER FOREIGN EVENT, not per slice. Two slices consuming the same foreign event would
+// otherwise get two handler classes for one message type, and Wolverine would cheerfully run both.
+const foreignLabels = new Map(foreign.map((e) => [e.label, e]));
+const ingestsByEvent = new Map();
+for (const s of ir.slices) {
+  if (!s.generates || s.status === "in-design") continue;
+  for (const label of s.imports ?? []) {
+    // An import whose label IS produced somewhere in this system is a sibling context's event, not a
+    // foreign one. It is already in our store, appended by the context that owns it, and there is
+    // nothing to ingest — the consuming context just projects it. Only `origin=` events land here.
+    if (!foreignLabels.has(label)) continue;
+    if (!ingestsByEvent.has(label)) ingestsByEvent.set(label, []);
+    ingestsByEvent.get(label).push(s);
+  }
+}
+
+const unIngested = [];
+const checkIngestWired = (p, event) => {
+  if (!existsSync(p)) return;                       // not scaffolded yet; this run will write it
+  if (readFileSync(p, "utf8").includes("TODO(codegen): translate"))
+    unIngested.push({ path: p, event });
+};
+
+for (const [label, slices] of ingestsByEvent) {
+  const e = foreignLabels.get(label);
+  const cls = `Ingest${pascal(label)}Handler`;
+  const p = join(APP, "Landing", `${cls}.cs`);
+  checkIngestWired(p, label);
+  scaffold(p,
+    `${banner(`${label} — HOW this foreign event gets in. The transport in front of it is yours.`)}
+using Wolverine;
+using ${NS}.Contracts;
+
+namespace ${NS}.Landing;
+
+/// <summary>
+/// THE INGEST SEAM for <see cref="${NS}.Contracts.${pascal(label)}"/>, which arrives from ${e.origin} and is
+/// consumed by ${slices.map((s) => `"${s.name}"`).join(", ")}.
+///
+/// Named *Handler so Wolverine's conventional discovery finds it — no registration in Program.cs, and no
+/// Discovery.IncludeType the way an automation trigger needs one.
+///
+/// IT ARRIVES ON A DURABLE LOCAL QUEUE. Program.cs sets <c>Policies.UseDurableLocalQueues()</c>, so
+/// whatever sends this message hands it to Postgres before this method is ever called: the envelope is
+/// persisted on arrival, retried if this throws, and dead-lettered if it keeps throwing. That is the
+/// durable record of what they told us, and it is why nothing here has to write durability code.
+///
+/// IT IS ALSO THE TODO LIST. \`Event(s) -> View -> Trigger -> Command\` does not require the View to be a
+/// materialised projection, and on a translation it CANNOT be one — the foreign event is never in our
+/// store, so no Marten projection could ever fold it. The transport's inbox is the list of pending work,
+/// with retries and dead-lettering nobody wrote.
+///
+/// **NEVER APPEND THIS RECORD TO OUR STORE.** The schema belongs to ${e.origin}. Our event store is
+/// append-only, so a foreign schema written into it is in our history for ever — which is exactly the coupling a
+/// translation exists to prevent, installed by the thing meant to prevent it. The only thing that gets
+/// persisted is what WE decided, as an event of ours, through a command.
+///
+/// WHAT THIS FILE DOES NOT DECIDE — the transport in front of the queue:
+///
+/// <code>
+///   they call us, and a lost call is THEIR retry to make    -> an HTTP endpoint
+///   they can INSERT into our database                       -> ListenForMessagesFromExternalDatabaseTable
+///   they publish to a broker                                -> a Wolverine listener
+///   they offer only a query API, or push nothing            -> poll on a clock, with a high-water mark
+/// </code>
+///
+/// Whichever it is, it does one thing: <c>await bus.SendAsync(new ${pascal(label)}(...));</c> — and then
+/// everything below is reached identically by production and by a test. Measured comparison of all four:
+/// reference-implementations/translation/.
+///
+/// A test drives this with <c>WhenReceiving(new ${pascal(label)}(...))</c>, which is the production path.
+/// It cannot tell you that anything in production actually sends it; nothing can except running it.
+/// </summary>
+public static class ${cls}
+{
+    public static async Task Handle(
+        ${pascal(label)} notice,
+        IMessageBus bus,
+        ILogger logger,
+        CancellationToken cancellation)
+    {
+        // TODO(codegen): translate this into one of OUR commands and issue it.
+        //
+        //   await bus.InvokeAsync(new SomeCommand(notice.${e.fields[0] ? pascal(e.fields[0].name) : "…"}, …), cancellation);
+        //
+        // InvokeAsync, not SendAsync: it runs the command inline and THROWS if the command fails, so a
+        // translation that cannot be applied fails this message — which is what makes the retry and the
+        // dead letter queue above mean anything. SendAsync would succeed here and lose the failure.
+        //
+        // FOUR THINGS THE FAR SIDE WILL DO TO YOU, and none of them are exceptional:
+        //
+        //   * DUPLICATES. At-least-once is the normal case for every transport, and a black box
+        //     re-sending after a reconnect is ordinary. Dedupe on a correlation value carried by OUR OWN
+        //     event and folded by the decider — one value of theirs, not their schema. The transport's
+        //     own inbox catches only its own redelivery and is pruned, so it cannot be the durable answer.
+        //   * OUT OF ORDER. Nothing guarantees the arrival order matches the order things happened.
+        //   * VOCABULARY. Their names are theirs. This record and the command are the only two places
+        //     their words may appear; the rename belongs on the way into the command, which is what
+        //     mappings= on the model records.
+        //   * IDENTIFIERS THAT ARE NOT OURS. A correspondence between their key and ours has no notation
+        //     on the model at all — the GWT's example data is the only place it is pinned. If their id
+        //     resolves to nothing of ours, that is a decision (refuse? park? raise?), not a null check.
+        await Task.CompletedTask;
+        logger.LogInformation("${label} arrived and nothing is implemented yet.");
+    }
+}
+`);
 }
 
 
@@ -1727,6 +1888,11 @@ builder.Host.UseWolverine(opts =>
     // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
     opts.OnException<ConcurrencyException>().RetryTimes(3);
     opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+    // Durable local queues are what make the ingest seam in Landing/ durable without any durability
+    // code: a message routed to a local queue is written to the Postgres envelope tables before its
+    // handler runs, retried if the handler throws, and dead-lettered when it keeps throwing. That inbox
+    // is a translation's todo list — the one it cannot have as a projection, because a foreign event is
+    // never in our store.
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
 ${automations.length === 0 ? "" : `${automations.map((s) => `    ${pascal(s.name)}Wakeup.ConfigureWolverine(opts);`).join("\n")}`}
@@ -2087,6 +2253,17 @@ if (unwoken.length) {
   console.log(`file, and worked implementations are in reference-implementations/automation/:`);
   for (const u of unwoken)
     console.log(`  ${u.slice}: ${u.path.replace(OUT, "").replace(/^[\\/]/, "")}`);
+}
+
+if (unIngested.length) {
+  console.log(`\nINGEST NOT WIRED — ${unIngested.length}. These foreign events have a seam and no translation in it,`);
+  console.log(`so nothing in the application turns one into anything of ours. The same shape of hole as an`);
+  console.log(`automation nothing wakes: every test passes, because a test hands the notice to the handler itself.`);
+  for (const u of unIngested)
+    console.log(`  ${u.event}: ${u.path.replace(OUT, "").replace(/^[\\/]/, "")}`);
+  console.log(`AND THE SEAM EXISTING IS NOT THE WHOLE PATH. The transport in front of the durable queue — a`);
+  console.log(`webhook, a table they INSERT into, a broker, a poll — is hand-owned and generated nowhere. A feed`);
+  console.log(`wired to nothing at all still leaves the suite green: only running it proves an arrival happens.`);
 }
 
 console.log(`\nNOTE: Testcontainers is not in reference/llms/ — that harness is the one part written`);

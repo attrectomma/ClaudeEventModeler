@@ -667,7 +667,45 @@ instead of a space into a template literal, so the "has this field got an exampl
 rule would have fired on every derived field, including ones with examples. It surfaced as `grep` reporting
 `model.mjs` as a binary file. Caught by checking why, rather than working around it.
 
-### T1 — The generator emits no ingest seam for a foreign event · **GAP**
+### T1 — The generator emits no ingest seam for a foreign event · **GAP** · ***FIXED 2026-08-09***
+
+**Fixed by generating the seam, not only the report.** The decision that made it straightforward was choosing a
+default: *a foreign event arrives as a message on a durable local queue.* Once that is assumed, everything the
+generator needs is derivable — `codegen` scaffolds `Landing/Ingest<Event>Handler.cs`, one per foreign event
+rather than per slice, named `*Handler` so conventional discovery finds it with no `Discovery.IncludeType`. The
+body is `TODO(codegen)` and is reported as `INGEST NOT WIRED` until closed.
+
+**It needed no new configuration**, which is the sign the default was the right one: `Program.cs` has set
+`opts.Policies.UseDurableLocalQueues()` since long before this, so the envelope is persisted on arrival,
+retried on failure and dead-lettered on repeated failure with nothing written. That queue is exactly the
+"durable inbox as the todo View" the translation folder had argued for in prose.
+
+Tests reach it through a new `WhenReceiving(message)` on `IntegrationContext` —
+`IHost.InvokeMessageAndWaitAsync(object, int)`, confirmed against the mirror's testing page **and** against
+`WolverineFx 6.25.1`'s own `Wolverine.xml`, which carries the exact `(IHost, object, int)` overload matching
+`WhenPosting`'s existing millisecond convention.
+
+**The generated handler's signature is not a guess**: `Handle(TNotice, IMessageBus, ILogger, CancellationToken)`
+is byte-for-byte the signature of `StockTranslator` in this folder, which passes 15/15 against real Postgres. So
+the shape was proven by running code before the generator emitted it.
+
+Measured: regenerating this model from scratch produces the handler and builds **0 errors, 0 warnings**; a
+second run keeps it and prints both `AUTOMATION NOT WOKEN` and `INGEST NOT WIRED`.
+
+**Two things this deliberately does NOT close.** The transport in front of the queue is still hand-owned — a
+webhook, a table they INSERT into, a broker, a poll — because who is responsible for a lost notice is a
+durability decision the model cannot make. And **T4 stands unchanged**: a feed wired to nothing at all still
+leaves the suite green, because a test hands the notice to the queue itself. The report says both out loud
+rather than implying the path is complete.
+
+**The related correction:** the `<Slice>Wakeup` scaffold's decision table said *"the trigger event is FOREIGN
+→ sweep the View on a clock"*, which sends a 1:1 translation to a clock it does not need and cannot use. It now
+says the arrival is the wakeup, and a translation slice's `RegisterServices` TODO says that deleting it and
+leaving every hook empty is the normal answer.
+
+---
+
+**The original finding, as filed:**
 
 It emits the event *record* and a `SeedData` TODO to append it **in tests**, and nothing in the application. So
 there is no production path by which a foreign event enters the store, and **"nothing ever ingests this" is

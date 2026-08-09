@@ -102,13 +102,6 @@ resolve and one TODO per rule the model states. **The absent scaffold was not ju
 mechanism of BM1**: with nothing to copy, every hand-written decider reached for `IDocumentSession` and
 `FetchForWriting`, and the kit's own docs said the alternative was unavailable.
 
-### T1 — no ingest seam for a foreign event · **GAP**
-
-The generator emits an external event's record and a `SeedData` TODO to append it *in tests*, and nothing
-in the application. So no production path exists by which a foreign event enters the store, and *"nothing
-ever ingests this"* is invisible to a green suite — exactly as *"nothing ever wakes this"* was. Wanted:
-an `INGEST NOT WIRED` report, by the same logic as the reports that already exist.
-
 ### AD19b — the GWT scaffold's stream-key hint is wrong for a non-stream boundary · **GAP**
 
 A slice whose `architect` decision picked a guard row, reservation row, advisory lock or DCB has a

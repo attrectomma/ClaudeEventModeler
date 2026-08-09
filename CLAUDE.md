@@ -165,11 +165,8 @@ owes you instead is *visibility*, and that is what the reports are for: `GWT WIT
 `TESTS STILL SKIPPED ON A CLAIMED SLICE`, `IMPLEMENTED BUT STILL UNCLAIMED`, `VIEW WITH NO REGISTRATION`,
 `AUTOMATION NOT WOKEN`. Each names a file and what to change. Add a report rather than a rewrite.
 
-**One report is still missing, and it is the arrival of a foreign event.** The generator emits an external event's
-record and a `SeedData` TODO to append it *in tests*, and nothing at all in the application — so no production
-path exists by which a foreign event enters the store, and *"nothing ever ingests this"* is invisible to a green
-suite in exactly the way *"nothing ever wakes this"* was. `INGEST NOT WIRED`, by the same logic as the reports
-above. Measured in `reference-implementations/translation/`; see KIT-FINDINGS T1.
+**The arrival of a foreign event was the missing one, and it is now generated** — see *How a foreign event
+arrives* below. The report is `INGEST NOT WIRED`, by the same logic as the ones above.
 
 **The reference implementations are not the generator's responsibility either.** They are worked examples
 carrying what a choice *cost*, and they get better as the stack gets better understood — which is editorial
@@ -2128,8 +2125,28 @@ A translation needs a wakeup from the table above only when it is **conditional*
 notices accumulated over time rather than mapping one. That needs a todo View fed by events of ours, and every
 row above applies again.
 
-The one decision that is genuinely this pattern's own is the arrival, and nothing in the kit generates a seam
-for it, so it is entirely hand-owned:
+### How a foreign event arrives — the seam is generated, the transport is not
+
+**The kit assumes a durable local queue, and now generates the handler that sits on it** — which closes T1,
+the one report CLAUDE.md used to say was missing. For every event with `origin=` that a claimed slice imports,
+`codegen` scaffolds `Landing/Ingest<Event>Handler.cs`: a Wolverine message handler, found by conventional
+discovery, whose body is a `TODO(codegen)` for the translation itself and which is reported as
+`INGEST NOT WIRED` until that is closed. **One handler per foreign event, not per slice** — two slices
+consuming one notice would otherwise get two handlers for one message type and Wolverine would run both.
+
+`Program.cs` already sets `Policies.UseDurableLocalQueues()`, so this needed no new configuration: the message
+is written to the Postgres envelope tables before the handler runs, retried when it throws, and dead-lettered
+when it keeps throwing. **That queue is the durable inbox the paragraph above calls the todo View.**
+
+A test drives it with `WhenReceiving(new ForeignEvent(...))` on `IntegrationContext`, which is
+`IHost.InvokeMessageAndWaitAsync` — the same handler, the same queue, the same retries as production.
+
+**An import with no `origin=` gets no seam, and that is correct.** An event published by a sibling model in
+this system is already in our store, appended by the context that owns it; there is nothing to ingest and the
+consuming context simply projects it. Only a genuinely foreign event needs a way in.
+
+**What is still hand-owned is the transport in front of the queue**, because it is a decision about durability
+and about who is responsible for a notice that goes missing:
 
 | When | Landing | Cost |
 | --- | --- | --- |
@@ -2140,9 +2157,9 @@ for it, so it is entirely hand-owned:
 
 Built and measured against one model in `reference-implementations/translation/`.
 
-Whichever it is, all three end up sending **one message** — the seam that keeps three transports from each
-growing their own copy of the translation. Their vocabulary reaches exactly as far as that message and the
-trigger that handles it; the rename lives on the way into the command, which is what `mappings=` records.
+Whichever it is, its only job is `bus.SendAsync(new ForeignEvent(...))` — the seam that keeps four transports
+from each growing their own copy of the translation. Their vocabulary reaches exactly as far as that message
+and the handler that takes it; the rename lives on the way into the command, which is what `mappings=` records.
 
 **Dedupe on a value carried by OUR OWN event**, and note this is the one place a foreign id legitimately crosses:
 at-least-once is the normal case for every landing mechanism, and a black box re-sending after a reconnect is
