@@ -34,6 +34,35 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V6 — adding a same-stream precondition HIDES a cross-stream rule from the classifier · **BROKEN**
+
+`architect.mjs` classifies each GWT into one question family. A rejection whose GIVEN names another
+stream is `cross-stream-rule`; one whose GIVEN is on the command's own stream is
+`contended-invariant`. **A GWT with both gets classified as the second, and the cross-stream question
+stops being asked.**
+
+**Measured on Voltway.** `gwt-hb-3` — *one live hold per driver, network-wide* — began as
+`given="Bay Held(bayId=$Bay7, driverId=$Ada)" when="HoldBay(bayId=$Bay3, driverId=$Ada)"` and was
+correctly raised as `cross-stream-rule`. It is the sharpest question in the system and its answer is an
+advisory lock, the most expensive mechanism built here. Implementation then found a missing rule
+(*a bay that was never commissioned cannot be held*), so the GIVEN gained
+`Bay Commissioned(bayId=$Bay3)` — a precondition on the command's **own** stream. On the next run the
+tool reported the cross-stream answer as `ANSWER TO A QUESTION NOBODY ASKS`.
+
+**The rule did not change. The driver still holds `$Bay7` while commanding on `$Bay3`.** Only the
+classification did.
+
+**Why it matters more than a bookkeeping slip:** had the model been written with that precondition from
+the start — which is the natural way to write it — the cross-stream question would **never have been
+asked**, the advisory lock would never have been chosen, and the invariant would have shipped as a
+best-effort check two concurrent writers both pass. The failure is silent and lands on the single
+hardest decision in the system.
+
+**Wanted:** classify a GWT into **every** family it belongs to rather than the first that matches, and
+let one rule carry two questions. The orphan report is the only reason this was caught at all, so it is
+doing its job — but it fires *after* the answer exists, and a model written this way from the start
+produces no orphan and no question.
+
 ### V5 — `status=` cannot be both "which tests run" and "how far along is this" · **BROKEN**
 
 `status=` is read at **scaffold time** to decide whether a GWT's test is born with `[Fact(Skip=…)]`, and
