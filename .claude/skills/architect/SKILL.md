@@ -96,6 +96,14 @@ optimistic concurrency check and the save as middleware — leaving a decider th
 `(command, state)`. Both books ask for exactly that (`LEB` ch. 15), and Wolverine calls it the Decider
 pattern.
 
+**BUT THE RETRY THAT MAKES IT WORK IS A MESSAGE-PIPELINE POLICY.** `opts.OnException<…>().RetryTimes(3)`
+never reaches a Wolverine.HTTP endpoint, so on the HTTP arm a lost race arrives at the caller as a **500**
+instead of the ordinary business refusal. **So every `contended-invariant` you answer with "the stream
+version refuses the loser" carries a rider: it is only true if the decider is on the message path.** Say so
+in the decision, because the implementing agent reads this file and the scaffold puts the decider in the
+endpoint by default. Measured on both arms of one model in `reference-implementations/state-change/`;
+KIT-FINDINGS **V7**.
+
 **A composite key does not rule it out.** That claim was in this file for five runs and is retracted:
 `[WriteAggregate]` resolves the stream from a public **member**, and `codegen` emits an assembled
 `StreamKey` member on any command carrying the whole identity. KIT-FINDINGS **BM1**.

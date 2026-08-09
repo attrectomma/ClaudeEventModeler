@@ -73,10 +73,49 @@ for three of the four patterns there is a real choice with real consequences:
 
 | `pattern=` | What is genuinely a choice |
 | --- | --- |
-| `state-change` | Wolverine aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. message handler; `StartStream` for a slice that creates. See `reference-implementations/state-change/` |
+| `state-change` | Wolverine aggregate handler workflow vs. explicit `FetchForWriting`; HTTP endpoint vs. message handler; `StartStream` for a slice that creates. **HTTP endpoint vs. message handler is NOT a free choice once the slice can be raced** — see the box below. `reference-implementations/state-change/` |
 | `state-view` | which of Marten's read-model recipes — live, single-stream, `EventProjection`, multi-stream, flat table, composite. See `reference-implementations/state-view/` |
 | `automation` | what wakes the trigger — forwarding, subscription, side effects, clock. See `reference-implementations/automation/` |
 | `translation` | **how the foreign event lands** — webhook, a table they INSERT into, a broker, a poll on a clock — decided by who owns a lost notice and whether anything is left to re-read. **Never persist the foreign event**: its band is exempt from `identity=` because we never append to it, and an append-only store puts their schema in our history for ever. So the arrival IS the wakeup, the transport's inbox is the todo View, and none of the automation mechanisms applies. The generator now scaffolds the **seam** — `Landing/Ingest<Event>Handler.cs`, a handler on a durable local queue, reported as `INGEST NOT WIRED` until you fill it in — and still emits nothing for the **transport in front of it**, which is the choice above. Drive it in tests with `WhenReceiving(...)`. See `reference-implementations/translation/` |
+
+### The retry does NOT reach an HTTP endpoint, and every scaffold used to say it did
+
+**If your slice has a contended rule — two callers can race the same stream — the decider CANNOT be the
+HTTP endpoint.** `Program.cs`'s `opts.OnException<...>().RetryTimes(3)` is a **message-pipeline** policy.
+A Wolverine.HTTP endpoint never enters that pipeline, so the collision is never retried and
+`EventStreamUnexpectedMaxEventIdException` reaches the caller as a **500** instead of the ordinary refusal.
+
+Measured on one model, both arms, in `reference-implementations/state-change/`:
+
+```
+message arm -> revised | NothingChanged                       (retry re-read; the ORDINARY RULE refused)
+http arm    -> the collision escaped the endpoint: EventStreamUnexpectedMaxEventIdException
+```
+
+**The shape when you need it** — decider stays a message handler, endpoint becomes a five-line adapter:
+
+```csharp
+[WolverinePost(Route)]
+public static async Task<IResult> Handle(TheCommand command, IMessageBus bus)
+{
+    var outcome = await bus.InvokeAsync<TheOutcome>(command);
+    return outcome.Succeeded ? Results.NoContent() : Rejections.Problem(outcome.Rule!, outcome.Detail!);
+}
+```
+
+Same `[WriteAggregate]`, same pure decider, same route/body/status codes — the wire does not change.
+
+- **Return an outcome, not an exception.** A thrown rejection would be retried three times before failing.
+- **Drop `[EmptyResponse]`** the moment a slice can refuse: it forces a 204 and discards what you returned,
+  so a rejected command reports success.
+- **Do not translate the collision** with Wolverine.HTTP's `OnException` convention. A version conflict does
+  not mean the rule failed — on a stream shared between contexts an unrelated slice's append collides too,
+  and you would refuse a valid command with a rule name that is untrue. A retry re-reads; a translation guesses.
+- **Do not reach for it where nothing contends.** The one-file shape is still the simpler default.
+
+**Do not argue from "the generated endpoint has no try/catch."** None of the generated files has one,
+message handlers included — the retry lives in the executor around them. Only behaviour distinguishes the
+two arms. KIT-FINDINGS **V7**.
 
 **No checker can see any of these.** The model validates, the code compiles, the tests pass, and the
 choice can still be wrong. So the rule is the same in every case: **look up what the library offers,

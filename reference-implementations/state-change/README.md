@@ -68,6 +68,65 @@ failure, sharply:
 So a caller of the message path cannot treat a rule violation the way it treats `NotDrafted` — those come back
 as an outcome, this one is thrown, and nothing in the model says so.
 
+## The two arms are NOT equivalent under contention, and the difference is invisible until they collide
+
+**This is the most consequential thing in this folder, and for five runs it was not here.** The README above
+presents the HTTP endpoint and the message handler as a free choice of transport over identical middleware.
+They are — right up until two callers race the same stream.
+
+`Program.cs` carries the retry that the whole kit's concurrency story rests on:
+
+```csharp
+opts.OnException<ConcurrencyException>().RetryTimes(3);
+opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+```
+
+Those are **message-pipeline** policies. A Wolverine.HTTP endpoint is not a message and never enters that
+pipeline, so on the HTTP arm they are never reached.
+
+**Measured, both arms, one model — `Concurrency/RetryReachesTheMessageArmOnlyTests.cs`:**
+
+```
+message arm -> revised | NothingChanged
+http arm    -> the collision escaped the endpoint: EventStreamUnexpectedMaxEventIdException
+```
+
+On the message arm the retry re-fetches, the state now includes the winner's revision, and the decider's
+**ordinary rule** refuses the loser — one statement of the rule rather than two kept in agreement. On the
+HTTP arm the exception leaves the endpoint through `EndpointRoutingMiddleware` and reaches the caller.
+
+**The obvious evidence for this is worthless, and it nearly shipped as the justification.** It is tempting
+to argue from the generated HTTP endpoint having no `try`/`catch`. Dump every generated file with
+`codegen write` and **none of them has one — message handlers included**: Wolverine's retry lives in the
+executor *around* the generated method. Its absence proves nothing either way, which is why the entry above
+is a test and not a paragraph.
+
+### So when a slice needs the retry, the decider is a message handler and the endpoint is an adapter
+
+```csharp
+[WolverinePost(Route)]
+public static async Task<IResult> Handle(TheCommand command, IMessageBus bus)
+{
+    var outcome = await bus.InvokeAsync<TheOutcome>(command);
+    return outcome.Succeeded ? Results.NoContent() : Rejections.Problem(outcome.Rule!, outcome.Detail!);
+}
+```
+
+Same `[WriteAggregate]`, same pure `(command, state) -> events`, same route, body and status codes. **The
+wire does not change**; the cost is one in-process hop and one extra type.
+
+**Only reach for it where two callers can genuinely race the same stream.** A slice with no contention does
+not need it, and the one-file shape stays the simpler default.
+
+**And do NOT translate the collision instead** with Wolverine.HTTP's `OnException` convention. A version
+conflict does not mean the business rule failed — it means *somebody else appended to this stream*. On a
+stream shared between contexts that somebody may be an unrelated slice, and the translation would refuse a
+perfectly valid command with a rule name that is untrue. **A retry re-reads; a translation guesses.**
+
+`the_http_arm_loses_the_retry_and_a_lost_race_reaches_the_client_as_a_500` **asserts the defect on purpose.**
+If a future Wolverine applies its retry policies to HTTP chains, that test goes red — which is precisely the
+signal wanted: come back and delete the two-file shape. KIT-FINDINGS **V7**.
+
 ## Return shapes: three attempts, and the middle one is the dangerous one
 
 In this workflow a returned value is **appended as an event**, which makes the return type load-bearing.

@@ -17,7 +17,7 @@ reference-implementations/
   automation/            the Automation pattern — four ways to wake a trigger, one model    19/19
     email-outbox/        the event model
     generated/           the implementations
-  state-change/          the state-change pattern on an EXISTING stream — the aggregate     16/16
+  state-change/          the state-change pattern on an EXISTING stream — the aggregate     18/18
     drafting/            the event model                 handler workflow, with and without HTTP
     generated/           both implementations
                          ALSO: DraftHistory, the one demonstration of a row that carries its
