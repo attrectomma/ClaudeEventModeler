@@ -52,15 +52,27 @@ and its append while the other writer is blocked at the lock; remove the lock an
 straight through the open window and both commit. Mutation-checked in both directions —
 `HoldBayMechanism.HoldAsync` carries a test-only `afterRead` hook, null on every production path.
 
-**It is still not sound as written**, which is the open half: the same test passes inside the suite and
-fails **0 of 6** times run alone, so it is order-dependent on first-run costs (container start, schema
-creation, Wolverine codegen) rather than merely flaky. Wanted: a deterministic seam — a
-`TaskCompletionSource` the lock-holder signals once past the lock and before its append, awaited only by
-the second writer, which cannot deadlock because nothing waits on a lock it also holds.
+**A delay is still a bet, so the shipped form uses no wall clock at all.** The lock-holder *parks* in the
+`afterRead` seam until the test releases it; the test then proves the boundary is locked with a keyed
+`pg_try_advisory_xact_lock` on its own connection, waits for the second writer to be **observably**
+blocked in `pg_locks` (a condition, not a duration), releases, and asserts the outcome shape. Mutating
+the lock key fails it at the keyed assertion in under a second — 3 runs red, 5 green alone, 3 green with
+the suite.
+
+> **A RETRACTION, AND IT IS THE METHOD TURNED ON ITSELF.** This entry first recorded the intermediate
+> version as *"order-dependent — passes in the suite, fails 0 of 6 alone."* **That measurement was
+> wrong.** The restore step used `Move-Item` from a `Copy-Item` backup, which preserves the ORIGINAL
+> mtime — so the restored source was older than the compiled assembly, MSBuild judged the build up to
+> date, and `--no-build` re-ran the **mutated** binary six times. After a real rebuild: 5 of 5 green.
+> The lesson is exactly the one this kit keeps relearning at a different altitude: **a mutation test
+> proves nothing unless you can show the mutation actually reached the binary**, and `--no-build` after
+> a timestamp-preserving restore silently guarantees it did not.
 
 **And the reference implementation's arm 3 should be re-measured the same way**, because if its two
 writers never overlap either, the arm that CLAUDE.md calls "the odd one and often the best" is green for
-a reason unrelated to the lock.
+a reason unrelated to the lock. The implementing agent's independent read is that arm 3 uses the v1
+shape and **v1 is the version that survives its own mutation** — so this is a live suspicion about
+shipped reference code, not a hypothetical.
 
 ### AD9 — `validate` passes 0/0 on a `.drawio` draw.io cannot open · **BROKEN**
 
