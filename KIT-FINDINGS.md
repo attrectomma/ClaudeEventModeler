@@ -34,6 +34,34 @@ These pass every check the kit has. That is what makes them the top of the list.
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
+### V5 — `status=` cannot be both "which tests run" and "how far along is this" · **BROKEN**
+
+`status=` is read at **scaffold time** to decide whether a GWT's test is born with `[Fact(Skip=…)]`, and
+test files are `scaffold` — so the skip is **kept for ever**. `codegen.mjs` generates the whole system in
+one pass. Those three facts together leave no good option:
+
+| | Tests | `status=` as a progress signal |
+| --- | --- | --- |
+| promote every slice to `ready` before the first scaffold | all live, 0 skipped | **destroyed** — every slice reads `ready` whether or not a line exists |
+| leave them `in-design` and promote per slice | every later slice's tests baked `Skip`, each needing a hand edit that `TESTS STILL SKIPPED ON A CLAIMED SLICE` can only report, not repair | meaningful |
+
+**Measured on Voltway.** Promoting all 22 before scaffolding gave 75 live tests and 0 skipped — and then
+`status=` said `ready` for 19 slices with nothing written and `in-progress`/`in-review` for the one that
+was built. A human reading the model for progress gets no signal at all, which is exactly what happened:
+the user asked why "19 slices remain" did not match the statuses, and the answer was that the number came
+from counting implemented code rather than from the field that exists to carry it.
+
+**The field is being asked to do two jobs that want opposite defaults**, and the test-suite job wins
+because its failure mode is silent. Options, none free:
+
+- **`Skip` from the model at RUN time, not scaffold time** — a `[SkippableFact]` or a trait filter reading
+  the compiled IR, so promoting a slice changes the run without touching a kept file. Removes the conflict
+  entirely and is the only option that does.
+- **Scaffold per slice** rather than per system, so an unpromoted slice has no test file yet.
+- **Split the field** — `status=` for progress, and let the runner decide skipping some other way.
+
+Until then, say out loud which convention a project is using, because the model does not.
+
 ### V4 — every MOBILE review shot of a data-driven page is a picture of the loading state · **BROKEN**
 
 `shoot.mjs` renders below `MIN_HONEST_WIDTH = 520` inside an `<iframe>`, which is the correct fix for the
