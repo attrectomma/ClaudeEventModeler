@@ -109,11 +109,35 @@ data and the sheet lies about the scale. **This affects every data-driven screen
 width**, and `design.mjs` is unaffected only because a static design page fetches nothing.
 
 **The workaround in the project is a same-origin shim** (`web/_shot390.html`: a 390px iframe scaled
-×1.333 so the main frame owns the fetch and the layout viewport is a true 390). It works and it is not
-where the fix belongs. **The real fix is in `tools/shoot.mjs`** — either wait on a real-time condition
-rather than virtual time, or drop the iframe entirely and use
-`--force-device-scale-factor=2` at 780 physical pixels, which needs no iframe and no shim. Delete the
-shim when that lands.
+×1.333, served by Vite so the outer page shares the app's origin). It works and it is not where the fix
+belongs.
+
+**MEASURED, so the obvious fix can be ruled out.** `probes/` style run against a page that prints
+`innerWidth` and flips a line after a resolved promise:
+
+| invocation | `innerWidth` | async work landed? |
+| --- | --- | --- |
+| `--window-size=390` DSF 1 | **492** | — |
+| `--window-size=390` DSF 2 | **492** (png 780×600) | yes |
+| `--window-size=780` DSF 2 | **764** (png 1560×1200) | yes |
+
+So **`--force-device-scale-factor` cannot produce a narrow CSS viewport** — `--window-size` is in CSS
+pixels and DSF only changes output density. That kills the "drop the iframe, shoot at 780 physical"
+suggestion outright.
+
+The same probe settles the mechanism: **`--virtual-time-budget` DOES wait for async work in the main
+frame.** The iframe is the entire problem, and only for an `http://` target — a `file://` design page
+inside a `file://` shim is unaffected, which is why `design.mjs` never showed this.
+
+**Two fixes remain, both real:**
+
+1. **Same-origin shim, generalised into `review.mjs`.** Write the wrapper into the app's own served root
+   so shim and target share an origin and one renderer, shoot it, delete it. This is exactly the manual
+   workaround, moved into the tool. Cheap; only helps targets the kit can write a file into.
+2. **Drive Chrome over CDP instead of flags** — `Emulation.setDeviceMetricsOverride` sets a true 390 CSS
+   viewport with no iframe at any width, and `Page.captureScreenshot` takes the shot. Node 22+ has a
+   global `WebSocket`, so this needs no dependency. Larger, and it fixes the width floor permanently
+   rather than working around it.
 
 ### V2 — a documented Marten `Apply` overload is SILENTLY SKIPPED on a multi-stream projection · **BROKEN** *(in Marten, not the kit)*
 
