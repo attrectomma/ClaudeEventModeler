@@ -75,6 +75,20 @@ public sealed class BudgetReservation
     public decimal Amount { get; set; }
 }
 
+/// <summary>ARM 5's claim: one commitment slot of one department, taken. Its STREAM is the guard, so this
+/// event's payload is evidence rather than mechanism — nothing reads it to decide anything.</summary>
+public sealed record SpendReserved(Guid DepartmentId, Guid ProjectId, decimal Amount, int Slot);
+
+/// <summary>
+/// ARM 5's stream type. A marker: <c>StartStream&lt;T&gt;</c> uses it to tag the stream's aggregate type
+/// and nothing folds it, which is why it has no Apply methods and therefore needs no <c>partial</c>
+/// (KIT-FINDINGS AD17 — that requirement is for convention-dispatched *projections*).
+/// </summary>
+public sealed class DepartmentReservation
+{
+    public Guid Id { get; set; }
+}
+
 /// <summary>
 /// The DCB tag: a strong-typed wrapper, which the docs require ("Tag types should be simple wrapper
 /// records around a primitive value"). Named Tag rather than DepartmentId because the events already
@@ -272,6 +286,102 @@ public static class CommitMechanisms
         {
             return CommitOutcome.Conflict;
         }
+    }
+
+    /// <summary>
+    /// ARM 5 — THE RESERVATION PATTERN, AND THE EVENT STORE IS THE UNIQUE INDEX.
+    ///
+    /// <i>Understanding Eventsourcing</i> ch. 36 offers two implementations of the Reservation Pattern.
+    /// The first is *"using a database to synchronize access"* with a unique constraint — which is
+    /// <see cref="ReservationRow"/> above, built here before anyone noticed it had a name. The second is
+    /// this one, and it needs no table of ours at all:
+    ///
+    /// <blockquote>"there can only ever be one aggregate for a given ID at any point in time. So if we
+    /// define the E-Mail address as the aggregate-id, it ensures that an E-Mail can only be taken once."</blockquote>
+    ///
+    /// **The event store already enforces uniqueness on the stream table's primary key.** So instead of
+    /// declaring a document, an index and a registration, derive a stream id from the contested thing and
+    /// let starting that stream be the claim. The loser gets `ExistingStreamIdCollisionException`, which is
+    /// the same refusal Marten gives any first-write race — the kit's own ConcurrencyHarness has classified
+    /// it since before this arm existed.
+    ///
+    /// THE BOOK'S CASE IS UNIQUENESS AND OURS IS A SUM, so the contested thing is not a value but a
+    /// **slot**: "commitment number N of this department". Two writers reading the same state derive the
+    /// same N, so they collide on the same stream. That is the identical trick to arm 2's sequence, with
+    /// the event store's primary key standing in for a unique index.
+    ///
+    /// COST, and it is the lowest of the five: no document type, no index, no registration, no lock, no
+    /// Marten 9. What it costs instead is a stream per commitment — the store grows a stream where arm 1
+    /// grows nothing and arm 2 grows a row — and, like arm 2, the slot must be counted.
+    /// </summary>
+    public static async Task<CommitOutcome> ReservationStream(
+        IDocumentStore store, CommitSpend cmd, Func<Task>? afterRead = null)
+    {
+        await using var session = store.LightweightSession();
+
+        // Read the department's commitments from the EVENT STORE rather than the view. Both give the same
+        // race; this one additionally gives the COUNT, which is the slot, and it does not inherit the
+        // view's lost-update problem (AD12) into the number the rule is checked against.
+        var committedEvents = await session.Events.QueryRawEventDataOnly<SpendCommitted>()
+            .Where(e => e.DepartmentId == cmd.DepartmentId).ToListAsync();
+        var releasedEvents = await session.Events.QueryRawEventDataOnly<CommitmentReleased>()
+            .Where(e => e.DepartmentId == cmd.DepartmentId).ToListAsync();
+
+        var committed = committedEvents.Sum(e => e.Amount) - releasedEvents.Sum(e => e.Amount);
+
+        // MUTATION-CHECKED, BOTH DIRECTIONS, because this one line is the entire mechanism:
+        //   pin it to 0        -> every writer collides for ever. Fails ONLY
+        //                         reservation_stream_still_allows_successive_commits_that_fit.
+        //   make it unique     -> nobody ever collides. Fails the deterministic race AND the stress test,
+        //                         and NOT the successive-commits one.
+        // Two mutations, two disjoint sets of failing tests: that is what says the three tests are
+        // measuring three different things rather than restating each other.
+        var slot = committedEvents.Count;
+
+        var budget = (await session.LoadAsync<DepartmentSpend>(cmd.DepartmentId))?.Budget ?? 0m;
+
+        if (afterRead is not null) await afterRead();
+
+        if (committed + cmd.Amount > budget) return CommitOutcome.BudgetExceeded;
+
+        // THE MECHANISM, and it is this one line. StartStream fails if the stream already exists, so the
+        // claim and the guard are the same operation.
+        session.Events.StartStream<DepartmentReservation>(
+            ReservationStreamId(cmd.DepartmentId, slot),
+            new SpendReserved(cmd.DepartmentId, cmd.ProjectId, cmd.Amount, slot));
+
+        session.Events.Append(cmd.ProjectId, new SpendCommitted(cmd.ProjectId, cmd.DepartmentId, cmd.Amount));
+
+        try
+        {
+            await session.SaveChangesAsync();
+            return CommitOutcome.Committed;
+        }
+        catch (Marten.Exceptions.ExistingStreamIdCollisionException)
+        {
+            // Somebody else claimed this slot. Marten.Exceptions, NOT JasperFx — unlike ConcurrencyException
+            // and DocumentAlreadyExistsException, this one did not move in Marten 9. Verified by grepping
+            // Marten.xml rather than assumed, because the two halves of that pair are now in different
+            // assemblies and guessing has a 50% hit rate.
+            return CommitOutcome.Conflict;
+        }
+    }
+
+    /// <summary>
+    /// A deterministic stream id for (department, slot). Streams here are <c>StreamIdentity.AsGuid</c>, so
+    /// the natural key — a string like "dept:7" — is not available and has to be hashed into one.
+    ///
+    /// **Determinism is the whole requirement**: two racing writers must derive the SAME Guid from the same
+    /// (department, slot) or they do not collide and the arm silently degrades into the naive one. MD5 is
+    /// used as a hash, not as security; a collision between two different departments would over-serialise
+    /// and never under-serialise, which is the safe direction.
+    /// </summary>
+    private static Guid ReservationStreamId(Guid departmentId, int slot)
+    {
+        Span<byte> key = stackalloc byte[20];
+        departmentId.TryWriteBytes(key[..16]);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(key[16..], slot);
+        return new Guid(System.Security.Cryptography.MD5.HashData(key));
     }
 
     /// <summary>

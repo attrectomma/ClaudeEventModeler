@@ -127,6 +127,12 @@ document row, a unique index, a lock or a DCB tag all pass it.
 | **reservation row** | a unique index on `(boundary, sequence)` | `Conflict`, retry | a row per write, unbounded; the sequence is an O(rows) count. Leaves an audit trail |
 | **advisory lock** | `pg_advisory_xact_lock`, taken **before the read** | **`BudgetExceeded`** — the ordinary rule, **no retry** | serialises everything in the boundary; contention becomes latency rather than failure |
 | **DCB** | `mt_dcb_tag_version`, maintained by Marten | `DcbConcurrencyException`, retry | none beyond being on the current stack |
+| **reservation stream** | the **event store's own stream table** — `StartStream` on an id derived from the contested thing | `ExistingStreamIdCollisionException`, retry | **the cheapest**: no document, no index, no registration, no lock, no Marten 9. Costs a stream per claim |
+
+**The last two rows are one pattern** — *Understanding Eventsourcing* ch. 36's Reservation Pattern, which
+offers exactly these two implementations (*"using a database to synchronize access"* and *"using aggregates
+to ensure consistency"*). Reach for the stream form first: it adds no schema of yours at all, and
+`ConcurrencyHarness` already classifies its refusal.
 
 **Three things to know before choosing:**
 

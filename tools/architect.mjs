@@ -638,7 +638,8 @@ if (cmd === "tests") {
   if (crossStream.length) {
     console.log(`\n${crossStream.length} CROSS-STREAM invariant(s) — NO stream key covers these, so a mechanism`);
     console.log(`must be chosen in ARCHITECTURE.md. Four are built and measured in`);
-    console.log(`reference-implementations/cross-aggregate-invariant/: guard row, reservation row, advisory lock, DCB.`);
+    console.log(`reference-implementations/cross-aggregate-invariant/: guard row, reservation row, advisory
+lock, DCB, and the reservation STREAM (the cheapest — StartStream on a derived id).`);
     for (const q of crossStream) console.log(`  ${q.race.rule}\n     ${q.race.command} appends to ${q.race.aggregate} but reads ${q.race.foreign}`);
   }
   if (sameStream.length) {

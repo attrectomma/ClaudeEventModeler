@@ -100,13 +100,21 @@ is the *partially synchronous projection* (a bounded in-memory queue filled by a
 which CLAUDE.md already names as the missing third read-side option and no reference implementation builds.
 → [BOOK-INDEX.md](reference/BOOK-INDEX.md) gap 1
 
-### BK2 — the Reservation Pattern is a fifth cross-aggregate mechanism, and the cheapest · **GAP**
+### BK2 — the Reservation Pattern · ***BUILT 2026-08-09*** · *and the gap was half as wide as recorded*
 
-`UES` **ch. 36**: make the contested value **the stream id**, because *"there can only ever be one
-aggregate for a given ID at any point in time."* No guard row, no unique index, no lock, no DCB — and the
-kit's own `ConcurrencyHarness` already classifies its failure (`ExistingStreamIdCollisionException`).
-`architect` offers *"make the contested thing ONE stream"* as an option with no name and no worked
-example; `cross-aggregate-invariant/` builds four mechanisms and not this one.
+`UES` **ch. 36** gives the pattern **two** implementations, and the kit already had one of them.
+*"Using a database to synchronize access"* with a unique constraint **is arm 2**, built a week before
+anyone read the chapter it comes from. Only *"using aggregates to ensure consistency"* — the contested
+value as the **stream id** — was missing.
+
+Now **arm 5** in `cross-aggregate-invariant/`, and it is the cheapest of the five: no document, no index,
+no registration, no lock, no Marten 9. The event store already enforces uniqueness on its stream table, so
+`StartStream` is claim and guard in one operation. 18/18 green, stable, both mutations checked.
+
+**What is still open is the other half of ch. 36** — the two-step **reserve → execute workflow**, for
+linearising a process across systems where ACID cannot reach. That is a composition of the existing four
+patterns and needs no new notation, which is the interesting thing about it; it wants its own reference
+implementation rather than an arm. See the handover.
 
 ### BK3 — the kit emits no metadata: no correlation ID, no causation ID · **GAP**
 

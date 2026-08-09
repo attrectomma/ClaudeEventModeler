@@ -282,6 +282,59 @@ public sealed class CrossAggregateRaceTests(AppFixture fixture) : IntegrationCon
         outcomes.ShouldContain(CommitOutcome.Committed);
     }
 
+    // ---- ARM 5. The Reservation Pattern: the event store's own stream table is the unique index -------
+
+    [Fact]
+    public async Task reservation_stream_lets_exactly_one_of_two_racing_commits_through()
+    {
+        await GivenABudgetOf(100_000m);
+        var barrier = Barrier(2);
+
+        var a = CommitMechanisms.ReservationStream(Store, new CommitSpend(ProjectA, Department, 70_000m), barrier);
+        var b = CommitMechanisms.ReservationStream(Store, new CommitSpend(ProjectB, Department, 70_000m), barrier);
+        var outcomes = await Task.WhenAll(a, b);
+
+        outcomes.Count(o => o == CommitOutcome.Committed).ShouldBe(1);
+        outcomes.Count(o => o == CommitOutcome.Conflict).ShouldBe(1);
+
+        (await CommittedAccordingToTheEventStore()).ShouldBe(70_000m);
+    }
+
+    [Fact]
+    public async Task reservation_stream_still_allows_successive_commits_that_fit()
+    {
+        await GivenABudgetOf(100_000m);
+
+        // Slot 0, then slot 1 — DIFFERENT streams, so no collision. This is the test that would fail if the
+        // slot were constant: the mechanism would then refuse every commit after the first, which the two
+        // tests above cannot distinguish from working correctly.
+        (await CommitMechanisms.ReservationStream(Store, new CommitSpend(ProjectA, Department, 40_000m)))
+            .ShouldBe(CommitOutcome.Committed);
+        (await CommitMechanisms.ReservationStream(Store, new CommitSpend(ProjectB, Department, 40_000m)))
+            .ShouldBe(CommitOutcome.Committed);
+
+        (await CommitMechanisms.ReservationStream(Store, new CommitSpend(ProjectA, Department, 40_000m)))
+            .ShouldBe(CommitOutcome.BudgetExceeded);
+
+        (await CommittedAccordingToTheEventStore()).ShouldBe(80_000m);
+    }
+
+    [Fact]
+    public async Task reservation_stream_holds_the_budget_under_unstaged_contention()
+    {
+        await GivenABudgetOf(100_000m);
+
+        var projects = Enumerable.Range(0, 10)
+            .Select(i => Guid.Parse($"fccccccc-cccc-cccc-cccc-{i:D12}")).ToArray();
+        foreach (var p in projects) await Given(p, new ProjectOpened(p, Department, $"Project {p:N}"));
+
+        var outcomes = await Task.WhenAll(projects.Select(p =>
+            CommitMechanisms.ReservationStream(Store, new CommitSpend(p, Department, 15_000m))));
+
+        (await CommittedAccordingToTheEventStore()).ShouldBeLessThanOrEqualTo(100_000m);
+        outcomes.ShouldContain(CommitOutcome.Committed);
+    }
+
     // ---- ARM 3. An advisory lock: serialisation, so the loser is refused rather than conflicted ------
 
     /// <summary>

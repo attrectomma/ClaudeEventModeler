@@ -64,6 +64,34 @@ rejection. That is not a defect in them; it is what a GWT is, and it is why `arc
 | **2 — reservation row** | a unique index on `(department, sequence)` | `Conflict` | **GREEN** |
 | **3 — advisory lock** | `pg_advisory_xact_lock`, taken before the read | **`BudgetExceeded`** | **GREEN** |
 | **4 — DCB** | `mt_dcb_tag_version`, one row per tag value | `DcbConcurrencyException` | **GREEN** |
+| **5 — reservation stream** | the **event store's own stream table** — `StartStream` on a derived id | `ExistingStreamIdCollision` | **GREEN** |
+
+### Arms 2 and 5 are the book's Reservation Pattern, and one of them was built without knowing
+
+*Understanding Eventsourcing* **ch. 36** gives the Reservation Pattern two implementations, and this folder
+now has both:
+
+> *"Using a **database** to synchronize access"* — a unique constraint. **That is arm 2**, built here a week
+> before anyone read the chapter it comes from.
+>
+> *"Using **aggregates** to ensure consistency"* — *"there can only ever be one aggregate for a given ID at
+> any point in time. So if we define the E-Mail address as the aggregate-id, it ensures that an E-Mail can
+> only be taken once."* **That is arm 5.**
+
+**Arm 5 is the cheapest of the five.** No document type, no index, no registration, no lock, no Marten 9 —
+the event store already enforces uniqueness on its stream table, so `StartStream` *is* the claim and the
+guard in one operation. The loser gets `ExistingStreamIdCollisionException`, which the kit's own
+`ConcurrencyHarness` has classified since before this arm existed.
+
+**The book's case is uniqueness and ours is a sum**, so the contested thing is not a value but a **slot** —
+"commitment number N of this department". Two writers reading the same state derive the same N and collide
+on the same stream. That is arm 2's sequence exactly, with the stream table's primary key standing in for
+a unique index. Two mechanisms, one idea, different Postgres primitive — which is the same relationship
+arms 1 and 2 have to each other.
+
+**Streams here are `StreamIdentity.AsGuid`**, so the natural key `"dept:7"` is unavailable and has to be
+hashed into a Guid. Determinism is the whole requirement: derive the same Guid or the arm silently
+degrades into the naive one, which is what mutation B below proves.
 
 **The headline: arms 1–3 need no Marten 9.** They were measured on Marten 8, which is what the kit
 enforced when this folder was built — it has since moved to 9, so the point now reads the other way round:
