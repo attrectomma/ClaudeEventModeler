@@ -55,6 +55,39 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V17 — `wireframe.mjs scaffold` is all-or-nothing, so a `displays=` field added later can never be drawn by the tool · **BROKEN**
+
+`node tools/wireframe.mjs scaffold <file>` answers *"wireframes already present — leaving it alone."* once any
+screen has one. So the moment a screen gains an attribute — which is the normal way a model grows — the field
+must be hand-placed, and hand-placing is **precisely the job the tool exists to do**: CLAUDE.md says it is a
+tool rather than a hand edit *"because it touches every y and every routing point in the file"*.
+
+Measured: adding `withdrawnBy` to `BayHealth` raised three `field-not-drawn` warnings, and the tool declined
+all three. Placing them by hand meant reading the stack rhythm of three screen columns (22px, 18px and 20px
+spacing, because the scaffolder packs N cells into a fixed screen height) and appending inside each — which
+is exactly the arithmetic nobody should be doing by hand.
+
+The fix is per-screen, per-field idempotence: draw the cells that are **missing**, leave the ones that exist
+where the human put them. The refusal is protecting hand-arranged wireframes, which is right — it just
+protects them by doing nothing at all.
+
+> ### THE PATTERN BEHIND V17, V13, V9 AND V5 — THE KIT IS STRONG ON THE FIRST PASS AND WEAK WHEN THE MODEL GROWS
+>
+> Four findings this run are the same shape, and it is worth stating as one:
+>
+> | | first pass | after the model grows |
+> | --- | --- | --- |
+> | `wireframe.mjs scaffold` | draws every field | **refuses entirely** (V17) |
+> | `GWT WITHOUT A TEST` | names every uncovered rule | **goes silent** on a new scenario for an existing rule name (V13) |
+> | `ARCHITECTURE.md` premises | true when written | **stale, and indistinguishable from un-revisited** (V9, and two corrections this run) |
+> | `status=` / baked `Skip` | correct at scaffold time | **frozen**, reporting Skipped where the gate needs Passed (V5) |
+>
+> The generator is **idempotent**; the *reports and helpers around it* are not. And a growing model is the
+> normal case — ch. 14 and ch. 16 of *Understanding EventSourcing* are both about appending to an existing
+> model, and `add-slice` exists for it. **Every check should be asked one question: what does it do on the
+> second pass?** A check that only fails to help is tolerable; a check that goes *quiet* is not, because
+> silence is indistinguishable from success.
+
 ### V16 — screens are ported one at a time into ONE Vite bundle, so an unscoped class silently restyles a screen nobody was working on · **BROKEN**
 
 `frontend-agent` ports **one screen per run**, each with its own `.css` — and Vite concatenates every one of
