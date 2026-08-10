@@ -26,6 +26,27 @@ Carry **every `data-em` attribute across**. JSX writes them exactly as HTML does
 field you show that the model does not declare is a hard error, and one you drop is a warning. That
 check is the only thing keeping the page honest about what the system can supply.
 
+### SCOPE YOUR STYLESHEET TO A SCREEN-ROOT CLASS. Vite has one bundle.
+
+You port **one screen at a time**, each with its own `.css` — and Vite concatenates all of them into a
+single document. So a class name that is obviously screen-local while you are writing it is **global** the
+moment a second screen exists.
+
+Measured, and it is not a hypothetical: `BayFinder.css` declared `.bay { display: grid; padding: … }`,
+entirely reasonable for a list of bay cards. Two screens later, `<td class="bay">` in the operations console
+*and* in bay-health picked it up and those cells dropped out of their table's layout. Neither of those
+authors wrote a line of the CSS that broke their screen, and the screen that **owns** the rule renders
+identically either way — so the damage is always in somebody else's file, and never in yours.
+
+**Nothing catches it.** `tsc` is clean, `vite build` succeeds, and `design.mjs check` passes — that check is
+about the *field* contract and knows nothing about layout. A screenshot is the only thing that shows it,
+which is why *render it and look* below is a gate and not advice.
+
+So: prefix every selector with a screen-root class (`.ops-console .bay { … }`), and **keep the design's own
+class names on the elements** so `data-em`, the design and the review sheet still line up. If you are the
+first port and there is nothing to collide with yet, do it anyway — that is exactly when the habit is free,
+and it gets more expensive with every screen added.
+
 ## The screen is shared between slices
 
 A screen appears in **every slice that triggers from it**, and the model's `screen=` slug is what

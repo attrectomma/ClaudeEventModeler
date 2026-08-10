@@ -55,6 +55,29 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V16 — screens are ported one at a time into ONE Vite bundle, so an unscoped class silently restyles a screen nobody was working on · **BROKEN**
+
+`frontend-agent` ports **one screen per run**, each with its own `.css` — and Vite concatenates every one of
+them into a single document. So a class name that is obviously screen-local while you are writing it becomes
+global the moment a second screen exists.
+
+Measured: `BayFinder.css` declared `.bay { display: grid; padding: var(--s4) }`, entirely reasonable for a
+list of bay cards. Two screens later, `<td class="bay">` in the operations console **and** in bay-health
+picked it up and those cells dropped out of their table's layout. Neither screen's author wrote a line of the
+CSS that broke it, and the screen that *owns* the rule renders identically either way — so the damage is
+always in somebody else's file.
+
+**Nothing catches it.** `tsc` is clean, `vite build` succeeds, `design.mjs check` passes at 0/0 — it is a
+*field*-contract check and knows nothing about layout. The only artifact that shows it is a screenshot, which
+is why *render it and look* is a gate rather than advice.
+
+**The rule the kit should state and does not:** every screen stylesheet is scoped to a screen-root class, and
+the design's own class names stay on the elements so `data-em` and the review sheet still line up. Cheap to
+do up front, and it gets more expensive with every screen added — the first port has nothing to collide with,
+which is exactly when the habit has to be set.
+
+Belongs in `.claude/agents/frontend-agent.md` as an instruction, not just here.
+
 ### V15 — the React port keeps its OWN COPY of `tokens.css`, and nothing checks the two agree · **BROKEN**
 
 `designs/tokens.css` is *"the ONLY place colour, type and spacing are defined"* — and then the frontend port
@@ -404,6 +427,20 @@ then looks a quarter smaller than the design's, side by side, under a caption th
 So the two failure modes compose: shoot honestly and you photograph a spinner; shoot wide enough to get
 data and the sheet lies about the scale. **This affects every data-driven screen in the kit at mobile
 width**, and `design.mjs` is unaffected only because a static design page fetches nothing.
+
+**AND IT HAS A THIRD FACE, WORSE THAN BOTH: an entirely BLANK page.** Measured on a second project run, on
+three screens at 390px against a live Vite app — `fault-report?siteId=…` came back **byte-identical blank
+across five runs**, unaffected by `--settle 0`, `1200` or `4000`, while *the same URL at 390 through real
+device metrics rendered perfectly* and the same page at 1440 rendered perfectly. Another shot came back
+showing the loading state, another was blank once and fine after.
+
+**A blank shot reads as a bug in the port**, and that is what makes this the expensive failure: the
+implementer's first move is to go looking for a rendering fault in code that is correct. Two of the three
+screens in that run were re-shot through device metrics to complete the sheet.
+
+That is now three independent symptoms of one cause — spinner, wrong scale, blank — which strengthens the
+case for the CDP `Emulation.setDeviceMetricsOverride` fix over the same-origin shim: device metrics is the
+path that demonstrably works at 390 in every one of these cases.
 
 **The workaround in the project is a same-origin shim** (`web/_shot390.html`: a 390px iframe scaled
 ×1.333, served by Vite so the outer page shares the app's origin). It works and it is not where the fix
