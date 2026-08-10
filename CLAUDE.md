@@ -753,6 +753,15 @@ and therefore stays invisible to plain Read.
   visible by reading a label. `Set-Content -Encoding utf8` does not save you either; it adds a BOM.
   Use the `Edit`/`Write` tools, or Node's `readFileSync`/`writeFileSync` with explicit `utf8`. A
   CP1252 round-trip reverses it if it has already happened.
+- **A regex built from a STRING loses its backslashes, and the failure is silent.** In a template literal
+  or a double-quoted JS string, `\b` is a **backspace character** and `\s` is a **literal `s`** — so
+  `` new RegExp(`\b${k}="…"`) `` can never match, and `"…\s…"` matches the letter s. Neither throws; the
+  test simply always fails, and code that falls back on a miss takes the fallback **every time**. That is
+  exactly how `setAttr` came to append instead of replace (KIT-FINDINGS **V25**), and the same mistake was
+  then made twice more inside one refactor — in two migration scripts, one of them written the same hour the
+  first was diagnosed. **Escape as `\\b` / `\\s`, or build the pattern from a regex literal.** The tell is a
+  branch that "never happens": if a replace-or-append helper is always appending, suspect the pattern before
+  the logic.
 - **NEVER pipe a file-writing command into `Select-Object -First N`. It TRUNCATES THE FILE TO 0 BYTES.**
   `-First` stops the upstream pipeline as soon as it has N objects, and against a native command PowerShell
   does that by **killing the process** — so `node tools/slice.mjs promote <file> | Select-Object -First 1`
