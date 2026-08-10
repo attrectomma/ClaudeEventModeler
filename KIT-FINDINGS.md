@@ -55,6 +55,37 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V12 — the emitted retry budget is a system-wide ceiling on concurrent writers, and nobody has decided it · **BROKEN**
+
+`Program.cs` emits `opts.OnException<...>().RetryTimes(3)` — **four attempts in total**. On a contended stream
+each round lets exactly **one** writer commit, so the budget is not a margin, it is a hard limit on how many
+callers may append to one stream at the same instant. Probed against a real suite:
+
+```
+writers=2 landed=2   writers=3 landed=3   writers=4 landed=4
+writers=5 landed=4   writers=6 landed=4   writers=8 landed=6
+```
+
+**Above four simultaneous appends to one stream, work is silently lost as a 500.** Deterministic, not flaky.
+
+**The damage is worst where the slice has no contended rule at all**, which is the opposite of where anyone
+would look. `report-fault` has no rejection that depends on accumulated state — `architect.mjs` correctly
+scaffolded no race file for it — but its stream is the Bay stream, **shared with the charging context**, so a
+fault report races a hold, a charge start, a pricing and auto-withdraw. What a lost race costs there is not a
+duplicate: it is *a real fault report the duty manager believes they filed*, on a bay that auto-withdraw takes
+out of service at two open faults.
+
+So the number is not a Wolverine tuning detail. It is a **system-scoped consistency decision** — how many
+concurrent writers a stream must tolerate before a caller is told to try again — and it belongs in
+`ARCHITECTURE.md` beside the rest of them. `architect.mjs` does not derive the question, and
+`contended-invariant` currently says only *"the stream key contains the contested thing"*, which is true and
+insufficient: it establishes that the loser is refused **correctly**, not that the loser is refused a
+**survivable** number of times.
+
+`Program.cs` is `emit`, so this cannot be fixed by hand in a project — it is the generator's, and the fix is
+a cooldown (`RetryWithCooldown`) rather than a larger integer, since the failure mode is a thundering herd on
+one row.
+
 ### V11 — the scaffolded race test RE-STAGES the mechanism instead of calling it, so it is blind to every mutation inside it · **BROKEN**
 
 `architect.mjs tests` scaffolds a deterministic race test that opens two sessions and stages the append
