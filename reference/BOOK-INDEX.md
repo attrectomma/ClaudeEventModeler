@@ -207,6 +207,22 @@ one of four patterns, per the eventmodeling.org cheat sheet — which `UES` ch. 
 two Dilger books differ in emphasis from each other; the kit follows the cheat sheet and `UES`, which is
 defensible, but *"a translation is an automation with a foreign trigger"* is the simpler framing.
 
+**4. `UES` ch. 18's chapters presume a column order that `UES` ch. 16 breaks — and it is the book's own
+model that breaks it.** Found by drawing the book's four sub-chapters on the cart fixture and looking at the
+result, at step 5 of the board refactor.
+
+Ch. 18 groups slices into chapters with a bar above the timeline, which only reads if a chapter's slices are
+**adjacent**. Ch. 16 puts `inventories` at **column 0** — it has to, because the Cart Page reads it and a
+View → Screen feed may not point left. So the *Inventory* sub-chapter spans from column 0 to
+`change-inventory` on the far right and **swallows Items and Submission whole**: valid XML, unreadable
+canvas.
+
+Neither chapter is wrong. The model is right — column 0 is forced by the left-to-right rule — so **the
+sub-chapter gives way**, and the kit reports it as `chapter-overlaps` rather than silently drawing a bar
+over two other chapters. Worth knowing before anyone tries to reproduce the book's Fig. 18.2 exactly: that
+figure's grouping is only drawable because its example does not contain a view that has to be read from a
+screen to its left.
+
 **3. `derived-without-example` on the cart fixture is correct, and the book confirms it.**
 The kit blocks promoting that warning to an error because *"the book's model genuinely does not say how
 `totalPrice` is computed"*. Confirmed at `UES` 4637: *"We can model the totalPrice on the Event or assume

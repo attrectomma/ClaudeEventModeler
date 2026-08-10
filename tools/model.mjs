@@ -314,7 +314,39 @@ function parseCells(body) {
       // It is a fact about the SYSTEM rather than about any slice — which is why it is its own cell and not
       // an attribute on one, and why neither codegen nor a slice's agent owns it. `slices=` is declared and
       // ordered because a journey is a SEQUENCE; geometry gives position but not order.
-      journey: a.journey ?? null,
+      // THE ALTERNATIVE-FLOW LINK MARKER. UES ch. 18: "If there are alternative flows for a certain
+      // slice, I place a marker below the slice with a link to a different model on the board.
+      // Whenever you see a sticky note like this in the model, it indicates that there are alternative
+      // flows from that point." So `alt=` names the CONTEXT it links to, and the cell it sits on is
+      // the slice it is an alternative FOR — which is why this is an attribute on the slice cell and
+      // not a cell of its own: the book's marker has exactly two facts, where it hangs and where it
+      // goes, and a separate cell would need a third (which slice) that geometry already gives.
+      alt: a.alt ?? null,
+      // NOT OURS TO BUILD — the black border. LEB ch. 9: "How do you know which slices belong to our
+      // system and need to be implemented and which slices are just showcasing information flow? Make
+      // it visible. In my models Slices are typically surrounded by a black border. Slices that just
+      // mimic information flow aren't."
+      //
+      // THE BOOK'S POLARITY IS INVERTED HERE, DELIBERATELY. Dilger borders what IS ours, so the
+      // unbordered slice is foreign. Encoding that as `ours="true"` would mean every slice in every
+      // existing model has to gain an attribute to keep meaning what it already means — and a missing
+      // attribute would silently reclassify a slice as foreign, which is the failure that matters
+      // (codegen would stop generating it). `external="true"` marks the exception instead, so silence
+      // still means "ours" and no existing model changes. The DRAWING follows the book: a slice
+      // carrying it loses its border.
+      external: a.external === "true",
+      // A CHAPTER: the book's own grouping of slices, and what the kit used to call a journey.
+      //
+      // UES ch. 18: "To better understand the flow of information in the system, I tend to logically
+      // group slices together... I use blue arrows and arrange them in two layers... Basically a
+      // chapter defines kind of a context for a given slice."
+      //
+      // `em="journey"` is RETIRED into this, per BOARD-REFACTOR §3c: eventmodeling.org says "each
+      // specification must be tied to exactly one command or view", so a run spanning slices was never
+      // a specification, and `chapter` is the books' word for the thing it actually is. A chapter with
+      // no then= is pure structure — the book's original use. One WITH a then= is what the kit called
+      // a journey and still gets the generated end-to-end test.
+      chapter: a.chapter ?? null,
       slices: a.slices ? a.slices.split(",").map((x) => x.trim()).filter(Boolean) : [],
       gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null,
               // The same three fields parsed into label + example data. Kept ALONGSIDE the raw strings
@@ -389,8 +421,11 @@ function buildIrs(file) {
   const { nodes, edges } = parseCells(body);
   const regions = regionsOf(nodes);
   const regionOfId = new Map(nodes.map((n) => [n.id, regionOf(n, regions).index]));
+  // Every model on this board, so a link marker can be checked against the board it points into —
+  // ch.18: "a marker below the slice with a link to a different model ON THE BOARD."
+  const contexts = regions.map((r) => r.anchor?.context ?? null);
   return regions.map((r) =>
-    irOfRegion(r, nodes, edges, regionOfId, { file, page: name, count: regions.length }));
+    irOfRegion(r, nodes, edges, regionOfId, { file, page: name, count: regions.length, contexts }));
 }
 
 // Every command except `validate` still takes exactly one model. A file holding one region IS that
@@ -473,8 +508,9 @@ function irOfRegion(region, allNodes, allEdges, regionOfId, meta) {
   // draw.io container — a container reparents its children and makes their mxGeometry relative,
   // which would break every absolute-x reader here and in tools/crop.mjs.
   const sliceCells = nodes.filter((n) => n.kind === "group" && n.slice && !isMarker(n.id));
-  // Journeys: one cell per named run of slices. A fact about the SYSTEM, so it sits outside every slice.
-  const journeys = nodes.filter((n) => n.kind === "journey" && !isMarker(n.id));
+  // Chapters: one cell per named grouping of slices, drawn above the timeline. A fact about the
+  // SYSTEM, so it sits outside every slice.
+  const chapters = nodes.filter((n) => n.kind === "chapter" && !isMarker(n.id));
   // Swimlanes cut the Event Stream lane horizontally, one band per stream. "Swimlanes define
   // stream boundaries. Typically, all events in one swimlane end up in a physical stream."
   const swimlanes = swimlaneNodes
@@ -505,6 +541,9 @@ function irOfRegion(region, allNodes, allEdges, regionOfId, meta) {
       cells: cells.map((c) => c.id),
       pattern: cells.find((c) => c.pattern)?.pattern ?? null,
       status: cells.find((c) => c.status)?.status ?? null,
+      // LEB ch. 9's black border, and ch. 18's alternative-flow marker. Both live on the slice cell.
+      external: cells.some((c) => c.external),
+      alt: cells.find((c) => c.alt)?.alt ?? null,
       kind: commands.length ? "state-change" : pick("readmodel").length ? "state-view" : "unknown",
       aggregate: members.find((m) => m.aggregate)?.aggregate ?? null,
       // WHO USES THIS SLICE, derived the way `aggregate` is — read off the band each screen sits in,
@@ -544,6 +583,8 @@ function irOfRegion(region, allNodes, allEdges, regionOfId, meta) {
     name: meta.count === 1 ? fileName : (modelCells[0]?.context ?? `${fileName}#${region.index + 1}`),
     region: region.index,
     regionCount: meta.count,
+    // The other models on this board — what an alt= link may point at.
+    siblingContexts: (meta.contexts ?? []).filter((c, i) => c && i !== region.index),
     // Edges leaving this model. Only ever non-empty on a board — see the rule that reads it.
     outbound: outbound.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     // `mode` is PROVENANCE, not a domain fact, and it is the one thing of its kind on the diagram.
@@ -561,7 +602,7 @@ function irOfRegion(region, allNodes, allEdges, regionOfId, meta) {
     lanes: lanes.map(({ id, label, owner }) => ({ id, label, owner: owner ?? null })),
     slices,
     sliceCells,
-    journeys,
+    chapters,
     swimlanes,
     actorLanes,
     elements,
@@ -1282,83 +1323,139 @@ function gwtRules(ir) {
   return d;
 }
 
-// --- journeys: the layer above a slice, and the one thing no slice test can reach ---------------
+// --- chapters: the book's grouping of slices, and the layer no slice test can reach --------------
 //
-// THE GAP THIS EXISTS FOR. Every test the kit generates is a single slice's scenario: a GWT appends its
-// GIVEN straight to the stream and asserts one outcome. That is the right shape for a slice, and it means
-// no test has ever driven two commands in a row through HTTP. So a slice pair that each pass alone and
-// cannot be COMPOSED — an id minted in one shape and read in another, a projection current for its own
-// slice but stale for the next, a rule that only bites on the second command — has nowhere to be caught.
+// UES ch. 18: "To better understand the flow of information in the system, I tend to logically group
+// slices together. This makes it easier to capture the big picture in an Event Model. I use blue
+// arrows and arrange them in two layers... Basically a chapter defines kind of a context for a given
+// slice. I place 'chapters' directly above the Event Model, so my eyes automatically capture the
+// current context while reading along the timeline."
 //
-// A journey is an ordered run of slices walked end to end through the real API, and it belongs to the
-// SYSTEM rather than to any slice — which is why it is its own cell, and why neither codegen nor a slice's
-// own agent owns it.
+// A CHAPTER IS ONE CELL WITH TWO USES, and the split is a single attribute:
 //
-// It is shaped like a GT at system scale: GIVEN an empty system, WHEN this sequence, THEN this read model.
-// So `then=` reuses the example-data grammar unchanged, and there is nothing new to learn.
-function journeyRules(ir) {
+//   no then=   pure STRUCTURE — the book's own use. It groups slices and asserts nothing.
+//   a then=    EXECUTABLE — what the kit used to call a journey: an ordered run of slices walked end
+//              to end through the real API, and the one artifact forbidden from appending its own
+//              history, which is why it is the kit's only reachability check (KIT-FINDINGS V20).
+//
+// `em="journey"` is retired into this (BOARD-REFACTOR §3c). eventmodeling.org: "Each specification
+// must be tied to exactly one command or view" — so a run across slices was never a specification,
+// and `chapter` is the books' word for what it actually is. NO ALIAS IS ACCEPTED: an `em="journey"`
+// cell is now `hygiene/unclassified`, the same treatment the state-change/state-view rename got, and
+// safe for the same reason — every model in existence was migrated with it.
+//
+// THE RULES BELOW SPLIT ON `then=` FOR A REASON. Every one of them was written for an executable run
+// and would be a false positive on a structural chapter: grouping one slice is legal structure, a
+// group of in-design slices is the normal state of a model being drawn, and "asserts nothing" is
+// precisely what pure structure does. The kit's bar is that a rule never fires falsely, so a
+// structural chapter is held only to the things true of any grouping — it has a name, the name is
+// unique, and it names slices that exist.
+function chapterRules(ir) {
   const d = [];
-  const push = (severity, rule, message, at) => d.push({ family: "journey", severity, rule, message, at });
+  const push = (severity, rule, message, at) => d.push({ family: "chapter", severity, rule, message, at });
   const byName = new Map(ir.slices.map((s) => [s.name, s]));
   const cellOf = (name) => ir.sliceCells.find((c) => c.slice === name);
 
+  // A RETIRED em= VALUE MUST BE REJECTED, NOT ABSORBED. `em="journey"` is not an unknown fill, so
+  // hygiene/unclassified cannot see it, and nothing else excludes it — so it quietly became an ordinary
+  // ELEMENT, and the only visible symptom was one lost note. That is the same shape as accepting an
+  // alias: the model looks fine and means something else. `slice-unknown-pattern` set the precedent
+  // when state-change/state-view were renamed; this is that rule for this rename.
+  for (const e of ir.elements) {
+    if (e.kind === "journey") {
+      push("error", "chapter-was-journey",
+        `"${e.label || e.id}" is em="journey", which is retired. A run of slices is a CHAPTER — eventmodeling.org: "each specification must be tied to exactly one command or view", so it was never a specification. Rename it em="chapter" and journey="x" to chapter="x"; keep slices= and then= as they are.`, e.id);
+    }
+  }
+
+  // TWO CHAPTERS ON ONE LAYER MAY NOT OVERLAP, because the drawing is the information. The book
+  // arranges them "in two layers" precisely so a chapter and its sub-chapters can be read at once; two
+  // bars at the same height and overlapping x are simply painted over each other, and the one
+  // underneath stops existing on the canvas while still validating.
+  //
+  // Found by rendering the cart fixture and looking: "Inventory" swallowed "Items" and "Submission"
+  // whole. Nothing in XML says so, which is what "always look at the PNG" is for.
+  const rows = new Map();
+  for (const c of ir.chapters) {
+    if (!c.geometry) continue;
+    const key = Math.round(c.geometry.y);
+    if (!rows.has(key)) rows.set(key, []);
+    rows.get(key).push(c);
+  }
+  for (const [, row] of rows) {
+    const sorted = row.slice().sort((a, b) => a.geometry.x - b.geometry.x);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1], cur = sorted[i];
+      if (cur.geometry.x < prev.geometry.x + prev.geometry.w) {
+        push("warn", "chapter-overlaps",
+          `chapters "${prev.chapter ?? prev.id}" and "${cur.chapter ?? cur.id}" are drawn on the same layer and overlap, so one is painted over the other and cannot be read. Put one on --layer 2, or reorder the columns so each chapter covers a contiguous run.`, cur.id);
+      }
+    }
+  }
+
   const seen = new Set();
-  for (const j of ir.journeys) {
-    const name = j.journey || j.label || j.id;
-    if (!j.journey) {
-      push("error", "journey-needs-name",
-        `journey cell "${j.label || j.id}" declares no journey=, so it has no identity and nothing can be generated for it.`, j.id);
-    } else if (seen.has(j.journey)) {
-      push("error", "journey-duplicated", `two journey cells both call themselves "${j.journey}".`, j.id);
-    } else seen.add(j.journey);
+  for (const j of ir.chapters) {
+    const name = j.chapter || j.label || j.id;
+    const walks = Boolean(j.gwt.then);           // executable, i.e. the old journey
+    const what = walks ? "chapter" : "structural chapter";
+
+    if (!j.chapter) {
+      push("error", "chapter-needs-name",
+        `chapter cell "${j.label || j.id}" declares no chapter=, so it has no identity and nothing can be generated for it.`, j.id);
+    } else if (seen.has(j.chapter)) {
+      push("error", "chapter-duplicated", `two chapter cells both call themselves "${j.chapter}".`, j.id);
+    } else seen.add(j.chapter);
 
     if (j.slices.length === 0) {
-      push("error", "journey-needs-slices",
-        `journey "${name}" names no slices=. A journey is an ordered run of slices; without one there is nothing to walk.`, j.id);
+      push("error", "chapter-needs-slices",
+        `${what} "${name}" names no slices=. A chapter groups slices; without one there is nothing to group.`, j.id);
       continue;
-    }
-    // ONE SLICE IS NOT A JOURNEY, it is the slice's own GWT with extra ceremony — and worse, it would pass
-    // while proving nothing this layer exists to prove.
-    if (j.slices.length === 1) {
-      push("error", "journey-too-short",
-        `journey "${name}" walks one slice. That is a slice test, and this layer exists precisely because slice tests cannot see composition — name at least two.`, j.id);
     }
 
     const unknown = j.slices.filter((n) => !byName.has(n));
     if (unknown.length) {
-      push("error", "journey-unknown-slice",
-        `journey "${name}" names ${unknown.join(", ")}, which ${unknown.length > 1 ? "are" : "is"} not a slice in this model.`, j.id);
+      push("error", "chapter-unknown-slice",
+        `${what} "${name}" names ${unknown.join(", ")}, which ${unknown.length > 1 ? "are" : "is"} not a slice in this model.`, j.id);
       continue;
     }
 
-    // TIME RUNS LEFT TO RIGHT, so a journey that jumps backwards through the columns is worth a look —
-    // but it is a WARNING and not an error, because a real journey legitimately revisits: add an item, add
-    // another, then check out. The model's columns are a story; a journey is a run through it, and a run may
-    // loop. So the rule names both readings and lets a human pick.
+    // Everything from here is about a RUN, so it applies only to a chapter that walks.
+    if (!walks) {
+      push("info", "chapter-is-structure",
+        `chapter "${name}" groups ${j.slices.length} slice(s) and asserts nothing, which is the book's own use of one — "a chapter defines kind of a context for a given slice". Give it a then="SomeView(field=value)" only if it should also be WALKED end to end.`, j.id);
+      continue;
+    }
+
+    // ONE SLICE IS NOT A WALK, it is the slice's own GWT with extra ceremony — and worse, it would
+    // pass while proving nothing this layer exists to prove. Structure may group one; a run may not.
+    if (j.slices.length === 1) {
+      push("error", "chapter-too-short",
+        `chapter "${name}" asserts an outcome but walks one slice. That is a slice test, and this layer exists precisely because slice tests cannot see composition — name at least two, or drop the then= and let it be structure.`, j.id);
+    }
+
+    // TIME RUNS LEFT TO RIGHT, so a run that jumps backwards through the columns is worth a look —
+    // but it is a WARNING and not an error, because a real run legitimately revisits: add an item, add
+    // another, then check out. The model's columns are a story; a run is a walk through it, and a walk
+    // may loop. So the rule names both readings and lets a human pick.
     //
     // It earns its keep on the kit's own campaigns model, where close-campaign is drawn second — beside
     // open-campaign, because they share the Campaign stream — while the story closes last. Neither the
-    // column order nor the journey is wrong; the tension between them is exactly what this points at.
+    // column order nor the walk is wrong; the tension between them is exactly what this points at.
     const xs = j.slices.map((n) => ({ n, x: cellOf(n)?.geometry?.x ?? null })).filter((s) => s.x !== null);
     for (let i = 1; i < xs.length; i++) {
       if (xs[i].x < xs[i - 1].x) {
-        push("warn", "journey-runs-backward",
-          `journey "${name}" goes ${xs[i - 1].n} -> ${xs[i].n}, which runs right to left. Either the columns tell the story in a different order than the journey walks it, or this journey revisits a slice on purpose — both are legitimate, and only one of them is worth reordering the model for.`, j.id);
+        push("warn", "chapter-runs-backward",
+          `chapter "${name}" goes ${xs[i - 1].n} -> ${xs[i].n}, which runs right to left. Either the columns tell the story in a different order than the chapter walks it, or it revisits a slice on purpose — both are legitimate, and only one of them is worth reordering the model for.`, j.id);
         break;
       }
     }
 
-    // A journey over a slice nobody has built will fail for a reason that has nothing to do with
-    // composition. Warned rather than errored: writing the journey first is a legitimate way to work.
+    // A walk over a slice nobody has built will fail for a reason that has nothing to do with
+    // composition. Warned rather than errored: writing it first is a legitimate way to work.
     const unbuilt = j.slices.filter((n) => byName.get(n)?.status === "in-design");
     if (unbuilt.length) {
-      push("warn", "journey-slice-in-design",
-        `journey "${name}" walks ${unbuilt.join(", ")}, still in-design. Until they are claimed this journey tests nothing it could not have told you by reading the model.`, j.id);
-    }
-
-    if (!j.gwt.then) {
-      push("warn", "journey-needs-then",
-        `journey "${name}" asserts nothing. A journey is a GT at system scale — end it with then="SomeView(field=value)" so the walk has an outcome rather than just an absence of exceptions.`, j.id);
+      push("warn", "chapter-slice-in-design",
+        `chapter "${name}" walks ${unbuilt.join(", ")}, still in-design. Until they are claimed this walks nothing it could not have told you by reading the model.`, j.id);
     }
   }
 
@@ -1483,6 +1580,47 @@ function sliceRules(ir, priorFindings) {
       if (!s.gwts.length && s.kind === "state-change") {
         push("error", "slice-not-ready",
           `slice "${s.name}" is status="${s.status}" but has no GWT, so none of its business rules can be tested.`, cell.id);
+      }
+    }
+
+    // --- the black border: a slice that is not ours to build
+    //
+    // LEB ch. 9: "How do you know which slices belong to our system and need to be implemented and
+    // which slices are just showcasing information flow? Make it visible... Slices that just mimic
+    // information flow aren't [bordered]." And, on the same page: "From the perspective of our system,
+    // there is no 'Translate Title', 'Title Translated', or even a 'Translated Titles' read model. The
+    // goal is simply to visualize the flow of information. AVOID THE TEMPTATION TO DIRECTLY MAP THIS
+    // TO THE CODE THAT NEEDS TO BE WRITTEN." That last sentence is the whole finding: without this
+    // marker codegen does exactly what the book warns against — BOOK-INDEX gap 11.
+    if (s.external) {
+      // status= is about OUR implementation workflow, so it means nothing on a slice nobody here will
+      // implement. Said out loud rather than errored: it is a modelling slip, not a broken model.
+      if (s.status && s.status !== "in-design") {
+        push("warn", "external-slice-has-status",
+          `slice "${s.name}" is external="true" — not ours to build — but declares status="${s.status}". status= tracks OUR implementation workflow, so it says nothing here. Leave it in-design.`, cell.id);
+      }
+      push("info", "slice-not-ours",
+        `slice "${s.name}" is external="true", so it shows information flow in somebody else's system and nothing is generated from it. LEB ch. 9: "avoid the temptation to directly map this to the code that needs to be written."`, cell.id);
+    }
+
+    // --- the alternative-flow link marker
+    //
+    // UES ch. 18: "If there are alternative flows for a certain slice, I place a marker below the
+    // slice with a link to a different model on the board." A link that resolves to nothing is worse
+    // than no link — it reads as "the error case is modelled over there" when it is not modelled at
+    // all — so the target is CHECKED. It is the only attribute besides from= that points at another
+    // model, and it is checked the same way.
+    if (s.alt) {
+      if (s.alt === ir.context) {
+        push("error", "alt-flow-self",
+          `slice "${s.name}" declares alt="${s.alt}", which is its own model. An alternative flow is a DIFFERENT model on the board — ch.18: "a link to a different model".`, cell.id);
+      } else if (!ir.siblingContexts?.includes(s.alt)) {
+        push("error", "alt-flow-unknown",
+          `slice "${s.name}" declares alt="${s.alt}", but this system has no such model${
+            ir.siblingContexts?.length ? ` (${ir.siblingContexts.join(", ")})` : ""}. The marker promises the alternative flow is modelled somewhere; if it is not, it is a note to yourself, not a link.`, cell.id);
+      } else {
+        push("info", "alt-flow-linked",
+          `slice "${s.name}" has alternative flows modelled in "${s.alt}".`, cell.id);
       }
     }
   }
@@ -1660,12 +1798,12 @@ function actorRules(ir) {
   // note rather than a finding: crossing is the point of a handover story, not a defect. It is also the
   // one place the kit can state a fact the wireframes alone cannot — "this story passes through three
   // pairs of hands" — which is what §3's lanes exist to make visible.
-  for (const j of ir.journeys ?? []) {
+  for (const j of ir.chapters ?? []) {
     const walked = (j.slices ?? []).map((n) => ir.slices.find((s) => s.name === n)).filter(Boolean);
     const crossed = [...new Set(walked.flatMap((s) => s.actors))];
     if (crossed.length > 1) {
-      push("info", "journey-crosses-actors",
-        `journey "${j.journey ?? j.label}" passes through ${crossed.length} actors: ${crossed.join(" -> ")}. That is a handover, and the thing most worth walking end to end.`, j.id);
+      push("info", "chapter-crosses-actors",
+        `chapter "${j.chapter ?? j.label}" passes through ${crossed.length} actors: ${crossed.join(" -> ")}. That is a handover, and the thing most worth walking end to end.`, j.id);
     }
   }
   return d;
@@ -2294,8 +2432,13 @@ function buildSystemIr(models, system) {
         views: s.readModels.map(cell).filter(Boolean).map((v) => v.label),
         automations: s.automations.map(cell).filter(Boolean).map((a) => a.label),
         gwts: s.gwts,
-        // Nothing to generate from a column that only lands other people's events.
-        generates: s.pattern !== "upstream",
+        // Nothing to generate from a column that only lands other people's events — nor from a slice
+        // marked NOT OURS. LEB ch. 9 draws that as the missing black border and says why in the same
+        // breath: "avoid the temptation to directly map this to the code that needs to be written."
+        // This is the line where the marker stops being decoration; without it codegen would emit a
+        // command handler, an event record and a test for somebody else's system (BOOK-INDEX gap 11).
+        generates: s.pattern !== "upstream" && !s.external,
+        external: s.external,
       });
     }
   }
@@ -2313,9 +2456,16 @@ function buildSystemIr(models, system) {
     },
     slices: slices.sort((a, b) => a.name.localeCompare(b.name)),
     // Journeys are a SYSTEM fact, so they sit beside slices rather than inside one. Each carries its
-    // ordered slice list and its outcome; codegen scaffolds one test per journey.
-    journeys: models.flatMap((m) => m.ir.journeys.filter((j) => j.journey).map((j) => ({
-      name: j.journey, context: contextOf(m), label: j.label ?? null,
+    // ordered slice list and its outcome; codegen scaffolds one test per entry.
+    //
+    // THE FIELD KEEPS ITS NAME ON PURPOSE. The NOTATION is now `chapter`, but only an EXECUTABLE
+    // chapter — one carrying a then= — produces a generated end-to-end test, and "journey" is what
+    // that generated artifact has always been called. Renaming the IR field would rename the emitted
+    // class and file, which are `scaffold`: the filled ones would be orphaned and a new empty pair
+    // written beside them, colliding. So the boundary is drawn here, deliberately — the model says
+    // chapter, the generated test says journey, and codegen and uijourney.mjs need no change at all.
+    journeys: models.flatMap((m) => m.ir.chapters.filter((j) => j.chapter && j.gwt.then).map((j) => ({
+      name: j.chapter, context: contextOf(m), label: j.label ?? null,
       slices: j.slices, then: j.gwt.then ?? null,
     }))).sort((a, b) => a.name.localeCompare(b.name)),
   };
@@ -2485,7 +2635,7 @@ function runOne(f) {
     // its own cells still carry errors.
     const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
                   ...actorRules(ir), ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir),
-                  ...journeyRules(ir), ...boardRules(ir)];
+                  ...chapterRules(ir), ...boardRules(ir)];
     return { name: ir.name, ir, findings: [...core, ...sliceRules(ir, core)] };
   });
 }

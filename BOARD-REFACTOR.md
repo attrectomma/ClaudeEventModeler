@@ -196,8 +196,30 @@ refactor can be stopped between any two.
    `slice.mjs model` was added because nothing in the kit could **create** a region — step 2 taught the
    reader to see many models and step 3 taught the writers to work in one, but a board could still only be
    made outside the kit.
-5. **Additive notation**: `chapter` (absorbing `journey`), the alternative-flow link marker, the black
-   border for a slice that is not ours to build.
+5. ~~Additive notation~~ — ✅ **DONE.** `em="chapter"` (`UES` ch. 18) is **one cell with two uses split on a
+   single attribute**: no `then=` is pure structure, the book's own use; a `then=` makes it what the kit
+   called a journey and it gets the generated end-to-end test. Chapters occupy the strip **between the model
+   cell and the UI lane** — "directly above the Event Model" cannot mean above the pink sticky, and must not,
+   because a bar above the model cell would fall into the *previous* region (step 2's partition). `--layer
+   1|2` is supported; **no nesting rule was invented**, because the book states none.
+   **The retirement is enforced, not assumed**: `em="journey"` was being silently absorbed as an ordinary
+   element, so it is now the error `chapter-was-journey`, following the `slice-unknown-pattern` precedent
+   from the `state-change` rename — and it caught a journey cell in `campaigns` that would otherwise have
+   been missed.
+   **Where the rename deliberately stops:** the IR field stays `journeys` and the generated test file stays
+   `<Name>JourneyTests.cs`, because both are `scaffold` — renaming would orphan the filled ones and write
+   empty ones beside them. So the model says *chapter*, the code says *journey*, and `codegen` and
+   `uijourney.mjs` needed **no change at all**: `generated/` diff is 0 files.
+   `alt="<context>"` on the slice cell is the link marker (`UES` ch. 18) — an *attribute* rather than a cell,
+   because the book's marker carries exactly two facts and geometry already supplies the third. The link is
+   **checked**, because a link resolving to nothing reads as *"the error case is modelled over there"* when
+   it is not.
+   `external="true"` is the black border (`LEB` ch. 9), **with the book's polarity deliberately inverted**:
+   Dilger borders what *is* ours, but encoding that as `ours="true"` would make every existing slice need an
+   attribute to keep its current meaning, and a missing one would silently reclassify a slice as foreign —
+   the failure direction that matters, since `codegen` would stop generating it. Silence still means ours.
+   It sets `generates: false` and so actually stops `codegen` doing what ch. 9 warns against (BOOK-INDEX
+   gap 11, now closed).
 6. **The integration-event change** — `contract=`, `import-of-domain-event`, the inverted
    `event-shape-disagrees`, per-context namespaces in `codegen`. Then re-model Voltway's two boundaries
    properly and watch ~4 slices appear.

@@ -4,7 +4,8 @@
 //   node tools/slice.mjs add      <file> --slice <n> --pattern <p> [--at <spec>] [--columns N] [--aggregate A]
 //   node tools/slice.mjs swimlane  <file> --label <text> --streams <A[,B]> [--identity <f[,f]>] [--height N]
 //   node tools/slice.mjs actorlane <file> --actor <name> [--kind person|system] [--height N]
-//   node tools/slice.mjs journey  <file> --journey <slug> --slices <a,b,c> [--then <outcome>] [--label <t>]
+//   node tools/slice.mjs chapter  <file> --chapter <slug> --slices <a,b,c> [--then <outcome>] [--layer 1|2]
+//   node tools/slice.mjs mark     <file> --slice <n> [--alt <context>] [--external]
 //   node tools/slice.mjs route    <file> --from <id> --to <id>
 //   node tools/slice.mjs identity <file> --band <id>
 //   node tools/slice.mjs demote   <file> [--slice <n>]... | --from-diff
@@ -51,6 +52,9 @@ const GWT_W = 300, GWT_H = 120, GWT_PITCH = 140, GWT_TOP = 30;
 // the screens `add` already places at uiY + 40, and UI_STRIP_H reserves the View -> Screen routing strip
 // that must stay below every band.
 const ACTOR_TOP = 25, ACTOR_PAD = 20, ACTOR_GAP = 10, UI_STRIP_H = 45;
+// A chapter bar: short, because it carries a name and a span and nothing else. Two rows fit in the
+// strip above the timeline, for the book's chapters and sub-chapters.
+const CHAPTER_H = 34, CHAPTER_GAP = 8, CHAPTER_TOP_PAD = 12;
 // The clear space between one model on a board and the next. Big enough to read as a break, and it is
 // NOT load-bearing: shiftY carries every lower region down when an upper one grows, so the gutter can
 // never be eaten (step 3 measured a 14x overrun with it intact).
@@ -66,8 +70,10 @@ const STYLE = {
   automation: "rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;",
   gwt:        "rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;",
   group:      "rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;",
-  // A journey bar: a distinct blue-grey so it is obviously not a slice band and obviously not a GWT.
-  journey:    "rounded=0;whiteSpace=wrap;html=1;fillColor=#e6eef7;strokeColor=#6c8ebf;dashed=1;verticalAlign=middle;align=left;spacingLeft=12;fontStyle=1;fontColor=#3f5f8f;fontSize=12;",
+  // BLUE, because the book says blue: "I use blue arrows and arrange them in two layers." Drawn as a
+  // bar rather than a literal arrow -- the span is the information, and an arrowhead would imply a
+  // direction a structural chapter does not have.
+  chapter:    "rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=middle;align=left;spacingLeft=12;fontStyle=1;fontColor=#3f5f8f;fontSize=12;",
   swimlane:   "rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;",
 };
 const ID_PREFIX = { screen: "scr", command: "cmd", event: "evt", external: "ext", readmodel: "rm", automation: "auto" };
@@ -923,24 +929,84 @@ function cmdSwimlane(target, o) {
 }
 const slug = (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
-// ---------------------------------------------------------------- journey
+// ---------------------------------------------------------------- mark (the two slice markers)
 //
-// A journey bar, drawn BELOW the GWT lane and spanning the columns it walks. The span is what makes the
-// cell worth drawing rather than listing in a file: you can see at a glance how much of the model one
-// story crosses, and a journey that spans everything is telling you something about the model.
+// Both of these hang on a slice cell and both are one attribute, so they are one command.
 //
-// The ORDER is `slices=`, not the geometry — a journey may revisit a column, so position gives extent and
-// only the list gives sequence.
-function cmdJourney(target, o) {
+//   --alt <context>     UES ch. 18: "If there are alternative flows for a certain slice, I place a
+//                       marker below the slice with a link to a different model on the board."
+//   --external          LEB ch. 9: "In my models Slices are typically surrounded by a black border.
+//                       Slices that just mimic information flow aren't."
+//
+// THE BORDER IS DRAWN BY REMOVING IT, which is the book's own polarity: ours is bordered, foreign is
+// not. So `--external` strips the slice band's dashes-and-red down to a flat grey outline, and the
+// eye reads the difference at model scale without a legend.
+function cmdMark(target, o) {
   const { file, xml } = read(target);
-  if (!o.journey || !o.slices) die("journey needs --journey <slug> and --slices <a,b,c>.");
+  if (!o.slice) die("mark needs --slice <name>.");
+  if (!o.alt && !o.external) die("mark needs --alt <context> and/or --external.");
+  const m = model(xml, pickRegion(xml, o, [
+    { what: "--slice", pred: (c) => c.em === "group" && c.slice === o.slice },
+  ]));
+  const cell = m.sliceCells.find((c) => c.slice === o.slice);
+  if (!cell) die(`no slice cell for "${o.slice}". Slices: ${m.sliceCells.map((c) => c.slice).join(", ")}.`);
+
+  const plan = [];
+  const blocks = m.blocks.map((b) => {
+    if (b !== cell.block) return b;
+    let s = b;
+    if (o.alt) { s = setAttr(s, "alt", o.alt); plan.push(`alternative flows -> "${o.alt}"`); }
+    if (o.external) {
+      s = setAttr(s, "external", "true");
+      // The band loses its border. Keeping the label colour would still say "ours" at a glance.
+      s = s.replace(/strokeColor=#b85450/, "strokeColor=#999999")
+           .replace(/fontColor=#b85450/, "fontColor=#999999");
+      plan.push(`external="true" — not ours to build, so codegen will skip it`);
+    }
+    return s;
+  });
+  finish(target, file, splice(xml, blocks), plan, o, o.external
+    ? ["nothing is generated from this slice now. LEB ch.9: \"avoid the temptation to directly map",
+       "this to the code that needs to be written.\""]
+    : []);
+}
+
+// ---------------------------------------------------------------- chapter
+//
+// The span is what makes this a cell rather than a line in a file: you can see at a glance how much of
+// the model one chapter covers, and one that spans everything is telling you something.
+//
+// The ORDER is `slices=`, not the geometry — a walk may revisit a column, so position gives extent and
+// only the list gives sequence.
+//
+// A CHAPTER BAR, DRAWN ABOVE THE TIMELINE — and the placement is the book's, not a preference.
+//
+// UES ch. 18: "I place 'chapters' directly above the Event Model, so my eyes automatically capture the
+// current context while reading along the timeline." The reason IS the placement: you read a slice and
+// glance up for its context. Below the model that does not work, so above is not decoration.
+//
+// AN AMBIGUITY, NAMED AND CHOSEN. The book says "above the Event Model" and also draws the pink Model
+// Context sticky at the top-left (Fig. 18.3), so "above" cannot mean above the sticky — and it must
+// not, because a region's boundary IS its model cell (step 2): a bar above the sticky would fall into
+// the PREVIOUS model on a board. So chapters occupy the strip between the model cell and the UI lane —
+// above the timeline, inside their own region. The pink sticky is the model's name, not part of the
+// timeline it labels.
+//
+// "arrange them in two layers" is chapters and sub-chapters. Two rows are available via --layer; the
+// kit invents NO nesting rule, because the book states none and a guessed one would fire falsely.
+function cmdChapter(target, o) {
+  const { file, xml } = read(target);
+  if (!o.chapter || !o.slices) die("chapter needs --chapter <slug> and --slices <a,b,c>.");
   const names = o.slices.split(",").map((s) => s.trim()).filter(Boolean);
-  // The slices name themselves into a region. A run whose slices live in TWO models is refused by
+  // The slices name themselves into a region. A chapter whose slices live in TWO models is refused by
   // pickRegion — that is the cross-context chapter, which is V19 and step 7, not this step.
   const m = model(xml, pickRegion(xml, o, [
     { what: "--slices", pred: (c) => c.em === "group" && names.includes(c.slice) },
   ]));
-  if (names.length < 2) die("a journey walks at least two slices; one slice is a slice test.");
+  if (o.then && names.length < 2) {
+    die("a chapter that asserts an outcome walks at least two slices; one slice is a slice test.\n" +
+        "       Drop --then to make it pure structure, which may group one.");
+  }
 
   const cells = names.map((n) => {
     const c = m.sliceCells.find((x) => x.slice === n);
@@ -950,23 +1016,37 @@ function cmdJourney(target, o) {
   const x0 = Math.min(...cells.map((c) => c.g.x));
   const x1 = Math.max(...cells.map((c) => c.g.x + c.g.w));
 
-  const gwt = m.lanes["lane-gwt"]?.g;
-  if (!gwt) die("this model has no GWT lane, so there is nowhere to put a journey.");
-  // Stack under any journey already there, so a second one does not land on the first.
-  const existing = m.blocks.filter((b) => /\bem="journey"/.test(b)).map((b) => geomOf(b)).filter(Boolean);
-  const y = existing.length ? Math.max(...existing.map((g) => g.y + g.h)) + 20 : gwt.y + gwt.h + 40;
+  const anchor = m.region.anchor?.g;
+  if (!anchor) die("this model has no model cell, so there is nothing to place a chapter under.");
+  const row = Math.max(0, (o.layer ?? 1) - 1);
+  const y = anchor.y + anchor.h + CHAPTER_TOP_PAD + row * (CHAPTER_H + CHAPTER_GAP);
 
-  const extra = ` em="journey" journey="${esc(o.journey)}" slices="${esc(names.join(", "))}"`
+  // The strip has to be tall enough. If it is not, the TIMELINE moves down — the model cell stays put,
+  // so the region's own anchor does not move and the partition is untouched, while every lower region
+  // is carried down by the usual global shiftY.
+  const need = y + CHAPTER_H + CHAPTER_GAP;
+  const top = m.grid.uiY - SLICE_PAD;                 // slice cells start 20 above the UI lane
+  const by = Math.max(0, need - top);
+  const plan = [];
+  let blocks = m.blocks;
+  if (by > 0) {
+    const s = shiftY(blocks, top, by);
+    blocks = s.blocks;
+    plan.push(`timeline shifted +${by} to open the chapter strip, ${s.cells} cell(s), ${s.points} point(s)`);
+  }
+
+  const extra = ` em="chapter" chapter="${esc(o.chapter)}" slices="${esc(names.join(", "))}"`
     + (o.then ? ` then="${esc(o.then)}"` : "");
-  const cell = box(`journey-${slug(o.journey)}`, o.label ?? o.journey, "journey", extra,
-    { x: x0, y, w: x1 - x0, h: 70 });
+  const cell = box(`chapter-${slug(o.chapter)}`, o.label ?? o.chapter, "chapter", extra,
+    { x: x0, y, w: x1 - x0, h: CHAPTER_H });
 
-  let out = splice(xml, [...m.blocks, cell]);
-  out = setPage(out, { h: Math.max(pageH(xml), y + 70 + 40) });
-  finish(target, file, out, [
-    `journey "${o.journey}" spanning ${names.length} slice(s), x ${x0}..${x1} at y=${y}`,
-  ], o, o.then ? [] : ["no --then given, so journey-needs-then will fire. A journey is a GT at system",
-                      "scale: end it with what the walk should leave behind."]);
+  let out = splice(xml, [...blocks, cell]);
+  out = setPage(out, { h: pageH(xml) + by });
+  plan.push(`chapter "${o.chapter}" over ${names.length} slice(s), x ${x0}..${x1} at y=${y} (layer ${row + 1})`);
+  finish(target, file, out, plan, o, o.then ? [] : [
+    "no --then, so this is a STRUCTURAL chapter — the book's own use, grouping slices and asserting",
+    "nothing. Add --then \"SomeView(field=value)\" only if it should also be WALKED end to end.",
+  ]);
 }
 
 // ---------------------------------------------------------------- route
@@ -1190,32 +1270,13 @@ function reflowRegion(xml, region) {
   const sliceY = m.grid.uiY - SLICE_PAD, sliceH = (m.grid.evtBottom + dEvt) - sliceY;
   const lowestGwt = m.gwts.length ? Math.max(...m.gwts.map((g) => g.g.y + g.g.h)) : m.grid.gwtY;
 
-  // A JOURNEY BAR SITS BELOW THE GWT LANE, AND THE LANE GROWS UNDER IT.
+  // THE JOURNEY-BAR RE-SEATING THAT USED TO LIVE HERE IS GONE, and its absence is the point.
   //
-  // `journey` places the bar at the lane's bottom + 40 — correct at the moment it runs. But the lane is
-  // sized from its lowest GWT, and GWTs keep arriving: the template lane is 440 tall while six rules at the
-  // documented 140 pitch reach 850. So reflow would grow the lane straight past a bar placed earlier and
-  // leave it stranded IN THE MIDDLE OF THE RULES — overlapping a cell, on a model that still validates at
-  // 0 errors. Invisible in XML, obvious in the render, which is what "always look at the PNG" is for.
-  //
-  // Re-seat every bar below the lane's NEW bottom, keeping their existing order and 20px stacking.
-  const gwtLane = m.lanes["lane-gwt"]?.g;
-  const newGwtBottom = gwtLane
-    ? (gwtLane.y + dEvt) + Math.max(gwtLane.h, lowestGwt + dEvt + 20 - (gwtLane.y + dEvt))
-    : null;
-  const journeys = m.cells.filter((c) => /\bem="journey"/.test(c.block) && c.g)
-    .map((c) => ({ b: c.block, g: c.g }))
-    .sort((a, z) => a.g.y - z.g.y);
-  const moveJourney = new Map();
-  if (newGwtBottom != null && journeys.length) {
-    let y = newGwtBottom + 40;
-    const strandedAt = journeys[0].g.y + dEvt;
-    if (strandedAt < newGwtBottom) {
-      for (const j of journeys) { moveJourney.set(j.b, y); y += j.g.h + 20; }
-      plan.push(`${journeys.length} journey bar(s) re-seated below the GWT lane (${strandedAt} -> ${newGwtBottom + 40})`);
-    }
-  }
-
+  // A journey bar sat BELOW the GWT lane, and that lane grows as GWTs arrive — so reflow had to catch
+  // bars the growth had stranded in the middle of the rules. A chapter is anchored to the MODEL CELL
+  // and sits above the timeline, which the GWT lane cannot reach: nothing below it can strand it, so
+  // there is nothing to re-seat. Deleting the code rather than leaving it filtering on `em="journey"`,
+  // which would be a silent no-op forever.
   let blocks = m.blocks;
   // shiftY stays global on purpose: growing this region's event lane must carry every region below it.
   if (dEvt) { const s = shiftY(blocks, m.grid.evtBottom, dEvt); blocks = s.blocks; plan.push(`event lane ${m.lanes["lane-evt"].g.h}->${wantEvtH}, ${s.cells} cell(s) below it moved`); }
@@ -1235,12 +1296,10 @@ function reflowRegion(xml, region) {
       return out;
     }
     if (/\bem="group"/.test(b) && (g.y !== sliceY || g.h !== sliceH)) return setGeom(b, { y: sliceY, h: sliceH });
-    if (moveJourney.has(b)) return setGeom(b, { y: moveJourney.get(b) });
     return b;
   });
   if (wantLaneW !== m.grid.laneW) plan.push(`lanes ${m.grid.laneW}->${wantLaneW}`);
-  const lowestJourney = moveJourney.size ? Math.max(...moveJourney.values()) + 70 : 0;
-  const wantPageH = Math.max(pageH(xml) + dEvt, lowestGwt + dEvt + 60, lowestJourney + 60);
+  const wantPageH = Math.max(pageH(xml) + dEvt, lowestGwt + dEvt + 60);
   // As in `add`: this region's own requirement, unchanged, held against what the others occupy.
   const wantPageW = Math.max(LANE_X + wantLaneW + PAGE_RIGHT_PAD,
     boardWidth(blocks.filter((b) => !mine(b))) ?? 0);
@@ -1268,6 +1327,7 @@ const o = { slice: [] };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === "--dry-run") { o.dryRun = true; continue; }
+  if (a === "--external") { o.external = true; continue; }
   if (a === "--from-diff") { o.fromDiff = true; continue; }
   const v = argv[++i];
   if (a === "--slice" && (cmd === "demote" || cmd === "promote")) o.slice.push(v);
@@ -1283,7 +1343,9 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--from") o.from = v;
   else if (a === "--to") o.to = v;
   else if (a === "--band") o.band = v;
-  else if (a === "--journey") o.journey = v;
+  else if (a === "--chapter") o.chapter = v;
+  else if (a === "--layer") o.layer = +v;
+  else if (a === "--alt") o.alt = v;
   else if (a === "--slices") o.slices = v;
   else if (a === "--then") o.then = v;
   else if (a === "--actor") o.actor = v;
@@ -1300,7 +1362,7 @@ if (!cmd || !target) {
     .slice(2, 10).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(2);
 }
-const ops = { model: cmdModel, add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, promote: cmdPromote, reflow: cmdReflow };
+const ops = { model: cmdModel, add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, chapter: cmdChapter, mark: cmdMark, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, promote: cmdPromote, reflow: cmdReflow };
 if (!ops[cmd]) die(`unknown command "${cmd}". One of: ${Object.keys(ops).join(", ")}.`);
 if (cmd === "add" && (!o.slice || !o.pattern)) die("add needs --slice and --pattern.");
 ops[cmd](target, o);

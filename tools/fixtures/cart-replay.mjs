@@ -516,6 +516,38 @@ edit(Object.fromEntries(["add-item", "remove-item", "clear-cart", "submit-cart",
   .map((n) => [`slice-${n}`, { owners: "backend-agent, frontend-agent" }])));
 console.log("    6 command slice(s) acknowledged as crossing the UI/backend line, across both models");
 
+// ============================================================ ch.18's structure, on ch.18's example
+//
+// The book's chapters figure IS this model: "In the Event Model, we logically have the chapters for
+// 'Shopping' and within 'Shopping' four sub-chapters for 'Items,' 'Inventory,' 'Price Change,' and
+// 'Submission'." Drawn here in the two layers ch.18 asks for, so the fixture carries the book's own
+// worked example rather than an invented one.
+console.log("\n=== ch.18: chapters and sub-chapters ===");
+const C = ["--model", "cart"];
+slice("chapter", "--chapter", "shopping", "--label", "Shopping", ...C,
+  "--slices", "cart-items, add-item, remove-item, clear-cart, submit-cart");
+slice("chapter", "--chapter", "items", "--label", "Items", "--layer", "2", ...C,
+  "--slices", "add-item, remove-item, clear-cart");
+slice("chapter", "--chapter", "submission", "--label", "Submission", "--layer", "2", ...C,
+  "--slices", "submit-cart");
+// "Inventory" is the book's third sub-chapter and it is drawn over ONE slice here, not two — and the
+// reason is worth recording, because it is the book's own model disagreeing with the book's own
+// structure. ch.16 forces the Inventories VIEW into column 0 (the Cart Page reads it, and a View ->
+// Screen feed may not point left), while Change Inventory sits far right. A bar covering both would
+// span the whole model and paint over "Items" and "Submission" — which `chapter-overlaps` now says out
+// loud. Chapters presume columns already grouped by chapter; ch.16's insert-at-0 breaks that grouping,
+// and the model is right — so the sub-chapter is the one that gives way.
+slice("chapter", "--chapter", "inventory", "--label", "Inventory", "--layer", "2", ...C,
+  "--slices", "change-inventory");
+slice("chapter", "--chapter", "price-change", "--label", "Price Change", "--layer", "2", ...C,
+  "--slices", "change-price, archive-item");
+
+// ch.18: "If there are alternative flows for a certain slice, I place a marker below the slice with a
+// link to a different model on the board." This is the exact case the marker was invented for — the
+// book's own: submit-cart is the slice, and its error flow is the second model.
+console.log("\n=== ch.18: the alternative-flow link ===");
+slice("mark", "--slice", "submit-cart", "--alt", "submit-cart-error");
+
 execFileSync("node", [SLICE, "reflow", FILE], { encoding: "utf8" });
 console.log("\n=== after reflow ===");
 const final = validate("final");
