@@ -103,10 +103,11 @@ function compileModels() {
   const modelPath = new URL("model.mjs", import.meta.url).pathname.replace(/^\//, "");
   return files.map((f) => {
     const p = join(dir, f);
-    const r = spawnSync(process.execPath, [modelPath, "compile", p], { encoding: "utf8", maxBuffer: 1 << 26 });
+    // --per-model: a file may be a BOARD of several models now. One entry for a one-model file.
+    const r = spawnSync(process.execPath, [modelPath, "compile", p, "--per-model"], { encoding: "utf8", maxBuffer: 1 << 26 });
     if (r.status !== 0) die(`compile failed for ${f}:\n${r.stderr}`);
-    return { file: f, ir: JSON.parse(r.stdout) };
-  });
+    return JSON.parse(r.stdout).map((ir) => ({ file: f, ir }));
+  }).flat();
 }
 
 function die(msg) { console.error(msg); process.exit(1); }

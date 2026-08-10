@@ -83,10 +83,12 @@ function models() {
   if (!files.length) { console.error(`no models in ${rel(dir)}. Nothing to reason about yet.`); process.exit(1); }
   const mp = new URL("model.mjs", import.meta.url).pathname.replace(/^\//, "");
   return files.map((f) => {
-    const r = spawnSync(process.execPath, [mp, "compile", join(dir, f)], { encoding: "utf8", maxBuffer: 1 << 26 });
+    // --per-model, because a file may now be a BOARD holding several models (BOARD-REFACTOR step 2).
+    // It returns an ARRAY of per-region IRs — one entry for a one-model file, which is the identity case.
+    const r = spawnSync(process.execPath, [mp, "compile", join(dir, f), "--per-model"], { encoding: "utf8", maxBuffer: 1 << 26 });
     if (r.status !== 0) { console.error(`compile failed for ${f}:\n${r.stderr}`); process.exit(1); }
-    return { file: f, ir: JSON.parse(r.stdout) };
-  });
+    return JSON.parse(r.stdout).map((ir) => ({ file: f, ir }));
+  }).flat();
 }
 
 // Set SYSTEM from the model cell, and cache the compiled models so derive() and tests do not each shell out.

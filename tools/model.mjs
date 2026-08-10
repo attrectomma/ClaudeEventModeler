@@ -2835,6 +2835,19 @@ if (cmd === "clear") {
 // overlay cells, so marking a board is marking each of its regions in turn. For the rest, refusing
 // beats operating on whichever region happened to be drawn first — which is the silent half of the
 // same mistake, and the one nobody would notice.
+// PER-MODEL IRs FROM A BOARD. `compile <file>` deliberately refuses a board — one command, one model —
+// but two tools (architect.mjs, uijourney.mjs) legitimately want *every* model's own IR rather than the
+// merged system one, and before boards they got that by compiling each file. `--per-model` is that same
+// request, said once: an array of per-region IRs, in region order.
+//
+// It is a separate flag rather than a relaxation of `compile` because the two answers have different
+// shapes, and silently returning an array where a caller expected an object is exactly the class of
+// failure this refactor keeps finding.
+if (cmd === "compile" && rest.includes("--per-model")) {
+  console.log(JSON.stringify(fileRegions.map((r) => r.ir), null, 2));
+  process.exit(0);
+}
+
 if (isBoardFile && cmd !== "mark") {
   console.error(
     `${basename(file)} is a board of ${fileRegions.length} models ` +

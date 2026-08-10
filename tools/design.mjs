@@ -100,13 +100,17 @@ if (cmd === "check") {
   // One parser for the model, and it is not this file's. Shell out to compile rather than
   // re-implementing mxGraph parsing, which would drift.
   const screens = new Map();   // slug -> { displays:Set, inputs:Set, commands:Set, bound:Set, cells:[] }
-  for (const m of models) {
-    const r = spawnSync(process.execPath, [new URL("model.mjs", import.meta.url).pathname.replace(/^\//, ""), "compile", m], { encoding: "utf8", maxBuffer: 1 << 26 });
+  // --per-model, because a file may now be a BOARD holding several models (BOARD-REFACTOR step 2).
+  // It returns an array of per-region IRs — one entry for a one-model file, which is the identity case.
+  const irs = models.flatMap((m) => {
+    const r = spawnSync(process.execPath, [new URL("model.mjs", import.meta.url).pathname.replace(/^\//, ""), "compile", m, "--per-model"], { encoding: "utf8", maxBuffer: 1 << 26 });
     if (r.status !== 0) {
       console.error(`compile failed for ${basename(m)}:\n${r.stderr}`);
       process.exit(1);
     }
-    const ir = JSON.parse(r.stdout);
+    return JSON.parse(r.stdout);
+  });
+  for (const ir of irs) {
     const byId = new Map(ir.elements.map((e) => [e.id, e]));
     const inside = (o, g) => o.geometry && g &&
       g.x + g.w / 2 >= o.geometry.x && g.x + g.w / 2 <= o.geometry.x + o.geometry.w &&
