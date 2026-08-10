@@ -2302,8 +2302,16 @@ vertically under the pattern they describe.
 | GWT | event lane bottom + 240 | grows down | one `gwt` cell per business rule |
 
 Lanes start at x=40. Columns are 320 apart — x=100, 420, 740, 1060, … — with elements 180 wide,
-events and commands 60 tall, **screens 180×300** (a screen has to hold its wireframe, and 180 wide
-is not a choice: a wider screen would overflow its 220-wide slice band).
+events and commands 60 tall, **screens 200×240** — `SCREEN_W`/`SCREEN_H` in `tools/slice.mjs`, and a
+screen is drawn 10px left of its column so it stays centred on it (`SCREEN_X_NUDGE`). A screen is wider
+and shorter than an ordinary element because it has to hold its wireframe; it still fits inside a
+220-wide slice band, which is what caps the width.
+
+**This paragraph said `180×300` for five runs and the code has never agreed** — `tools/wireframe.mjs`
+keeps its own copy of `SCREEN_H` and resizes screens to it, so the drawing followed the code and only
+the documentation was wrong. Harmless here, but it is the same class as the defaults this file has had
+to retract: **read the geometry off `slice.mjs`, never off this table.** Every number in it is derived
+from cell geometry at run time and none of it is hard-coded in `model.mjs`.
 
 **Every long edge gets its own y in a routing band.** One y per *target* is not enough: several
 events feeding the same View then share a horizontal run and the picture becomes unreadable.
