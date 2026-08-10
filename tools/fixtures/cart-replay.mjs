@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 // Acceptance test for tools/slice.mjs: build the cart model of Understanding EventSourcing
-// chapters 12-17 as the nine successive appends those chapters actually are.
+// chapters 12-17 as the nine successive appends those chapters actually are — ON A BOARD, because
+// ch.18 says that is the normal case ("more than one model on a board... the rule rather than the
+// exception for me").
 //
 //   node tools/fixtures/cart-replay.mjs [--keep]
 //
 // Every geometric operation goes through tools/slice.mjs. Every domain fact -- labels, fields,
 // identities, GWTs -- comes from the book, quoted in the round it appears in. That split is the
 // point: the tool is proved to own the geometry and to invent nothing.
+//
+// THE OUTPUT IS A TWO-REGION BOARD. Region 2 is created BEFORE round 1, so all nine rounds run
+// against a board and exercise region targeting and the downward cascade throughout, rather than a
+// board being bolted on at the end. Its CONTENT is filled in after the rounds, so "nine rounds" still
+// means the book's nine appends to the cart:
+//
+//   region 1  cart               ch.12-17, the nine rounds below
+//   region 2  submit-cart-error  ch.18's own dedicated model for an alternative flow --
+//                                "if a customer fails to submit a cart three times due to technical
+//                                 issues, the cart process is aborted"
+//
+// Three of the nine rounds now pass --model: `--at start` means "position 0 of WHICH model", and a
+// state-view names no aggregate, so there is genuinely nothing on the canvas to infer a region from.
+// The other six infer it from --aggregate, from --at before:<slice>, or from the cell ids they name.
 //
 // The rounds, and the operation each one is here to exercise:
 //
@@ -52,21 +68,20 @@ const slice = (...args) => run([args[0], FILE, ...args.slice(1)]);
 
 // ---- the one thing the fixture does itself: write the book's domain facts onto a placeholder.
 // slice.mjs must never do this (a label is a domain fact), so the fixture carries it.
-// Self-closing alternative second, and [^>]*? so it cannot cross a ">" — see the note in
-// tools/slice.mjs. The naive form drops every edge's closing tag.
-const BLOCK_RE = new RegExp(
-  "        <object [\\s\\S]*?</object>\\n" +
-  "|        <mxCell id=\"(?!0\"|1\")[^>]*?/>\\n" +
-  "|        <mxCell id=\"(?!0\"|1\")[\\s\\S]*?</mxCell>\\n", "g");
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;").replace(/\n/g, "&#10;");
+//
+// THE PARSER IS THE SHARED ONE — KIT-FINDINGS V23 was filed as "three parsers"; this file held a
+// FOURTH. It was missed because the 3b sweep grepped tools/*.mjs and this lives in tools/fixtures/.
+// It matters as much as the others: `edit()` below rewrites the whole <root> from the blocks it
+// matched, so anything it could not match would be deleted — in the kit's own regression suite.
+import { parseBlocks, isRootCell, escapeAttr as esc } from "../drawio-xml.mjs";
+const cellBlocks = (xml) => parseBlocks(xml).filter((b) => !isRootCell(b)).map((b) => b.raw);
 
 function edit(edits) {
   const raw = readFileSync(FILE, "utf8");
   const crlf = raw.includes("\r\n");
   let xml = crlf ? raw.replace(/\r\n/g, "\n") : raw;
   const seen = new Set();
-  const blocks = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]).map((b) => {
+  const blocks = cellBlocks(xml).map((b) => {
     const id = /\bid="([^"]*)"/.exec(b)?.[1];
     const e = edits[id];
     if (!e) return b;
@@ -74,35 +89,49 @@ function edit(edits) {
     let out = b;
     for (const [k, v] of Object.entries(e)) {
       out = new RegExp(`\\b${k}="[^"]*"`).test(out)
-        ? out.replace(new RegExp(`\\b${k}="[^"]*"`), `${k}="${esc(v)}"`)
-        : out.replace(/^(        <object )/, `$1${k}="${esc(v)}" `);
+        ? out.replace(new RegExp(`\\b${k}="[^"]*"`), () => `${k}="${esc(v)}"`)
+        : out.replace(/^(\s*<object )/, (_, p) => `${p}${k}="${esc(v)}" `);
     }
     return out;
   });
   const missing = Object.keys(edits).filter((k) => !seen.has(k));
   if (missing.length) throw new Error(`edit: no such cell(s): ${missing.join(", ")}`);
-  xml = xml.replace(/(<root>\n)[\s\S]*?(      <\/root>)/,
-    `$1        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${blocks.join("")}$2`);
+  // Tolerant of the wrapper's formatting, refusing on a miss, and a FUNCTION replacement so a `$` in
+  // cell text (a GWT's `$CartA`) cannot be re-interpreted — the same three fixes step 3b made in the
+  // two writers.
+  const ROOT_RE = /(<root>[ \t]*\r?\n)([\s\S]*?)([ \t]*<\/root>)/;
+  if (!ROOT_RE.test(xml)) throw new Error("edit: no <root> ... </root> to rewrite");
+  xml = xml.replace(ROOT_RE, (_, open, __, close) =>
+    `${open}        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${blocks.join("")}${close}`);
   writeFileSync(FILE, crlf ? xml.replace(/\n/g, "\r\n") : xml, "utf8");
 }
 
 // GWT cells are content, not geometry: the fixture places them at the row slice.mjs reserved.
 // x is READ OFF the slice cell rather than computed from a column index, because every insert moves
 // it — round 2 and round 7 both insert at position 0, so a hardcoded index is wrong by 320 or 640.
-function gwt(id, sliceName, row, o) {
+//
+// `lane` names WHICH REGION's GWT band to stack under. On a board the lane ids are namespaced
+// (`submit-cart-error-lane-gwt`), and the y this reads is the whole point of the cell's placement —
+// reading region 1's band for a region 2 rule would drop the cell into the wrong model entirely.
+function gwt(id, sliceName, row, o, lane = "lane-gwt") {
   const raw = readFileSync(FILE, "utf8");
   const crlf = raw.includes("\r\n");
   let xml = crlf ? raw.replace(/\r\n/g, "\n") : raw;
-  const gwtY = +/id="lane-gwt"[\s\S]*?<mxGeometry[^>]*?\by="([-\d.]+)"/.exec(xml)[1];
+  const gwtY = +new RegExp(`id="${lane}"[\\s\\S]*?<mxGeometry[^>]*?\\by="([-\\d.]+)"`).exec(xml)[1];
   const band = new RegExp(`slice="${sliceName}"[^>]*em="group"|em="group"[^>]*slice="${sliceName}"`).test(xml)
     ? /<mxGeometry[^>]*?\bx="([-\d.]+)"/.exec(
         xml.slice(xml.indexOf(`id="slice-${sliceName}"`)))[1]
     : null;
   if (band == null) throw new Error(`gwt: no slice cell for ${sliceName}`);
   const colX = +band + 20;
-  const label = `${o.rule}\n\nGIVEN ${o.given || "—"}\nWHEN ${o.when}\nTHEN ${o.then}`;
+  // A STATE VIEW TAKES A GT, NOT A GWT: "Read Models only rely on previously stored events, so there
+  // is no 'When' part necessary" (UES ch. 3). The absent when= is what makes it a GT — so it must be
+  // OMITTED, not written empty. Latent until now because none of the nine rounds writes one, and
+  // `when="undefined"` is a gwt-unknown-command error rather than anything that reads as a helper bug.
+  const label = `${o.rule}\n\nGIVEN ${o.given || "—"}\n${o.when ? `WHEN ${o.when}\n` : ""}THEN ${o.then}`;
   const attrs = [`em="gwt"`, `slice="${sliceName}"`, `rule="${esc(o.rule)}"`,
-    o.given ? `given="${esc(o.given)}"` : null, `when="${esc(o.when)}"`, `then="${esc(o.then)}"`,
+    o.given ? `given="${esc(o.given)}"` : null, o.when ? `when="${esc(o.when)}"` : null,
+    `then="${esc(o.then)}"`,
     o.enforce ? `enforce="${o.enforce}"` : null].filter(Boolean).join(" ");
   const cell =
     `        <object id="${id}" label="${esc(label)}" ${attrs}>\n` +
@@ -163,6 +192,26 @@ edit({
   },
 });
 
+// ---- THE BOARD. ch.18 is where the book stops modelling and starts structuring, and it gives two
+// things this fixture now carries. First: "It is perfectly fine to have more than one model on a
+// board. In fact, this is the rule rather than the exception for me." Second, the SECOND MODEL
+// itself — an alternative flow gets "a dedicated model", and the book names this one:
+//
+//   "if a customer fails to submit a cart three times due to technical issues, the cart process is
+//    aborted. We could add this rule to the current model, but it would disrupt the flow. Most of the
+//    time, it's easier to define a dedicated model for this."   — ch.18
+//
+// So region 2 is the book's own "Submit Cart Error" flow, not an invented context. It is created HERE,
+// before round 1, rather than appended at the end: every one of the nine rounds then runs against a
+// two-region file, so region targeting and the downward cascade are exercised by the whole replay
+// instead of by a postscript. Its CONTENT is filled in after the rounds, so "nine rounds" still means
+// the book's nine appends to the cart.
+//
+// NOT drawn: ch.18's link marker under the slice ("I place a marker below the slice with a link to a
+// different model on the board"). That is notation, and notation is step 5.
+slice("model", "--context", "submit-cart-error", "--system", "cart",
+  "--label", "Submit Cart Error\nsubmit-cart-error · cart");
+
 const rounds = [];
 
 // ---------------------------------------------------------------- 1. add-item (ch.12)
@@ -192,7 +241,9 @@ rounds.push(() => {
 // Screen edge may not point left. CLAUDE.md: "where a screen reads a View drawn to its right, put
 // the View's column first." The event feeding it then runs back under the Event -> View exception.
 rounds.push(() => {
-  slice("add", "--slice", "cart-items", "--pattern", "state-view", "--at", "start");
+  // --model, because --at start means "position 0 of WHICH model" and a state-view names no
+  // aggregate — there is genuinely nothing on the canvas to infer the region from.
+  slice("add", "--slice", "cart-items", "--pattern", "state-view", "--at", "start", "--model", "cart");
   edit({
     "rm-cart-items": { label: "Cart Items", identity: "aggregateId",
       fields: "aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double",
@@ -278,7 +329,7 @@ rounds.push(() => {
 // "Let's add a new swimlane for inventories." The full downward cascade.
 rounds.push(() => {
   slice("swimlane", "--label", "Inventory stream — one stream per product",
-    "--streams", "Inventory", "--identity", "productId");
+    "--streams", "Inventory", "--identity", "productId", "--model", "cart");
   slice("add", "--slice", "change-inventory", "--pattern", "translation", "--aggregate", "Inventory");
   edit({
     "ext-change-inventory": { label: "Inventory Changed (external)", origin: "Inventory system",
@@ -308,7 +359,7 @@ rounds.push(() => {
 // items are currently in stock." That screen is the Cart Page, in column 1 -- so the view must be
 // inserted at position 0, or the View -> Screen feed points left and that is not the exception.
 rounds.push(() => {
-  slice("add", "--slice", "inventories", "--pattern", "state-view", "--at", "start");
+  slice("add", "--slice", "inventories", "--pattern", "state-view", "--at", "start", "--model", "cart");
   edit({
     "rm-inventories": { label: "Inventories", identity: "productId",
       fields: "productId:UUID, inventory:int",
@@ -398,13 +449,72 @@ for (let i = 0; i < rounds.length; i++) {
   const v = validate(i + 1);
   if (v.blockers.length) failed++;
 }
+
+// ============================================================ region 2: the book's alternative flow
+//
+// ch.18, in the book's own words: "if a customer fails to submit a cart three times due to technical
+// issues, the cart process is aborted. We could add this rule to the current model, but it would
+// disrupt the flow. Most of the time, it's easier to define a dedicated model for this." The flow
+// "essentially demonstrates how the cart behaves in the event of an error, including the Given / When
+// / Then scenarios."
+//
+// Everything below is that sentence and nothing more. The three-strikes rule and "the cart process is
+// aborted" are the book's; the shapes carrying them are the fixture's, exactly as in the nine rounds.
+console.log("\n=== region 2: submit-cart-error (ch.18's dedicated model) ===");
+const M2 = ["--model", "submit-cart-error"];
+slice("swimlane", "--label", "Cart stream — the same session, on its error flow",
+  "--streams", "CartError", "--identity", "aggregateId", ...M2);
+
+slice("add", "--slice", "fail-submission", "--pattern", "state-change", "--aggregate", "CartError");
+// The view goes in at position 0 for round 2's reason: the error screen READS the attempt count, and
+// a View -> Screen feed may not point left.
+slice("add", "--slice", "submission-failures", "--pattern", "state-view", "--at", "start", ...M2);
+slice("add", "--slice", "abort-cart", "--pattern", "state-change", "--aggregate", "CartError");
+edit({
+  "scr-fail-submission": { label: "Cart Page (error)", screen: "cart-error",
+    displays: "aggregateId:UUID, attempt:int", inputs: "reason:string" },
+  "cmd-fail-submission": { label: "Record Submission Failure", aggregate: "CartError",
+    fields: "aggregateId:UUID, reason:string, attempt:int", terminal: "attempt:generated",
+    note: "attempt is the handler's count of what is already in the stream, not something the user types." },
+  "evt-fail-submission": { label: "Submission Failed",
+    fields: "aggregateId:UUID, reason:string, attempt:int, failedAt:DateTimeOffset",
+    terminal: "failedAt:clock" },
+  "rm-submission-failures": { label: "Submission Failures", identity: "aggregateId",
+    fields: "aggregateId:UUID, attempt:int",
+    note: "ch.18: the flow exists so the three-strikes rule does not disrupt the main model. This is the "
+        + "count that rule is checked against." },
+  "scr-abort-cart": { label: "Cart Page (error)", screen: "cart-error",
+    displays: "aggregateId:UUID, attempt:int", inputs: "reason:string" },
+  "cmd-abort-cart": { label: "Abort Cart", aggregate: "CartError", fields: "aggregateId:UUID" },
+  "evt-abort-cart": { label: "Cart Aborted", fields: "aggregateId:UUID, abortedAt:DateTimeOffset",
+    terminal: "abortedAt:clock" },
+});
+slice("route", "--from", "evt-fail-submission", "--to", "rm-submission-failures");
+slice("route", "--from", "rm-submission-failures", "--to", "scr-fail-submission");
+slice("route", "--from", "rm-submission-failures", "--to", "scr-abort-cart");
+const GWT2 = "submit-cart-error-lane-gwt";
+gwt("gwt-fail-submission-1", "fail-submission", 0,
+  { rule: "a failed submission is recorded", when: "Record Submission Failure",
+    then: "Submission Failed" }, GWT2);
+gwt("gwt-submission-failures-1", "submission-failures", 0,
+  { rule: "the failure count is what the abort rule is checked against",
+    given: "Submission Failed(attempt=1)", then: "Submission Failures" }, GWT2);
+gwt("gwt-abort-cart-1", "abort-cart", 0,
+  { rule: "three failed submissions abort the cart process",
+    given: "Submission Failed(attempt=3)", when: "Abort Cart", then: "Cart Aborted" }, GWT2);
+console.log("    3 slice(s), the book's three-strikes rule");
+
 // Conway, ch.43. The rule COMPUTES which slices need two teams, and it is exactly the four command
 // slices: screen -> command -> event crosses the UI/backend line by definition and nothing else does.
 // An unacknowledged split is a warning; an acknowledged one is a note.
 console.log("\n=== conway ===");
-edit(Object.fromEntries(["add-item", "remove-item", "clear-cart", "submit-cart"]
+// Both regions: the rule is per-model, so a board's second model needs the same acknowledgement its
+// first one does. Every state-change slice crosses the line and no other slice does — 4 in cart, 2 in
+// the error flow.
+edit(Object.fromEntries(["add-item", "remove-item", "clear-cart", "submit-cart",
+                         "fail-submission", "abort-cart"]
   .map((n) => [`slice-${n}`, { owners: "backend-agent, frontend-agent" }])));
-console.log("    4 command slice(s) acknowledged as crossing the UI/backend line");
+console.log("    6 command slice(s) acknowledged as crossing the UI/backend line, across both models");
 
 execFileSync("node", [SLICE, "reflow", FILE], { encoding: "utf8" });
 console.log("\n=== after reflow ===");

@@ -51,6 +51,11 @@ const GWT_W = 300, GWT_H = 120, GWT_PITCH = 140, GWT_TOP = 30;
 // the screens `add` already places at uiY + 40, and UI_STRIP_H reserves the View -> Screen routing strip
 // that must stay below every band.
 const ACTOR_TOP = 25, ACTOR_PAD = 20, ACTOR_GAP = 10, UI_STRIP_H = 45;
+// The clear space between one model on a board and the next. Big enough to read as a break, and it is
+// NOT load-bearing: shiftY carries every lower region down when an upper one grows, so the gutter can
+// never be eaten (step 3 measured a 14x overrun with it intact).
+const REGION_GUTTER = 400;
+const TEMPLATE = new URL("../templates/template.drawio", import.meta.url);
 
 const STYLE = {
   screen:     "rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;",
@@ -176,9 +181,12 @@ const setGeom = (b, kv) => b.replace(/<mxGeometry([^>]*?)as="geometry"/, (m, inn
   }
   return `<mxGeometry${out}as="geometry"`;
 });
+// setAttr ESCAPES ITS OWN VALUE — pass a raw string, never a pre-escaped one, or `&#10;` becomes
+// `&amp;#10;` and a two-line label renders as one. Function replacements so a `$` in the value cannot
+// be re-interpreted, and `\s*` rather than 8 literal spaces now the parser tolerates any indentation.
 const setAttr = (b, k, v) => new RegExp(`\\b${k}="[^"]*"`).test(b)
-  ? b.replace(new RegExp(`\\b${k}="[^"]*"`), `${k}="${esc(v)}"`)
-  : b.replace(/^(        <object )/, `$1${k}="${esc(v)}" `);
+  ? b.replace(new RegExp(`\\b${k}="[^"]*"`), () => `${k}="${esc(v)}"`)
+  : b.replace(/^(\s*<object )/, (_, p) => `${p}${k}="${esc(v)}" `);
 
 // ---------------------------------------------------------------- the model
 
@@ -229,6 +237,7 @@ const inRegion = (c, r) => {
 function regionsIn(xml) {
   const cells = cellBlocks(xml).map((b) => ({
     block: b, id: attr(b, "id"), em: attr(b, "em"), slice: attr(b, "slice"),
+    label: attr(b, "label") ?? attr(b, "value"),
     streams: attr(b, "streams"), actor: attr(b, "actor"), g: geomOf(b),
   }));
   return { cells, regions: regionsOf(cells) };
@@ -247,6 +256,13 @@ function regionsIn(xml) {
 //
 // A command whose inference lands in TWO regions is refused rather than resolved: that is a
 // cross-model write, which is steps 5-7, not this one.
+// "Does this already exist ANYWHERE in the file?" — asked before a region is resolved, so an
+// idempotent re-run never has to name one. File-wide is also the correct scope for a slice name,
+// which is a branch and a ticket and unique across the system.
+const existingSlice = (xml, name) =>
+  regionsIn(xml).cells.some((c) => c.em === "group" && c.slice === name);
+const existingBand = (xml, pred) => regionsIn(xml).cells.some(pred);
+
 function pickRegion(xml, o, infer = [], hint = "") {
   const { cells, regions } = regionsIn(xml);
   if (regions.length === 1) return regions[0];
@@ -502,6 +518,14 @@ function cmdAdd(target, o) {
   if (!PATTERN_CELLS[o.pattern]) {
     die(`unknown pattern "${o.pattern}". One of: ${Object.keys(PATTERN_CELLS).join(", ")}.`);
   }
+  // IDEMPOTENCE COMES BEFORE DISAMBIGUATION, and getting that order wrong is a real trap: a re-run of
+  // an `add` for a slice that already exists is a NO-OP, so demanding --model first would make the
+  // safest possible call the one that fails. Found by cart-replay's idempotency check, which re-runs
+  // every command with its original arguments — exactly what a caller retrying a script does.
+  if (existingSlice(xml, o.slice)) {
+    console.log(`${target}: slice "${o.slice}" already exists — leaving it alone.`);
+    return;
+  }
   // Every one of these facts is already on the canvas in exactly one model, so naming it again with
   // --model would be a second place for it to live.
   const atName = o.at && /^(before|after):/.test(o.at) ? o.at.split(":")[1] : null;
@@ -514,13 +538,6 @@ function cmdAdd(target, o) {
   ].filter(Boolean),
     "--aggregate names a stream, and the swimlane declaring it already sits in one model."));
   const plan = [];
-
-  // Across the whole FILE, not just this region: a slice name is a branch and a ticket.
-  const clash = m.allSliceCells.find((c) => c.slice === o.slice);
-  if (clash) {
-    console.log(`${target}: slice "${o.slice}" already exists — leaving it alone.`);
-    return;
-  }
   // Slice names are unique across the SYSTEM, not the file: a slice is a branch and a ticket.
   const collision = siblingSlices(file).find((s) => s.name === o.slice);
   if (collision) die(`slice "${o.slice}" already exists in ${collision.where}. Names are unique across the system.`);
@@ -688,6 +705,73 @@ function siblingSlices(file) {
   return out;
 }
 
+// ---------------------------------------------------------------- model (a new region)
+//
+// "It is perfectly fine to have more than one model on a board. In fact, this is the rule rather than
+// the exception for me." — Understanding EventSourcing, ch. 18
+//
+// Step 2 taught the reader to see many models on one canvas and step 3 taught the writers to work in
+// one of them; nothing could CREATE one, so a board could only ever be made outside the kit. This is
+// that command, and it is the symmetric twin of `swimlane` and `actorlane`: it grows the board
+// downward, below everything already drawn.
+//
+// A NEW REGION IS A FRESH TEMPLATE, PLACED UNDER THE LAST ONE — read from templates/template.drawio
+// rather than reproduced from constants here, so a new region on a board and a new one-model file stay
+// the same thing by construction. It brings no swimlane: what keys a stream is a domain answer, so
+// `swimlane` is a separate, deliberate call exactly as it is for a fresh file.
+function cmdModel(target, o) {
+  const { file, xml } = read(target);
+  const ctx = o.context;
+  if (!ctx) die("model needs --context <name>: the business context this region captures.");
+  const { cells, regions } = regionsIn(xml);
+  if (regions.some((r) => r.context === ctx)) {
+    console.log(`${target}: a model for context "${ctx}" already exists — leaving it alone.`);
+    return;
+  }
+
+  // Below EVERYTHING, not below the last anchor: the last region's GWT band and journey bars are the
+  // real floor, and a region that starts above them would overlap the model it follows.
+  const bottom = Math.max(0, ...cells.map((c) => (c.g ? c.g.y + c.g.h : 0)));
+  const top = bottom + REGION_GUTTER;
+
+  const tpl = readFileSync(TEMPLATE, "utf8").replace(/\r\n/g, "\n");
+  const want = ["model-rename", "lane-ui", "lane-cmd", "lane-evt", "lane-gwt"];
+  const picked = parseBlocks(tpl).filter((b) => want.includes(b.attrs.id));
+  if (picked.length !== want.length) {
+    die(`templates/template.drawio is missing ${want.filter((w) => !picked.some((p) => p.attrs.id === w)).join(", ")}.`);
+  }
+  const anchorY = geomOf(picked.find((b) => b.attrs.id === "model-rename").raw).y;
+  const dy = top - anchorY;
+  const slugged = slug(ctx);
+
+  const blocks = picked.map((b) => {
+    let s = b.raw;
+    const g = geomOf(s);
+    if (g) s = setGeom(s, { y: g.y + dy });
+    // Two models on one canvas cannot share an id. The lane suffix is what LANE_ID_RE keys on, so a
+    // prefixed lane still resolves by role.
+    const id = b.attrs.id === "model-rename" ? `model-${slugged}` : `${slugged}-${b.attrs.id}`;
+    s = s.replace(/\bid="[^"]*"/, `id="${id}"`);
+    if (b.attrs.id === "model-rename") {
+      s = setAttr(s, "label", o.label ?? `${ctx}\n${ctx} · context`);
+      s = setAttr(s, "context", ctx);
+      if (o.system) s = setAttr(s, "system", o.system);
+    }
+    return s;
+  });
+
+  const laneBottom = Math.max(...blocks.map((b) => { const g = geomOf(b); return g ? g.y + g.h : 0; }));
+  let out = splice(xml, [...cellBlocks(xml), ...blocks]);
+  out = setPage(out, { h: Math.max(pageH(xml), laneBottom + 60) });
+  finish(target, file, out, [
+    `model "${ctx}" as region ${regions.length + 1}, at y=${top} (${REGION_GUTTER}px below the last model)`,
+    `4 lane(s) + 1 model cell`,
+  ], o, [
+    `no swimlane: what keys a stream is a domain answer, so add one before any event —`,
+    `  node tools/slice.mjs swimlane ${target} --label ... --streams ... --model ${ctx}`,
+  ]);
+}
+
 // ---------------------------------------------------------------- actorlane
 //
 // The ORIGINAL definition's swimlane, and a different animal from the stream bands below. Dymitruk §3:
@@ -709,6 +793,11 @@ function cmdActorLane(target, o) {
     "A new actor lane names an actor who is not on the board yet, so there is nothing to infer from."));
   if (o.kind && !["person", "system"].includes(o.kind)) {
     die(`--kind must be person or system. An actor lane is a person OR A SYSTEM — never a role: roles are an implementation detail both books refuse.`);
+  }
+  // Idempotence before disambiguation — see cmdAdd.
+  if (existingBand(xml, (c) => c.actor && !c.streams && c.actor === o.actor)) {
+    console.log(`${target}: an actor lane for "${o.actor}" already exists — leaving it alone.`);
+    return;
   }
   const existing = m.actorLanes ?? [];
   if (existing.some((a) => a.actor === o.actor)) {
@@ -768,6 +857,11 @@ function cmdActorLane(target, o) {
 function cmdSwimlane(target, o) {
   const { file, xml } = read(target);
   if (!o.label || !o.streams) die("swimlane needs --label and --streams.");
+  // Idempotence before disambiguation — see cmdAdd.
+  if (existingBand(xml, (c) => c.streams && c.label === o.label)) {
+    console.log(`${target}: a band labelled "${o.label}" already exists — leaving it alone.`);
+    return;
+  }
   // The other command with nothing to infer from: --streams names a stream that does not exist yet.
   const m = model(xml, pickRegion(xml, o, [],
     "A new band declares a stream that is on no cell yet, so there is nothing to infer from."));
@@ -1196,7 +1290,9 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--kind") o.kind = v;
   // Which model on a board this write goes to. Never needed on a one-model file, and on a board only
   // where the command names nothing that already sits in one region — see pickRegion.
-  else if (a === "--model" || a === "--context") o.model = v;
+  else if (a === "--model") o.model = v;
+  else if (a === "--context") o.context = v;
+  else if (a === "--system") o.system = v;
   else die(`unknown flag ${a}`);
 }
 if (!cmd || !target) {
@@ -1204,7 +1300,7 @@ if (!cmd || !target) {
     .slice(2, 10).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
   process.exit(2);
 }
-const ops = { add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, promote: cmdPromote, reflow: cmdReflow };
+const ops = { model: cmdModel, add: cmdAdd, swimlane: cmdSwimlane, actorlane: cmdActorLane, journey: cmdJourney, route: cmdRoute, identity: cmdIdentity, demote: cmdDemote, promote: cmdPromote, reflow: cmdReflow };
 if (!ops[cmd]) die(`unknown command "${cmd}". One of: ${Object.keys(ops).join(", ")}.`);
 if (cmd === "add" && (!o.slice || !o.pattern)) die("add needs --slice and --pattern.");
 ops[cmd](target, o);

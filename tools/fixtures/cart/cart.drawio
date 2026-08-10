@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Claude" type="device">
   <diagram name="Rename me" id="context">
-    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="4240" pageHeight="1845" math="0" shadow="0">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="4240" pageHeight="3780" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -24,6 +24,11 @@
             <mxGeometry x="40" y="870" width="4140" height="235" as="geometry" />
           </mxCell>
         </object>
+        <object id="swim-carterror" label="Cart stream — the same session, on its error flow" em="lane" streams="CartError" identity="aggregateId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="3050" width="1580" height="95" as="geometry" />
+          </mxCell>
+        </object>
         <object note="ch.14: &quot;Since this identifier uniquely ties together all events within a shopping-cart session, we'll call it aggregateId for now.&quot; The book's own name, kept." identity="aggregateId" id="swim-cart" label="Cart stream — one stream per cart session" em="lane" streams="Cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
             <mxGeometry x="40" y="895" width="4140" height="95" as="geometry" />
@@ -37,6 +42,31 @@
         <object id="lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
             <mxGeometry x="40" y="1345" width="4140" height="440" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="model-submit-cart-error" label="Submit Cart Error&#10;submit-cart-error · cart" em="model" context="submit-cart-error" system="cart" note="one business context, one flow. The file name IS the context name.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="2185" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="submit-cart-error-lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="2315" width="1580" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="submit-cart-error-lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="2705" width="1580" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="submit-cart-error-lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="3025" width="1580" height="130" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="submit-cart-error-lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="3280" width="1580" height="440" as="geometry" />
           </mxCell>
         </object>
         <object owners="backend-agent, frontend-agent" id="slice-add-item" label="add-item&#10;state-change · in-design" em="group" slice="add-item" pattern="state-change" status="in-design">
@@ -465,6 +495,107 @@
         <object id="gwt-archive-item-2" label="a run with no affected carts does nothing and is not an error&#10;&#10;GIVEN Price Changed&#10;WHEN Archive Item&#10;THEN error: NoAffectedCarts" em="gwt" slice="archive-item" rule="a run with no affected carts does nothing and is not an error" given="Price Changed" when="Archive Item" then="error: NoAffectedCarts">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
             <mxGeometry x="3300" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object owners="backend-agent, frontend-agent" id="slice-fail-submission" label="fail-submission&#10;state-change · in-design" em="group" slice="fail-submission" pattern="state-change" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="400" y="2295" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object inputs="reason:string" displays="aggregateId:UUID, attempt:int" id="scr-fail-submission" label="Cart Page (error)" em="screen" slice="fail-submission" screen="cart-error">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="410" y="2355" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="attempt is the handler's count of what is already in the stream, not something the user types." terminal="attempt:generated" fields="aggregateId:UUID, reason:string, attempt:int" aggregate="CartError" id="cmd-fail-submission" label="Record Submission Failure" em="command" slice="fail-submission">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="2755" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object terminal="failedAt:clock" fields="aggregateId:UUID, reason:string, attempt:int, failedAt:DateTimeOffset" id="evt-fail-submission" label="Submission Failed" em="event" slice="fail-submission" aggregate="CartError">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="3075" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-fail-submission--cmd-fail-submission" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-fail-submission" target="cmd-fail-submission">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-fail-submission--evt-fail-submission" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-fail-submission" target="evt-fail-submission">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="slice-submission-failures" label="submission-failures&#10;state-view · in-design" em="group" slice="submission-failures" pattern="state-view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="70" y="2295" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.18: the flow exists so the three-strikes rule does not disrupt the main model. This is the count that rule is checked against." fields="aggregateId:UUID, attempt:int" identity="aggregateId" id="rm-submission-failures" label="Submission Failures" em="readmodel" slice="submission-failures">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="90" y="2755" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object owners="backend-agent, frontend-agent" id="slice-abort-cart" label="abort-cart&#10;state-change · in-design" em="group" slice="abort-cart" pattern="state-change" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="2295" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object inputs="reason:string" displays="aggregateId:UUID, attempt:int" id="scr-abort-cart" label="Cart Page (error)" em="screen" slice="abort-cart" screen="cart-error">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="730" y="2355" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="aggregateId:UUID" aggregate="CartError" id="cmd-abort-cart" label="Abort Cart" em="command" slice="abort-cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="2755" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object terminal="abortedAt:clock" fields="aggregateId:UUID, abortedAt:DateTimeOffset" id="evt-abort-cart" label="Cart Aborted" em="event" slice="abort-cart" aggregate="CartError">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3075" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="e-scr-abort-cart--cmd-abort-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="scr-abort-cart" target="cmd-abort-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cmd-abort-cart--evt-abort-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cmd-abort-cart" target="evt-abort-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-evt-fail-submission--rm-submission-failures" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="evt-fail-submission" target="rm-submission-failures">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="3170" />
+              <mxPoint x="180" y="3170" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-submission-failures--scr-fail-submission" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-submission-failures" target="scr-fail-submission">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="2660" />
+              <mxPoint x="500" y="2660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-rm-submission-failures--scr-abort-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="rm-submission-failures" target="scr-abort-cart">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="2668" />
+              <mxPoint x="820" y="2668" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="gwt-fail-submission-1" label="a failed submission is recorded&#10;&#10;GIVEN —&#10;WHEN Record Submission Failure&#10;THEN Submission Failed" em="gwt" slice="fail-submission" rule="a failed submission is recorded" when="Record Submission Failure" then="Submission Failed">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="3310" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-submission-failures-1" label="the failure count is what the abort rule is checked against&#10;&#10;GIVEN Submission Failed(attempt=1)&#10;THEN Submission Failures" em="gwt" slice="submission-failures" rule="the failure count is what the abort rule is checked against" given="Submission Failed(attempt=1)" then="Submission Failures">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="90" y="3310" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="gwt-abort-cart-1" label="three failed submissions abort the cart process&#10;&#10;GIVEN Submission Failed(attempt=3)&#10;WHEN Abort Cart&#10;THEN Cart Aborted" em="gwt" slice="abort-cart" rule="three failed submissions abort the cart process" given="Submission Failed(attempt=3)" when="Abort Cart" then="Cart Aborted">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3310" width="300" height="120" as="geometry" />
           </mxCell>
         </object>
       </root>

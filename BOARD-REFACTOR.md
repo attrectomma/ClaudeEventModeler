@@ -43,8 +43,12 @@ from that single choice:
 - **Alternative flows** cannot carry the book's link marker, because there is nothing to link *to* within
   the file.
 - **Chapters** could exist today but would stop at the file edge.
-- `_context-map.drawio` exists **only** because the models are in separate files. On a board, the context
-  map is the board.
+- ~~`_context-map.drawio` exists **only** because the models are in separate files. On a board, the context
+  map is the board.~~ **OVER-STATED, corrected at step 4.** A board shows both models; it does **not** show
+  what crosses between them. An import is a yellow external carrying `from=`, with **no line to its
+  producer** — and a cross-region edge is now an *error*. So the map remains the only artifact showing the
+  import graph at a glance. It becomes genuinely redundant only when step 6's `contract=` makes the boundary
+  explicit and drawable.
 
 **So the refactor is one change with a long tail, not seven changes.**
 
@@ -178,8 +182,20 @@ refactor can be stopped between any two.
 
 3b. **Extract one parser** — `model.mjs`'s tolerant parser becomes the only one; `slice.mjs` uses it. This is
    V23's cure and it is a prerequisite for step 4, not a nicety.
-4. **Migrate the remaining five** — Voltway, then the five reference implementations. `cart-replay.mjs`
-   rewritten against the new geometry and byte-identical on re-run. Every model at 0 errors, 0 warnings.
+4. ~~Migrate~~ — ✅ **DONE.** `cart-replay.mjs` now **generates** a two-region board (cart + the book's own
+   `submit-cart-error` alternative flow, `UES` ch. 18 — *"if a customer fails to submit a cart three times
+   due to technical issues, the cart process is aborted"*, so nothing was invented). Region 2 is created
+   **before round 1**, so all nine rounds run against a board and region targeting is exercised by the whole
+   replay rather than a postscript. Voltway's two files became `diagrams/voltway.drawio`, two regions —
+   **117 findings before, 117 after, identical both directions**, and `generated/` **byte-identical**, which
+   tests rather than asserts the assumption that `codegen` reads the IR and does not care.
+   **The five reference implementations were deliberately left as one-model files**, and the reasoning is
+   the point: each is a worked example of *one pattern in one context*, so a second region would mean
+   inventing a second context; and a one-model file **already is** a one-region board, so there is nothing
+   to migrate and nothing being skipped.
+   `slice.mjs model` was added because nothing in the kit could **create** a region — step 2 taught the
+   reader to see many models and step 3 taught the writers to work in one, but a board could still only be
+   made outside the kit.
 5. **Additive notation**: `chapter` (absorbing `journey`), the alternative-flow link marker, the black
    border for a slice that is not ours to build.
 6. **The integration-event change** — `contract=`, `import-of-domain-event`, the inverted
