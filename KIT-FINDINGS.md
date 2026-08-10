@@ -109,6 +109,47 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V21 — two GWTs sharing a rule name generate TWO METHODS WITH THE SAME NAME, and the scaffold does not compile · `kit` · **BROKEN**
+
+`codegen` names each generated test method after the GWT's **rule**. Two GWTs sharing a rule name is legitimate
+— the same refusal reached by two histories — and **the kit already depends on that in two places**: rejection
+constants are deduped by rule name (the CS0102 fix), and `GWT COVERAGE CANNOT BE TOLD APART` exists *precisely
+because* the situation arises. The method namer never got the memo.
+
+Measured: `schedule-repair`'s `gwt-sr-1` and `gwt-sr-4` are two scenarios of `RepairJobIsRaised` — a bay the
+system withdrew, and a bay a manager withdrew that still has faults. Both scaffolded as
+`public Task RepairJobIsRaised()` → **CS0111**.
+
+**This is worse than the other same-name findings because it breaks `scaffold`'s own gate.** That gate is
+`dotnet build` at 0 errors, and it is the check that exists because two defects once shipped through exactly
+this hole (W6, W9). A first-generation project whose model has two same-named GWTs on one slice **cannot pass
+it at all** — the fix is a hand edit before the project has ever built once.
+
+The fix is the same information the coverage report already uses: fall back to the **cell id** when a rule name
+is not unique within the slice — `RepairJobIsRaised_GwtSr4`, or the scenario name a human would pick anyway.
+Note the two reports then agree: renaming by scenario is what `GWT COVERAGE CANNOT BE TOLD APART` asks for.
+
+### V22 — `RACE TEST NOT WRITTEN` is reported per GWT and satisfied per FILE, so one race test silences another GWT · `kit` · **BROKEN**
+
+`raceFileName()` is `<Slice>ConcurrencyTests.cs` — one file per slice — while the report is raised per
+contended GWT. So writing the race test that **one** GWT genuinely needs marks **every** contended GWT in that
+slice as answered.
+
+Measured: `schedule-repair` has two, and they need opposite treatment. `gwt-sr-2` (`RepairAlreadyRaised`) is
+genuinely contended and got a real test. `gwt-sr-3` (`BayNeedsNoRepair`) is **not** — two callers both read
+*not needed* and are both correctly refused, with no winner to elect — and `ARCHITECTURE.md` records the
+deliberate decision not to write one. The implementer could not honour that instruction: writing the first
+test silenced the second report automatically.
+
+**So the record and the tool now disagree, and the tool is the one that goes quiet.** The refusal survives only
+as prose in a comment at the head of the file. Two things follow: the check cannot distinguish *"answered"*
+from *"answered for a different GWT in the same file"*, and there is nowhere to record *"deliberately no race
+test here"* — the same missing acknowledgement that `joins="none"` and the `VIEW WITH NO REGISTRATION` comment
+exist to provide elsewhere.
+
+This is **V8 compounding**: V8 says the contention classifier flags GWTs that are not contended; V22 says that
+once it does, you cannot even record the disagreement.
+
 ### V20 — nothing checks that a GWT's GIVEN is REACHABLE, so a slice can be fully specified and green against a past the system cannot produce · `kit` · **GAP**
 
 **A GWT appends its own history, and that is correct** — a GIVEN *is* history. The consequence nobody had
