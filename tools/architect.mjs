@@ -970,14 +970,34 @@ public sealed class ${cls}(AppFixture fixture) : IntegrationContext(fixture)
 
     ${fact}
     /// <summary>
-    /// THE MECHANISM. Same race, same barrier, with the guard chosen in ARCHITECTURE.md in place.
+    /// THE MECHANISM. Same race, same barrier, now running the guard chosen in ARCHITECTURE.md.
+    ///
+    /// ═══ CALL THE SLICE'S OWN CODE. DO NOT RE-STAGE THE GUARD IN THIS TEST. ═══
+    ///
+    /// KIT-FINDINGS V11, and it is the single easiest way to write a race test that proves nothing. The
+    /// tempting shape is to copy what the mechanism does into the callback below — read, check, then
+    /// session.Events.StartStream(claimId, ...) or a hand-staged Append. That version passes, looks
+    /// authoritative, and is measuring MARTEN rather than your slice: it proves StartStream collides,
+    /// which was never in doubt.
+    ///
+    /// Measured: with the claim's StartStream swapped for an Append — the guard turned into no guard —
+    /// a re-staging race test stayed GREEN, and so did all six of that slice's sequential GWTs. The
+    /// mutation was invisible because the shipped code was never executed.
+    ///
+    /// So the callback must invoke the real path: the mechanism's own method, or the endpoint. If the
+    /// mechanism gives you nowhere to put the barrier, ADD A SEAM TO IT — an afterRead callback the
+    /// production path defaults to null — rather than reproducing it here. Worked example:
+    /// CommissionBayConcurrencyTests.ExactlyOneMechanismCallerWins.
+    ///
+    /// The check that this test is real: break the guard on purpose and watch THIS test go red. If it
+    /// stays green you have tested a copy, not the code.
     ///
     /// Assert BOTH counts, not just the winner: "exactly one won" alone is also true when the mechanism
     /// wrongly refuses everybody, and "no conflicts" alone is true when it refuses nobody.
     /// </summary>
     public async Task exactly_one_racing_writer_is_refused()
     {
-        // TODO(architect): the same race with the guard in place.
+        // TODO(architect): the same race, driving the SLICE'S OWN guard — never a copy of it here.
         //   results.Count(RaceOutcome.Won).ShouldBe(1, results.Describe());
         //   results.Count(RaceOutcome.VersionConflict).ShouldBe(1, results.Describe());
         //   results.Count(RaceOutcome.Unexpected).ShouldBe(0, results.Describe());
