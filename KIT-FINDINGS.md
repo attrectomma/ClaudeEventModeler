@@ -55,6 +55,34 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V18 — `design.mjs check` pools the design and the port, so the two can disagree and it stays quiet · **BROKEN**
+
+The three-way check is documented as `displays=`/`inputs=` ↔ wireframe `binds=` ↔ **HTML `data-em`** — and the
+third leg reads *both* `designs/<slug>.html` **and** the ported `.tsx`, then treats a binding found in
+**either** as satisfied. So the two artifacts it exists to keep in step are pooled rather than compared.
+
+Measured: `withdrawnBy` was added to `BayHealth` and to `bay-health`'s `displays=`, then implemented in
+`BayHealth.tsx` only. `design.mjs check` went from **1 warning to 0** — the `.tsx` satisfied the binding on
+the design's behalf — while **the reviewed design and the shipped screen now showed different rows**. Going
+*greener* is the tell: the check improved as the artifacts diverged.
+
+**This is the whole point of that folder.** `designs/<slug>.html` is the artifact a human signed off, and
+`review.mjs sheet` puts it beside the built software so somebody can answer *"does this match what we
+agreed"*. If the design silently stops being what the app shows, the sheet is comparing the app to a stale
+picture and the check that should have said so is the one reporting zero.
+
+**The fix is to check the legs separately**, and each has a different severity, which is why pooling them was
+tempting and wrong:
+
+| | |
+| --- | --- |
+| the model declares it, the **design** does not draw it | the design is behind — **warn**, it is what `design-field-missing` already means |
+| the model declares it, the **port** does not render it | the port is behind — **warn** |
+| **design and port disagree** with each other | neither is behind the model; the agreed artifact is now fiction — this is the case that has no finding at all |
+
+Note `design-has-port` already knows both files exist — it prints one INFO per screen saying so. The
+information needed for the comparison is present; nothing does the comparison.
+
 ### V17 — `wireframe.mjs scaffold` is all-or-nothing, so a `displays=` field added later can never be drawn by the tool · **BROKEN**
 
 `node tools/wireframe.mjs scaffold <file>` answers *"wireframes already present — leaving it alone."* once any
