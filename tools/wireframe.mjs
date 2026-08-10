@@ -23,6 +23,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { parseBlocks, isRootCell } from "./drawio-xml.mjs";
 
 // MUST MATCH tools/slice.mjs. This resizes every screen it scaffolds, so a mismatch means one tool
 // grows what the other shrank. 240 holds eight rows plus a title and an action; real screens carry five
@@ -64,16 +65,11 @@ const names = (spec) =>
 
 // ---------------------------------------------------------------- read what we need
 
-// The self-closing alternative must come SECOND and use [^>]*? so it cannot cross a ">". Written as
-// `[\s\S]*?(?:<\/mxCell>\n|\/>\n)` a lazy match stops at whichever comes first — and inside an edge
-// that is its own self-closing <mxGeometry ... />. The block then ends early, the trailing
-// </mxCell> matches nothing, and the rewrite below DROPS it: every edge in the file loses its
-// closing tag. Found while building tools/slice.mjs, which had inherited the same pattern.
-const BLOCK_RE = new RegExp(
-  "        <object [\\s\\S]*?</object>\\n" +
-  "|        <mxCell id=\"(?!0\"|1\")[^>]*?/>\\n" +
-  "|        <mxCell id=\"(?!0\"|1\")[\\s\\S]*?</mxCell>\\n", "g");
-const blocks = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]);
+// THE PARSER IS SHARED — tools/drawio-xml.mjs, KIT-FINDINGS V23. This file used to carry a third copy
+// of the 8-space BLOCK_RE, and it rewrites <root> from `blocks` exactly as slice.mjs does, so it had
+// the same defect: a cell it could not match was deleted rather than merely unparsed. V23 was written
+// as "two parsers"; it was three.
+const blocks = parseBlocks(xml).filter((b) => !isRootCell(b)).map((b) => b.raw);
 
 const geom = (b) => {
   const g = /<mxGeometry([^>]*?)as="geometry"/.exec(b);
@@ -180,9 +176,18 @@ for (const s of screens) {
   }
 }
 
+// Tolerant of the wrapper's formatting, and REFUSING when it cannot match — the old pattern returned
+// the string unchanged on a miss, so the write silently did nothing and still reported success. The
+// replacement is a function so a `$` in cell text (a GWT's `$SeedName`) cannot be re-interpreted.
+const ROOT_RE = /(<root>[ \t]*\r?\n)([\s\S]*?)([ \t]*<\/root>)/;
+if (!ROOT_RE.test(xml)) {
+  console.error(`wireframe: no <root> ... </root> here that this tool can rewrite.`);
+  process.exit(1);
+}
 xml = xml
-  .replace(/(<root>\n)[\s\S]*?(      <\/root>)/,
-    `$1        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${rewritten.join("")}${cells.join("\n")}\n$2`)
+  .replace(ROOT_RE, (_, open, __, close) =>
+    `${open}        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n` +
+    `${rewritten.join("")}${cells.join("\n")}\n${close}`)
   .replace(/pageHeight="(\d+)"/, (m, h) => `pageHeight="${+h + DELTA}"`);
 
 writeFileSync(file, crlf ? xml.replace(/\n/g, "\r\n") : xml, "utf8");

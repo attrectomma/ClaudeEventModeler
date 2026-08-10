@@ -19,6 +19,74 @@ lettered by run (**A** first, then **B**, **T**, **W**, **X**, **Y**, **Z**, **A
 
 ---
 
+## V23 — THREE parsers read one file, and the strict ones DELETED what they could not match · **BROKEN** · ***FIXED 2026-08-10***
+
+Found during the board refactor's step 3, cured in step 3b, **before** step 4 reformatted every `.drawio` in
+the repo — which is the condition that would have made it fire at maximum exposure.
+
+**The defect.** `model.mjs`, `slice.mjs` and `wireframe.mjs` each carried their own `.drawio` parser. The two
+writers anchored on **8-space indentation**, and each rewrote the whole `<root>` from the blocks it matched —
+so a cell they did not match was **not merely unparsed, it was deleted**, with no error and no diff anybody
+reads. `model.mjs` parsed indentation-agnostically and read the same files perfectly.
+
+**Filed as "two parsers"; it was three.** `wireframe.mjs` had the identical `BLOCK_RE` and the identical
+rewrite, so leaving it would have made the cure incomplete.
+
+**The divergence, measured on one file.** De-indent one `<object>` by four spaces in a two-region board:
+
+```
+model.mjs validate  ->  0 error(s), 6 warning(s), 25 note(s)   2 models / 13 slices / 58 elements
+slice.mjs promote   ->  silently dropped both model cells, collapsing the board to one region
+```
+
+One tool called the file perfect; the other destroyed it — **on a `promote`, an attribute edit that touches no
+geometry at all.** Nothing caught it, because `validate` then read the wreckage and was happy: the cells it
+needed were the ones still present.
+
+**Why it was the most dangerous shape in the findings file.** It is the *inverse* of the "check goes quiet"
+family (V5, V9, V13, V17, V18). There, a check stops reporting a real problem. Here, **a check reports success
+on a file the other half of the kit will destroy.** Both are silence where a warning belongs; this one also
+loses work.
+
+**The cure, and the reason it was not simply "use `model.mjs`'s parser".** `tools/drawio-xml.mjs` (89 lines)
+is now the only parser, and it had to be **both** things at once, which neither original was:
+
+| | |
+| --- | --- |
+| **tolerant** | indentation, attribute order and self-closing style are free — `model.mjs`'s behaviour, the well-tested one |
+| **lossless** | every cell carries `raw`, its exact source span including leading indentation and trailing newline |
+
+The second is why the writer grew its own in the first place: `slice.mjs` does not just read, it **splices raw
+block text back**, and that byte-identity is what keeps a `.drawio` diff reviewable. A parser returning only
+attributes could not have served it. Recognising that the shared parser needed a property *neither* original
+had is the part worth keeping.
+
+**Two adjacent hazards of the same shape, fixed while there.** Both writers' `<root>` rewrite used a pattern
+that, on a miss, **returned the string unchanged** — so the write silently did nothing and reported success.
+Both now refuse. And both used string replacements, where a `$&` or `$'` in cell text would be *substituted*
+rather than written — and GWT example data already contains `$SeedName`, so the function form removes the
+class rather than the instance.
+
+**Geometry is deliberately NOT shared**, and the reason is recorded in the module: the two readers genuinely
+disagree. `slice.mjs` returns `null` when a geometry declares neither `x` nor `width` — a relative edge
+geometry, not a box, and one that must not be moved — while `model.mjs` reads it as a box at `0,0`. Each is
+right for its caller, and `model.mjs`'s result is serialised into the compiled IR. V23 was never about
+geometry; it was about **which cells exist**.
+
+**`assertNothingDropped` is kept even though it should now be unreachable**, and was proven not to be dead
+code: an unterminated `<object>` still trips it. Its message no longer blames indentation, because
+indentation is no longer the cause. It is the tripwire if the split ever returns.
+
+**Verified before either caller was switched:** the new parser reproduces both old parsers — same blocks, same
+order, same exact text for the writer; same cell-id set for the reader — across all 15 `.drawio` in the repo.
+Afterwards: `cart-replay` byte-identical and idempotent, all 12 validate targets unchanged in text and
+`--json`, the step-3 writer table 10/10 with membership by cell id, `wireframe.mjs` byte-identical on six
+models, and a board reformatted **the way draw.io actually reserialises** — halved indentation, `id=` moved
+last on every `<object>` — read, written and re-read identically. Before the cure that file would have been
+gutted.
+
+---
+
 Everything the kit got wrong, everything the runs taught, and every decision parked for the human.
 
 **Five runs so far.** The first (CPOC01, *Recipe Box*) took a business brief through the whole workflow to

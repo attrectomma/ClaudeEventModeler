@@ -106,10 +106,12 @@ const DEFAULT_COLS = { "state-change": 1, "state-view": 1, upstream: 1, automati
 
 // ---------------------------------------------------------------- text plumbing
 
-const unesc = (s) => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
-  .replace(/&#39;/g, "'").replace(/&#10;/g, "\n").replace(/&amp;/g, "&");
-const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-  .replace(/"/g, "&quot;").replace(/\n/g, "&#10;");
+// THE PARSER IS model.mjs's, SHARED — tools/drawio-xml.mjs, KIT-FINDINGS V23. This file used to carry
+// its own, anchored on 8-space indentation, and since every write rewrites the whole <root> from what
+// it matched, a cell it missed was DELETED rather than merely unparsed. The shared one is tolerant and
+// LOSSLESS: each cell carries its exact source span, so an untouched cell still comes back
+// byte-identical and the diff stays reviewable.
+import { parseBlocks, isRootCell, unescapeXml as unesc, escapeAttr as esc } from "./drawio-xml.mjs";
 
 const attr = (b, k) => {
   const m = new RegExp(`\\b${k}="([^"]*)"`).exec(b);
@@ -123,21 +125,21 @@ const attr = (b, k) => {
 // block ends early, the trailing </mxCell> matches nothing, and splice() silently DROPS it: 88 opens
 // against 54 closes, every edge unterminated. Nothing errors; the edges simply stop existing, so
 // every command reads as having no trigger.
-const BLOCK_RE = new RegExp(
-  "        <object [\\s\\S]*?</object>\\n" +
-  "|        <mxCell id=\"(?!0\"|1\")[^>]*?/>\\n" +
-  "|        <mxCell id=\"(?!0\"|1\")[\\s\\S]*?</mxCell>\\n", "g");
+// Every modelled cell's exact source span, in document order — draw.io's own id 0 / id 1 excluded,
+// because splice() re-emits those itself.
+const cellBlocks = (xml) => parseBlocks(xml).filter((b) => !isRootCell(b)).map((b) => b.raw);
 
-// EVERY WRITE REWRITES THE WHOLE <root> FROM `blocks`, so a cell BLOCK_RE does not match is not merely
-// unparsed — it is DELETED, with no error and no diff anybody reads. BLOCK_RE anchors on 8-space
-// indentation, which every file this tool has ever written uses; a file indented any other way loses
-// cells silently.
+// THE TRIPWIRE. Every write rewrites the whole <root> from `blocks`, so a cell the parser does not
+// return is not merely unparsed — it is DELETED, with no error and no diff anybody reads.
 //
-// Found the hard way: a board fixture whose model cells sat at column 0 lost BOTH of them to a
-// `promote`, which does not touch geometry at all. Nothing caught it, because model.mjs parses the
-// same file with a DIFFERENT, indentation-agnostic parser and read it perfectly — so `validate` said
-// two models while `slice.mjs` saw none. Two parsers over one file is the defect; this is the cheap
-// half of the fix, and it converts silent data loss into a refusal.
+// Since the parser became shared (tools/drawio-xml.mjs, KIT-FINDINGS V23) this SHOULD be unreachable:
+// the reader and the writer now disagree about nothing, and indentation is free. It is kept precisely
+// because it can no longer fire — a guard that costs one pass and never triggers is the cheapest way
+// to find out if the split ever comes back, whether by a new tool growing its own regex or by this one
+// drifting. It stays live rather than becoming a comment, because a comment does not fail a build.
+//
+// What it caught the first time: a board fixture whose model cells sat at column 0 lost BOTH of them
+// to a `promote`, which does not touch geometry at all. `validate` read the wreckage and was happy.
 function assertNothingDropped(xml, blocks) {
   const inner = /<root>([\s\S]*?)<\/root>/.exec(xml)?.[1] ?? "";
   let residue = inner;
@@ -145,10 +147,11 @@ function assertNothingDropped(xml, blocks) {
   const orphans = (residue.match(/<(?:object|mxCell)\b[^>]*/g) ?? [])
     .filter((o) => !/\bid="[01]"/.test(o));
   if (!orphans.length) return;
-  die(`${orphans.length} cell(s) are not in the 8-space layout this tool rewrites, so a write would\n` +
-      `       silently DROP them. Nothing else reports this: model.mjs parses them fine.\n` +
+  die(`${orphans.length} cell(s) in this file cannot be parsed, and a write rewrites <root> from the\n` +
+      `       cells that can — so writing would silently DELETE them:\n` +
       orphans.slice(0, 3).map((o) => `         ${o.slice(0, 96)}`).join("\n") +
-      `\n       Re-indent to 8 spaces (the layout every tool-written .drawio already uses).`);
+      `\n       Indentation is not the cause — the parser is shared and tolerant (KIT-FINDINGS V23).\n` +
+      `       Look for a malformed cell: an unclosed <object>, or a tag draw.io did not write.`);
 }
 
 const geomOf = (b) => {
@@ -224,7 +227,7 @@ const inRegion = (c, r) => {
 
 // A cheap unscoped pass, only to answer "which regions are there and what is in them".
 function regionsIn(xml) {
-  const cells = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]).map((b) => ({
+  const cells = cellBlocks(xml).map((b) => ({
     block: b, id: attr(b, "id"), em: attr(b, "em"), slice: attr(b, "slice"),
     streams: attr(b, "streams"), actor: attr(b, "actor"), g: geomOf(b),
   }));
@@ -270,7 +273,7 @@ function pickRegion(xml, o, infer = [], hint = "") {
 }
 
 function model(xml, want) {
-  const blocks = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]);
+  const blocks = cellBlocks(xml);
   const at = (b) => ({
     block: b, id: attr(b, "id"), em: attr(b, "em"), slice: attr(b, "slice"),
     label: attr(b, "label") ?? attr(b, "value"), g: geomOf(b),
@@ -358,9 +361,19 @@ const nextY = (m, base, step, lo, hi) => {
   die(`routing band ${lo}..${hi} is full`);
 };
 
+// The same tolerance the parser now has, applied to the wrapper: `</root>` at any indentation, and
+// trailing spaces after `<root>`. A file that failed the old pattern was not rejected — `replace`
+// returned the string unchanged, so the write SILENTLY DID NOTHING and reported success. Refusing is
+// the only honest option, and it is the same rule as assertNothingDropped.
+//
+// The replacement is a FUNCTION, not a string: cell text routinely contains `$` (a GWT's `$SeedName`
+// example data), and `$&`, `$'` or `$\`` in a string replacement would be substituted rather than
+// written. No current model trips it; the function form means none ever can.
 function splice(xml, blocks) {
-  return xml.replace(/(<root>\n)[\s\S]*?(      <\/root>)/,
-    `$1        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${blocks.join("")}$2`);
+  const re = /(<root>[ \t]*\r?\n)([\s\S]*?)([ \t]*<\/root>)/;
+  if (!re.test(xml)) die("no <root> ... </root> here that this tool can rewrite.");
+  return xml.replace(re, (_, open, __, close) =>
+    `${open}        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n${blocks.join("")}${close}`);
 }
 const box = (id, label, kind, extra, g) =>
   `        <object id="${id}" label="${esc(label)}"${extra}>\n` +
@@ -666,9 +679,9 @@ function siblingSlices(file) {
     const p = `${dir}/${n}`;
     if (resolve(p) === resolve(file)) continue;
     let x; try { x = readFileSync(p, "utf8"); } catch { continue; }
-    for (const b of x.matchAll(BLOCK_RE)) {
-      if (!/\bem="group"/.test(b[0])) continue;
-      const s = attr(b[0], "slice");
+    for (const b of cellBlocks(x)) {
+      if (!/\bem="group"/.test(b)) continue;
+      const s = attr(b, "slice");
       if (s) out.push({ name: s, where: n });
     }
   }

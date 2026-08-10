@@ -51,17 +51,10 @@ const FILL_KIND = {
 const TRIGGERS = new Set(["screen", "automation", "external"]);
 const MARK_PREFIX = "chk-";
 
-const unescapeXml = (s) =>
-  s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
-   .replace(/&#39;/g, "'").replace(/&#10;/g, "\n").replace(/&amp;/g, "&");
-const escapeXml = (s) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-function attrs(chunk) {
-  const out = {};
-  for (const [, k, v] of chunk.matchAll(/([\w-]+)="([^"]*)"/g)) out[k] = unescapeXml(v);
-  return out;
-}
+// THE PARSER IS SHARED WITH THE WRITER — see tools/drawio-xml.mjs and KIT-FINDINGS V23. It used to be
+// private to this file, and slice.mjs had a stricter one of its own that DELETED whatever it could not
+// match, so one artifact had two readers that disagreed about what was in it.
+import { parseBlocks, attrsOf as attrs, unescapeXml, escapeXml, isRootCell } from "./drawio-xml.mjs";
 
 function firstDiagram(xml) {
   const m = /<diagram([^>]*)>([\s\S]*?)<\/diagram>/.exec(xml);
@@ -336,15 +329,11 @@ function parseCells(body) {
     });
   };
 
-  let rest = body;
-  for (const m of body.matchAll(/<object\b([^>]*)>([\s\S]*?)<\/object>/g)) {
-    const outer = attrs(m[1]);
-    const inner = attrs(/<mxCell\b([^>]*)>/.exec(m[2])?.[1] ?? "");
-    consume({ ...inner, ...outer }, m[2]);
-    rest = rest.replace(m[0], "");
-  }
-  for (const m of rest.matchAll(/<mxCell\b([^>]*?)(\/>|>([\s\S]*?)<\/mxCell>)/g)) {
-    consume(attrs(m[1]), m[3] ?? "");
+  // One pass through the shared parser, in document order. It already merges an <object>'s own
+  // attributes over its inner <mxCell>'s, which is what the two-pass version here used to do by hand
+  // — and it is span-based, so two byte-identical cells no longer collide the way `rest.replace()` did.
+  for (const b of parseBlocks(body)) {
+    if (!isRootCell(b)) consume(b.attrs, b.body);
   }
   return { nodes, edges };
 }

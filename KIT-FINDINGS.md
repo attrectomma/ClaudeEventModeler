@@ -109,7 +109,14 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
-### V23 — TWO PARSERS READ ONE FILE, and the stricter one DELETES what it cannot match · `kit` · **BROKEN**
+### V23 — ~~two parsers read one file, and the stricter one DELETES what it cannot match~~ · `kit` · ***FIXED — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
+
+**It was three parsers, not two** — `wireframe.mjs` carried the same 8-space `BLOCK_RE` and the same
+delete-on-write defect. Cured at the root: `tools/drawio-xml.mjs` is now the only parser and all three read
+through it. Full entry, including what the shared parser had to be that neither original was, is in the
+archive.
+
+<!-- ARCHIVED BELOW — kept only until the next tidy-up; the authoritative copy is in KIT-HISTORY.md.
 
 `model.mjs` and `slice.mjs` both read `.drawio`, with **different parsers**, and only one of them writes.
 
@@ -146,6 +153,8 @@ The cure is one parser. `model.mjs`'s is already the tolerant, well-tested one, 
 depends on `model.mjs` for validation — extracting the parse and having both sides share it is the fix, and
 it should happen **before step 4 migrates six model sets**, because step 4 is exactly a large-scale
 reformatting of every `.drawio` in the repo.
+
+-->
 
 ### V21 — two GWTs sharing a rule name generate TWO METHODS WITH THE SAME NAME, and the scaffold does not compile · `kit` · **BROKEN**
 
