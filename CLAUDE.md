@@ -1769,10 +1769,24 @@ our history for ever. That is the coupling a Translation exists to prevent.
 | it shares a band with events we write | **warning** `external-in-written-band` — give the source system its own band |
 | `ingested="true"` on the external cell | acknowledged: we deliberately record arrivals as events of ours. A note, and a claim a reviewer can disagree with |
 
-A warning rather than an error because the inbox pattern is legitimate, and because **`slice.mjs add
---pattern translation` puts the external event in whatever band already exists** — with one band, yours. Same
-house style as `joins="none"`. The book's own ch. 16 sketch draws them together, so `cart-replay.mjs` warns
-here; that is the rule working, and the fixture gates on errors.
+A warning rather than an error because the inbox pattern is legitimate — same house style as `joins="none"`.
+The book's own ch. 16 sketch draws them together, so `cart-replay.mjs` warns here; that is the rule working,
+and the fixture gates on errors.
+
+**THE SECOND HALF OF THAT SENTENCE USED TO BE "and because `slice.mjs add --pattern translation` puts the
+external event in whatever band already exists — with one band, yours." That reasoning was backwards and is
+retracted (KIT-FINDINGS V26).** The rule was being softened to excuse the *writer*, which meant the tool
+manufactured the warning it ships with and every translation slice needed a hand move immediately after
+creation. The rule was right; the writer is what changed. `add` now places an imported event in a **foreign
+band** — one holding no events we write — preferring an existing one and letting `--band` name it:
+
+```
+node tools/slice.mjs add <file> --slice x --pattern translation --aggregate A --band <foreign>
+```
+
+**It still falls back to the ordinary band when the model has none, and that fallback is deliberate**: creating
+a band here would invent a stream boundary, and what keys a stream is a domain answer. So a single-band model
+behaves exactly as before, warning included — which is why the cart fixture is unchanged and still warns twice.
 
 This rule exists because accepting that default once produced a reference implementation that compiled, passed
 fifteen tests and ran correctly against real Postgres while persisting another system's events into our stream.

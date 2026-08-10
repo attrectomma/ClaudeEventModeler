@@ -187,12 +187,60 @@ const setGeom = (b, kv) => b.replace(/<mxGeometry([^>]*?)as="geometry"/, (m, inn
   }
   return `<mxGeometry${out}as="geometry"`;
 });
-// setAttr ESCAPES ITS OWN VALUE — pass a raw string, never a pre-escaped one, or `&#10;` becomes
-// `&amp;#10;` and a two-line label renders as one. Function replacements so a `$` in the value cannot
-// be re-interpreted, and `\s*` rather than 8 literal spaces now the parser tolerates any indentation.
-const setAttr = (b, k, v) => new RegExp(`\\b${k}="[^"]*"`).test(b)
-  ? b.replace(new RegExp(`\\b${k}="[^"]*"`), () => `${k}="${esc(v)}"`)
-  : b.replace(/^(\s*<object )/, (_, p) => `${p}${k}="${esc(v)}" `);
+// REPLACE-OR-APPEND, AND ONLY EVER WITHIN THE OPENING TAG — KIT-FINDINGS V25.
+//
+// The old version tested `\bk="..."` against the WHOLE block, opening tag and inner <mxCell> and
+// <mxGeometry> together, then replaced the first match anywhere in it. Two ways that writes a cell it
+// did not mean to, and one way it writes nothing at all: a name that also occurs inside the inner cell
+// wins the match, and a near-miss on the test sends it down the append branch — producing a SECOND
+// copy of the attribute. `attrsOf` lets the LAST occurrence win, so the original value keeps winning
+// and the write is a silent no-op. Measured: a rename pass appended a second `label=` to 15 cells;
+// all 15 looked renamed in the diff and none were.
+//
+// So: scope to the opening tag, delete EVERY existing occurrence, and write exactly one. Position is
+// preserved — first occurrence in place, otherwise at the front — because changing attribute order
+// would rewrite every model this tool has ever touched.
+//
+// It escapes its own value: pass a raw string, never a pre-escaped one, or `&#10;` becomes `&amp;#10;`
+// and a two-line label renders as one.
+const setAttr = (b, k, v) => {
+  const m = /^(\s*<(?:object|mxCell)\b)([^>]*?)(\/?>)/.exec(b);
+  if (!m) return b;
+  const [whole, open, attrs, close] = m;
+  const one = new RegExp(`\\s${k}="[^"]*"`);
+  let out;
+  if (one.test(attrs)) {
+    let first = true;
+    out = attrs.replace(new RegExp(`\\s${k}="[^"]*"`, "g"),
+      () => (first ? ((first = false), ` ${k}="${esc(v)}"`) : ""));
+  } else {
+    out = ` ${k}="${esc(v)}"${attrs}`;
+  }
+  return b.replace(whole, () => `${open}${out}${close}`);
+};
+
+// THE TRIPWIRE FOR V25, modelled on assertNothingDropped (V23) for the same reason: this is the second
+// silent write-failure in this file, so the fix has to make the CLASS detectable rather than repair the
+// instance. A duplicate attribute is never legitimate — draw.io does not emit one, and the only way to
+// get one is a writer that appended where it meant to replace.
+//
+// Runs on the way OUT, on the bytes about to be written, so it catches any producer of the string and
+// not just setAttr. Costs one pass over the file and should never fire again.
+function assertNoDuplicateAttrs(xml) {
+  const bad = [];
+  for (const b of parseBlocks(xml)) {
+    const seen = new Set(), dup = new Set();
+    for (const [, k] of b.head.matchAll(/\s([\w-]+)="/g)) {
+      if (seen.has(k)) dup.add(k); else seen.add(k);
+    }
+    if (dup.size) bad.push(`${b.attrs.id ?? "(no id)"}: ${[...dup].join(", ")}`);
+  }
+  if (!bad.length) return;
+  die(`${bad.length} cell(s) would be written with a DUPLICATE attribute, where the last copy wins and\n` +
+      `       the write silently does nothing (KIT-FINDINGS V25):\n` +
+      bad.slice(0, 5).map((x) => `         ${x}`).join("\n") +
+      `\n       Nothing has been written. This is a bug in whatever produced the cell, not in the model.`);
+}
 
 // ---------------------------------------------------------------- the model
 
@@ -583,6 +631,33 @@ function cmdAdd(target, o) {
     }
   }
 
+  // WHERE THE IMPORTED EVENT GOES, WHICH IS NOT WHERE OUR OWN EVENTS GO — KIT-FINDINGS V26.
+  //
+  // A translation's external is another system's event. Dropped into a band we write to, it says that
+  // event lands in a stream of OURS — which `external-in-written-band` then correctly warns about. So
+  // the tool was manufacturing the warning it ships with, and every translation slice needed a hand
+  // move immediately after creation. Step 6 makes translation slices routine, so that hand move became
+  // a step in a repeated recipe.
+  //
+  // A FOREIGN BAND is one holding no events we write. Prefer an existing one, let --band name it
+  // explicitly, and fall back to the ordinary band when the model has none — which leaves a
+  // single-band model behaving exactly as before, warning and all. That fallback is deliberate:
+  // creating a band here would invent a stream boundary, and what keys a stream is a domain answer.
+  let extBand = band;
+  if (needsBand && wants.some(([k]) => k === "external")) {
+    const inBand = (e, b) => e.g && b.g && e.g.y + e.g.h / 2 >= b.g.y && e.g.y + e.g.h / 2 <= b.g.y + b.g.h;
+    const writesInto = (b) => m.elements.some((e) => e.em === "event" && inBand(e, b));
+    if (o.band) {
+      extBand = m.swimlanes.find((s) => s.id === o.band || s.label === o.band ||
+        (s.streams ?? "").split(",").map((x) => x.trim()).includes(o.band));
+      if (!extBand) {
+        die(`--band "${o.band}": no such swimlane. Bands: ${m.swimlanes.map((s) => s.label).join(" | ")}.`);
+      }
+    } else {
+      extBand = m.swimlanes.find((s) => !writesInto(s)) ?? band;
+    }
+  }
+
   // Where the columns go.
   let x0, mode;
   if (!o.at || o.at === "end") {
@@ -651,9 +726,13 @@ function cmdAdd(target, o) {
       g = { x: x - SCREEN_X_NUDGE, y: actorBand ? actorBand.g.y + ACTOR_PAD : m.grid.uiY + 40, w: SCREEN_W, h: SCREEN_H };
       extra += ` screen="${o.slice}"`;
     } else if (kind === "event" || kind === "external") {
-      const r = rows.get(x) ?? 0; rows.set(x, r + 1);
-      g = { x, y: band.g.y + BAND_TOP_PAD + BAND_ROW * r, w: EL_W, h: EL_H };
-      extra += ` aggregate="${(band.streams ?? "").split(",")[0].trim()}"`;
+      // An external goes in the FOREIGN band (V26); our own events go in the band --aggregate named.
+      // Rows are counted per band, so a stack in one does not push the other down.
+      const home = kind === "external" ? extBand : band;
+      const key = `${home.id}@${x}`;
+      const r = rows.get(key) ?? 0; rows.set(key, r + 1);
+      g = { x, y: home.g.y + BAND_TOP_PAD + BAND_ROW * r, w: EL_W, h: EL_H };
+      extra += ` aggregate="${(home.streams ?? "").split(",")[0].trim()}"`;
     } else {
       const n = perCol.get(col) ?? 1;
       // n=1 -> lane.y+50, matching campaigns.drawio. n=2 -> +20 and +100, both clear of the edges.
@@ -1318,6 +1397,7 @@ function finish(target, file, out, plan, o, notes) {
   for (const p of plan) console.log(`  ${p}`);
   for (const n of notes) console.log(`  note: ${n}`);
   if (o.dryRun) { console.log(`  --dry-run: nothing written.`); return; }
+  assertNoDuplicateAttrs(out);
   writeFileSync(file, CRLF ? out.replace(/\n/g, "\r\n") : out, "utf8");
 }
 
