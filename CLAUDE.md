@@ -1584,11 +1584,28 @@ That first row is checking power a single model cannot have. Inside one file an 
 by construction; across a folder the producer is present, so an import nobody publishes is an
 **error** rather than a note.
 
-Direct consumption between contexts of one system is allowed — the book is explicit that a context
-is *not* a microservice and that you should *"not split but keep everything in one system until you
-know more."* Full ch. 15 translation (View → automation → command → external event) is for a real
-system boundary. What the kit insists on is that the coupling is **declared**: undeclared is an
-error, declared is a note on the context map. Same treatment as a Conway split.
+> ### ⚠ THIS PARAGRAPH IS RETRACTED, AND THE REPLACEMENT IS DECIDED BUT NOT YET BUILT
+>
+> It used to read: *"Direct consumption between contexts of one system is allowed… Full ch. 15 translation
+> is for a real system boundary."* **That over-reads the licence.** Ch. 8's *"not split but keep everything
+> in one system"* is about not splitting **systems**; ch. 15's *"we should strictly distinguish between
+> internal and external events when possible"* is a general principle that says nothing about how many
+> processes you deploy.
+>
+> **Logical boundaries are not physical boundaries.** Two contexts in one deployable is fine and explicitly
+> licensed. One context reading the other's **internal** events is not — that is ch. 2's *"one of the worst
+> forms of coupling you can get… every change requires the service to adapt"*, and it is a **logical**
+> coupling that a shared process does not excuse.
+>
+> Measured on this kit: adding `withdrawnBy` to estate's `Bay Withdrawn` forced an edit to charging's
+> import **for a field charging does not use**.
+>
+> **The decided replacement** — `contract="true"`, `from=` restricted to contract events,
+> `import-of-domain-event` as an error, publishing through Wolverine's durable outbox, per-context
+> namespaces — is scoped in **[BOARD-REFACTOR.md](BOARD-REFACTOR.md) §3c** and is step 6 of that plan.
+>
+> **Until it is built, `public="true"` still works as described above and every model in this repo still
+> uses it.** Do not treat the retraction as a licence to hand-roll something else in the meantime.
 
 ### There is no size budget, and there used to be one
 

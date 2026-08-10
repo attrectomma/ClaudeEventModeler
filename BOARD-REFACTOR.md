@@ -58,19 +58,66 @@ rather than to the page.
 - **the black border** — a slice attribute saying *"not ours to build"*, which closes BOOK-INDEX gap 11 and
   stops `codegen` generating a foreign slice
 
-### 3c. The two questions the refactor forces, which are NOT mechanical
+### 3c. The two notation decisions — BOTH DECIDED 2026-08-10
 
-**Does `em="journey"` survive?** Source 6 says a specification is tied to exactly one command or view, so a
-journey is not a specification in the books' sense. Three honest answers: drop it and keep journeys as
-*tests* with no cell; keep it and record it as a deliberate kit extension with the citation against it; or
-**merge it into `chapter`** — a chapter already groups slices, and a journey is a chapter with a `then=`.
-The third removes an invented concept by adopting a book one, which is the most faithful to the new rule.
+#### DECIDED: `em="journey"` is retired and merged into `chapter`
 
-**Does `public="true"` survive?** Source 5 separates domain events from integration events. Voltway's two
-contexts share one store and one `Bay` stream, and charging folds estate's **domain** events directly —
-which ch. 5 names as *leaking business logic*. `event-shape-disagrees` then enforces one shape for that
-domain event everywhere, which **institutionalises** the conflation. The book's answer is a separate,
-versioned, *"stable summary"* event. That is a bigger change than the board.
+eventmodeling.org: *"Each specification must be tied to exactly one command or view."* A journey is not a
+specification in the books' sense, and `chapter` is the books' notation for grouping slices (`UES` ch. 18,
+blue arrows in two layers above the model, learned from Dymitruk). **A journey is a chapter with a `then=`.**
+
+So `em="chapter"` carries `slices=` (ordered) and an optional `then=`. A chapter with no `then=` is pure
+structure — the book's original use. A chapter *with* one is what the kit called a journey and gets a
+generated end-to-end test. **This removes an invented concept by adopting a book one**, which is the new
+standing rule working as intended.
+
+Consequence: `ui-journey` reads the same cell, as it always did. `journey-*` rules rename to `chapter-*`.
+
+#### DECIDED: `public="true"` is retired, replaced by a real integration event
+
+`UES` ch. 5: an integration event is *"a different event category than the Domain Events we use
+internally"*. `UES` ch. 15 gives the exact recipe and it needs **no new pattern** — a read model, an
+**automation** processor, a `Publish X` command, and the external event *"stored in another swimlane"*.
+`UES` ch. 8 supplies the naming rule: ubiquitous language is **per context**, so the same word legitimately
+means different things either side of the boundary.
+
+**Logical boundaries are not physical boundaries, and Voltway is a modular monolith** — two contexts, one
+deployable, one store. That is explicitly fine (`UES` ch. 8: *"You can have many different contexts within
+one system"*). What is **not** fine is one context reading the other's internal events, because that is the
+coupling of `UES` ch. 2 — *"one of the worst forms of coupling you can get… every change requires the
+service to adapt"* — and it is a **logical** coupling that does not care how many processes you deploy.
+
+Measured on this very kit: adding `withdrawnBy` to estate's `Bay Withdrawn` forced an edit to charging's
+import **for a field charging does not use**. That is the leak, reproduced.
+
+| | | |
+| --- | --- | --- |
+| **`contract="true"`** | on an event | the **published integration event** of its context. Its own swimlane. Produced by an `automation` slice — no new pattern |
+| **`from=` must name a contract event** | on an external | importing a *domain* event becomes the error `import-of-domain-event`. **This single rule is what makes the boundary enforceable** |
+| the consuming side | — | `pattern="translation"`, which already exists and is already built |
+| ~~`public="true"`~~ | retired | it means *"another model may read my private notes"* |
+
+**Two consequences that are the point rather than side effects:**
+
+- **`event-shape-disagrees` inverts.** Today it enforces that a shared *domain* event keeps one shape
+  everywhere — i.e. it **enforces the coupling**. It becomes a check on the **contract** event, which is
+  what a contract check should always have been.
+- **`codegen` gains per-context namespaces.** `Voltway.Estate.Contracts.BayUnavailable` for the published
+  contract; `Voltway.Charging.BayWithdrawn` for charging's own translated event. Same word, different
+  namespace, different meaning — `UES` ch. 8 — and it is what makes a later extraction a configuration
+  change rather than a rewrite.
+
+**The implementation half, which is the STACK's domain and not the books':** the publishing side must go
+through **Wolverine's Marten-backed durable outbox**, not a direct projection of the other context's
+stream. The book's minimum (store it in another swimlane, let the consumer project it) satisfies the
+*model* but leaves the consumer reading the producer's store, so extraction still means changing consumer
+code. Sending it — a durable local queue today, a broker later — means **only configuration changes on
+extraction**. The kit already emits `UseDurableLocalQueues()` and already scaffolds an ingest handler
+(`Landing/Ingest<Event>Handler.cs`), so the machinery exists.
+
+**The cost, accepted with eyes open:** roughly **two extra slices per direction per boundary** (publishing
+automation + consuming translation), and every cross-context read becomes a message hop rather than a
+projection. Voltway has estate→charging (bay lifecycle) and charging→estate (energy), so ~4 slices.
 
 ### 3d. Migration — the hidden cost
 
@@ -84,14 +131,39 @@ versioned, *"stable summary"* event. That is a bigger change than the board.
 
 ## 4. Sequencing
 
-Each step ends green, so the refactor can be stopped between any two.
+**All notation decisions are made (§3c). This is now an implementation plan.** Each step ends green, so the
+refactor can be stopped between any two.
 
-1. **Decide 3c** — journey and `public=`. Notation decisions gate the geometry work.
-2. **Board geometry in `model.mjs` read-only** — parse many regions, validate per region, cross-model rules within a file. No writer changes; migrate one fixture by hand to prove it.
-3. **`slice.mjs` writes regions** — placement relative to origin.
-4. **Migrate** the six sets; `cart-replay.mjs` rewritten; every model at 0/0.
-5. **Additive**: chapters, the link marker, the black border.
-6. **V19 closes by construction** — draw the cross-context journey and make it pass.
+1. ~~Decide 3c~~ — **done 2026-08-10.**
+2. **`model.mjs` reads a board** — parse many model regions from one page, derive every y relative to a
+   region origin, scope the per-model validation pass to a region, and turn the cross-model rules into
+   within-file rules. **No writer changes yet.** Prove it by hand-migrating `tools/fixtures/cart/` **first**
+   — it is the regression suite, so it is the honest place to find out whether the geometry model works.
+3. **`slice.mjs` writes regions** — placement, insert-shift and routing allocation relative to origin.
+4. **Migrate the remaining five** — Voltway, then the five reference implementations. `cart-replay.mjs`
+   rewritten against the new geometry and byte-identical on re-run. Every model at 0 errors, 0 warnings.
+5. **Additive notation**: `chapter` (absorbing `journey`), the alternative-flow link marker, the black
+   border for a slice that is not ours to build.
+6. **The integration-event change** — `contract=`, `import-of-domain-event`, the inverted
+   `event-shape-disagrees`, per-context namespaces in `codegen`. Then re-model Voltway's two boundaries
+   properly and watch ~4 slices appear.
+7. **V19 closes by construction** — the cross-context chapter is a rectangle on a board. Draw it, walk it,
+   make it pass.
+
+**Order note:** step 6 is deliberately after the board rather than before it, even though it is the more
+important correctness change. Reason: it *adds slices to two models*, and doing that while the geometry is
+being rewritten means debugging both at once.
+
+## 5. Verification, and the one thing that must not be taken on trust
+
+Every step: `node tools/model.mjs validate` at **0 errors, 0 warnings** across Voltway, all five reference
+implementations and the cart fixture — and `node tools/fixtures/cart-replay.mjs` byte-identical on re-run.
+
+**The trap this kit has hit repeatedly and will hit again here:** a check that goes *quiet* is
+indistinguishable from a check that passes. Five findings this run were of that shape (V5, V9, V13, V17,
+V18). A geometry rewrite is the ideal conditions for it — rules that silently stop matching because a
+coordinate moved. So for each rule family, **prove it still fires** by breaking one model on purpose, not
+merely that it stops complaining.
 
 ## 5. What this is not
 
