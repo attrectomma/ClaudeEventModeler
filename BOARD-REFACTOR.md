@@ -1,5 +1,20 @@
 # The board refactor — following the books, and what it costs
 
+> **START HERE. This file is the whole brief — there is no separate handoff.**
+>
+> Read in this order: **`CLAUDE.md`** (loads automatically — the grammar, palette, layout grid, cell-data
+> schema), then **this file**, then **`reference/BOOK-INDEX.md`** before asserting what a book says.
+> `KIT-FINDINGS.md` carries 22 open findings with a `kit` / `modelling` / `environment` cause on each; **V19
+> closes by construction** when step 6 lands, and V20 is the one to re-read before touching journeys.
+>
+> **State at handoff (commit `7f680ce`):** everything green and committed. Voltway — 23 slices, **190 tests,
+> 0 skipped, build 0/0**, both models validating at 0 errors / 0 warnings and stamped `mode="demo"`, two
+> backend chapters-formerly-journeys passing, all 7 screens ported and dark. Five reference implementations
+> and the cart fixture all at 0 errors.
+>
+> **Not started, and deliberately out of scope for this refactor:** `ui-journey` has never been run;
+> `register-driver`'s race test still needs the V11 retrofit; no estate view carries a site *name*.
+
 **Decided 2026-08-10.** The books are the source of truth for the method (see CLAUDE.md, *"When the kit and
 the BOOKS disagree"*). This file scopes the refactor that decision requires, honestly, before any of it is
 built. It is a plan, not a record of work done.
@@ -153,6 +168,31 @@ refactor can be stopped between any two.
 **Order note:** step 6 is deliberately after the board rather than before it, even though it is the more
 important correctness change. Reason: it *adds slices to two models*, and doing that while the geometry is
 being rewritten means debugging both at once.
+
+## 4b. Where the work actually is — line numbers, so a fresh session does not grep blind
+
+Accurate at commit `7f680ce`; treat as a starting point, not gospel.
+
+| | |
+| --- | --- |
+| `model.mjs:66` `firstDiagram(xml)` | **the single most load-bearing function for step 2.** Throws *"no `<diagram>` element found"*; today it returns **one** diagram and everything downstream assumes one model in it |
+| `model.mjs:77` `geometryOf(chunk)` | every absolute x/y read in the validator |
+| `model.mjs:352` `buildIr(file)` | file → IR. Takes a **file**, and that signature is the refactor in miniature: it becomes region → IR |
+| `model.mjs:2248` | the page emitter — `pageWidth`/`pageHeight` computed from content bounds |
+| `model.mjs:2345` `runOne(f)` | **the per-model pass.** On a board this becomes per-*region* |
+| `model.mjs:2399` `systemRules(models)` | **the cross-model pass.** On a board these become *within-file* rules |
+| `slice.mjs:37–53` | every geometry constant in one block: `COL_PITCH 320`, `EL_W 180`, `EL_H 60`, `SCREEN_W/H 200/240`, `SLICE_W 220`, `LANE_X 40`, `BAND_*`, `GWT_*`, `ACTOR_*` |
+
+**The `runOne` / `systemRules` split IS the refactor.** Today: one file = one model = one `runOne`, and
+`systemRules` compares across files. On a board: one file = many regions = many `runOne`s, and `systemRules`
+compares regions *inside* one file. Nothing else about the rules needs to change — **32 rules across 12
+families** (17 of them `completeness`), and none of them care how many models share a page, only which
+model they are scoped to.
+
+**A gotcha that will bite within the first hour:** `slice.mjs` **reserialises the whole file** on write, and
+its serializer puts `id=` **last** on an `<object>` — where hand-authored cells have it first. So an `Edit`
+anchor captured before a `slice.mjs` run will silently stop matching after it. Observed once, this session,
+on `estate.drawio`. Re-read the cell after any tool write before anchoring an edit on it.
 
 ## 5. Verification, and the one thing that must not be taken on trust
 
