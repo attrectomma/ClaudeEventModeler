@@ -246,7 +246,27 @@ refactor can be stopped between any two.
    Measured to establish all of the above: 5 cross-context labels (7 total, minus the 2 genuinely foreign
    Kempworth events), and 96 of 109 hand-owned scaffolds referencing `Voltway.Contracts`.
 7. **V19 closes by construction** — the cross-context chapter is a rectangle on a board. Draw it, walk it,
-   make it pass.
+   make it pass. **NOT STARTED.** The refactor unblocked it; nobody has drawn it. Only two chapters exist,
+   both single-context.
+
+---
+
+## 6. Owed after the merge — named, not discovered
+
+6e is **merged and green** (202 tests, 0 failed; model 0/0 at 27 slices; `design.mjs check` 0/0). These are
+the things it did **not** do, each of which someone will otherwise find the hard way:
+
+| | |
+| --- | --- |
+| **The read side was never migrated** | `AvailableBays` still folds `BayCommissioned`/`BayWithdrawn`, `BayUsage` still folds `ChargingStopped`, `ChargePointDirectory` and `SitePrices` still fold estate's events. **The model says otherwise.** Same leak the contract exists to close, one layer over — and the reason 3 of `HoldBayState`'s folds could not be re-pointed in isolation |
+| **The three publishing automations are unwoken** | `AUTOMATION NOT WOKEN`. Two are straightforward; `BayContractData` needs a `CustomGrouping` because it is keyed by `bayId` but needs fields from `Site Opened`, which carries only `siteId`. The generator left `Identity<SiteOpened>` commented with the reason rather than guessing |
+| **`ARCHITECTURE.md` has no section for any of the six** | `architect.mjs check` reports 51 unrecorded questions, 15 against these slices. The other 36 predate 6e |
+| **Three bands, one physical stream** | `Bay`, `EstateContract` and `ChargingContract` all declare `identity="bayId"`. Filed as **V27** — the "own swimlane" is a drawing, not a separation, and contract writes contend with domain writes on one version sequence |
+
+**Also forced by the board and now landed:** `architect.mjs`, `uijourney.mjs` and `design.mjs` all compiled
+per *file*, which broke the moment a file became a board — step 2's guard firing loudly, as designed.
+`compile --per-model` returns an array of per-region IRs, one entry for a one-model file. A separate flag
+rather than relaxing `compile`, because the two answers have different shapes.
 
 **Order note:** step 6 is deliberately after the board rather than before it, even though it is the more
 important correctness change. Reason: it *adds slices to two models*, and doing that while the geometry is

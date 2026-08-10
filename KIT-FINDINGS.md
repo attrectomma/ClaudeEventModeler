@@ -180,6 +180,30 @@ regenerating on every validate would churn a committed file. **Do not close it b
 step 4 established it is *not* redundant (a board shows both models but not what crosses between them), so
 it earns its keep until `contract=` lands.
 
+### V27 — `contract-in-domain-band` enforces the DRAWING, not the separation: a contract band with the same `identity=` is the same physical stream · `kit` · **BROKEN**
+
+`UES` ch. 15 says the contract event is *"stored in another swimlane"*, and `contract-in-domain-band` was
+built to enforce it. It checks that a contract event sits in a band of its own. **It does not check that the
+band has a distinct stream key** — and a band is a drawing, while `identity=` is what decides the stream.
+
+Measured on Voltway immediately after 6e: `Bay`, `EstateContract` and `ChargingContract` **all declare
+`identity="bayId"`**. Three bands, one physical Marten stream. The rule passed throughout.
+
+**So the thing the rule exists to guarantee is absent while the rule reports success** — the "check that looks
+like proof" family again (V1, V8, V11, V23), and the most expensive variant, because the reassurance is
+strongest exactly where separation matters most.
+
+**The consequence is concurrency, not tidiness.** Contract and domain writes share one version sequence, so
+they contend. And that interacts with **V12**: the emitted retry budget is four attempts and each round lets
+one writer commit, so **adding contract publishes to the domain stream reduces the effective concurrency
+budget for ordinary domain writes**. Nothing reports it; the sequential GWTs cannot see it, and the race
+tests target the domain rule.
+
+The fix is a **model** change — a prefixed or composite key so a contract band's streams are distinct
+(`contract-bay-<id>`, or `(kind, bayId)`) — plus the missing half of the rule: **a contract band's
+`identity=` must not collide with a domain band's.** That second part is what stops the same mistake being
+made again in the next project, and it is derivable today from the IR.
+
 ### V25 — `slice.mjs`'s attribute writer can APPEND a duplicate attribute, and the old value wins · `kit` · **BROKEN**
 
 Setting an attribute that already exists can produce **two copies of it on one cell** rather than replacing
