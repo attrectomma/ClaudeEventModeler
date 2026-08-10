@@ -55,6 +55,28 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V15 — the React port keeps its OWN COPY of `tokens.css`, and nothing checks the two agree · **BROKEN**
+
+`designs/tokens.css` is *"the ONLY place colour, type and spacing are defined"* — and then the frontend port
+copies it to `generated/<System>/web/src/tokens.css`, so there are two. Measured: switching the design to a
+dark palette changed every one of the 7 design pages and **none** of the running app, because the app reads
+the copy.
+
+**`design.mjs check` cannot see it.** That check is about the *field contract* — `displays=`/`inputs=` ↔
+wireframe `binds=` ↔ HTML `data-em` — and it passed at **0 errors, 0 warnings** with the design dark and the
+implementation light. Nothing in the kit compares the token files at all.
+
+**The kit already has the right shape for this and did not apply it here.** `project.mjs palette` exists
+precisely because three copies of the draw.io colour settings drifted, and its whole job is *"do the copies
+still agree?"*. Design tokens are the same problem one layer up. The fix is either the same check
+(`design.mjs tokens`, or fold it into `design.mjs check`) or removing the second copy — Vite can read a file
+outside `web/` via an alias, and both folders live in the project, so a single source is genuinely available.
+
+**Why it will bite quietly rather than loudly:** the one artifact that *would* have shown it is
+`review.mjs sheet`, which puts the agreed design beside the built software at the same width. That is a human
+looking at two pictures, not a check — so it is caught only if somebody runs the review and notices the
+theme, and it is invisible to `tsc`, to the test suite and to every generated report.
+
 ### V13 — `GWT WITHOUT A TEST` matches by RULE NAME, so a new scenario for an existing rule is invisible · **BROKEN**
 
 Two GWTs legitimately share a rule name — the same refusal reached by two different histories — and the kit
