@@ -55,6 +55,38 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V13 — `GWT WITHOUT A TEST` matches by RULE NAME, so a new scenario for an existing rule is invisible · **BROKEN**
+
+Two GWTs legitimately share a rule name — the same refusal reached by two different histories — and the kit
+already depends on that elsewhere: deduping the generated rejection constants **by rule name** was the fix
+for a CS0102 collision. But the coverage report matches the model's rules against the kept test file **by
+that same name**, so once one scenario for a rule has a test, **every later scenario for it reports as
+covered**.
+
+Measured: `gwt-cj-5` was added to Voltway — a genuinely new scenario, and the one the whole `withdrawnBy`
+change exists to make expressible — under the existing rule name `ManuallyWithdrawnBayStaysOut`. `codegen`
+reported nothing. The scenario has no test and the report says the slice is fully covered.
+
+**This is the same class as the report it sits next to and worse in one way:** `TESTS STILL SKIPPED ON A
+CLAIMED SLICE` at least fires on a state the model can see. Here the model *grew* and the report went quiet.
+The fix is to match on the GWT's **cell id** as well as its rule name — the id is already stable and unique
+by construction, and it is what every other report in the kit names when it points at a cell.
+
+Until it is fixed: **after adding a GWT to an implemented slice, check whether its rule name is already
+used** before trusting a silent run.
+
+### V14 — a stray `Voltway.exe` makes MSBuild fail at the COPY step, hiding every real compile error behind it · **ENVIRONMENTAL, worth knowing**
+
+An agent that runs the app to prove an automation fires must stop it. One did not, and the leftover host held
+`bin/Debug/net10.0/<System>.exe`. Every subsequent build then failed with `MSB3021`/`MSB3027` — *"the process
+cannot access the file… locked by: Voltway (4664)"* — **after compiling the app project and before compiling
+the tests**. So a genuine 20-error ripple in the test project reported as **2 errors**, both about copying a
+file, and the summary line said `2 Error(s)` where the truth was 22.
+
+The tell is `MSB3021` / `MSB3027` / `MSB3026` rather than a `CS` code. `Get-Process -Name <System>` then
+`Stop-Process -Force`, and rebuild before believing any error count. Related to the standing rule that a build
+in a shared tree is not a measurement — this is the single-agent version of it.
+
 ### V12 — the emitted retry budget is a system-wide ceiling on concurrent writers, and nobody has decided it · **BROKEN**
 
 `Program.cs` emits `opts.OnException<...>().RetryTimes(3)` — **four attempts in total**. On a contended stream
