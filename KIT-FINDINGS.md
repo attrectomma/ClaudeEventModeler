@@ -77,6 +77,16 @@ The fix has been demonstrated: the implementing agent added `ExactlyOneMechanism
 it fails against M5. **The scaffold should call the slice's guard through a seam, not reproduce it** — which
 means the generator needs the mechanism to expose one, and that is the part not yet designed.
 
+**PARTLY MITIGATED, and the mitigation names where the fault actually was: the INSTRUCTION.** The scaffold
+said *"the same race with the guard in place"* and handed over a
+`RaceAsync(n, (i, session) => { read, check, stage })` example — which reads as *copy what the mechanism
+does into the callback*, and two slices did exactly that. `architect.mjs` now tells the implementer to call
+the slice's own path, to **add a seam** to the mechanism if there is nowhere to put the barrier, and gives
+the check that the test is real: *break the guard on purpose and watch this test go red*. **That removes the
+invitation, not the possibility** — the generator still cannot write the call, because it does not know the
+mechanism's name or shape. **`register-driver`'s existing race test is still the broken shape and is still
+owed a retrofit.**
+
 This is the same family as **V1** (a race test that passes for a non-reason) and **V8** (a race scaffold
 generated from a non-contended GWT). Three findings now say the concurrency scaffolding produces tests that
 look like proof and are not, which makes it the weakest generated artifact in the kit.
