@@ -269,6 +269,24 @@ function parseCells(body) {
       // consume; `from` marks an imported one and names the model that publishes it; `origin`
       // names a genuine third party, which nothing here can check.
       isPublic: a.public === "true",
+      // THE INTEGRATION EVENT — the context's published contract, and a DIFFERENT CATEGORY from the
+      // domain events it keeps internally.
+      //
+      // UES ch. 5: "The API of an event-sourced system is clearly defined by the 'External Events' or
+      // 'Integration Events' that your system provides. This is a different event category than the
+      // Domain Events we use internally to capture state changes. Domain Events are living documents
+      // of the business behavior in our context. They will change over time, hopefully... The external
+      // view of our data is a completely different story. It's like a stable summary of the data,
+      // suitable to be consumed and processed."
+      //
+      // That paragraph is the whole justification for the attribute: the two categories have OPPOSITE
+      // change profiles, so one flag on one event is what lets a consumer depend on the stable one and
+      // be refused the volatile one.
+      //
+      // `public="true"` is its predecessor and still resolves an import — deliberately, because
+      // retiring it in the same step as introducing this would break every model that has one before
+      // there is anything to replace it with. It is deprecated, not removed; see import-of-domain-event.
+      contract: a.contract === "true",
       from: a.from ?? null,
       origin: a.origin ?? null,
       // On an external event: we deliberately APPEND this foreign event into a stream of ours, so it may
@@ -1880,6 +1898,24 @@ function swimlaneRules(ir) {
       e.geometry.y + e.geometry.h / 2 <= band.geometry.y + band.geometry.h);
 
     const written = inBand("event");
+
+    // A CONTRACT EVENT BELONGS IN ITS OWN SWIMLANE. UES ch. 15 places the published event "stored in
+    // another swimlane" and says why in the next line: "We clearly separate the internal from the
+    // external events." Ch. 5 is the reason that separation is structural rather than tidy — the two
+    // are "a different event category", with opposite change profiles: a domain event SHOULD change as
+    // the business evolves, a contract must not. Sharing a stream makes one replay, one retention
+    // policy and one schema serve both, which is the coupling the contract exists to remove.
+    const contractEvents = written.filter((e) => e.contract);
+    const domainEvents = written.filter((e) => !e.contract);
+    if (contractEvents.length && domainEvents.length) {
+      for (const c of contractEvents) {
+        push("error", "contract-in-domain-band",
+          `${c.label} is contract="true" but shares the "${band.label}" band with ${
+            domainEvents.map((e) => e.label).join(", ")} — this context's own domain events. UES ch.15 stores the published event "in another swimlane": "We clearly separate the internal from the external events." Give the contract its own band.`,
+          c.id);
+      }
+    }
+
     if (!written.length) continue;                      // a purely foreign band is the shape we want
 
     for (const foreign of inBand("external")) {
@@ -2150,11 +2186,17 @@ function systemRules(models) {
   }
 
   // Every event another model is allowed to consume, and every import wanting one.
-  const published = new Map();     // context -> label -> element
+  const published = new Map();     // context -> label -> element   (importable: contract OR public)
+  const contracts = new Map();     // context -> label -> element   (contract only)
   for (const m of models) {
-    const pub = new Map();
-    for (const e of m.ir.elements) if (e.kind === "event" && e.isPublic) pub.set(e.label, e);
+    const pub = new Map(), con = new Map();
+    for (const e of m.ir.elements) {
+      if (e.kind !== "event") continue;
+      if (e.contract) { con.set(e.label, e); pub.set(e.label, e); }
+      else if (e.isPublic) pub.set(e.label, e);
+    }
     published.set(contextOf(m), pub);
+    contracts.set(contextOf(m), con);
   }
   const consumed = new Set();      // `${context}/${label}` actually imported by someone
 
@@ -2210,6 +2252,29 @@ function systemRules(models) {
       }
       consumed.add(`${e.from}/${e.label}`);
 
+      // IMPORTING A DOMAIN EVENT IS THE COUPLING, DRAWN. UES ch. 15: "We certainly do not want the
+      // order system to have to rebuild the cart from scratch using all the low-level events from the
+      // cart internals, like 'Item Added.'" And ch. 2 names what it costs: "one of the worst forms of
+      // coupling you can get… every change requires the service to adapt."
+      //
+      // Measured on this kit rather than quoted: adding `withdrawnBy` to estate's `Bay Withdrawn`
+      // forced an edit to charging's import FOR A FIELD CHARGING DOES NOT USE.
+      //
+      // THE CONDITION IS THE WHOLE DESIGN OF THIS RULE. It fires only once the producing context
+      // actually publishes a contract, because until then "import the contract, not the internals" has
+      // no referent — there is nothing to point the consumer at, and an error would only be saying
+      // "this system has not been migrated yet" in the most obstructive way available. The un-migrated
+      // case gets its own finding below instead, so it is never silent, and this one arrives at exactly
+      // the moment somebody can act on it.
+      const srcContracts = contracts.get(e.from);
+      if (srcContracts.size && !srcContracts.has(e.label)) {
+        push("error", "import-of-domain-event",
+          `${ctx} imports ${e.label} from "${e.from}", which is one of that context's DOMAIN events — its internals. ` +
+          `${e.from} publishes ${[...srcContracts.keys()].join(", ")} as contract="true"; import one of those. ` +
+          `A domain event is a "living document of the business behavior" that changes as ${e.from} evolves (UES ch.5), so depending on it means every change there reaches you.`,
+          ctx, e.id);
+      }
+
       // The import is a contract. Consuming a field the publisher does not carry is the whole
       // class of bug that only shows up when the two models are read side by side.
       const have = new Map(pub.fields.map((f) => [f.name, f.type]));
@@ -2223,6 +2288,24 @@ function systemRules(models) {
         }
       }
     }
+  }
+
+  // THE UN-MIGRATED CASE, SAID OUT LOUD so import-of-domain-event above is never quietly inapplicable.
+  // A context somebody imports from, which publishes no contract at all, has no stable surface — every
+  // consumer is necessarily reading its internals. That is one finding per producing context rather
+  // than one per import, because there is one thing to do about it.
+  const importedFrom = new Set();
+  for (const m of models) {
+    for (const e of m.ir.elements) if (e.kind === "external" && e.from) importedFrom.add(e.from);
+  }
+  for (const from of importedFrom) {
+    if (!byContext.has(from)) continue;                       // unknown-source-model already said so
+    if (contracts.get(from)?.size) continue;
+    const readers = models.filter((m) => m.ir.elements.some((e) => e.kind === "external" && e.from === from))
+      .map((m) => contextOf(m));
+    push("warn", "context-publishes-no-contract",
+      `${from} is imported by ${readers.join(", ")} but publishes no contract="true" event, so every consumer is reading its DOMAIN events — its internals. UES ch.15's recipe needs no new pattern: a read model, an automation processor, a "Publish X" command, and the contract event in its own swimlane.`,
+      from, byContext.get(from).ir.model?.id);
   }
 
   for (const [ctx, pub] of published) {

@@ -220,9 +220,30 @@ refactor can be stopped between any two.
    the failure direction that matters, since `codegen` would stop generating it. Silence still means ours.
    It sets `generates: false` and so actually stops `codegen` doing what ch. 9 warns against (BOOK-INDEX
    gap 11, now closed).
-6. **The integration-event change** — `contract=`, `import-of-domain-event`, the inverted
-   `event-shape-disagrees`, per-context namespaces in `codegen`. Then re-model Voltway's two boundaries
-   properly and watch ~4 slices appear.
+6. **The integration-event change.** Items 1–2 ✅ **DONE**: `contract="true"` with its own swimlane
+   (`contract-in-domain-band`), and `import-of-domain-event` as the rule that makes the boundary
+   enforceable. **The un-migrated case gets its own warning** — `context-publishes-no-contract`, naming the
+   producer and its consumers — because until a producer publishes a contract there is nothing to point a
+   consumer *at*, so the error would have no referent. Voltway sits at **0 errors, 2 warnings**, and those
+   two warnings **are** the step-6e worklist: self-migrating and never silent. `public="true"` is deprecated
+   but still resolves an import, because retiring it in the same step that introduces `contract=` would
+   break every model before a replacement exists.
+
+   **THE REMAINING ORDER WAS WRONG IN §3c AND IS CORRECTED HERE.** It listed the namespace change and the
+   `event-shape-disagrees` inversion as peers of the re-modelling. They are not: 3 depends on 4, and **5
+   dissolves both**.
+
+   | | |
+   | --- | --- |
+   | **6e — re-model Voltway's boundaries** *(do this FIRST)* | ~4 slices. It removes the **5 shared labels**, because cross-context traffic becomes contract events only, published by exactly one context each |
+   | 6c — invert `event-shape-disagrees` | **probably unnecessary afterwards.** The rule fires when one label has two field lists; with no shared labels it never fires. At most it narrows to contract events |
+   | 6d — per-context namespaces | **cosmetic once 6e lands**, not a collision fix. Still worth doing for the extraction story. Cost is 46–96 hand-owned scaffolds depending on whether *all* events move or only cross-context ones — **pin that scope before starting** |
+
+   **6e does not depend on 6c.** A consumer importing a *contract* event exercises the existing
+   `event-shape-disagrees` correctly: one producer, one shape. The rule works unchanged.
+
+   Measured to establish all of the above: 5 cross-context labels (7 total, minus the 2 genuinely foreign
+   Kempworth events), and 96 of 109 hand-owned scaffolds referencing `Voltway.Contracts`.
 7. **V19 closes by construction** — the cross-context chapter is a rectangle on a board. Draw it, walk it,
    make it pass.
 
