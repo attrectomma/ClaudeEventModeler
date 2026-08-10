@@ -349,11 +349,88 @@ function parseCells(body) {
   return { nodes, edges };
 }
 
-function buildIr(file) {
+// --- the board: many models on one canvas, and which one a cell is in -------------------------
+//
+// "It is perfectly fine to have more than one model on a board. In fact, this is the rule rather
+// than the exception for me." — Understanding EventSourcing, ch. 18
+//
+// A model is a REGION of one canvas, identified solely by its model cell — Dilger's pink sticky
+// note "placed on the left side of each model to properly name it". Regions partition the canvas
+// by Y, because models stack vertically: a model is read left to right "without any visual
+// interruptions", so it owns its full width and anything drawn to its right would BE the
+// interruption.
+//
+// THE PARTITION IS TOTAL, AND THAT IS THE ENTIRE SAFETY ARGUMENT. The first region is unbounded
+// above and the last unbounded below, so every cell on the canvas lands in exactly one of them.
+// There are no gutters between regions, therefore nowhere for a cell to fall and become invisible
+// to every rule — which is precisely the failure shape a geometry rewrite invites, and the one
+// BOARD-REFACTOR.md §5 says to design against rather than test for.
+//
+// It also makes the ONE-MODEL CASE THE IDENTITY FUNCTION rather than a case to be tested: one
+// model cell — or none — yields one region spanning (-inf, +inf), which is every cell, which is
+// exactly what a whole file meant before regions existed. Every file-per-model model in the kit
+// keeps validating with no edit, and that is provable rather than measured.
+function regionsOf(nodes) {
+  const anchors = nodes
+    .filter((n) => n.kind === "model" && !n.id.startsWith(MARK_PREFIX) && n.geometry)
+    .sort((a, b) => a.geometry.y - b.geometry.y);
+  if (!anchors.length) return [{ anchor: null, top: -Infinity, bottom: Infinity, index: 0 }];
+  return anchors.map((a, i) => ({
+    anchor: a,
+    top: i === 0 ? -Infinity : a.geometry.y,
+    bottom: i === anchors.length - 1 ? Infinity : anchors[i + 1].geometry.y,
+    index: i,
+  }));
+}
+
+// A cell joins the region containing its MIDPOINT — the same test laneOf(), the swimlane bands and
+// the actor bands already use. So a cell is placed in a model by exactly the rule that places it in
+// a lane, one level up. A cell with no geometry is undecidable and joins the first region, which is
+// what a file with one model meant before any of this existed.
+const regionOf = (n, regions) => {
+  if (!n.geometry) return regions[0];
+  const mid = n.geometry.y + n.geometry.h / 2;
+  return regions.find((r) => mid >= r.top && mid < r.bottom) ?? regions[regions.length - 1];
+};
+
+// One file -> one IR per region. The per-model pass (runOne) then runs once per region rather than
+// once per file, and the cross-model pass (systemRules) compares regions that may now share a file.
+function buildIrs(file) {
   const { name, body } = firstDiagram(readFileSync(file, "utf8"));
   const { nodes, edges } = parseCells(body);
+  const regions = regionsOf(nodes);
+  const regionOfId = new Map(nodes.map((n) => [n.id, regionOf(n, regions).index]));
+  return regions.map((r) =>
+    irOfRegion(r, nodes, edges, regionOfId, { file, page: name, count: regions.length }));
+}
 
+// Every command except `validate` still takes exactly one model. A file holding one region IS that
+// model; a board is not, and refusing loudly beats compiling whichever region came first.
+function buildIr(file) {
+  const irs = buildIrs(file);
+  if (irs.length > 1) {
+    throw new Error(
+      `${basename(file)} is a board of ${irs.length} models (${irs.map((i) => i.context).join(", ")}). ` +
+      `This command takes one model — run it against the containing folder instead.`);
+  }
+  return irs[0];
+}
+
+function irOfRegion(region, allNodes, allEdges, regionOfId, meta) {
+  const file = meta.file;
+  const name = meta.page;
   const isMarker = (id) => id.startsWith(MARK_PREFIX);
+  const nodes = allNodes.filter((n) => regionOfId.get(n.id) === region.index);
+
+  // An edge belongs to a region when nothing it touches is in a DIFFERENT one. Written this way
+  // rather than "both endpoints are in this region" so that a dangling edge — one whose source or
+  // target names no cell at all — keeps landing where it landed before regions existed, instead of
+  // being silently dropped by the refactor.
+  const side = (e) => {
+    const known = [regionOfId.get(e.source), regionOfId.get(e.target)].filter((x) => x !== undefined);
+    if (!known.length) return region.index === 0;
+    return known.every((x) => x === region.index);
+  };
   // A swimlane is drawn INSIDE the Event Stream lane and is not itself a lane. Keeping it out of
   // `lanes` matters: laneOf() takes the first containing match, and parseCells returns every
   // <object> before every bare <mxCell>, so a swimlane authored as an object would otherwise be
@@ -383,7 +460,12 @@ function buildIr(file) {
     (n) => !lanes.includes(n) && !swimlaneNodes.includes(n) && !actorLaneNodes.includes(n) &&
       !modelCells.includes(n) && !isMarker(n.id) && n.kind !== "group"
   );
-  const live = edges.filter((e) => !isMarker(e.id));
+  const live = allEdges.filter((e) => !isMarker(e.id) && side(e));
+  // An edge LEAVING this region. Impossible while a model was a file, and the one thing the board
+  // makes newly drawable — so it needs a rule of its own or it would be silently ignored.
+  const outbound = allEdges.filter((e) => !isMarker(e.id) &&
+    regionOfId.get(e.source) === region.index &&
+    regionOfId.get(e.target) !== undefined && regionOfId.get(e.target) !== region.index);
 
   const byId = new Map(elements.map((e) => [e.id, e]));
   const laneOf = (n) => {
@@ -458,9 +540,23 @@ function buildIr(file) {
   // The model's own extent, which is what "can it be read in one render" is measured against.
   const right = Math.max(0, ...[...elements, ...lanes].map((n) => (n.geometry ? n.geometry.x + n.geometry.w : 0)));
 
+  // WHAT THIS MODEL IS CALLED, and the one place the board changes an existing answer. While a model
+  // was a file, the file name WAS the identity and `model-context-mismatch` held the model cell to it.
+  // On a board a file holds many models, so the model cell becomes the only identity there is — which
+  // is what ch. 18 asks for and what BOARD-REFACTOR.md §1 row 2 records as still owed. A one-region
+  // file keeps the file name, so every existing model reports exactly as before.
+  const fileName = basename(file, ".drawio");
+  const context = modelCells[0]?.context ?? fileName;
   return {
     source: file.replace(/\\/g, "/"),
     page: name,
+    fileName,
+    context,
+    name: meta.count === 1 ? fileName : (modelCells[0]?.context ?? `${fileName}#${region.index + 1}`),
+    region: region.index,
+    regionCount: meta.count,
+    // Edges leaving this model. Only ever non-empty on a board — see the rule that reads it.
+    outbound: outbound.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     // `mode` is PROVENANCE, not a domain fact, and it is the one thing of its kind on the diagram.
     // mode="demo" says the domain answers in this model were roleplayed rather than given by a human
     // — see .claude/skills/event-model/SKILL.md. Six months on, nothing else can tell an invented
@@ -1843,6 +1939,29 @@ function screenRules(ir) {
   return d;
 }
 
+// --- the board: what a region may NOT do -----------------------------------------------------
+//
+// "Only an event crosses a model boundary." While a model was a whole FILE, that rule was resting
+// on an accident: two files share no canvas, so there was no edge to draw and nothing to check. A
+// board removes the accident — two models now share a page and a coordinate space — so the rule has
+// to become a real check or it silently stops being true.
+//
+// An edge from one model into another is ch. 15's coupling, drawn: the consumer reaching into the
+// producer rather than importing a published event. The fix is never to reroute the edge, it is to
+// draw the import — a yellow external carrying from="<context>", which systemRules then checks.
+//
+// It cannot fire on a one-region file, so no model that exists today can be touched by it.
+function boardRules(ir) {
+  const byId = new Map(ir.elements.map((e) => [e.id, e]));
+  return ir.outbound.map((e) => ({
+    family: "system", severity: "error", rule: "cross-region-edge",
+    message: `${byId.get(e.source)?.label ?? e.source} is connected by an edge to a cell in another ` +
+      `model on this board. A model's only public surface is an event, imported by the consumer as an ` +
+      `external with from="${ir.context}" — draw the import, not the edge.`,
+    at: e.source,
+  }));
+}
+
 // --- system: many small models, and the only thing allowed to cross between them -------------
 //
 // "It is perfectly fine to have more than one model on a board. In fact, this is the rule rather
@@ -1882,6 +2001,27 @@ function systemRules(models) {
   const contextOf = (m) => m.ir.model?.context ?? m.name;
   const byContext = new Map(models.map((m) => [contextOf(m), m]));
 
+  // TWO MODELS CLAIMING ONE CONTEXT, which `byContext` above would otherwise resolve by silently
+  // keeping the last. While a model was a file this was mostly unreachable — file names are unique
+  // within a folder, and `model-cell-duplicated` caught the rest. A board makes it easy: two model
+  // cells is two models by construction, and nothing stops both saying context="charging". Then
+  // every from="charging" import resolves against whichever came second, and the other model
+  // becomes unaddressable without a single error being raised.
+  const claims = new Map();
+  for (const m of models) {
+    const c = contextOf(m);
+    if (!claims.has(c)) claims.set(c, []);
+    claims.get(c).push(m);
+  }
+  for (const [c, ms] of claims) {
+    if (ms.length > 1) {
+      push("error", "model-context-duplicated",
+        `${ms.length} models call themselves context="${c}" (in ${[...new Set(ms.map((m) => basename(m.path ?? "")))].join(", ")}). ` +
+        `A context names one business context, and every from="${c}" import resolves to exactly one of them.`,
+        c, ms[1].ir.model?.id);
+    }
+  }
+
   // Every event another model is allowed to consume, and every import wanting one.
   const published = new Map();     // context -> label -> element
   for (const m of models) {
@@ -1901,9 +2041,13 @@ function systemRules(models) {
       if (m.ir.model.duplicated) {
         push("error", "model-cell-duplicated", `${m.name} has more than one model cell. A model is one business context.`, ctx, m.ir.model.id);
       }
-      if (m.ir.model.context && m.ir.model.context !== m.name) {
+      // ON A BOARD THE FILE NAME IS NO LONGER THE IDENTITY, so holding the model cell to it would be
+      // holding many models to one name. The model cell becomes the only identity, which is what
+      // ch. 18 asks for. A one-region file is still a model-per-file and still checked exactly as
+      // before — which is every model in the kit today.
+      if (m.ir.regionCount === 1 && m.ir.model.context && m.ir.model.context !== m.ir.fileName) {
         push("warn", "model-context-mismatch",
-          `${m.name}.drawio declares context="${m.ir.model.context}". The file name is the context's name everywhere else, so make them agree.`, ctx, m.ir.model.id);
+          `${m.ir.fileName}.drawio declares context="${m.ir.model.context}". The file name is the context's name everywhere else, so make them agree.`, ctx, m.ir.model.id);
       }
     }
 
@@ -2342,18 +2486,32 @@ const systemFiles = () =>
   readdirSync(file).filter((f) => f.endsWith(".drawio") && !f.startsWith("_")).sort()
     .map((f) => ({ name: basename(f, ".drawio"), path: join(file, f) }));
 
+// THE PER-MODEL PASS, WHICH IS NOW PER-REGION. One file used to be one model and therefore one
+// runOne; a board is many regions in one file, so this returns a list. Every rule inside is
+// unchanged and none of them can tell: each is handed one region's IR, which is the same shape a
+// whole file's IR always was.
 function runOne(f) {
-  const ir = buildIr(f);
-  // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while
-  // its own cells still carry errors.
-  const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
-                ...actorRules(ir), ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir),
-                ...journeyRules(ir)];
-  return { ir, findings: [...core, ...sliceRules(ir, core)] };
+  return buildIrs(f).map((ir) => {
+    // sliceRules runs last and reads the others: a slice cannot claim to be past in-design while
+    // its own cells still carry errors.
+    const core = [...grammar(ir), ...completeness(ir), ...gwtRules(ir), ...swimlaneRules(ir),
+                  ...actorRules(ir), ...flowRules(ir), ...conwayRules(ir), ...screenRules(ir),
+                  ...journeyRules(ir), ...boardRules(ir)];
+    return { name: ir.name, ir, findings: [...core, ...sliceRules(ir, core)] };
+  });
 }
 
-if (isSystem) {
-  const models = systemFiles().map((m) => ({ ...m, ...runOne(m.path) }));
+// A board validated as ONE FILE still owes the cross-model rules, because its models now share a
+// page: "the cross-model pass becomes a within-file pass" is the whole of BOARD-REFACTOR.md §4b.
+// `clear` works on raw XML and must keep working on a file this parser cannot model — so it is the
+// one command that must not trigger a parse.
+const fileRegions = (isSystem || cmd === "clear") ? null : runOne(file);
+const isBoardFile = Boolean(fileRegions && fileRegions.length > 1);
+
+if (isSystem || (isBoardFile && cmd === "validate")) {
+  const models = isSystem
+    ? systemFiles().flatMap((m) => runOne(m.path).map((r) => ({ path: m.path, ...r })))
+    : fileRegions.map((r) => ({ path: file, ...r }));
   if (!models.length) {
     console.error(`${target}: no models found.`);
     process.exit(1);
@@ -2451,7 +2609,19 @@ if (cmd === "clear") {
   process.exit(0);
 }
 
-const { ir, findings } = runOne(file);
+// EVERY COMMAND BELOW TAKES EXACTLY ONE MODEL. `mark` is the exception: markers are absolute
+// overlay cells, so marking a board is marking each of its regions in turn. For the rest, refusing
+// beats operating on whichever region happened to be drawn first — which is the silent half of the
+// same mistake, and the one nobody would notice.
+if (isBoardFile && cmd !== "mark") {
+  console.error(
+    `${basename(file)} is a board of ${fileRegions.length} models ` +
+    `(${fileRegions.map((r) => r.name).join(", ")}). ` +
+    `${cmd} takes one model — run it against the containing folder instead.`);
+  process.exit(2);
+}
+
+const { ir, findings } = fileRegions[0];
 const errors = findings.filter((f) => f.severity === "error");
 
 if (cmd === "compile") {
@@ -2466,10 +2636,12 @@ if (cmd === "compile") {
 
 if (cmd === "mark") {
   const xml = stripMarkers(readFileSync(file, "utf8"));
-  const cells = markerCells(ir, findings);
+  // Markers are absolute overlay cells, so a board is marked region by region into the one file.
+  const cells = fileRegions.flatMap((r) => markerCells(r.ir, r.findings));
+  const bad = fileRegions.flatMap((r) => r.findings).filter((f) => f.severity === "error").length;
   writeFileSync(file, cells.length ? xml.replace(/(\s*)<\/root>/, `\n${cells.join("\n")}$1</root>`) : xml, "utf8");
-  console.log(`${cells.length} marker(s) for ${errors.length} error(s). Render to check placement.`);
-  process.exit(errors.length ? 1 : 0);
+  console.log(`${cells.length} marker(s) for ${bad} error(s). Render to check placement.`);
+  process.exit(bad ? 1 : 0);
 }
 
 if (cmd === "validate") {

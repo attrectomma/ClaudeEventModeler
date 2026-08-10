@@ -1,0 +1,676 @@
+<mxfile host="board" modified="2026-08-10T00:00:00.000Z" agent="board.mjs" version="24.0.0">
+  <diagram name="board" id="board">
+    <mxGraphModel dx="1420" dy="1100" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="4000" pageHeight="4435" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<object id="cart-model-cart" label="Cart&#10;cart · cart" em="model" context="cart" system="cart" note="The shopping-cart model of Understanding EventSourcing ch.12-17, built by tools/slice.mjs as the nine successive appends those chapters are. A FIXTURE for the tool, not a domain model of ours.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="30" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="160" width="4140" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="550" width="4140" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="870" width="4140" height="235" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.14: &quot;Since this identifier uniquely ties together all events within a shopping-cart session, we'll call it aggregateId for now.&quot; The book's own name, kept." identity="aggregateId" id="cart-swim-cart" label="Cart stream — one stream per cart session" em="lane" streams="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="895" width="4140" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-swim-inventory" label="Inventory stream — one stream per product" em="lane" streams="Inventory" identity="productId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1000" width="4140" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="1345" width="4140" height="440" as="geometry" />
+          </mxCell>
+        </object>
+        <object owners="backend-agent, frontend-agent" id="cart-slice-add-item" label="add-item&#10;state-change · in-design" em="group" slice="add-item" pattern="state-change" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object displays="aggregateId, itemId, productId, description, image, price, inventory" inputs="productId:UUID, description:string, image:string, price:Double" id="cart-scr-add-item" label="Cart Page" em="screen" slice="add-item" screen="cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="730" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.12 Fig.12.15: itemId's real source is the Item Added event, so the command mints it." terminal="aggregateId:generated, itemId:generated" fields="aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double" aggregate="Cart" id="cart-cmd-add-item" label="Add Item" em="command" slice="add-item">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double" id="cart-evt-add-item" label="Item Added" em="event" slice="add-item" aggregate="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-scr-add-item--cmd-add-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-scr-add-item" target="cart-cmd-add-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-add-item--evt-add-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-add-item" target="cart-evt-add-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="cart-gwt-add-item-1" label="an item can be added to the cart&#10;&#10;GIVEN —&#10;WHEN Add Item&#10;THEN Item Added" em="gwt" slice="add-item" rule="an item can be added to the cart" when="Add Item" then="Item Added">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-slice-cart-items" label="cart-items&#10;state-view · in-design" em="group" slice="cart-items" pattern="state-view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="390" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.12 Fig.12.16: &quot;we are reusing the cart items read model for both screens&quot;. Drawn LEFT of the screens that read it, which the book's figures do not — a View -&gt; Screen feed may not point left, and only Event -&gt; View may." fields="aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double" identity="aggregateId" id="cart-rm-cart-items" label="Cart Items" em="readmodel" slice="cart-items">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="410" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-evt-add-item--rm-cart-items" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-add-item" target="cart-rm-cart-items">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="1120" />
+              <mxPoint x="500" y="1120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-rm-cart-items--scr-add-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-cart-items" target="cart-scr-add-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="500" y="505" />
+              <mxPoint x="820" y="505" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object owners="backend-agent, frontend-agent" id="cart-slice-remove-item" label="remove-item&#10;state-change · in-design" em="group" slice="remove-item" pattern="state-change" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object displays="aggregateId, itemId, productId, description, image, price, inventory" note="ch.12: &quot;How can the UI provide the itemId to the command?&quot; -- it must be displayed, so the screen needs the read model. displays= must agree across cells sharing the slug; inputs= may differ, and here they do: adding types a product, removing picks a row." inputs="itemId:UUID" id="cart-scr-remove-item" label="Cart Page" em="screen" slice="remove-item" screen="cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1050" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="aggregateId:UUID, itemId:UUID" aggregate="Cart" id="cart-cmd-remove-item" label="Remove Item" em="command" slice="remove-item">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="aggregateId:UUID, itemId:UUID" id="cart-evt-remove-item" label="Item Removed" em="event" slice="remove-item" aggregate="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-scr-remove-item--cmd-remove-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-scr-remove-item" target="cart-cmd-remove-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-remove-item--evt-remove-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-remove-item" target="cart-evt-remove-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-rm-cart-items--scr-remove-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-cart-items" target="cart-scr-remove-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="500" y="513" />
+              <mxPoint x="1140" y="513" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-evt-remove-item--rm-cart-items" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-remove-item" target="cart-rm-cart-items">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1150" y="1129" />
+              <mxPoint x="500" y="1129" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="cart-gwt-remove-item-1" label="an item in the cart can be removed&#10;&#10;GIVEN Item Added&#10;WHEN Remove Item&#10;THEN Item Removed" em="gwt" slice="remove-item" rule="an item in the cart can be removed" given="Item Added" when="Remove Item" then="Item Removed">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object owners="backend-agent, frontend-agent" id="cart-slice-clear-cart" label="clear-cart&#10;state-change · in-design" em="group" slice="clear-cart" pattern="state-change" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1360" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object displays="aggregateId, itemId, productId, description, image, price, inventory" inputs="aggregateId:UUID" id="cart-scr-clear-cart" label="Cart Page" em="screen" slice="clear-cart" screen="cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1370" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="aggregateId:UUID" aggregate="Cart" id="cart-cmd-clear-cart" label="Clear Cart" em="command" slice="clear-cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object terminal="clearedAt:clock" fields="aggregateId:UUID, clearedAt:DateTimeOffset" id="cart-evt-clear-cart" label="Cart Cleared" em="event" slice="clear-cart" aggregate="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-scr-clear-cart--cmd-clear-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-scr-clear-cart" target="cart-cmd-clear-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-clear-cart--evt-clear-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-clear-cart" target="cart-evt-clear-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-rm-cart-items--scr-clear-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-cart-items" target="cart-scr-clear-cart">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="500" y="521" />
+              <mxPoint x="1460" y="521" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-evt-clear-cart--rm-cart-items" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-clear-cart" target="cart-rm-cart-items">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1470" y="1138" />
+              <mxPoint x="500" y="1138" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="cart-gwt-clear-cart-1" label="a cart with items can be cleared&#10;&#10;GIVEN Item Added&#10;WHEN Clear Cart&#10;THEN Cart Cleared" em="gwt" slice="clear-cart" rule="a cart with items can be cleared" given="Item Added" when="Clear Cart" then="Cart Cleared">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1380" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object owners="backend-agent, frontend-agent" id="cart-slice-submit-cart" label="submit-cart&#10;state-change · in-design" em="group" slice="submit-cart" pattern="state-change" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1680" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object displays="aggregateId, itemId, productId, description, image, price, inventory" inputs="aggregateId:UUID" id="cart-scr-submit-cart" label="Cart Page" em="screen" slice="submit-cart" screen="cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1690" y="200" width="200" height="240" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.15: orderedProducts is a list of {productId, price} -- &quot;I often provide the structure of the data as an example in the form of simple JSON.&quot; It is built from the cart rows the screen shows, so derived= from productId, not a field the user types." derived="orderedProducts=productId" fields="aggregateId:UUID, orderedProducts:string" aggregate="Cart" id="cart-cmd-submit-cart" label="Submit Cart" em="command" slice="submit-cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.15: totalPrice &quot;does not come with the command. This attribute is calculated during the cart submission process.&quot; So derived=, never mappings=. public= because ch.15 models this as the event other systems are interested in." terminal="submittedAt:clock" derived="totalPrice=orderedProducts" fields="aggregateId:UUID, orderedProducts:string, totalPrice:Double, submittedAt:DateTimeOffset" public="true" id="cart-evt-submit-cart" label="Cart Submitted" em="event" slice="submit-cart" aggregate="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-scr-submit-cart--cmd-submit-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-scr-submit-cart" target="cart-cmd-submit-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-submit-cart--evt-submit-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-submit-cart" target="cart-evt-submit-cart">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-rm-cart-items--scr-submit-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-cart-items" target="cart-scr-submit-cart">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="500" y="529" />
+              <mxPoint x="1780" y="529" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="cart-gwt-submit-cart-1" label="a cart with items can be submitted&#10;&#10;GIVEN Item Added&#10;WHEN Submit Cart&#10;THEN Cart Submitted" em="gwt" slice="submit-cart" rule="a cart with items can be submitted" given="Item Added" when="Submit Cart" then="Cart Submitted">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-slice-change-inventory" label="change-inventory&#10;translation · in-design" em="group" slice="change-inventory" pattern="translation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="2000" y="140" width="540" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.16: &quot;The inventory system is a completely different system... it's a black box for our department.&quot; origin= is a claim on record, not a checked reference." fields="productId:UUID, inventory:int" origin="Inventory system" id="cart-ext-change-inventory" label="Inventory Changed (external)" em="external" slice="change-inventory" aggregate="Inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-auto-change-inventory" label="Inventory Translator" em="automation" slice="change-inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="570" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.16: the author skips this read model for a direct translation (&quot;I typically skip the read model definition&quot;). The cheat sheet's translation sequence includes a View and tools/model.mjs PATTERNS requires one, so the kit keeps it. A declared divergence." fields="productId:UUID, inventory:int" identity="productId" id="cart-rm-change-inventory" label="Inventory Updates" em="readmodel" slice="change-inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="650" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="productId:UUID, inventory:int" aggregate="Inventory" id="cart-cmd-change-inventory" label="Change Inventory" em="command" slice="change-inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="productId:UUID, inventory:int" id="cart-evt-change-inventory" label="Inventory Changed" em="event" slice="change-inventory" aggregate="Inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2340" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-ext-change-inventory--rm-change-inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-ext-change-inventory" target="cart-rm-change-inventory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-rm-change-inventory--auto-change-inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-change-inventory" target="cart-auto-change-inventory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-auto-change-inventory--cmd-change-inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-auto-change-inventory" target="cart-cmd-change-inventory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-change-inventory--evt-change-inventory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-change-inventory" target="cart-evt-change-inventory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="cart-gwt-change-inventory-1" label="an external inventory change is translated into our stream&#10;&#10;GIVEN Inventory Changed (external)&#10;WHEN Change Inventory&#10;THEN Inventory Changed" em="gwt" slice="change-inventory" rule="an external inventory change is translated into our stream" given="Inventory Changed (external)" when="Change Inventory" then="Inventory Changed">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2020" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-slice-inventories" label="inventories&#10;state-view · in-design" em="group" slice="inventories" pattern="state-view" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="70" y="140" width="220" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.16: &quot;To display this information in the UI, we define a new state view for Inventories.&quot; Inserted at position 0 because the Cart Page reads it and a View -&gt; Screen edge may not point left -- CLAUDE.md: &quot;put the View's column first&quot;." fields="productId:UUID, inventory:int" identity="productId" id="cart-rm-inventories" label="Inventories" em="readmodel" slice="inventories">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="90" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-evt-change-inventory--rm-inventories" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-change-inventory" target="cart-rm-inventories">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="2430" y="1147" />
+              <mxPoint x="180" y="1147" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-rm-inventories--scr-add-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-inventories" target="cart-scr-add-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="537" />
+              <mxPoint x="820" y="537" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-rm-inventories--scr-remove-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-inventories" target="cart-scr-remove-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="545" />
+              <mxPoint x="1140" y="545" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-rm-inventories--scr-clear-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-inventories" target="cart-scr-clear-cart">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="553" />
+              <mxPoint x="1460" y="553" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-rm-inventories--scr-submit-cart" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-inventories" target="cart-scr-submit-cart">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="180" y="553" />
+              <mxPoint x="1780" y="553" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="cart-gwt-add-item-2" label="an out-of-stock item cannot be added to the cart&#10;&#10;GIVEN Inventory Changed&#10;WHEN Add Item&#10;THEN error: OutOfStock" em="gwt" slice="add-item" rule="an out-of-stock item cannot be added to the cart" given="Inventory Changed" when="Add Item" then="error: OutOfStock" enforce="aggregate">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-gwt-submit-cart-2" label="a cart containing out-of-stock items cannot be submitted&#10;&#10;GIVEN Item Added, Inventory Changed&#10;WHEN Submit Cart&#10;THEN error: CartContainsOutOfStockItems" em="gwt" slice="submit-cart" rule="a cart containing out-of-stock items cannot be submitted" given="Item Added, Inventory Changed" when="Submit Cart" then="error: CartContainsOutOfStockItems" enforce="aggregate">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1700" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-slice-change-price" label="change-price&#10;translation · in-design" em="group" slice="change-price" pattern="translation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="2640" y="140" width="540" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.17: &quot;The event contains the product-id, the old price, and the new price, allowing us to easily determine if the business rules apply.&quot;" fields="productId:UUID, oldPrice:Double, newPrice:Double" origin="Pricing system" id="cart-ext-change-price" label="Price Changed (external)" em="external" slice="change-price" aggregate="Inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-auto-change-price" label="Price Translator" em="automation" slice="change-price">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="570" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="productId:UUID, oldPrice:Double, newPrice:Double" identity="productId" id="cart-rm-change-price" label="Price Updates" em="readmodel" slice="change-price">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="650" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="productId:UUID, oldPrice:Double, newPrice:Double" aggregate="Inventory" id="cart-cmd-change-price" label="Change Price" em="command" slice="change-price">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2980" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="productId:UUID, oldPrice:Double, newPrice:Double" id="cart-evt-change-price" label="Price Changed" em="event" slice="change-price" aggregate="Inventory">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="2980" y="1025" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-ext-change-price--rm-change-price" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-ext-change-price" target="cart-rm-change-price">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-rm-change-price--auto-change-price" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-change-price" target="cart-auto-change-price">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-auto-change-price--cmd-change-price" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-auto-change-price" target="cart-cmd-change-price">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-change-price--evt-change-price" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-change-price" target="cart-evt-change-price">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="cart-gwt-change-price-1" label="an external price change is translated into our stream&#10;&#10;GIVEN Price Changed (external)&#10;WHEN Change Price&#10;THEN Price Changed" em="gwt" slice="change-price" rule="an external price change is translated into our stream" given="Price Changed (external)" when="Change Price" then="Price Changed">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="2660" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-slice-archive-item" label="archive-item&#10;automation · in-design" em="group" slice="archive-item" pattern="automation" status="in-design">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="3280" y="140" width="540" height="965" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-auto-archive-item" label="Price Change Processor" em="automation" slice="archive-item">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="570" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.17 Fig.17.5: &quot;We'll define the Read Model Carts with Products, which includes a product-id and a list of cart-ids.&quot; Fed by Item Added AND Item Removed -- ch.17: &quot;If an item is removed from the cart, any subsequent price changes for that product will no longer be relevant.&quot; This is the todo list, and Item Archived ticks the row off." derived="aggregateId=Item Added" fields="productId:UUID, aggregateId:UUID" identity="productId" id="cart-rm-archive-item" label="Carts with Products" em="readmodel" slice="archive-item">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="650" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object note="ch.17: &quot;This command only requires the cartId (we called it aggregateId) and the affected product-id.&quot; An automation types nothing: both come from the todo-list View." fields="aggregateId:UUID, productId:UUID" aggregate="Cart" id="cart-cmd-archive-item" label="Archive Item" em="command" slice="archive-item">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="3620" y="600" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object fields="aggregateId:UUID, productId:UUID" id="cart-evt-archive-item" label="Item Archived" em="event" slice="archive-item" aggregate="Cart">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="3620" y="920" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="cart-e-rm-archive-item--auto-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-rm-archive-item" target="cart-auto-archive-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-auto-archive-item--cmd-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-auto-archive-item" target="cart-cmd-archive-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-cmd-archive-item--evt-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-cmd-archive-item" target="cart-evt-archive-item">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="cart-e-evt-add-item--rm-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-add-item" target="cart-rm-archive-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="736" />
+              <mxPoint x="3390" y="736" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-evt-remove-item--rm-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-remove-item" target="cart-rm-archive-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1150" y="744" />
+              <mxPoint x="3390" y="744" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-evt-change-price--rm-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-change-price" target="cart-rm-archive-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3070" y="752" />
+              <mxPoint x="3390" y="752" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-evt-archive-item--rm-archive-item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-archive-item" target="cart-rm-archive-item">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3710" y="1156" />
+              <mxPoint x="3390" y="1156" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="cart-e-evt-archive-item--rm-cart-items" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="cart-evt-archive-item" target="cart-rm-cart-items">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3710" y="1165" />
+              <mxPoint x="500" y="1165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="cart-gwt-archive-item-1" label="a cart holding a repriced product has that item archived&#10;&#10;GIVEN Item Added, Price Changed&#10;WHEN Archive Item&#10;THEN Item Archived" em="gwt" slice="archive-item" rule="a cart holding a repriced product has that item archived" given="Item Added, Price Changed" when="Archive Item" then="Item Archived">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="1375" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="cart-gwt-archive-item-2" label="a run with no affected carts does nothing and is not an error&#10;&#10;GIVEN Price Changed&#10;WHEN Archive Item&#10;THEN error: NoAffectedCarts" em="gwt" slice="archive-item" rule="a run with no affected carts does nothing and is not an error" given="Price Changed" when="Archive Item" then="error: NoAffectedCarts">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="3300" y="1515" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+<object id="drafting-model-drafting" label="Drafting&#10;drafting · context" em="model" context="drafting" system="drafting" note="A reference model for the STATE CHANGE pattern. revise-subject acts on a stream that already exists, which is what the aggregate handler workflow is for — and it is implemented twice, with and without Wolverine.HTTP, from this one model.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1">
+            <mxGeometry x="40" y="2215" width="300" height="90" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-lane-ui" label="UI / Wireframes — frontend-agent" em="lane" owner="frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="2345" width="1540" height="390" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-lane-cmd" label="Commands / Views / Automation — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="2735" width="1540" height="180" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-lane-evt" label="Event Stream — backend-agent" em="lane" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#cccccc;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="3055" width="1540" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-swim-email" label="Email stream — one stream per email, keyed by a SINGLE field, which is what makes the aggregate handler workflow possible" em="lane" streams="Email" identity="emailId">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#dddddd;verticalAlign=top;align=left;spacingLeft=10;spacingTop=2;fontStyle=2;fontColor=#999999;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="40" y="3080" width="1540" height="95" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-lane-gwt" label="Given / When / Then — one cell per business rule, stacked under its slice" em="lane">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#cccccc;dashed=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;fontColor=#888888;fontSize=13;" vertex="1" parent="1">
+            <mxGeometry x="40" y="3415" width="1540" height="620" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-slice-draft-email" label="draft-email&#10;state-change · ready" em="group" slice="draft-email" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="80" y="2325" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-slice-my-drafts" label="my-drafts&#10;state-view · ready" em="group" slice="my-drafts" pattern="state-view" status="ready" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="400" y="2325" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-slice-revise-subject" label="revise-subject&#10;state-change · ready" em="group" slice="revise-subject" pattern="state-change" status="ready" owners="backend-agent, frontend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="720" y="2325" width="220" height="860" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-scr-compose" label="Compose" em="screen" slice="draft-email" screen="compose" inputs="to:string, subject:string, body:string" note="The stream does not exist yet, so nothing is displayed — there is nothing to read. That is what makes draft-email the CREATE slice and revise-subject the state change.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="2385" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-cmd-draft-email" label="DraftEmail" em="command" slice="draft-email" aggregate="Email" fields="emailId:Guid, to:string, subject:string, body:string" terminal="emailId:generated" note="The handler mints the id: a screen cannot supply one for a thing that does not exist yet.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="2785" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-evt-email-drafted" label="EmailDrafted" em="event" slice="draft-email" aggregate="Email" fields="emailId:Guid, to:string, subject:string, body:string, draftedAt:DateTimeOffset" terminal="draftedAt:clock" note="Opens the stream. Every rule in revise-subject is a statement about what this event left behind.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="100" y="3105" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-rm-my-drafts" label="MyDrafts" em="readmodel" slice="my-drafts" identity="emailId" fields="emailId:Guid, to:string, subject:string, body:string" note="One row per email. It exists so the Draft screen has something to read — a screen cannot display what no View supplies.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="420" y="2785" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-scr-draft" label="Draft" em="screen" slice="revise-subject" screen="draft" displays="emailId:Guid, to:string, subject:string" inputs="subject:string" note="subject is both displayed and typed: the reader sees the current one and replaces it. That is exactly why NothingChanged is a real rule — the obvious mistake is submitting what was already there.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;verticalAlign=top;spacingTop=6;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="2385" width="180" height="300" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-cmd-revise-subject" label="ReviseSubject" em="command" slice="revise-subject" aggregate="Email" fields="emailId:Guid, subject:string" note="Acts on a stream that ALREADY EXISTS, and carries the stream identity as a single field — the two conditions Wolverine's aggregate handler workflow needs.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="2785" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-evt-subject-revised" label="SubjectRevised" em="event" slice="revise-subject" aggregate="Email" fields="emailId:Guid, subject:string, revisedAt:DateTimeOffset" terminal="revisedAt:clock" note="Feeds MyDrafts to update the row, which is why the edge points left — the Event to View exception.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3105" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="drafting-e-scr-compose--cmd-draft-email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-scr-compose" target="drafting-cmd-draft-email">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="drafting-e-cmd-draft-email--evt-email-drafted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-cmd-draft-email" target="drafting-evt-email-drafted">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="drafting-e-evt-email-drafted--rm-my-drafts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-evt-email-drafted" target="drafting-rm-my-drafts">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="3135" />
+              <mxPoint x="390" y="2815" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="drafting-e-evt-subject-revised--rm-my-drafts" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;dashed=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-evt-subject-revised" target="drafting-rm-my-drafts">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="3210" />
+              <mxPoint x="510" y="3210" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="drafting-e-rm-my-drafts--scr-draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-rm-my-drafts" target="drafting-scr-draft">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510" y="2705" />
+              <mxPoint x="700" y="2705" />
+              <mxPoint x="700" y="2535" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="drafting-e-scr-draft--cmd-revise-subject" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-scr-draft" target="drafting-cmd-revise-subject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="drafting-e-cmd-revise-subject--evt-subject-revised" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-cmd-revise-subject" target="drafting-evt-subject-revised">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <object id="drafting-gwt-draft-email-1" label="a composed email becomes a draft&#10;&#10;GIVEN —&#10;WHEN DraftEmail&#10;THEN EmailDrafted" em="gwt" slice="draft-email" rule="a composed email becomes a draft" when="DraftEmail" then="EmailDrafted">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="3445" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gwt-draft-email-2" label="a draft with no recipient is refused&#10;&#10;GIVEN —&#10;WHEN DraftEmail&#10;THEN error: RecipientRequired" em="gwt" slice="draft-email" rule="a draft with no recipient is refused" when="DraftEmail" then="error: RecipientRequired" enforce="periphery">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="100" y="3585" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gwt-revise-subject-1" label="a draft's subject can be revised&#10;&#10;GIVEN EmailDrafted&#10;WHEN ReviseSubject&#10;THEN SubjectRevised" em="gwt" slice="revise-subject" rule="a draft's subject can be revised" given="EmailDrafted" when="ReviseSubject" then="SubjectRevised" note="The happy path, and the only assertion both implementations must satisfy identically.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3445" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gwt-revise-subject-2" label="revising to the subject it already has changes nothing&#10;&#10;GIVEN EmailDrafted&#10;WHEN ReviseSubject&#10;THEN error: NothingChanged" em="gwt" slice="revise-subject" rule="revising to the subject it already has changes nothing" given="EmailDrafted" when="ReviseSubject" then="error: NothingChanged" enforce="aggregate" note="The rule that cannot be checked without the FOLDED STATE — you have to know the current subject to know it did not change. This is what the aggregate handler workflow exists to hand you.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3585" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gwt-revise-subject-3" label="a draft nobody wrote cannot be revised&#10;&#10;GIVEN —&#10;WHEN ReviseSubject&#10;THEN error: NotDrafted" em="gwt" slice="revise-subject" rule="a draft nobody wrote cannot be revised" when="ReviseSubject" then="error: NotDrafted" enforce="aggregate" note="Needs the stream to be ABSENT, so it cannot be a validator rule despite a blank given=. The two implementations answer this one differently, which is the most interesting difference between them.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3725" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gwt-revise-subject-4" label="a blank subject is refused&#10;&#10;GIVEN —&#10;WHEN ReviseSubject&#10;THEN error: SubjectRequired" em="gwt" slice="revise-subject" rule="a blank subject is refused" when="ReviseSubject" then="error: SubjectRequired" enforce="periphery" note="Settled by the request alone, so it is refused before any stream is read.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="740" y="3865" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gt-my-drafts-1" label="a drafted email appears in my drafts&#10;&#10;GIVEN EmailDrafted&#10;THEN MyDrafts shows it, with its subject and body" em="gwt" slice="my-drafts" rule="a drafted email appears in my drafts" given="EmailDrafted" then="MyDrafts" note="A GIVEN/THEN, not a GWT: a read model only ever reads events that already exist, so there is no command to be the WHEN. Understanding EventSourcing ch.3 — &quot;you typically do not use GWTs but GTs (Given - Then)&quot;.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="3445" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gt-my-drafts-2" label="a revised subject replaces the old one&#10;&#10;GIVEN EmailDrafted, SubjectRevised&#10;THEN MyDrafts shows ONE row, with the new subject" em="gwt" slice="my-drafts" rule="a revised subject replaces the old one" given="EmailDrafted, SubjectRevised" then="MyDrafts" note="The row is REVISED, not added: two events, still one row. This is the delete-vs-upsert question OPEN-QUESTIONS calls invisible to the checker — a GT is where it becomes assertable.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="3585" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gt-my-drafts-3" label="revising the subject leaves the body alone&#10;&#10;GIVEN EmailDrafted, SubjectRevised&#10;THEN MyDrafts still shows the original body" em="gwt" slice="my-drafts" rule="revising the subject leaves the body alone" given="EmailDrafted, SubjectRevised" then="MyDrafts" note="Specifies what the view does NOT change. SubjectRevised carries no body, so a fold that rebuilt the row from the latest event would silently blank it — the one thing a projection can get wrong that no other test notices.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="420" y="3725" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-slice-draft-history" label="draft-history&#10;state-view · in-review" em="group" slice="draft-history" pattern="state-view" status="in-review" owner="backend-agent">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;dashed=1;verticalAlign=top;align=center;spacingTop=4;fontStyle=1;fontColor=#b85450;fontSize=11;" vertex="1" parent="1">
+            <mxGeometry x="1040" y="2325" width="220" height="850" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-rm-draft-history" label="DraftHistory" em="readmodel" slice="draft-history" identity="emailId" fields="emailId:Guid, subject:string, revisions:Revision[]" children="Revision: revisedTo:string, revisedAt:DateTimeOffset" mappings="revisedTo=subject" note="THE REPEATED-GROUP ROW SHAPE. One row per draft, carrying its revision history INSIDE the row as revisions:Revision[] — many of these, not one. Contrast MyDrafts next door, which is the same stream flattened to a single current state, and DeliveryLog in state-view, which is the same idea spread over one row per child. Three answers to &quot;what is one row&quot; from the same events. mappings=&quot;revisedTo=subject&quot; is here on purpose too: a rename has to resolve THROUGH the group, and this is the only place that is exercised.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="2785" width="180" height="60" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="drafting-e-evt-email-drafted--rm-draft-history" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-evt-email-drafted" target="drafting-rm-draft-history">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="217" y="2929" />
+              <mxPoint x="1150" y="2929" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="drafting-e-evt-subject-revised--rm-draft-history" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;strokeColor=#555555;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="drafting-evt-subject-revised" target="drafting-rm-draft-history">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="857" y="2937" />
+              <mxPoint x="1150" y="2937" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <object id="drafting-gt-draft-history-1" label="a new draft has an empty revision list&#10;&#10;GIVEN EmailDrafted&#10;THEN DraftHistory shows a row with 0 revisions" em="gwt" slice="draft-history" rule="a new draft has an empty revision list" given="EmailDrafted" then="DraftHistory" note="EMPTY, not null. This is the case that rules out the alternative shape — one row per revision would give a brand-new draft no row at all, and the screen that reads it would show nothing for a draft that certainly exists.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="3445" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gt-draft-history-2" label="each revision is appended to the row's own list&#10;&#10;GIVEN EmailDrafted, SubjectRevised, SubjectRevised&#10;THEN DraftHistory shows ONE row with 2 revisions, in order" em="gwt" slice="draft-history" rule="each revision is appended to the row's own list" given="EmailDrafted, SubjectRevised, SubjectRevised" then="DraftHistory" note="TWO events, still ONE row, with two members inside it. A projection that keyed on the revision instead of the draft passes nothing here. This is the whole point of the shape.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="3585" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <object id="drafting-gt-draft-history-3" label="the row's current subject is the latest revision&#10;&#10;GIVEN EmailDrafted, SubjectRevised&#10;THEN DraftHistory's subject equals the revision's, and 1 revision is listed" em="gwt" slice="draft-history" rule="the row's current subject is the latest revision" given="EmailDrafted, SubjectRevised" then="DraftHistory" note="The top-level field and the group must agree: subject is the head, revisions are the history. A fold that appended without updating the head would leave the row self-contradictory and no other test would notice.">
+          <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;spacingTop=6;" vertex="1" parent="1">
+            <mxGeometry x="1060" y="3725" width="300" height="120" as="geometry" />
+          </mxCell>
+        </object>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

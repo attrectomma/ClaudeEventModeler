@@ -58,7 +58,7 @@ rather than to the page.
 
 | File | What changes |
 | --- | --- |
-| `tools/model.mjs` | `firstDiagram` → many model regions per page; every geometry derivation offset by region origin; `laneOf`/`bandOf` scoped to region; the per-model validation pass keyed by region, not file; cross-model rules become **within-file** |
+| ~~`tools/model.mjs`~~ | ✅ **DONE, step 2.** And the estimate here was **wrong in a way worth keeping**: it said *"every geometry derivation offset by region origin"*. Measured — `model.mjs` has **zero absolute coordinate constants**; all ~20 geometry uses are containment (`mid >= lane.y && mid <= lane.y+lane.h`), relative comparison (`to.x >= from.x`) or extent (`max(x+w)`). **No geometry maths changed at all** — the change was purely partitioning cells into regions and running the existing pipeline per region. CLAUDE.md's layout section already said this (*"`model.mjs` derives everything from geometry and never hard-codes a y"*); §3a contradicted it and the measurement resolved it in CLAUDE.md's favour. **§4b's "the `runOne`/`systemRules` split IS the refactor" was exactly right.** |
 | `tools/slice.mjs` | every placement, insert-shift and routing allocation is absolute-x/y today |
 | `tools/crop.mjs` | already an x-window; needs a y-window or a region selector |
 | `tools/drawio.mjs render` | one PNG per board is unreadable at two models; needs per-region export |
@@ -150,10 +150,18 @@ projection. Voltway has estate→charging (bay lifecycle) and charging→estate 
 refactor can be stopped between any two.
 
 1. ~~Decide 3c~~ — **done 2026-08-10.**
-2. **`model.mjs` reads a board** — parse many model regions from one page, derive every y relative to a
-   region origin, scope the per-model validation pass to a region, and turn the cross-model rules into
-   within-file rules. **No writer changes yet.** Prove it by hand-migrating `tools/fixtures/cart/` **first**
-   — it is the regression suite, so it is the honest place to find out whether the geometry model works.
+2. ~~`model.mjs` reads a board~~ — ✅ **DONE.** **A region is a horizontal band between consecutive model
+   cells**, the first unbounded above and the last unbounded below; a cell joins the region containing its
+   **midpoint** — the same test `laneOf()`, the swimlane bands and the actor bands already use, one level
+   up. Two properties carry the whole design: **the partition is total** (no gutters, so no cell can fall
+   through and become invisible to every rule — measured, 259 elements in, 259 out), and **the one-model
+   case is the identity function** (one anchor, or none, yields one region spanning `(-∞, +∞)`, which is
+   every cell, which is what a whole file meant before). That is *why* the other six sets survive by
+   construction rather than by testing.
+   `tools/fixtures/cart/` could **not** be migrated in place: `cart-replay.mjs:146` `rmSync`s that folder and
+   rebuilds it on every run, so a hand edit would be silently reverted — the exact failure shape the step
+   guards against. The board fixture is `tools/fixtures/board/` instead: cart + drafting, combined by pure
+   y-translation with namespaced ids, zero domain invention, both halves already-validated models.
 3. **`slice.mjs` writes regions** — placement, insert-shift and routing allocation relative to origin.
 4. **Migrate the remaining five** — Voltway, then the five reference implementations. `cart-replay.mjs`
    rewritten against the new geometry and byte-identical on re-run. Every model at 0 errors, 0 warnings.
