@@ -440,10 +440,32 @@ const gtHint = (s) => {
 };
 
 const untested = [];
+const ambiguous = [];
 const checkGwtCoverage = (p, gwts) => {
   if (!existsSync(p)) return;
   const src = readFileSync(p, "utf8");
-  for (const g of gwts) if (!src.includes(g.rule)) untested.push({ path: p, rule: g.rule });
+
+  // A RULE NAME IS NOT UNIQUE, AND THIS CHECK USED TO ASSUME IT WAS — KIT-FINDINGS V13.
+  //
+  // Two GWTs legitimately share a rule name: the same refusal reached by two different histories. The kit
+  // DEPENDS on that elsewhere — deduping the generated rejection constants by rule name is what fixed a
+  // CS0102 collision. But a substring search for the name cannot tell them apart, so once one scenario has
+  // a test, every later scenario for that rule reported as covered. Measured: a GWT was added to an
+  // implemented slice under an existing rule name and this report stayed silent. The model grew and the
+  // check went quiet, which is the worst direction for a report to fail in.
+  //
+  // The fix is NOT to require the id everywhere — every correct test written before this change would then
+  // be reported as missing, and a check that cries wolf on a correct project is worse than the gap. So the
+  // id is required ONLY where the name is genuinely ambiguous, and the finding says so in those words
+  // rather than claiming a test is absent. That is a true statement about this file either way.
+  const byRule = new Map();
+  for (const g of gwts) byRule.set(g.rule, (byRule.get(g.rule) ?? 0) + 1);
+
+  for (const g of gwts) {
+    if (!src.includes(g.rule)) { untested.push({ path: p, rule: g.rule, id: g.id }); continue; }
+    if (byRule.get(g.rule) > 1 && !src.includes(g.id))
+      ambiguous.push({ path: p, rule: g.rule, id: g.id, n: byRule.get(g.rule) });
+  }
 };
 
 // A STALE SKIP, which is the same class of bug as an untested GWT and was doing more damage.
@@ -1350,7 +1372,12 @@ ${s.gwts.map((g, i) => {
       // No when= means this is a GT, not a GWT — a read model reads events that already exist, so there
       // is no command to be the WHEN. Printing "WHEN (nothing)" invited the reader to think one was
       // missing; omitting the line says what the book says.
-      return `    // ${(g.rule || g.label || g.id).replace(/\s+/g, " ")}
+      // THE CELL ID IS EMITTED BESIDE THE RULE NAME, and it is not decoration — KIT-FINDINGS V13.
+      // GWT coverage is checked by looking for the rule name in the kept test file, and two GWTs
+      // legitimately SHARE a rule name (the same refusal reached by two different histories). Once one of
+      // them has a test, every later scenario for that rule reports as covered. The id is unique by
+      // construction, so a test that quotes it can be told apart; keep it in the comment.
+      return `    // ${(g.rule || g.label || g.id).replace(/\s+/g, " ")}  [${g.id}]
     //   GIVEN ${g.given || "(nothing)"}${g.when ? `\n    //   WHEN  ${g.when}` : ""}
     //   THEN  ${g.then || "(nothing)"}${g.when ? "" : gtHint(s)}${isPeriphery(g) && g.when ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
     ${factAttr(s)}
@@ -2305,6 +2332,19 @@ if (untested.length) {
   for (const u of untested) {
     if (u.path !== last) { console.log(`  ${u.path.replace(OUT, "").replace(/^[\\/]/, "")}`); last = u.path; }
     console.log(`    - ${u.rule}`);
+  }
+}
+
+if (ambiguous.length) {
+  console.log(`\nGWT COVERAGE CANNOT BE TOLD APART — ${ambiguous.length}. These rules are named by more`);
+  console.log(`than one GWT, so finding the NAME in the test file does not prove THIS scenario is covered.`);
+  console.log(`Two GWTs sharing a rule name is legitimate — the same refusal reached by two histories — so`);
+  console.log(`this is not a modelling error. It is the coverage check saying it cannot answer.`);
+  console.log(`Quote the id in the test's comment (newly scaffolded tests already carry it):`);
+  let last = null;
+  for (const a of ambiguous) {
+    if (a.path !== last) { console.log(`  ${a.path.replace(OUT, "").replace(/^[\\/]/, "")}`); last = a.path; }
+    console.log(`    - ${a.id}  (one of ${a.n} GWTs named ${a.rule})`);
   }
 }
 
