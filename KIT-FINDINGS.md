@@ -180,6 +180,41 @@ regenerating on every validate would churn a committed file. **Do not close it b
 step 4 established it is *not* redundant (a board shows both models but not what crosses between them), so
 it earns its keep until `contract=` lands.
 
+### V25 — `slice.mjs`'s attribute writer can APPEND a duplicate attribute, and the old value wins · `kit` · **BROKEN**
+
+Setting an attribute that already exists can produce **two copies of it on one cell** rather than replacing
+the first. `attrsOf` then lets the **last** occurrence win — so the *original* value keeps winning and the
+write is a **silent no-op**.
+
+Measured during step 6e: a rename pass appended a second `label=` to 15 cells. All 15 **looked** renamed in
+the diff and none of them were; the `TODO:` placeholder kept winning. Validation reported the *symptom*
+(`unsourced-attribute`, because a placeholder supplies no fields) and never the cause, so the trail led
+into the model rather than into the writer.
+
+**This is a hazard for anything that edits a `.drawio` attribute, not just that one script** — including
+`slice.mjs`'s own `promote`, `demote` and `identity`, and any future migration pass. The failure mode is the
+worst available: the file changes, the diff looks right, and the value does not move.
+
+The fix is replace-or-append rather than append, plus a post-write assertion that no cell carries a
+duplicate attribute — the same shape as `assertNothingDropped` (V23), which exists because this class of
+silent write-failure has now bitten twice.
+
+### V26 — `--pattern translation` places the imported external in the WRITTEN band, so the writer creates the condition its own rule warns about · `kit` · **NOISE→BROKEN**
+
+`slice.mjs add --pattern translation` puts the foreign event in whatever band already exists — which, with
+one band, is a band **we write to**. `external-in-written-band` then correctly warns that another system's
+event is landing in a stream of ours.
+
+So the tool **manufactures the warning it ships with**, and every translation slice needs a hand move into a
+foreign band immediately after creation. CLAUDE.md already half-acknowledges this — *"`slice.mjs add
+--pattern translation` puts the external event in whatever band already exists — with one band, yours"* — and
+files it under why the rule is a warning rather than an error. That is backwards: the rule is right, and the
+**writer** is what should change.
+
+It matters more now than when it was written. Step 6 makes translation slices routine rather than rare: every
+consuming context gets one per contract event, so what used to be an occasional hand-fix becomes a step in a
+repeated recipe. A `--band` argument, or creating a foreign band when none exists, removes it.
+
 ### V21 — two GWTs sharing a rule name generate TWO METHODS WITH THE SAME NAME, and the scaffold does not compile · `kit` · **BROKEN**
 
 `codegen` names each generated test method after the GWT's **rule**. Two GWTs sharing a rule name is legitimate

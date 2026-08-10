@@ -235,7 +235,7 @@ refactor can be stopped between any two.
 
    | | |
    | --- | --- |
-   | **6e — re-model Voltway's boundaries** *(do this FIRST)* | ~4 slices. It removes the **5 shared labels**, because cross-context traffic becomes contract events only, published by exactly one context each |
+   | **6e — re-model Voltway's boundaries** *(do this FIRST)* | **STARTED, then stopped and reverted — deliberately.** All 6 slices are built and wired on branch **`wip/6e-remodel`** in the project repo, with `.6e-wip/README.md` recording the decisions. `slice/hold-bay` is green and untouched at 23 slices / 190 tests. **What remains is measured, not estimated: 64 GWTs across 20 of the 23 slices name an event that has now crossed the boundary**, each needing its `given=`/`then=` rewritten onto the consumer's label, plus the remaining view-source rewiring. That is the `UES` ch. 14 / ch. 16 ripple and it is the *correct* consequence of the boundary being real |
    | 6c — invert `event-shape-disagrees` | **probably unnecessary afterwards.** The rule fires when one label has two field lists; with no shared labels it never fires. At most it narrows to contract events |
    | 6d — per-context namespaces | **cosmetic once 6e lands**, not a collision fix. Still worth doing for the extraction story. Cost is 46–96 hand-owned scaffolds depending on whether *all* events move or only cross-context ones — **pin that scope before starting** |
 
