@@ -69,6 +69,7 @@ phase 5 or 9, and each cost an implementation round instead. They live in
 | no view carries a **site name** | every screen renders an elided GUID | still open |
 | `endReason` declared non-nullable on rows that have no end | a session in progress has no honest value | 1 field change |
 | the 12-month servicing half | in the brief, in no GWT | **unimplemented**; needs 4 undeclared facts |
+| **nothing raises a technician's JOB when a bay is withdrawn for faults** | the first journey ever walked through `complete-job` — it could not reach step 4 | **the worst one.** An auto-withdrawn bay has no job to close, faults never cleared, and no way back onto the network. Green across 174 slice tests. Exposed **V20** |
 
 **The pattern in that table is one thing: rules that only bite on the SECOND instance.** One driver, one
 fault, one session, one withdrawal — every gap above is a scenario the model exercised exactly once. That is
@@ -107,6 +108,92 @@ translation slice in the kit, which is the pattern family where the source of a 
 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
+
+### V20 — nothing checks that a GWT's GIVEN is REACHABLE, so a slice can be fully specified and green against a past the system cannot produce · `kit` · **GAP**
+
+**A GWT appends its own history, and that is correct** — a GIVEN *is* history. The consequence nobody had
+named: **the history it appends is never checked against what the system can actually produce.** So a slice
+can be modelled, generated, implemented, mutation-tested and green while its entire premise is impossible.
+
+**Measured on Voltway, by the first journey ever written through that slice.** `gwt-cj-2`'s GIVEN is:
+
+```
+Service Scheduled(bayId=$Bay3, jobId=$Job1, reason=fault, energySinceLastServiceKwh=0)
+```
+
+— a job raised **by a fault, at zero energy**. No slice in the system produces that event: the only producer
+of `Service Scheduled` is `service-due`, whose todo View is fed by `Charging Stopped + Service Scheduled +
+Job Completed` (a fault can never make a row work) and whose decider refuses anything under 5 MWh with
+`ServiceNotDue` — which is `gwt-sd-2`, *another GWT in the same model*. **Two GWTs in one system contradict
+each other and both are green.**
+
+The real-world consequence is not cosmetic: an auto-withdrawn bay has **no job to close, faults that are never
+cleared, and no way back onto the network.** A technician can drive to it and have nothing to complete. 174
+per-slice tests, several mutation rounds and a full `validate` at 0/0 all missed it, because every one of them
+starts from a hand-appended GIVEN.
+
+**Why the journey layer found it and nothing else could.** A journey is the only artifact forbidden from
+appending, so it is the only place the question *"can the system reach this state?"* is asked at all. That
+makes journeys much more than an integration nicety — **they are the reachability check**, and today they are
+optional, manually invoked, and gate nothing.
+
+**A cheap version exists and would have caught this one at model time.** Not full reachability analysis:
+
+| | |
+| --- | --- |
+| an event in a GIVEN that **no slice emits** | already derivable — the IR knows every `emits` |
+| a GIVEN whose example values would be **refused by the producing slice's own GWTs** | derivable where both carry example data, which is exactly the case here (`energySinceLastServiceKwh=0` against `ServiceNotDue` at `< 5000`) |
+| anything needing real ordering or state | **not** attempted — that is the journey's job |
+
+The first row alone is worth having and is nearly free. The second is the one that bites, and it is only
+possible because `derived-without-example` pushed example data onto GWTs in the first place.
+
+**Related but distinct from V19**: V19 says a journey cannot cross a model boundary; this says a journey is
+the *only* thing asking the reachability question at all. Together they mean the kit's one reachability check
+is both optional and unavailable at the seam where it matters most.
+
+### V19 — a journey cannot cross a model boundary, so the one walk that proves two contexts compose cannot be drawn · `kit` · **GAP**
+
+The `journey` skill says it plainly: *"A journey belongs to the **system**, not to a slice, which is why
+neither `codegen` nor a slice's own agent owns it."* The implementation binds it to a **model**. `slice.mjs
+journey` resolves `--slices` against one file, and `model.mjs` agrees — `journey-unknown-slice` reads *"is not
+a slice in **this model**"*, because `byName` is built per model inside the per-model pass.
+
+At one model those two statements coincide, which is why five runs never noticed. At two they do not.
+
+**Measured on Voltway.** The story worth walking most is *the estate opens a site and commissions a bay, and a
+driver on the other side of the system finds it and holds it* — `open-site → commission-bay` (estate) then
+`bay-availability → hold-bay` (charging). It is refused outright:
+
+```
+slice: --slices names "open-site", which has no slice cell.
+```
+
+**This is precisely where the journey layer earns its keep, and precisely where it is unavailable.** The three
+failure classes the skill lists — an id minted in one shape and read in another, a projection current for its
+own slice and stale for the next, a rule that only bites on the second command — are all *more* likely across
+a context boundary than inside one, because the two sides were modelled separately, generated separately and
+implemented by different agents. Voltway's contexts share one host and one event store, so the walk is
+genuinely possible at runtime; nothing can express it.
+
+**What it is NOT.** It is not the `Only an event crosses a model boundary` rule biting correctly. That rule is
+about *coupling* — a consumer must not reach into a producer's read models or commands — and a journey reaches
+into neither. It POSTs to each context's own public API in turn, exactly as a user would, and asserts a read
+model of the context it finishes in. Nothing about it violates the boundary; the walk is the proof that the
+boundary works.
+
+**The awkward part is geometry, and it is the reason this is a GAP and not a bug.** A journey draws a bar
+spanning the columns it walks, and two models are two coordinate spaces — there is no bar to draw. Three ways
+out, in increasing honesty:
+
+| | |
+| --- | --- |
+| draw it on the **finishing** model, allow foreign slice names, span only the local columns | cheapest; the bar then under-reports its own extent |
+| put system-scoped journeys on `_context-map.drawio` | that file is **generated** and `validate` skips a leading `_`, so it would need to stop being generated |
+| a `journeys.drawio` — one model-less file per system, holding only journey cells | consistent with *no manifest* only if journeys are genuinely system facts, which the skill already claims they are |
+
+Until then a two-model system gets per-context journeys and **no composition test at the seam** — which
+should be said out loud rather than left to look like coverage.
 
 ### V18 — `design.mjs check` pools the design and the port, so the two can disagree and it stays quiet · **BROKEN**
 
