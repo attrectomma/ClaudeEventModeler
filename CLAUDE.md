@@ -563,6 +563,37 @@ request alone settles it" — fails on a real model: almost every GWT carries a 
 *"the period is still open"*, so on the worked model it found zero periphery rules out of four. The default is
 the safe one, because a state rule placed in a validator cannot enforce itself.
 
+### When the kit and the BOOKS disagree, the books win — and the kit gets refactored
+
+**Standing rule, decided 2026-08-10, and it is the senior of the two "X wins" rules in this file.**
+*Understanding EventSourcing* and *The little Eventmodeling Book*, extended by Adam Dymitruk's published
+material, are the **source of truth for the METHOD**. Where this kit has invented a concept the books
+already answer, the kit is wrong and changes — **even when that means a major refactor.**
+
+`reference/BOOK-INDEX.md` contradiction 1 said outright that no such rule existed and that there should be
+one. This is it.
+
+**The two rules do not compete, because they govern different things:**
+
+| | Source of truth for |
+| --- | --- |
+| **the books** | the **method** — notation, what a model is, how models relate, what a slice and a specification are |
+| **the critter-stack docs** | the **stack** — Marten, Wolverine and Alba behaviour, defaults and API |
+
+A collision is therefore rare and specific: it happens only where a *method* claim implies an
+*implementation* shape. The known instance is the pure command handler (`LEB` ch. 6/15 — *"no external
+dependencies, no Event Store"*), and it is **already mostly resolved in the books' favour**: the aggregate
+handler workflow leaves a decider that is a pure function of `(command, state)`, which is what both books
+ask for. What remains is the hand-rolled `FetchForWriting` exceptions, which the books would not write.
+
+**What the books settled that the kit had invented, and what that costs, is recorded as
+[BOARD-REFACTOR.md](BOARD-REFACTOR.md).** The headline: a *board* holds many models — the kit made one
+file per model, and that single departure is what makes cross-model anything impossible.
+
+**The rule is not "quote a book to win an argument".** `BOOK-INDEX.md` exists because grepping only finds
+what you already suspect; read the index, read the chapter, and cite the line. A book claim asserted from
+memory has the same standing as a stack claim asserted from memory, which is none.
+
 ### When the kit and the critter-stack docs disagree, the docs win
 
 **Standing rule, and it means the kit gets CHANGED — not documented as a difference.** If `reference/llms/`
