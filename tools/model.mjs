@@ -267,6 +267,11 @@ function parseCells(body) {
       // properly name it."
       context: a.context ?? null,
       system: a.system ?? null,
+      // Also only on a model cell, and the only PROVENANCE attribute in the grammar. mode="demo"
+      // says the domain answers here were roleplayed rather than supplied by a domain expert; absent
+      // means production, because the stronger claim should be the one you have to type. It is not a
+      // domain fact and it is not checked — it is printed, so a reader knows what the artifact IS.
+      mode: a.mode ?? null,
       // The cross-model surface. `public` marks an event another model in this system may
       // consume; `from` marks an imported one and names the model that publishes it; `origin`
       // names a genuine third party, which nothing here can check.
@@ -456,9 +461,16 @@ function buildIr(file) {
   return {
     source: file.replace(/\\/g, "/"),
     page: name,
+    // `mode` is PROVENANCE, not a domain fact, and it is the one thing of its kind on the diagram.
+    // mode="demo" says the domain answers in this model were roleplayed rather than given by a human
+    // — see .claude/skills/event-model/SKILL.md. Six months on, nothing else can tell an invented
+    // pricePerKwh from a confirmed one, and a demo model picked up as a specification is the worst
+    // outcome this kit can produce. Absent means production, because that is the default and the
+    // stronger claim should be the one you have to type.
     model: modelCells[0]
       ? { id: modelCells[0].id, label: modelCells[0].label, context: modelCells[0].context,
-          system: modelCells[0].system, duplicated: modelCells.length > 1 }
+          system: modelCells[0].system, mode: modelCells[0].mode ?? null,
+          duplicated: modelCells.length > 1 }
       : null,
     width: right,
     lanes: lanes.map(({ id, label, owner }) => ({ id, label, owner: owner ?? null })),
@@ -2414,6 +2426,20 @@ if (isSystem) {
       `${models.length} models / ${models.reduce((n, m) => n + m.ir.slices.length, 0)} slices / ` +
       `${models.reduce((n, m) => n + m.ir.elements.length, 0)} elements`
   );
+
+  // DEMO MODELS SAY SO ON EVERY RUN. The domain answers in these were roleplayed rather than given by
+  // a human, which changes what the artifact IS — a fixture, not a specification. Printed rather than
+  // judged, the same treatment model width got when `model-too-wide` was removed: a number with no
+  // verdict is information, and the verdict was the part that was wrong.
+  const demo = models.filter((m) => m.ir.model?.mode === "demo");
+  if (demo.length) {
+    console.log(
+      `\nDEMO MODEL${demo.length > 1 ? "S" : ""} — ${demo.map((m) => m.ir.model.context).join(", ")}. ` +
+      `The domain facts here were ROLEPLAYED, not supplied by a domain expert.`);
+    console.log(
+      `  Everything downstream is real — the checks, the code, the tests — but the MODEL is a fixture.` +
+      `\n  Do not promote one to a specification without a human walking it. See event-model's mode=.`);
+  }
   process.exit(errors.length ? 1 : 0);
 }
 

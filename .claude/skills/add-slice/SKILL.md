@@ -44,6 +44,26 @@ gap list is the deliverable that keeps them apart, so produce it before you draw
 
 You may freely invent layout — ids, x, y, routing, column order, which corridor an edge takes.
 
+### `mode` applies here too, and it is read off the MODEL rather than asked for
+
+`event-model` takes `mode=production|demo` and stamps `mode="demo"` on the model cell. This skill appends to
+a model that already exists, so **read the stamp instead of asking** — and where a model has none, treat it
+as production, because that is the default and the stronger claim.
+
+| | |
+| --- | --- |
+| **production** (no stamp, or `mode="production"`) | the gap list is a **question list**. You stop and ask it. An instruction to *"just fill them in"*, *"use sensible defaults"* or *"we'll fix it later"* is **refused** — say why in one sentence and ask the list. The honest alternatives are the same four `event-model` offers: park it, mark it `proposed=`, narrow the scope, or knowingly switch to demo |
+| **demo** (`mode="demo"`) | you answer the gap list yourself as the domain expert, and **still show it first** — what you invented has to be visible before it is drawn, not after |
+
+**The gap list is the deliverable in both modes.** In production it is what you ask; in demo it is what you
+declare you made up. It never stops being produced, because it is the only artifact that separates a dictated
+fact from an invented one — and once both are in the XML, nothing can tell them apart.
+
+**One thing this skill's own history proves is worth the question.** Nearly every modelling gap the Voltway
+run hit was a rule that only bites on the **second** instance — one driver, one fault, one session, one
+withdrawal. So when the gap list is thin, ask the question a human expert asks unprompted and nobody else
+does: **"and what if there are two?"**
+
 ## The loop
 
 1. **Locate or create the model.**

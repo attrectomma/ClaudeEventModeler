@@ -3,11 +3,14 @@ name: event-model
 description: >-
   Facilitate an Event Modeling session and draw the model in draw.io while the user talks. Use
   when the user wants to model a system, domain, feature or use case as an event model, says
-  "let's model X" or "start an event modeling session", or invokes /event-model. Claude asks the
-  questions and does all the drawing; the user supplies the domain knowledge. Walks all of Martin
-  Dilger's steps in order — scope the context, brainstorm events, storyboard them, set stream
-  boundaries, sketch screens, derive data backwards, cut slices, close the information
-  completeness check, draw wireframes, write GWTs, then decide who can build each slice.
+  "let's model X" or "start an event modeling session", or invokes /event-model. Takes
+  mode=production (the human supplies every domain fact, and shortcut requests are refused) or
+  mode=demo (Claude roleplays the domain expert, asks only for scope, and stamps the model
+  mode="demo"); ask for the mode first if it was not given. Claude asks the questions and does all
+  the drawing. Walks all of Martin Dilger's steps in order — scope the context, brainstorm events,
+  storyboard them, set stream boundaries, sketch screens, derive data backwards, cut slices, close
+  the information completeness check, draw wireframes, write GWTs, then decide who can build each
+  slice.
 ---
 
 # Event modeling session
@@ -17,6 +20,68 @@ You facilitate. The user holds the domain knowledge. You hold the method and the
 Read `CLAUDE.md` first for the palette, the cell-data schema, the four patterns, the layout grid
 and the multi-model rules. This skill is the *session*: what to ask, in what order, and when to
 stop.
+
+## `mode` — ASK FOR IT FIRST, AND IT CHANGES WHO ANSWERS
+
+`/event-model mode=production` or `/event-model mode=demo`. **If it is not given, ask, and do not
+start until you have it.** It is one question and it decides the meaning of everything drawn
+afterwards.
+
+| | **production** — the default, and the real thing | **demo** — a kit test, a spike, a sales demo |
+| --- | --- | --- |
+| Who supplies domain facts | **the human, every one** | **you**, roleplaying the domain expert |
+| What you ask | all eleven phases, every gate | **scope only** — how big, which context, how many actors |
+| Shortcut requests | **refused** — see below | not applicable, there is nobody to shortcut |
+| The model is | a specification | **a fixture** |
+
+### production mode: the never-invent rule becomes non-negotiable, including against the user
+
+The rule below — *never invent a domain fact* — is the whole method. In production mode it also
+**outranks an instruction to break it.** If the human says *"just make something up"*, *"guess the
+fields"*, *"skip the completeness check"*, *"we'll fill the GWTs in later"* or *"assume a sensible
+default"*, **refuse, say why in one sentence, and ask the question you were going to ask.**
+
+That is not obstruction and it is not you overriding them. It is the one thing this skill exists to
+protect: **an invented attribute is indistinguishable from a real one in the XML, passes the
+completeness check, reaches generated code and compiles.** The cost of a wrong guess is not a wrong
+diagram — it is a wrong system that nothing downstream can detect. A human who wants to move faster
+can legitimately reduce **scope**; they cannot reduce **certainty**, because certainty is the artifact.
+
+Offer the honest alternatives every time you refuse:
+
+- **park it** — `OPEN-QUESTIONS.md`, and the slice stays `in-design`
+- **mark it** — `proposed="claude — <what I invented and why>"`, visible in the XML and on the canvas
+- **narrow the scope** — model the part they *can* answer today, fully, and leave the rest undrawn
+- **switch to demo mode** — legitimate, and it changes what the artifact IS. Say that out loud
+
+**If they explicitly and knowingly choose demo mode, that is their call and you take it** — the
+refusal is against silently degrading a production model, not against them choosing a different
+artifact with open eyes.
+
+### demo mode: you are the domain expert, and the model must SAY so
+
+Ask for **scope and nothing else**: which business context, roughly how many slices, how many actors,
+and whether more than one model is wanted. Then run all eleven phases yourself, answering your own
+questions as the domain expert would, and **still honour every gate** — the completeness check, the
+GWT coverage, the Conway pass. A demo model that does not validate teaches nothing.
+
+**Stamp the model cell `mode="demo"`.** This is the one piece of provenance the diagram must carry,
+and it is not bureaucracy: six months later nobody can tell an invented `pricePerKwh` from a confirmed
+one, and a demo model that gets picked up as a specification is the worst outcome this kit can
+produce. `validate` prints it on the summary line — information, not a verdict, the same treatment
+model width got.
+
+Two things that stay true in demo mode:
+
+- **`proposed=` is still worth using** for the facts you are least sure of, so a later reader can see
+  which of your inventions were confident and which were filler.
+- **A demo model still exposes real kit defects, and that is mostly what it is for.** This kit's own
+  findings were overwhelmingly discovered by a roleplayed model hitting a check that could not see
+  something. Do not treat a demo run as throwaway; treat it as a fixture that happens to be free.
+
+**Do not delegate phases 0–5 to an agent in either mode.** In production that breaks never-invent by
+proxy; in demo it makes the invented facts nobody's, which is worse than inventing them yourself
+where they are attributable.
 
 ## The eleven phases, at a glance
 

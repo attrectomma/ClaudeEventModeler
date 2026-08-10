@@ -1063,6 +1063,7 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `binds` | `field` | which `displays=`/`inputs=` attribute this wireframe element shows |
 | `command` | `action` | which Command this affordance issues — checked against the screen's edge |
 | `context` / `system` | model cell | which business context this model is, and which system it belongs to |
+| `mode` | model cell | **provenance, and the only attribute of its kind.** `"demo"` says the domain answers here were **roleplayed**, not supplied by a domain expert. Absent means production. Not checked — *printed* by `validate` |
 | `public` | event | another model in this system may consume it. The only public surface there is |
 | `actor` | an **actor lane** | which person or system uses the screens drawn in this band. Makes the cell an actor lane, exactly as `streams=` makes one a swimlane |
 | `actorKind` | an actor lane | `person` (default) or `system`. Never a role — roles are an implementation detail both books refuse |
@@ -1308,8 +1309,8 @@ it cannot be mistaken for the design, and it does not fight the sticky-note gram
 
 | Skill | Scope | Invents | Gate |
 | --- | --- | --- | --- |
-| `event-model` | once per context | layout only — never a domain fact | the completeness check, deterministic |
-| `add-slice` | per slice | layout only — never a domain fact | the same check, plus the ripple reported |
+| `event-model` | once per context | layout only — never a domain fact **in `mode=production`; in `mode=demo` it roleplays the expert and stamps the model** | the completeness check, deterministic |
+| `add-slice` | per slice | layout only — never a domain fact. **Reads the model's `mode=` rather than asking** | the same check, plus the ripple reported |
 | `scaffold` | once per **system**, then after any model change | nothing — it runs the generator | **the skeleton compiles, 0 errors 0 warnings, and the tests run** |
 | `architect` | once per **system**, before the first slice | nothing — it answers what the model leaves open, from the docs mirror | every question has a decision, a reason and a stated cost |
 | `styling` | once per **system**, then per new screen | tokens, palette, spacing, components | the human likes it |

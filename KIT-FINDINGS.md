@@ -22,6 +22,59 @@ An ID that moves from here to the archive has been fixed — that is the only di
 | **NOISE** | a false positive, or cosmetic |
 | **OPEN** | a question nobody has answered |
 
+## Severity says how bad. CAUSE says whose problem it is, and they are different questions
+
+Most of this kit's runs are **demo-mode** models — the domain answers roleplayed rather than given by a
+domain expert (`event-model`'s `mode=`, stamped `mode="demo"` on the model cell, printed by `validate`). That
+makes modelling mistakes routine, and **a modelling mistake is not a kit defect**: a bad model cannot be
+rescued by `architect` or `codegen`, and a human expert in the loop would have prevented most of them at the
+moment the question was asked.
+
+So every finding carries a cause as well as a severity:
+
+| | |
+| --- | --- |
+| **`kit`** | the tool, the check, the generator or the grammar is wrong. **These are the file's real content** |
+| **`modelling`** | the model was wrong or silent, and the kit behaved correctly. **Belongs in the project, not here** — see the section below |
+| **`environment`** | the machine, the shell, a stray process. Real, costly, and nobody's design fault |
+
+**A finding stays `kit` even when a modelling mistake is what exposed it.** That distinction is the whole
+point and it is easy to get backwards. `V10` was found because a todo View was missing a supply edge — a
+plain modelling error a real expert would have caught in seconds — but the *finding* is that the completeness
+check cannot tell a supply edge from a tick-off edge, and **that rule was absent whether or not anybody drew
+the edge**. The bad model was the **detector**, not the defect.
+
+**Measured across the Voltway run: 0 of 18 findings are `modelling`.** That is not the kit being flattered —
+it is the useful result. Roleplayed models produce plenty of domain errors, and those errors were
+overwhelmingly *caught* (by the completeness check, by an implementing agent needing a value, by a mutation
+that survived). What they did was walk the kit into corners a correct model never reaches, which is precisely
+why a demo run is worth doing. Four findings — **V10, V13, V17, V18** — exist only because the model *changed
+under a check*, and that is the kit's weakest axis.
+
+### Modelling debt from the Voltway run — recorded here so it is NOT counted as kit findings
+
+None of these are defects in this kit. Each is a question a human domain expert would have answered during
+phase 5 or 9, and each cost an implementation round instead. They live in
+`C:\Repos\Attrecto\DemoAllPatterns` and would move with the project.
+
+| What was missing | How it surfaced | Cost |
+| --- | --- | --- |
+| `Bay Withdrawn` said **who** withdrew a bay | a fold had to *infer* it; wrong for a hand-withdrawal during an open fault | a model change, 19 call sites, 2 agent runs — and the same wrong guess reappeared in the UI |
+| `SessionsToPrice` had no `Charging Started` feed | the implementing agent needed `driverId` and nothing supplied it | one edge; exposed **V10** |
+| `hold-bay` had no *unknown bay* rule | two GWTs held an uncommissioned bay | 4 files, 1 iteration |
+| `lapse-holds` had no rule for a hold since taken by another driver | all four existing rules used one driver | 1 GWT, 1 test |
+| no GT put `Job Completed` in a GIVEN | **two mutants survived the whole suite** | 2 GTs, 2 hand tests |
+| `LiveSessions` reused-bay behaviour | a mutant survived 58 charging tests | 1 GT, 1 hand test |
+| the four fault categories are nowhere enumerated | derived from GWT example values | a derivation nobody signed off |
+| no view carries a **site name** | every screen renders an elided GUID | still open |
+| `endReason` declared non-nullable on rows that have no end | a session in progress has no honest value | 1 field change |
+| the 12-month servicing half | in the brief, in no GWT | **unimplemented**; needs 4 undeclared facts |
+
+**The pattern in that table is one thing: rules that only bite on the SECOND instance.** One driver, one
+fault, one session, one withdrawal — every gap above is a scenario the model exercised exactly once. That is
+worth knowing for production mode too, because a human expert asked *"and what if there are two?"* answers it
+immediately, and nobody asks it unprompted.
+
 ---
 
 ## 1. Wrong output, silently — fix these first
