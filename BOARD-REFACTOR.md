@@ -162,7 +162,22 @@ refactor can be stopped between any two.
    rebuilds it on every run, so a hand edit would be silently reverted — the exact failure shape the step
    guards against. The board fixture is `tools/fixtures/board/` instead: cart + drafting, combined by pure
    y-translation with namespaced ids, zero domain invention, both halves already-validated models.
-3. **`slice.mjs` writes regions** — placement, insert-shift and routing allocation relative to origin.
+3. ~~`slice.mjs` writes regions~~ — ✅ **DONE.** **Targeting is inferred, never flagged**: every command
+   already names a fact that identifies its region (`--at`, `--aggregate`, `--actor`, `--slices`,
+   `--from`/`--to`, `--band`), so a `--model` would be a second place that fact lives. `swimlane` and
+   `actorlane` are the honest exception — a new band names a stream on no cell yet — so those two ask.
+   Commands that span two regions **refuse** rather than pick the first.
+   **The geometry is asymmetric, and that is the whole story of the step:** vertical growth **crosses**
+   regions (a region growing downward must carry every region below it — and because `shiftY` is *rigid*,
+   the distance between consecutive anchors never changes, so no cell can be reassigned — arithmetic, not a
+   test result); horizontal growth **never** does (regions share the whole x range, so `shiftX`/`widen` are
+   region-scoped and a board is as wide as its widest region).
+   **A pre-existing bug surfaced here and is now KIT-FINDINGS V23** — two parsers over one file, the writer's
+   being strict enough to *delete* what it cannot match. `assertNothingDropped` turns that into a refusal.
+   **Fix V23 before step 4**, because step 4 reformats every `.drawio` in the repo.
+
+3b. **Extract one parser** — `model.mjs`'s tolerant parser becomes the only one; `slice.mjs` uses it. This is
+   V23's cure and it is a prerequisite for step 4, not a nicety.
 4. **Migrate the remaining five** — Voltway, then the five reference implementations. `cart-replay.mjs`
    rewritten against the new geometry and byte-identical on re-run. Every model at 0 errors, 0 warnings.
 5. **Additive notation**: `chapter` (absorbing `journey`), the alternative-flow link marker, the black

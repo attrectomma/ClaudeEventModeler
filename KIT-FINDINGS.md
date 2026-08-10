@@ -109,6 +109,44 @@ translation slice in the kit, which is the pattern family where the source of a 
 **Suspect every automation and translation slice already built**, not just this one — the check has never been
 able to see the difference, so nothing that passed proves anything here.
 
+### V23 — TWO PARSERS READ ONE FILE, and the stricter one DELETES what it cannot match · `kit` · **BROKEN**
+
+`model.mjs` and `slice.mjs` both read `.drawio`, with **different parsers**, and only one of them writes.
+
+- `model.mjs` parses indentation-agnostically. It reads almost anything draw.io emits.
+- `slice.mjs`'s `BLOCK_RE` anchors on **8-space indentation**, and **every write rewrites the whole `<root>`
+  from the blocks it matched.** So a cell it does not match is not merely unparsed — **it is deleted**, with
+  no error and no diff anybody reads.
+
+**Measured, and the divergence is the finding.** De-indent one `<object>` by four spaces in a two-region
+board and then, on the *same file*:
+
+```
+model.mjs validate  ->  0 error(s), 6 warning(s), 25 note(s)   2 models / 13 slices / 58 elements
+slice.mjs promote   ->  refused: 2 cell(s) are not in the 8-space layout this tool rewrites
+```
+
+**One tool says the file is perfect; the other says it cannot safely be touched.** Before the guard existed,
+the second tool silently dropped both model cells — on a `promote`, which edits an *attribute* and touches no
+geometry — collapsing a two-model board to one region. Nothing caught it: `validate` read the result and was
+happy, because the cells it needed were the ones still present.
+
+**`assertNothingDropped` (added in step 3) converts the silent data loss into a refusal**, and the refusal
+leaves the file byte-identical — verified. That is the right immediate fix and it is **not** the cure: the
+underlying defect is that one artifact has two readers with different tolerances, so a file can be
+simultaneously valid and untouchable. Anything that reformats a `.drawio` — draw.io's own serializer on a
+human Ctrl+S, a linter, a merge — can produce that state.
+
+**Why this is the most dangerous shape in the file.** It is the *inverse* of the "check goes quiet" family
+(V5, V9, V13, V17, V18): there, a check stops reporting a real problem. Here, a check **reports success on a
+file the other half of the kit will destroy**. Both are silence in the place where a warning belongs; this one
+also loses work.
+
+The cure is one parser. `model.mjs`'s is already the tolerant, well-tested one, and `slice.mjs` already
+depends on `model.mjs` for validation — extracting the parse and having both sides share it is the fix, and
+it should happen **before step 4 migrates six model sets**, because step 4 is exactly a large-scale
+reformatting of every `.drawio` in the repo.
+
 ### V21 — two GWTs sharing a rule name generate TWO METHODS WITH THE SAME NAME, and the scaffold does not compile · `kit` · **BROKEN**
 
 `codegen` names each generated test method after the GWT's **rule**. Two GWTs sharing a rule name is legitimate

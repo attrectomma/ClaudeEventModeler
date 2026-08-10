@@ -128,6 +128,29 @@ const BLOCK_RE = new RegExp(
   "|        <mxCell id=\"(?!0\"|1\")[^>]*?/>\\n" +
   "|        <mxCell id=\"(?!0\"|1\")[\\s\\S]*?</mxCell>\\n", "g");
 
+// EVERY WRITE REWRITES THE WHOLE <root> FROM `blocks`, so a cell BLOCK_RE does not match is not merely
+// unparsed — it is DELETED, with no error and no diff anybody reads. BLOCK_RE anchors on 8-space
+// indentation, which every file this tool has ever written uses; a file indented any other way loses
+// cells silently.
+//
+// Found the hard way: a board fixture whose model cells sat at column 0 lost BOTH of them to a
+// `promote`, which does not touch geometry at all. Nothing caught it, because model.mjs parses the
+// same file with a DIFFERENT, indentation-agnostic parser and read it perfectly — so `validate` said
+// two models while `slice.mjs` saw none. Two parsers over one file is the defect; this is the cheap
+// half of the fix, and it converts silent data loss into a refusal.
+function assertNothingDropped(xml, blocks) {
+  const inner = /<root>([\s\S]*?)<\/root>/.exec(xml)?.[1] ?? "";
+  let residue = inner;
+  for (const b of blocks) residue = residue.split(b).join("");
+  const orphans = (residue.match(/<(?:object|mxCell)\b[^>]*/g) ?? [])
+    .filter((o) => !/\bid="[01]"/.test(o));
+  if (!orphans.length) return;
+  die(`${orphans.length} cell(s) are not in the 8-space layout this tool rewrites, so a write would\n` +
+      `       silently DROP them. Nothing else reports this: model.mjs parses them fine.\n` +
+      orphans.slice(0, 3).map((o) => `         ${o.slice(0, 96)}`).join("\n") +
+      `\n       Re-indent to 8 spaces (the layout every tool-written .drawio already uses).`);
+}
+
 const geomOf = (b) => {
   const g = /<mxGeometry([^>]*?)as="geometry"/.exec(b);
   if (!g) return null;
@@ -171,7 +194,82 @@ function read(target) {
 }
 let CRLF = false;      // one file per invocation, so a module-level flag is honest here
 
-function model(xml) {
+// ---------------------------------------------------------------- regions
+//
+// A BOARD HOLDS MANY MODELS, and the partition is model.mjs's — deliberately re-derived here from the
+// same rule rather than invented, because two copies of a rule are two rules (KIT-FINDINGS V9). Model
+// cells are anchors sorted by y; a region runs from one anchor to the next, the FIRST unbounded above
+// and the LAST unbounded below, and a cell joins the region containing its MIDPOINT.
+//
+// The totality that buys is the same one step 2 relies on: no gutter belongs to nobody, so no cell can
+// be dropped by a write, and ONE MODEL CELL (OR NONE) YIELDS ONE REGION SPANNING EVERYTHING — which is
+// exactly what a whole file meant before boards existed. Every one-model write is untouched by all of
+// this, and that is a property of the arithmetic rather than of the tests.
+function regionsOf(cells) {
+  const anchors = cells.filter((c) => c.em === "model" && c.g).sort((a, b) => a.g.y - b.g.y);
+  if (!anchors.length) return [{ anchor: null, context: null, top: -Infinity, bottom: Infinity, index: 0 }];
+  return anchors.map((a, i) => ({
+    anchor: a,
+    context: attr(a.block, "context"),
+    top: i === 0 ? -Infinity : a.g.y,
+    bottom: i === anchors.length - 1 ? Infinity : anchors[i + 1].g.y,
+    index: i,
+  }));
+}
+const inRegion = (c, r) => {
+  if (!c.g) return r.index === 0;                 // undecidable: the first region, as before regions
+  const mid = c.g.y + c.g.h / 2;
+  return mid >= r.top && mid < r.bottom;
+};
+
+// A cheap unscoped pass, only to answer "which regions are there and what is in them".
+function regionsIn(xml) {
+  const cells = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]).map((b) => ({
+    block: b, id: attr(b, "id"), em: attr(b, "em"), slice: attr(b, "slice"),
+    streams: attr(b, "streams"), actor: attr(b, "actor"), g: geomOf(b),
+  }));
+  return { cells, regions: regionsOf(cells) };
+}
+
+// WHICH MODEL DOES THIS WRITE GO TO?
+//
+// The rule is the one cmdAdd already applies to swimlanes and actor lanes, one level up: "defaulting
+// to the only band there is is a derivation. Guessing between two is not." So:
+//
+//   one region   -> that region, no flag, ever. This is the whole one-model compatibility story, and
+//                   it is arithmetic rather than a special case.
+//   many regions -> infer from what the command ALREADY names — an aggregate, a slice, a cell id —
+//                   because that fact is on the canvas and repeating it in a flag would be a second
+//                   place for it to live. `--model` overrides. Otherwise refuse, naming the models.
+//
+// A command whose inference lands in TWO regions is refused rather than resolved: that is a
+// cross-model write, which is steps 5-7, not this one.
+function pickRegion(xml, o, infer = [], hint = "") {
+  const { cells, regions } = regionsIn(xml);
+  if (regions.length === 1) return regions[0];
+  const name = (r) => r.context ?? `#${r.index + 1}`;
+  const all = regions.map(name).join(", ");
+
+  if (o.model) {
+    const r = regions.find((x) => x.context === o.model);
+    if (!r) die(`--model "${o.model}": this board holds ${all}.`);
+    return r;
+  }
+  for (const { pred, what } of infer) {
+    const hit = cells.filter(pred);
+    if (!hit.length) continue;
+    const idx = [...new Set(hit.map((c) => regions.findIndex((r) => inRegion(c, r))))].filter((i) => i >= 0);
+    if (idx.length === 1) return regions[idx[0]];
+    if (idx.length > 1) {
+      die(`${what} names cells in ${idx.length} models (${idx.map((i) => name(regions[i])).join(", ")}).\n` +
+          `       One write goes to one model. A cross-model story is a chapter, which this kit cannot draw yet.`);
+    }
+  }
+  die(`this file is a board of ${regions.length} models (${all}), and nothing in this command says which.\n` +
+      (hint ? `       ${hint}\n` : "") + `       Add --model <context>.`);
+}
+
+function model(xml, want) {
   const blocks = [...xml.matchAll(BLOCK_RE)].map((m) => m[0]);
   const at = (b) => ({
     block: b, id: attr(b, "id"), em: attr(b, "em"), slice: attr(b, "slice"),
@@ -180,7 +278,13 @@ function model(xml) {
     actor: attr(b, "actor"),
     isEdge: /\bedge="1"/.test(b),
   });
-  const cells = blocks.map(at);
+  assertNothingDropped(xml, blocks);
+  const allCells = blocks.map(at);
+  const regions = regionsOf(allCells);
+  // `want` is resolved by the caller (see pickRegion) and is always a region of THIS file. With one
+  // region it is region 0 and this filter is the identity.
+  const region = want ?? regions[0];
+  const cells = regions.length === 1 ? allCells : allCells.filter((c) => inRegion(c, region));
 
   // streams= is what makes a cell a swimlane, not em=. buildIr selects on n.streams and then
   // subtracts those from `lanes`; get this wrong and every event looks misplaced.
@@ -189,17 +293,29 @@ function model(xml) {
   // kept out of `lanes` for the same reason: a band authored as an object would otherwise be found
   // ahead of the lane-ui containing it.
   const actorLanes = cells.filter((c) => c.actor && !c.streams).sort((a, b) => a.g.y - b.g.y);
+  // LANES ARE FOUND BY ROLE, NOT BY EXACT ID. Two models on one canvas cannot both own the id
+  // `lane-ui`, so a board namespaces them (`cart-lane-ui`) — and matching on the SUFFIX keys them by
+  // the role the rest of this file already asks for. An unprefixed `lane-ui` matches the same rule, so
+  // a one-model file resolves exactly as before.
   const lanes = {};
-  for (const c of cells) if (!c.streams && c.id?.startsWith("lane-")) lanes[c.id] = c;
+  for (const c of cells) {
+    if (c.streams || !c.id) continue;
+    const role = LANE_ID_RE.exec(c.id);
+    if (role) lanes[role[1]] = c;
+  }
   const sliceCells = cells.filter((c) => c.em === "group" && c.slice);
   const elements = cells.filter((c) =>
-    !c.isEdge && !c.streams && c.g && !c.id.startsWith("lane-") &&
+    !c.isEdge && !c.streams && c.g && !LANE_ID_RE.test(c.id) &&
     c.em !== "group" && c.em !== "model" && c.em !== "gwt");
   const gwts = cells.filter((c) => c.em === "gwt");
   const edges = cells.filter((c) => c.isEdge);
 
   for (const k of ["lane-ui", "lane-cmd", "lane-evt", "lane-gwt"]) {
-    if (!lanes[k]) die(`the model has no ${k}. Start from diagrams/template.drawio.`);
+    if (!lanes[k]) {
+      die(regions.length > 1
+        ? `model "${region.context ?? region.index}" has no ${k}. Every region of a board needs its own lane set.`
+        : `the model has no ${k}. Start from diagrams/template.drawio.`);
+    }
   }
   const grid = {
     laneW: lanes["lane-ui"].g.w,
@@ -212,8 +328,19 @@ function model(xml) {
     firstCol: elements.length ? Math.min(...elements.map((e) => e.g.x)) : LANE_X + 60,
     lastCol: elements.length ? Math.max(...elements.map((e) => e.g.x)) : null,
   };
-  return { blocks, cells, lanes, swimlanes, actorLanes, sliceCells, elements, gwts, edges, grid };
+  return { blocks, cells, allCells, regions, region, lanes, swimlanes, actorLanes,
+           sliceCells, elements, gwts, edges, grid,
+           // Slice names are unique across the SYSTEM, so a collision check must see every region of
+           // this file, not just the one being written to.
+           allSliceCells: allCells.filter((c) => c.em === "group" && c.slice) };
 }
+
+// A lane by ROLE, tolerating the namespace a board needs: `lane-ui` and `cart-lane-ui` both match and
+// both key as `lane-ui`. Used for the id on a parsed cell and, in the block-level transforms below,
+// for the raw `id="..."` text.
+const LANE_ID_RE = /(?:^|-)(lane-[a-z]+)$/;
+const laneBlockRe = (role = "[a-z]+") => new RegExp(`\\bid="(?:[^"]*-)?lane-${role}"`);
+const isLaneBlock = (b) => laneBlockRe().test(b);
 
 const usedYs = (m, lo, hi) => {
   const ys = new Set();
@@ -261,12 +388,19 @@ const H_HINTS = "exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx
 //          every insert. The previous slice's band is a whole pitch away, so 20 is safe.
 //   points x0 - 60, because a left corridor sits at columnX - 30 - 12n and belongs to the column it
 //          serves, not to the one before it.
-function shiftX(blocks, x0, by) {
+// HORIZONTAL GROWTH IS PRIVATE TO A REGION, and that asymmetry with shiftY below is the whole of the
+// board's geometry story. Regions partition by Y, so they all share the full X range: shifting x
+// globally would drag every OTHER model sideways for a column this one gained. A board is simply as
+// wide as its widest region, and each region keeps its own column grid.
+//
+// `keep` is the region filter — the identity on a one-model file, so nothing about that case changes.
+function shiftX(blocks, x0, by, keep = () => true) {
   let cells = 0, points = 0;
   const out = blocks.map((b) => {
+    if (!keep(b)) return b;
     let s = b;
     const g = geomOf(b);
-    if (g && g.x >= x0 - SLICE_PAD && !/\bid="lane-/.test(b) && !/\bstreams="/.test(b)) {
+    if (g && g.x >= x0 - SLICE_PAD && !isLaneBlock(b) && !/\bstreams="/.test(b)) {
       s = setGeom(s, { x: g.x + by }); cells++;
     }
     s = s.replace(/<mxPoint x="([-\d.]+)"/g, (mm, x) => {
@@ -278,11 +412,13 @@ function shiftX(blocks, x0, by) {
   return { blocks: out, cells, points };
 }
 
-// Widen every lane and swimlane, and the page with them.
-function widen(blocks, by) {
+// Widen this region's lanes and swimlanes, and the page with them. Region-scoped for the same reason
+// as shiftX: another model's lanes are not this model's business.
+function widen(blocks, by, keep = () => true) {
   let n = 0;
   const out = blocks.map((b) => {
-    if (!/\bid="lane-/.test(b) && !/\bstreams="/.test(b)) return b;
+    if (!keep(b)) return b;
+    if (!isLaneBlock(b) && !/\bstreams="/.test(b)) return b;
     const g = geomOf(b);
     if (!g) return b;
     n++;
@@ -291,8 +427,26 @@ function widen(blocks, by) {
   return { blocks: out, lanes: n };
 }
 
+// A block-level region filter built from the parsed region. On a one-model file every block passes,
+// so `shiftX(blocks, x, by, within(m))` is byte-for-byte the old `shiftX(blocks, x, by)`.
+const within = (m) => {
+  if (m.regions.length === 1) return () => true;
+  const mine = new Set(m.cells.map((c) => c.block));
+  return (b) => mine.has(b);
+};
+
 // Everything at or below y0 moves down. Used by the swimlane cascade: the backward corridor, the
 // GWT lane and every GWT cell all live below the event lane's bottom edge.
+//
+// DELIBERATELY GLOBAL, AND ON A BOARD THAT IS THE CORRECT BEHAVIOUR RATHER THAN AN OVERSIGHT — it is
+// the exact mirror of shiftX above. Regions partition by Y, so a region growing downward MUST carry
+// every region below it, or it grows straight into the next one. And because the shift is rigid — the
+// same `by` for every block at or below y0, including the next model's anchor cell — the distance
+// between consecutive anchors never changes. The anchors ARE the region boundaries, so no cell can be
+// reassigned to another model by a write. That is arithmetic, not a test result.
+//
+// The other direction is safe for free: a lower region growing cannot disturb an upper one, because
+// every y in the upper region is less than the lower region's y0.
 function shiftY(blocks, y0, by) {
   let cells = 0, points = 0;
   const out = blocks.map((b) => {
@@ -316,17 +470,41 @@ const setPage = (xml, kv) => {
 };
 const pageH = (xml) => +(/pageHeight="(\d+)"/.exec(xml)?.[1] ?? 0);
 
+// THE PAGE BELONGS TO THE BOARD, NOT TO A REGION. A region-scoped width would let the last model
+// written shrink the page below what a wider sibling needs. Measured off every block instead, which
+// on a one-model file is the same number the per-region arithmetic produced.
+const boardWidth = (blocks) => {
+  let right = 0;
+  for (const b of blocks) {
+    const g = geomOf(b);
+    if (g) right = Math.max(right, g.x + g.w);
+  }
+  return right ? right + PAGE_RIGHT_PAD : null;
+};
+
 // ---------------------------------------------------------------- add
 
 function cmdAdd(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
-  const plan = [];
-
   if (!PATTERN_CELLS[o.pattern]) {
     die(`unknown pattern "${o.pattern}". One of: ${Object.keys(PATTERN_CELLS).join(", ")}.`);
   }
-  if (m.sliceCells.some((c) => c.slice === o.slice)) {
+  // Every one of these facts is already on the canvas in exactly one model, so naming it again with
+  // --model would be a second place for it to live.
+  const atName = o.at && /^(before|after):/.test(o.at) ? o.at.split(":")[1] : null;
+  const m = model(xml, pickRegion(xml, o, [
+    atName && { what: `--at ${o.at}`, pred: (c) => c.em === "group" && c.slice === atName },
+    o.aggregate && { what: `--aggregate ${o.aggregate}`,
+      pred: (c) => c.streams?.split(",").map((s) => s.trim()).includes(o.aggregate) },
+    o.actor && { what: `--actor ${o.actor}`,
+      pred: (c) => c.actor && !c.streams && c.actor.trim() === o.actor },
+  ].filter(Boolean),
+    "--aggregate names a stream, and the swimlane declaring it already sits in one model."));
+  const plan = [];
+
+  // Across the whole FILE, not just this region: a slice name is a branch and a ticket.
+  const clash = m.allSliceCells.find((c) => c.slice === o.slice);
+  if (clash) {
     console.log(`${target}: slice "${o.slice}" already exists — leaving it alone.`);
     return;
   }
@@ -388,8 +566,9 @@ function cmdAdd(target, o) {
 
   let blocks = m.blocks;
   const grow = COL_PITCH * cols;
+  const mine = within(m);
   if (mode !== "appended") {
-    const s = shiftX(blocks, x0, grow);
+    const s = shiftX(blocks, x0, grow, mine);
     blocks = s.blocks;
     plan.push(`${s.cells} cell(s) shifted +${grow}, ${s.points} routing point(s) moved`);
   }
@@ -397,7 +576,7 @@ function cmdAdd(target, o) {
   const needW = (x0 - LANE_X) + grow + EL_W + SLICE_PAD;
   if (needW > m.grid.laneW || mode !== "appended") {
     const by = Math.max(grow, needW - m.grid.laneW);
-    const w = widen(blocks, by);
+    const w = widen(blocks, by, mine);
     blocks = w.blocks;
     plan.push(`${w.lanes} lane(s)/band(s) widened +${by}`);
   }
@@ -460,8 +639,13 @@ function cmdAdd(target, o) {
   const laneW = m.grid.laneW + (mode !== "appended" || needW > m.grid.laneW
     ? Math.max(grow, needW - m.grid.laneW) : 0);
   let out = splice(xml, [...blocks, ...added]);
-  out = setPage(out, { w: LANE_X + laneW + PAGE_RIGHT_PAD });
-  plan.push(`page width -> ${LANE_X + laneW + PAGE_RIGHT_PAD}`);
+  // THE PAGE BELONGS TO THE BOARD. This region's own requirement is computed exactly as before — the
+  // formula is unchanged, so a one-model file gets the same number to the pixel — and is then held
+  // against what the OTHER regions already occupy, so a narrow model written last cannot crop a wide
+  // sibling. With one region there are no others and the max is a no-op.
+  const pw = Math.max(LANE_X + laneW + PAGE_RIGHT_PAD, boardWidth(blocks.filter((b) => !mine(b))) ?? 0);
+  out = setPage(out, { w: pw });
+  plan.push(`page width -> ${pw}`);
 
   finish(target, file, out, plan, o, [
     `slice "${o.slice}" ${mode}, ${cols} column(s) at x=${x0}`,
@@ -505,8 +689,11 @@ function siblingSlices(file) {
 // bands are for screens that do not exist yet.
 function cmdActorLane(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
   if (!o.actor) die("actorlane needs --actor.");
+  // NOTHING TO INFER FROM: a new actor lane names somebody who is on no cell yet, so on a board this
+  // is one of the two commands that genuinely needs --model. Saying so beats guessing.
+  const m = model(xml, pickRegion(xml, o, [],
+    "A new actor lane names an actor who is not on the board yet, so there is nothing to infer from."));
   if (o.kind && !["person", "system"].includes(o.kind)) {
     die(`--kind must be person or system. An actor lane is a person OR A SYSTEM — never a role: roles are an implementation detail both books refuse.`);
   }
@@ -535,7 +722,7 @@ function cmdActorLane(target, o) {
     blocks = blocks.map((b) => {
       const g = geomOf(b);
       if (!g) return b;
-      if (/\bid="lane-ui"/.test(b)) return setGeom(b, { h: g.h + by });
+      if (laneBlockRe("ui").test(b)) return setGeom(b, { h: g.h + by });
       if (/\bem="group"/.test(b)) return setGeom(b, { h: g.h + by });   // slice cells span every lane
       return b;
     });
@@ -567,8 +754,10 @@ function cmdActorLane(target, o) {
 
 function cmdSwimlane(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
   if (!o.label || !o.streams) die("swimlane needs --label and --streams.");
+  // The other command with nothing to infer from: --streams names a stream that does not exist yet.
+  const m = model(xml, pickRegion(xml, o, [],
+    "A new band declares a stream that is on no cell yet, so there is nothing to infer from."));
   if (m.swimlanes.some((s) => s.label === o.label)) {
     console.log(`${target}: a band labelled "${o.label}" already exists — leaving it alone.`);
     return;
@@ -590,7 +779,7 @@ function cmdSwimlane(target, o) {
     blocks = blocks.map((b) => {
       const g = geomOf(b);
       if (!g) return b;
-      if (/\bid="lane-evt"/.test(b)) return setGeom(b, { h: g.h + by });
+      if (laneBlockRe("evt").test(b)) return setGeom(b, { h: g.h + by });
       if (/\bem="group"/.test(b)) return setGeom(b, { h: g.h + by });
       return b;
     });
@@ -637,9 +826,13 @@ const slug = (s) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/
 // only the list gives sequence.
 function cmdJourney(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
   if (!o.journey || !o.slices) die("journey needs --journey <slug> and --slices <a,b,c>.");
   const names = o.slices.split(",").map((s) => s.trim()).filter(Boolean);
+  // The slices name themselves into a region. A run whose slices live in TWO models is refused by
+  // pickRegion — that is the cross-context chapter, which is V19 and step 7, not this step.
+  const m = model(xml, pickRegion(xml, o, [
+    { what: "--slices", pred: (c) => c.em === "group" && names.includes(c.slice) },
+  ]));
   if (names.length < 2) die("a journey walks at least two slices; one slice is a slice test.");
 
   const cells = names.map((n) => {
@@ -673,7 +866,12 @@ function cmdJourney(target, o) {
 
 function cmdRoute(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
+  // Both endpoints name themselves into a region, and an edge whose ends are in two models is exactly
+  // the `cross-region-edge` error model.mjs now raises — so refuse to draw it rather than draw it and
+  // let validate complain afterwards.
+  const m = model(xml, pickRegion(xml, o, [
+    { what: "--from/--to", pred: (c) => c.id === o.from || c.id === o.to },
+  ]));
   const from = m.elements.find((e) => e.id === o.from), to = m.elements.find((e) => e.id === o.to);
   if (!from) die(`--from ${o.from}: no such element.`);
   if (!to) die(`--to ${o.to}: no such element.`);
@@ -721,7 +919,9 @@ function cmdRoute(target, o) {
 
 function cmdIdentity(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
+  const m = model(xml, pickRegion(xml, o, [
+    { what: "--band", pred: (c) => c.streams && (c.id === o.band || c.label === o.band) },
+  ]));
   const band = m.swimlanes.find((s) => s.id === o.band || s.label === o.band);
   if (!band) die(`--band ${o.band}: no such swimlane. Bands: ${m.swimlanes.map((s) => s.id).join(", ")}.`);
   const keys = (band.identity ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -768,7 +968,9 @@ function cmdIdentity(target, o) {
 
 function cmdDemote(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
+  // Status is an attribute edit with no geometry, so a demote may legitimately span the board — a
+  // model-wide sweep from --from-diff is the normal case. Unscoped on purpose.
+  const m = model(xml, { top: -Infinity, bottom: Infinity, index: 0, context: null, anchor: null });
   let names = o.slice ?? [];
   const why = new Map();
   if (o.fromDiff) {
@@ -819,7 +1021,8 @@ export const STATUSES = ["in-design", "ready", "in-progress", "in-review", "clos
 
 function cmdPromote(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
+  // As demote: an attribute edit with no geometry, so it is not scoped to a region.
+  const m = model(xml, { top: -Infinity, bottom: Infinity, index: 0, context: null, anchor: null });
   const names = o.slice ?? [];
   if (!names.length) die("promote needs --slice <name> (repeatable).");
   if (o.to && !STATUSES.includes(o.to))
@@ -848,9 +1051,29 @@ function cmdPromote(target, o) {
 
 // ---------------------------------------------------------------- reflow
 
+// REFLOW IS THE ONE COMMAND THAT TOUCHES EVERY REGION, and it needs no selector: "re-derive the
+// geometry" means all of it. Regions are processed TOP TO BOTTOM and the file is re-parsed between
+// each, because an earlier region growing shifts every later one down — so a later region's own lane
+// arithmetic has to be read off the coordinates it actually has by then, not the ones it started with.
+// The shift is rigid, so this composes: it changes where a region is, never its internal offsets.
 function cmdReflow(target, o) {
   const { file, xml } = read(target);
-  const m = model(xml);
+  const n = regionsIn(xml).regions.length;
+  let cur = xml;
+  const plan = [];
+  for (let i = 0; i < n; i++) {
+    const r = regionsIn(cur).regions[i];
+    const step = reflowRegion(cur, r);
+    if (!step) continue;
+    cur = step.out;
+    plan.push(...step.plan.map((p) => (n > 1 ? `[${r.context ?? `#${i + 1}`}] ${p}` : p)));
+  }
+  if (!plan.length) { console.log(`${target}: geometry already derived — nothing to reflow.`); return; }
+  finish(target, file, cur, plan, o, []);
+}
+
+function reflowRegion(xml, region) {
+  const m = model(xml, region);
   const plan = [];
   const wantLaneW = m.grid.lastCol == null ? m.grid.laneW
     : Math.max(m.grid.laneW, (m.grid.lastCol - LANE_X) + EL_W + SLICE_PAD);
@@ -873,8 +1096,8 @@ function cmdReflow(target, o) {
   const newGwtBottom = gwtLane
     ? (gwtLane.y + dEvt) + Math.max(gwtLane.h, lowestGwt + dEvt + 20 - (gwtLane.y + dEvt))
     : null;
-  const journeys = (m.blocks ?? []).filter((b) => /\bem="journey"/.test(b))
-    .map((b) => ({ b, g: geomOf(b) })).filter((j) => j.g)
+  const journeys = m.cells.filter((c) => /\bem="journey"/.test(c.block) && c.g)
+    .map((c) => ({ b: c.block, g: c.g }))
     .sort((a, z) => a.g.y - z.g.y);
   const moveJourney = new Map();
   if (newGwtBottom != null && journeys.length) {
@@ -887,13 +1110,18 @@ function cmdReflow(target, o) {
   }
 
   let blocks = m.blocks;
+  // shiftY stays global on purpose: growing this region's event lane must carry every region below it.
   if (dEvt) { const s = shiftY(blocks, m.grid.evtBottom, dEvt); blocks = s.blocks; plan.push(`event lane ${m.lanes["lane-evt"].g.h}->${wantEvtH}, ${s.cells} cell(s) below it moved`); }
+  const mine = within(m);
   blocks = blocks.map((b) => {
+    // Resizing is this region's business only — without this guard, one model's lane width would be
+    // stamped onto every other model on the board.
+    if (!mine(b)) return b;
     const g = geomOf(b); if (!g) return b;
-    if (/\bid="lane-/.test(b) || /\bstreams="/.test(b)) {
+    if (isLaneBlock(b) || /\bstreams="/.test(b)) {
       let out = g.w !== wantLaneW ? setGeom(b, { w: wantLaneW }) : b;
-      if (/\bid="lane-evt"/.test(b) && dEvt) out = setGeom(out, { h: wantEvtH });
-      if (/\bid="lane-gwt"/.test(b)) {
+      if (laneBlockRe("evt").test(b) && dEvt) out = setGeom(out, { h: wantEvtH });
+      if (laneBlockRe("gwt").test(b)) {
         const wantH = Math.max(g.h, lowestGwt + dEvt + 20 - (g.y + dEvt));
         if (wantH !== g.h) out = setGeom(out, { h: wantH });
       }
@@ -906,11 +1134,14 @@ function cmdReflow(target, o) {
   if (wantLaneW !== m.grid.laneW) plan.push(`lanes ${m.grid.laneW}->${wantLaneW}`);
   const lowestJourney = moveJourney.size ? Math.max(...moveJourney.values()) + 70 : 0;
   const wantPageH = Math.max(pageH(xml) + dEvt, lowestGwt + dEvt + 60, lowestJourney + 60);
+  // As in `add`: this region's own requirement, unchanged, held against what the others occupy.
+  const wantPageW = Math.max(LANE_X + wantLaneW + PAGE_RIGHT_PAD,
+    boardWidth(blocks.filter((b) => !mine(b))) ?? 0);
   let out = splice(xml, blocks);
-  out = setPage(out, { w: LANE_X + wantLaneW + PAGE_RIGHT_PAD, h: wantPageH });
-  plan.push(`page ${LANE_X + wantLaneW + PAGE_RIGHT_PAD} x ${wantPageH}`);
-  if (!plan.length) { console.log(`${target}: geometry already derived — nothing to reflow.`); return; }
-  finish(target, file, out, plan, o, []);
+  out = setPage(out, { w: wantPageW, h: wantPageH });
+  plan.push(`page ${wantPageW} x ${wantPageH}`);
+  if (!plan.length) return null;
+  return { out, plan };
 }
 
 // ---------------------------------------------------------------- cli
@@ -950,6 +1181,9 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--then") o.then = v;
   else if (a === "--actor") o.actor = v;
   else if (a === "--kind") o.kind = v;
+  // Which model on a board this write goes to. Never needed on a one-model file, and on a board only
+  // where the command names nothing that already sits in one region — see pickRegion.
+  else if (a === "--model" || a === "--context") o.model = v;
   else die(`unknown flag ${a}`);
 }
 if (!cmd || !target) {
