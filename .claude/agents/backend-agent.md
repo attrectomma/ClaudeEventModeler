@@ -290,11 +290,22 @@ otherwise unreachable.
 **Then run the app and look — no test can prove an automation runs by itself.** Every waking bug found so
 far survived a green suite. Unrendered CSS and an unrun automation fail the same way: plausibly.
 
+**Either loop proves it, and they need different commands.** In containers, the app is already running:
+
 ```bash
-docker compose down -v && docker compose up -d      # -v, or stale seed data hides the work
-ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/<Sys>
-# then: does it fire MORE than once, with nobody calling anything?
+docker compose down -v && docker compose up -d --build   # -v, or stale seed data hides the work
+docker compose logs -f api                               # then watch. Nobody is calling anything
 ```
+
+On your machine, `appsettings.json` wants Postgres on **localhost:5433**, and the generated compose file
+deliberately does not publish its database — so start one rather than expecting compose to hand you the port:
+
+```bash
+docker run -d --name <sys>-dev -p 5433:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=<sys> postgres:16
+ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/<Sys>
+```
+
+Either way the question is the same: **does it fire MORE than once, with nobody calling anything?**
 
 Two runs with nobody calling anything is the proof. One is not — a mechanism that fires at startup and
 then dies produces exactly one, and reads as success.
@@ -342,6 +353,12 @@ cd <project>/generated/<Sys> && dotnet build && dotnet test
 
 Tests bring their own Postgres via Testcontainers. **Never point them at the docker-compose
 database** — Marten manages schema, so it would drop the demo data.
+
+**And never hand-edit `docker-compose.yml`, `Dockerfile`, `web/Dockerfile` or `web/nginx.conf`.** All four
+are emitted by `codegen.mjs` from the IR and overwritten on every run, so the edit is reverted silently and
+the symptom returns later as behaviour. A local change goes in `docker-compose.override.yml`, which compose
+merges natively and codegen never writes. If a route of yours is not reachable through the proxy, the run
+already told you: `ROUTE NOT PROXIED` names the file.
 
 Three traps that look like something else:
 

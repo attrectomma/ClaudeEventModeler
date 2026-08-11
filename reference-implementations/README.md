@@ -47,6 +47,21 @@ reference-implementations/
 Each folder has its own README with the measured comparison. Each is self-contained: its own model, its own
 project, readable without the other.
 
+**Every `generated/` also carries a `docker-compose.yml` and a `Dockerfile`, both emitted by
+`tools/codegen.mjs`** — so a folder can be run rather than only read:
+
+```bash
+cd reference-implementations/<pattern>/generated
+docker compose up -d --build          # Postgres + the API on http://localhost:8081
+docker compose down -v                # -v, or the next run inherits this one's state
+```
+
+**Two services and nothing else, and that is the point of the pair.** These are backend worked examples: not
+one has a line of React, even though every one of their models *declares* screens. So the generator takes
+`web/package.json` as the signal for a front end rather than the model, and here there is none — no nginx, no
+`web` service. A Voltway-shaped derivation from the model would have put an nginx in front of a directory
+with no app in it, on all six folders. KIT-HISTORY **BN4**.
+
 ## Read these WITH the library docs, never instead of them
 
 Every folder here answers the same question — *what did this choice cost?* — and none of them answers

@@ -19,6 +19,221 @@ lettered by run (**A** first, then **B**, **T**, **W**, **X**, **Y**, **Z**, **A
 
 ---
 
+## BO — the sweep over BN4's own work, and it found the thing BN4's gate could not
+
+**Three defects, all in the four files BN4 had just started emitting, all found by `kit-test` after BN4 was
+declared closed and end-to-end green.** They are recorded together because they share one cause: *the gate
+was the wrong gate.*
+
+BN4's gate was **"the generated files reproduce the hand-written ones, directive for directive."** They did.
+Two of the three defects below were **in the hand-written original**, so that gate could not see them by
+construction — and closing it promoted them from one project's mistake into every future project's `emit`.
+
+> **A generator diffed against a wrong artifact inherits the wrongness and launders it.** When adopting a
+> hand-written file, every line has to be justified from the docs. The diff proves you copied it faithfully,
+> which is a different claim from "it is right".
+
+### BO2 — `ENV JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` did nothing, and three documents recorded it as measured · **WRONG** · ***FIXED 2026-08-11***
+
+The env var does not exist. Probed byte-level, UTF-8 and UTF-16, **with a working control** (`TypeLoadMode`,
+present in all three):
+
+| Assembly | `JASPERFX_CODEGEN_TYPE_LOAD_MODE` | any `JASPERFX_*` | control `TypeLoadMode` |
+| --- | --- | --- | --- |
+| `JasperFx 2.45.0` | absent | absent | **present** |
+| `Wolverine 6.25.1` | absent | absent | **present** |
+| `JasperFx.CodeGeneration 3.5.4` | absent | absent | **present** |
+
+Zero `JASPERFX_*` hits across all **394** mirrored pages. And the container said so itself:
+
+```
+The Wolverine code generation mode is Dynamic. This is suitable for development, but you may want
+to opt into other options for production usage…
+```
+
+**The 204 that "proved" it proved the opposite.** BN4's evidence was a successful `POST` from a container with
+no SDK, read as *"the pre-generated types load under Static"*. Running in Dynamic, what it actually
+demonstrated is that **runtime Roslyn compilation works in `mcr.microsoft.com/dotnet/aspnet:10.0`** —
+`WolverineFx.RuntimeCompilation` ships what it needs. So the Dockerfile's stated *reason* (*"the aspnet image
+has no reference assemblies"*) was never established either, and the file read as a workaround for a problem
+that is not there.
+
+**What the two steps actually buy** is a loud failure and a faster start, not correctness: `codegen write`
+alone is dead weight (Dynamic recompiles anyway), and the mode alone would fail startup. Together, per
+`wolverine/guide/aot.md`, a handler with no pre-generated code fails **host startup** naming the missing file
+*"rather than silent fallback to Roslyn"*. Measured side effect: the UI-journey suite went **1m0s → 47.6s**.
+
+**The fix is the mechanism the mirror documents** — `opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static`
+in `Program.cs` (`emit`), gated on `WOLVERINE_CODEGEN_STATIC`, **this application's own variable that
+Program.cs reads**. Opt-in, because only the container has run `codegen write`; `dotnet run` and the test host
+have not, and Static there would fail startup for an entirely correct reason. Now:
+
+```
+The Wolverine code generation mode is Static with pre-generated types being loaded from Voltway, …
+```
+
+with 203 tests unaffected (the variable is absent there) and all six reference implementations still green.
+
+`TypeLoadMode` is `JasperFx.CodeGeneration.TypeLoadMode` (`Dynamic, Auto, Static`), **type-forwarded into
+`JasperFx.dll`** so no extra package reference is needed. No doc page states the namespace and the package
+`.xml` does not document the enum — settled by reflecting over the assembly with a file-based app. *Mirror,
+then `.xml`, then compile* earned its keep again, at the third step.
+
+### BO3 — a screen slug EQUAL to an API prefix is unreachable, and the check for that class explicitly excluded it · **BROKEN** · ***FIXED 2026-08-11***
+
+```js
+screenSlugs.filter((s) => s !== p && s.startsWith(p))   //  s !== p  was backwards
+```
+
+The `s !== p` was there because I reasoned — in the session, out loud, twice — that `location ^~ /cart/`
+cannot match `/cart`, so the bare form would fall through to the SPA. **Measured under real nginx with a
+control, that is false:**
+
+| | with the `^~ /cart/` block | without it |
+| --- | --- | --- |
+| `/cart` | **301 → `/cart/`**, which then proxies and 404s | 200 from the SPA |
+| `/cart-error` | 200 | 200 |
+
+So the trailing slash only protects the *longer* slugs, and the emitted comment was naming `/cart-error`
+(measured 200, entirely fine) while staying silent about `/cart`, the one that breaks. The 301 also carried
+`Location: http://localhost/cart/` with the published port dropped — a browser following it leaves the app's
+origin.
+
+Fixed three ways, each verified in situ by running the **emitted** config under nginx: drop `s !== p` so the
+case is reported; emit `location = /<slug> { try_files /index.html =404; }`, since an exact match beats the
+`^~` prefix; and add `absolute_redirect off` so any nginx-generated redirect stays relative. Now
+`/cart` → 200, `/cart-error` → 200, `/cart/addItem` → proxied.
+
+**Not live on any shipped project** — it needs a `web/package.json`, and Voltway's screens (`bay-finder`,
+`estate-admin`, …) are named after things rather than after contexts. It is live the moment a single-context
+model names its main screen after the context, which is the ordinary case. The kit's own cart fixture is
+exactly that shape (`screen="cart"` in `context="cart"`) and had no web app, so nginx was never generated for
+it until the sweep forced one.
+
+### BO4 — the `web/Dockerfile` COPY list was an allow-list described as "what the app has" · **WRONG** · ***FIXED 2026-08-11***
+
+Eight hard-coded names filtered by `existsSync`, with a comment claiming the derivation existed *"because a
+bundler config the front end grows later would otherwise be missing from the image"*. Measured: a
+`vite.config.mts` and a `tsconfig.base.json` were both silently dropped — **the exact failure the comment
+claimed to prevent** — and an app with none of the eight emitted `COPY  ./`, which fails as `dockerfile parse
+error: COPY requires at least two arguments` while codegen reported success.
+
+Inverted: `COPY . ./` plus a generated `web/.dockerignore` excluding `node_modules`, `dist`, `.vite`, the
+`journeys/` layer and `_shot*.html`. An exclude list cannot fail that way — a file the front end adds is in
+the image by default. `.dockerignore` is read from the **build context root**, which is `web/`, so that is
+where it is emitted.
+
+---
+
+## BN4 — nothing emitted the compose stack, and the `ui-journey` gate required it · **GAP** · ***FIXED 2026-08-11***
+
+**`ui-journey`'s gate says the run that counts is against compose, and no tool in the kit wrote a compose
+file, a Dockerfile or an nginx config.** `codegen`'s skill said *"the demo uses docker-compose"*,
+`uijourney.mjs`'s scaffolded config printed the `docker compose -f generated/<System>/docker-compose.yml`
+command, and `web/vite.config.ts`'s own comment warned that *"the same trap is waiting in the compose nginx
+config"* — a file that did not exist. So the gate was unmeetable on a fresh project, and the one project
+that met it met it because somebody typed four files out by hand. **It was the last artifact in the system
+that existed only because it had been hand-written once.**
+
+`tools/codegen.mjs` now emits all four, as `emit`. The three arguments for putting them there and not in a
+new tool: they are mechanically derivable from the IR, which is codegen's definition; it already emits
+`${NS}.slnx` at the same system root; and a second writer into `generated/` is the **V23** lesson.
+
+### What each file is derived from
+
+| File | Derived from |
+| --- | --- |
+| `docker-compose.yml` | system name → compose project name *and* database name (the same expression `appsettings.json` uses, so two files cannot name one database differently); the ports; whether there is a front end |
+| `Dockerfile` | the project layout, plus `codegen write` at build time and `JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` |
+| `web/Dockerfile` | **what the web app has on disk** — the COPY list is filtered by `existsSync`, and a missing `package-lock.json` downgrades `npm ci` to `npm install` with the loss of reproducibility stated in the file rather than failing the build on a lockfile nobody wrote |
+| `web/nginx.conf` | **the one with a real derivation**: one `^~ /<context>/` proxy per model context, and an SPA fallback naming every screen slug |
+
+### The gate: it reproduces the hand-written files, directive for directive
+
+Diffed against all four hand-written Voltway originals with comments stripped: **identical**. Every
+difference between the two versions is a comment, and each was accounted for rather than accepted:
+
+| The difference | Why |
+| --- | --- |
+| an `<auto-generated>` banner, with the override escape hatch in it | new, and the point — the hand-written files had no way to say "do not edit me" |
+| prose reflowed and made model-generic | the specifics are now **derived and stated** instead of typed: the nginx comment names *this* model's swallowed screen (`location /estate` would swallow `/estate-admin`), and the SPA fallback lists all seven screen paths where the hand-written one abbreviated to "and the rest" |
+| the `web/vite.config.ts` cross-reference, and the concrete `/charging/holdBay → /holdBay` proxy_pass example | **both restored** after the first draft dropped them. The abstract form of that rule is forgettable; the route is derived from the first state-change slice of the first context |
+| `main.tsx routes on window.location.pathname` | dropped. It described a hand-owned file, and the derived screen list says the same thing better |
+
+Then proved end to end, on the generated files, from `docker compose down -v`:
+
+| | |
+| --- | --- |
+| the stack | `up -d --build` clean; db healthy, api and web up |
+| the four traps | API 200 on `:8081` *and* through nginx on `:8080`; `/estate-admin` reaches the **SPA** rather than a 404; `/work-list` deep-links; `bayHealth` returns real seeded rows |
+| both UI journeys | **8 passed** — two specs × two viewports — against compose |
+| the backend suite | **203 passed, 0 failed, 0 skipped**, unchanged |
+| the model | 0 errors, 0 warnings |
+| `cart-replay` | byte-identical on re-run, exit 0 |
+
+### A SYSTEM WITH NO FRONT END GETS NO NGINX — and the signal is not the model
+
+**This is the case a Voltway-shaped derivation gets wrong, and it was found by looking rather than
+reasoning.** *Every* reference implementation declares screens on its model — between one and three of
+them — and not one has a line of React. So "the model has screens" would have emitted an nginx service in
+front of a directory with no app in it: a compose file that cannot come up, on five of six folders.
+
+The honest signal is `web/package.json`, which `frontend-agent` writes when it ports the first screen and
+codegen never touches. The model says what the system is *for*; the tree says what there is to serve.
+Measured on `reference-implementations/state-view/`: two services, two files, no nginx, no `web/`. It came
+up, the async daemon ran `CampaignDashboard` over the seeded events, and a real `POST /campaigns` returned
+**204**.
+
+> **⚠ THE NEXT SENTENCE USED TO READ** *"which also proves the pre-generated Wolverine wrappers load under
+> `Static` type-load mode on a runtime image with no Roslyn reference assemblies."* **It proved the
+> opposite** — the container was running `Dynamic`, so what that 204 demonstrated is that runtime Roslyn
+> compilation *works* in `aspnet:10.0`. The env var it credited does not exist. Corrected in **BO2**, which
+> is also where the lesson about diffing a generator against a wrong hand-written file lives.
+
+**All six folders were then regenerated and all six re-measured**, rather than leaving five without a
+compose file: 19 + 15 + 18 + 43 + 31 + 36 = **162 tests, 0 failed, 0 skipped**. Each also picked up the
+unrelated `emit` drift that had accumulated since its last regeneration — the `UseDurableLocalQueues`
+comment and the `WhenReceiving` helper — which is why every suite was re-run rather than assumed.
+
+### Two decisions that are not obvious
+
+**The API's published port does not move when a front end arrives.** nginx takes 8080 whenever there is an
+nginx — it is the browser's origin by convention here, and `uijourney.mjs`'s scaffolded config prints
+`PW_BASE_URL=http://localhost:8080` — so the API keeps **8081** whether or not anything is in front of it.
+The alternative, giving a lone API 8080, silently swaps the two the day the first screen is ported, and
+every `curl` written before that day starts hitting nginx instead.
+
+**No `scaffold` file, because the escape hatch is Docker's own.** `docker compose` merges
+`docker-compose.override.yml` natively and codegen never writes it, so a published database port, a
+different host port, an extra service or a substituted `build.dockerfile` all survive regeneration. That is
+stated in every emitted header, the way `package-versions.json` is — the danger being closed is a hand edit
+*inside* an emitted file, reverted silently, with the symptom arriving later as behaviour.
+
+### `ROUTE NOT PROXIED` — the derivation is checked, not trusted
+
+The nginx prefixes are the model's contexts because that is the route convention `codegen` **emits**. But an
+endpoint is `scaffold`, so a hand edit is free to move a route somewhere else entirely, and every reference
+implementation's endpoints have done exactly that (`/emails`, `/projects/{projectId}/commit`). Behind nginx
+an unproxied route reaches the SPA fallback and the fetch gets `index.html` with a **200** — neither JSON
+nor an error, so it renders as the empty screen this whole file exists to prevent.
+
+So `codegen` scans the route literals actually in the generated tree and reports any whose first segment is
+not proxied. Silent on Voltway, which is the verification: all 17 of its routes are on the convention.
+
+**And every prefix is emitted, including for a context with no route yet.** A prefix pointing at nothing
+costs a 404 on a URL nobody has; a *missing* prefix costs a silent empty screen. That asymmetry is the whole
+argument.
+
+### Not added to `scaffold`'s gate
+
+A docker build is minutes, and whether the stack comes up is `ui-journey`'s question — usually asked at a
+point in the workflow where there is no front end yet anyway. `scaffold` emits them and reports them;
+nothing else gates on them, and `ui-journey` already gates on them working.
+
+**A fresh domain now runs the whole workflow with no hand-written file.**
+
+---
+
 ## BN1 — `uijourney.mjs` read a field the board refactor had removed, so all three commands crashed · **BROKEN** · ***FIXED 2026-08-11***
 
 **Every `uijourney.mjs` command died on `TypeError: Cannot read properties of undefined (reading 'filter')`

@@ -127,9 +127,9 @@ staleness is visible rather than assumed.
 
 `tools/codegen.mjs` emits everything **mechanically derivable** from the IR — the solution, both
 projects, `Program.cs`, 16 event records, 4 aggregate folds, 10 view types, the validators, the Alba
-harness, and one test per GWT. It is total and idempotent, and its diff is how a model change gets
-reviewed. It emits **no business logic**, marking every hole `TODO(codegen)` for the `codegen` skill,
-which reads `reference/llms/` and fills them.
+harness, one test per GWT, and **the compose stack the whole thing is deployed as**. It is total and
+idempotent, and its diff is how a model change gets reviewed. It emits **no business logic**, marking every
+hole `TODO(codegen)` for the `codegen` skill, which reads `reference/llms/` and fills them.
 
 **This is not aspirational — it was tested against a second, fully independent run.** Two Opus runs and
 one cold Sonnet run of the same brief, sharing no artifacts, produced **byte-identical `emit` output**
@@ -151,6 +151,94 @@ transactional middleware; `[EmptyResponse]` makes the returned event get *append
 serialised. **The endpoint is the decider** — so a state type is a pure `Apply` fold with no rules in
 it. Streams are `StreamIdentity.AsString` because every key here is composite.
 
+### The compose stack is emitted too, and it was the last hand-written artifact in the kit
+
+**`ui-journey`'s gate says the run that counts is against compose, and until now nothing wrote the file that
+gate needs.** So the gate was unmeetable on a fresh project, and the one project that met it met it because
+somebody typed four files out by hand. KIT-HISTORY **BN4**.
+
+| File | Derived from | `emit`? |
+| --- | --- | --- |
+| `docker-compose.yml` | the system name, the database name, the ports, whether there is a front end | ✅ |
+| `Dockerfile` | the project layout, plus `codegen write` at build time and `WOLVERINE_CODEGEN_STATIC=true` | ✅ |
+| `web/Dockerfile` | what the web app actually has on disk — a lockfile, a `public/`, a split tsconfig | ✅ |
+| `web/nginx.conf` | **the one with a real derivation**: a proxy prefix per context, an SPA fallback over the screen slugs | ✅ |
+
+Each of the four exists because of a failure that renders as **an empty screen with no error**, which is why
+none of them is optional and none of them is a template:
+
+| | |
+| --- | --- |
+| the nginx prefix trap | `location /estate` is a prefix match and swallows the *screen* route `/estate-admin`, which the API 404s. Needs `location ^~ /estate/`, and the generated comment **names the screen on this model** that would be swallowed rather than asserting the rule abstractly |
+| the SPA fallback | every screen is a real path, so without `try_files … /index.html` only `/` loads and every deep link, bookmark and reload dies |
+| `ASPNETCORE_ENVIRONMENT` | the demo seed hangs off `IsDevelopment()`; without it the app is healthy, every endpoint answers 200, and every screen is empty |
+| Wolverine runtime codegen | `codegen write` runs at **build** time and the container asks for `TypeLoadMode.Static`, so a handler with no pre-generated code fails **startup** with the file named, instead of falling back to Roslyn. See the correction below — this row used to give a different, wrong reason |
+
+**A SYSTEM WITH NO FRONT END GETS NO NGINX, and the signal is `web/package.json` rather than the model.**
+That distinction is the whole trap: every reference implementation *declares* screens on its model — between
+one and three — and not one has a line of React. An nginx service in front of a directory with no app in it
+is a compose file that cannot come up. So the model says what the system is *for*, and the tree says what
+there is to serve; `frontend-agent` writes that file when it ports the first screen, and codegen never
+touches it. Backend-only therefore emits exactly two services and two files, measured on
+`reference-implementations/state-view/`.
+
+**The API's published port does not move when a front end arrives.** nginx takes 8080 whenever there is an
+nginx — it is the browser's origin by convention across this kit, and `uijourney.mjs`'s scaffolded config
+prints `PW_BASE_URL=http://localhost:8080` — so the API keeps **8081** whether or not anything is in front of
+it. Putting the API on 8080 while it is alone would silently swap the two the day the first screen is ported,
+and every `curl` written before that day would start hitting nginx.
+
+**All four are `emit`, and the escape hatch is Docker's own.** `docker compose` merges
+`docker-compose.override.yml` natively and codegen never writes it, so a published database port, a different
+host port, an extra service or a substituted `build.dockerfile` all survive regeneration. That is said in
+every emitted header, the way `package-versions.json` is documented — a hand edit *inside* an emitted file is
+reverted silently, with the symptom arriving later as behaviour.
+
+**The nginx derivation is checked rather than trusted.** An endpoint is `scaffold`, so a hand edit is free to
+move a route off the `/{context}/{slice}` convention, and every reference implementation's endpoints have
+done exactly that (`/emails`, `/projects/{projectId}/commit`). Behind nginx an unproxied route reaches the
+SPA fallback and the fetch gets `index.html` with a **200** — neither JSON nor an error. So `codegen` scans
+the routes actually in the tree and reports `ROUTE NOT PROXIED`, by the same logic as every other report.
+
+**Not added to `scaffold`'s gate, deliberately.** A docker build is minutes, and whether the stack comes up is
+`ui-journey`'s question — usually asked at a point where there is no front end yet anyway. `scaffold` emits
+them and reports them; nothing else gates on them.
+
+#### An `ENV` line nothing reads is not configuration, and this file asserted one as measured
+
+**`ENV JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` did nothing at all.** The string appears in no JasperFx,
+Wolverine or JasperFx.CodeGeneration assembly and **zero times across all 394 mirrored pages** — no
+`JASPERFX_*` variable does. The container ran `Dynamic` and **said so in its own startup log**, while this
+file, the emitted Dockerfile and this kit's own history all recorded `Static` as measured. KIT-HISTORY **BO2**.
+
+**Two lessons, and the second is the sharper one.**
+
+*A green run is not evidence for the mechanism you think produced it.* The proof offered was a `204` from a
+container with no SDK — read as *"the pre-generated types loaded under Static"*. It proved the exact opposite:
+runtime Roslyn compilation **works** in `mcr.microsoft.com/dotnet/aspnet:10.0`, because `WolverineFx.RuntimeCompilation`
+ships what it needs. So the reason the row above used to give — *"the aspnet image has no reference
+assemblies"* — was never established either, and the whole file read as a workaround for a problem that is
+not there. What `codegen write` + Static actually buy is a **loud failure** and a faster cold start; measured,
+the UI-journey suite went from 1m0s to 47s.
+
+*Reproducing a hand-written file cannot find what the hand-written file got wrong.* BN4's gate was
+*"identical, directive for directive"* — and the hand-written Dockerfile **already carried the dead line**.
+A generator diffed against a wrong original inherits the wrongness and launders it into `emit`, where it is
+now on every future project. **When adopting a hand-written artifact, every line still has to be justified
+from the docs, not from the diff.**
+
+The mechanism the mirror does document is `opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static`
+(`wolverine/guide/aot.md`), so `Program.cs` now sets it — gated on `WOLVERINE_CODEGEN_STATIC`, **this
+application's own variable, which Program.cs reads**. It is opt-in because only the container has run
+`codegen write`: `dotnet run` and the test host have not, and Static there would fail startup for a
+completely correct reason. Wolverine now reports *"Static with pre-generated types being loaded from
+Voltway"*, and the 203-test suite is unaffected because the variable is absent there.
+
+`TypeLoadMode` is `JasperFx.CodeGeneration.TypeLoadMode` (`Dynamic, Auto, Static`), **type-forwarded into
+`JasperFx.dll`** — no doc page states the namespace and the package `.xml` does not document the enum, so it
+was settled by reflecting over the assembly. Mirror, then `.xml`, then compile: the third step earned its
+keep again.
+
 ### Accepted: the generator does not reach backwards
 
 **A generator improvement does not improve the files it has already handed over, and that is by design
@@ -163,7 +251,8 @@ The alternative — a generator that edits inside files somebody else owns — i
 one thing the emit/scaffold split exists to prevent. So this is **accepted**, not queued. What the generator
 owes you instead is *visibility*, and that is what the reports are for: `GWT WITHOUT A TEST`,
 `TESTS STILL SKIPPED ON A CLAIMED SLICE`, `IMPLEMENTED BUT STILL UNCLAIMED`, `VIEW WITH NO REGISTRATION`,
-`AUTOMATION NOT WOKEN`. Each names a file and what to change. Add a report rather than a rewrite.
+`AUTOMATION NOT WOKEN`, `ROUTE NOT PROXIED`. Each names a file and what to change. Add a report rather than
+a rewrite.
 
 **The arrival of a foreign event was the missing one, and it is now generated** — see *How a foreign event
 arrives* below. The report is `INGEST NOT WIRED`, by the same logic as the ones above.
@@ -980,6 +1069,7 @@ node tools/model.mjs map               # (re)generate diagrams/_context-map.draw
 node tools/model.mjs compile           # the system IR a generator reads -> <project>/build/<system>.ir.json
 node tools/docs.mjs sync               # mirror Marten/Wolverine/Alba docs into reference/llms/
 node tools/codegen.mjs                 # the deterministic code -> <project>/generated/<System>/
+                                       # ...including the compose stack it is deployed as. All emit
 ```
 
 ### Testing the kit itself — the `kit-test` agent

@@ -1023,28 +1023,6 @@ router will not draw. → [detail](KIT-HISTORY.md)
 
 ## 2. Missing capability
 
-### BN4 — nothing emits `docker-compose.yml`, and the `ui-journey` gate requires it · **GAP** · cause `kit`
-
-**`ui-journey`'s gate says the run that counts is against compose, and no tool in the kit writes a compose
-file, a Dockerfile or an nginx config.** `codegen`'s skill says *"the demo uses docker-compose"*,
-`uijourney.mjs`'s scaffolded config prints the `docker compose -f generated/<System>/docker-compose.yml`
-command, and `web/vite.config.ts`'s own comment warns that *"the same trap is waiting in the compose nginx
-config"* — a file that did not exist. So the gate was unmeetable on a fresh project, and the previous
-project only met it because somebody hand-wrote the files once.
-
-Hand-written for Voltway during the first UI-journey run, and **all four of the things compose is supposed
-to catch were live in it**, which is the argument for generating it:
-
-| | |
-| --- | --- |
-| the nginx prefix trap | `location /estate` swallows `/estate-admin`. Needs `location ^~ /estate/`, exactly as vite.config predicted |
-| the SPA fallback | seven screens are seven real paths; without `try_files … /index.html` only `/` loads and every deep link 404s |
-| `ASPNETCORE_ENVIRONMENT` | the seed hangs off `IsDevelopment()`, so without it every screen is empty with no error |
-| Wolverine runtime codegen | the aspnet runtime image has no reference assemblies for Roslyn. Solved by `codegen write` at build time plus `JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static`, so a missing generated type is a loud startup failure rather than a silent recompile that works in dev only |
-
-None of that is judgement — it is mechanically derivable from the IR (the route prefixes are the contexts,
-the screens are the paths). It belongs in `emit`, with the nginx config `scaffold` if anything is.
-
 ### BN10 — `NO UI JOURNEY SPEC` cannot tell "not written yet" from "deliberately not written", so a blocked walk reads as laziness · `kit` · **GAP**
 
 `uijourney.mjs check` reports every named chapter with no spec as `NO UI JOURNEY SPEC` and hands you the
@@ -1276,6 +1254,33 @@ reports, not a missing attribute. Recorded so the two findings stop appearing to
 ---
 
 ## 3. Noise and cosmetics
+
+### BO1 — the ingest seam cannot see a hand-written landing that named its seam message differently, so it scaffolds a DEAD handler and reports it for ever · `kit` · **NOISE**
+
+Found by regenerating `reference-implementations/translation/` while closing **BN4** — the folder had not been
+regenerated since the ingest seam landed.
+
+For every event with `origin=`, `codegen` scaffolds `Landing/Ingest<Event>Handler.cs` taking the **contract**
+type — here `StockNoticed` — and reports `INGEST NOT WIRED` until its `TODO(codegen)` is closed. But this
+folder's translation has been wired end to end four ways since before that feature existed, through a seam
+message of its own: `IngestStockNotice`, handled by `StockTranslator`, fed by a webhook, an external table, a
+broker and a poll. **Nothing sends `StockNoticed` as a message**, so the generated handler is unreachable.
+
+The result is the worst shape a report can have: `INGEST NOT WIRED — 1` on a folder whose whole purpose is
+demonstrating that the ingest *is* wired, and it will say so on every future run. The suite stays green
+either way, because nothing sends the message the dead handler waits for. **The dead file was deleted rather
+than committed**, which means the next regeneration writes it again.
+
+**Why the generator cannot currently tell.** Its convention is a handler taking `Contracts.<Event>`; the
+convention a hand-written landing reaches for is a seam record of *our* vocabulary, which is exactly what
+CLAUDE.md's *"their vocabulary reaches exactly as far as that message"* asks for. So the two are both right
+and the generator is checking for the wrong shape: it looks for **a handler it would have written**, not for
+**a translation that exists**. A check for "some handler in `Landing/` issues a command" would cover both.
+
+Same family as `VIEW WITH NO REGISTRATION` and `AUTOMATION NOT WOKEN`, and the same danger **BN10** names: an
+unactioned finding that recurs on every run is trained away, and then the day a genuinely unwired feed
+appears beside it, nobody reads it.
+
 
 ### T4b — `VIEW WITH NO REGISTRATION` cannot tell "forgot" from "deliberately not a projection" · **NOISE**
 

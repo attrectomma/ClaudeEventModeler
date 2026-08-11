@@ -23,7 +23,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { resolve, join, dirname } from "node:path";
+import { resolve, join, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectRoot } from "./project.mjs";
 import { parseBindings, distinctTypes } from "./type-bindings.mjs";
@@ -1882,6 +1882,11 @@ ${(() => {
 emit(join(APP, "Program.cs"),
   `${banner("application bootstrapping")}
 using JasperFx;
+// TypeLoadMode is JasperFx.CodeGeneration.TypeLoadMode (values Dynamic, Auto, Static), TYPE-FORWARDED into
+// JasperFx.dll — so this using is required and referencing the JasperFx.CodeGeneration package is not. No
+// doc page states the namespace and the package .xml does not document the enum; settled by reflecting over
+// the assembly, which is this kit's documented tiebreaker.
+using JasperFx.CodeGeneration;
 using JasperFx.Resources;
 using JasperFx.Events;
 using Weasel.Core;
@@ -1954,6 +1959,28 @@ ${automations.map((s) => `${pascal(s.name)}Wakeup.ConfigureStore(marten);`).join
 
 builder.Host.UseWolverine(opts =>
 {
+    // LOAD THE PRE-GENERATED DISPATCH CODE INSTEAD OF COMPILING IT, where it has been pre-generated.
+    //
+    // Wolverine's default is \`TypeLoadMode.Dynamic\`: it compiles handler and endpoint wrappers with Roslyn
+    // on first use. \`Static\` says "the pre-generated types are in this assembly; load them by name and skip
+    // the compile step" — and per the AOT page, a handler with no pre-generated code then fails HOST STARTUP
+    // with an error naming the missing file, "rather than silent fallback to Roslyn". That loud failure is
+    // the whole point; the faster cold start is a bonus.
+    //
+    // OPT-IN BY ENVIRONMENT VARIABLE, BECAUSE ONLY SOME BUILDS HAVE RUN \`codegen write\`. The Dockerfile
+    // does it at build time and sets this; \`dotnet run\` and the test host do not, and Static there would
+    // fail startup for a completely correct reason. So the variable is the question "has codegen run?" and
+    // nothing else.
+    //
+    // THIS VARIABLE IS OURS, AND SAYING SO MATTERS. Nothing in JasperFx, Wolverine or the docs mirror reads
+    // any \`JASPERFX_*\` environment variable — the string appears zero times across 394 mirrored pages and
+    // in none of the three assemblies. This kit shipped \`ENV JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static\` in a
+    // hand-written Dockerfile for a whole project, and it did nothing at all: the container ran Dynamic and
+    // said so in its own startup log, while three documents recorded Static as measured. KIT-HISTORY BO2.
+    // The line below is the mechanism the mirror actually documents, and it works because something READS it.
+    if (Environment.GetEnvironmentVariable("WOLVERINE_CODEGEN_STATIC") == "true")
+        opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
+
     opts.Policies.AutoApplyTransactions();
 
     // WHERE THE OPTIMISTIC-CONCURRENCY GUARD LIVES ONCE THE MIDDLEWARE OWNS THE SAVE.
@@ -2099,6 +2126,373 @@ emit(join(OUT, `${NS}.slnx`),
   <Project Path="tests/${NS}.IntegrationTests/${NS}.IntegrationTests.csproj" />
 </Solution>
 `);
+
+// --- the compose stack: the deployed shape, and the only artifact a UI journey can walk ---------
+//
+// FOUR FILES, AND UNTIL NOW EVERY ONE OF THEM WAS HAND-WRITTEN ONCE, ON ONE PROJECT. `ui-journey`'s gate
+// says the run that counts is against compose — Vite proxies the API itself, so the dev server cannot see
+// a wrong nginx proxy prefix, a missing ASPNETCORE_ENVIRONMENT that leaves the seed unapplied, or a
+// runtime that cannot do Wolverine's codegen — and nothing in the kit wrote the file that gate needs. So
+// the gate was unmeetable on a fresh project, and the previous one met it only because somebody typed the
+// files out by hand. KIT-HISTORY BN4.
+//
+// ALL FOUR ARE emit(). Nothing in them is a domain judgement: the system name, the database name, the
+// ports, the API prefixes and the screen paths are all in the IR or in the generated tree, and each of the
+// four traps they exist to catch is a fact about THIS STACK rather than about a business.
+//
+//   the nginx prefix trap      `location /estate` is a PREFIX match, so it swallows the SCREEN route
+//                              /estate-admin and hands it to an API that answers 404 — an empty page with
+//                              no error. Needs `location ^~ /estate/`, and the trailing slash is the fix
+//   the SPA fallback           every screen is a real path a user can link and RELOAD, so without
+//                              try_files only "/" loads and every deep link 404s
+//   ASPNETCORE_ENVIRONMENT     the demo seed hangs off IsDevelopment(); without it the app is healthy,
+//                              every endpoint answers 200, and every screen is empty
+//   Wolverine runtime codegen  the aspnet runtime image carries no Roslyn reference assemblies, so the
+//                              wrappers are PRE-GENERATED into the image and TypeLoad mode is Static
+//
+// THE ESCAPE HATCH IS DOCKER'S OWN, which is why none of this needs a scaffold. `docker compose` merges
+// docker-compose.override.yml natively and codegen never writes it, so a local port change, a published
+// database or an extra service survives regeneration — the same shape of answer as package-versions.json,
+// and it is documented in the emitted header rather than only here.
+//
+// NOT ADDED TO `scaffold`'s GATE, deliberately: a docker build is minutes, and whether the stack comes up
+// is `ui-journey`'s question. scaffold emits these and reports them; nothing else gates on them.
+
+// WHETHER THIS SYSTEM HAS A FRONT END IS A FACT ABOUT THE TREE, NOT ABOUT THE MODEL — and deriving it
+// from the model is exactly the mistake a Voltway-shaped derivation makes. Every reference implementation
+// DECLARES screens on its model, between one and three of them, and not one has a line of React: they are
+// backend worked examples. An nginx service in front of a directory with no app in it is a compose file
+// that cannot come up, so the signal is web/package.json — written by frontend-agent when it ports the
+// first screen, and never touched by codegen.
+const WEB = join(OUT, "web");
+const hasWeb = existsSync(join(WEB, "package.json"));
+
+// The compose project name and the database name are the same slug, and it is the one appsettings.json
+// already uses — two files naming one database differently is a debugging round nobody should have.
+const SLUG = camel(ir.system).toLowerCase();
+const OUT_REL = (relative(PROJECT, OUT) || ".").replace(/\\/g, "/");
+
+// THE API's PUBLISHED PORT DOES NOT MOVE WHEN A FRONT END ARRIVES. 8080 is the browser's origin by
+// convention across this kit — uijourney's scaffolded config prints PW_BASE_URL=http://localhost:8080 —
+// so nginx takes it whenever there is an nginx, and the API keeps 8081 whether or not anything is in
+// front of it. The alternative (put the API on 8080 when it is alone) silently swaps the two the day the
+// first screen is ported, and then every curl written before that day hits the wrong process.
+const API_PORT = 8081;
+const WEB_PORT = 8080;
+
+const hashBanner = (what) =>
+  `# <auto-generated>\n#   ${what}\n#   Generated by tools/codegen.mjs from the event model. Do not edit by hand:\n` +
+  `#   re-run codegen and the change is lost.\n` +
+  `#\n` +
+  `#   THE ESCAPE HATCH IS DOCKER'S OWN, and it is ${OUT_REL}/docker-compose.override.yml —\n` +
+  `#   which \`docker compose up\` merges natively and this generator never writes. A published database\n` +
+  `#   port, a different host port and an extra service go straight in it; a changed build goes in as\n` +
+  `#   \`build: {dockerfile: <your own file>}\`. Editing inside THIS file is reverted by the next codegen\n` +
+  `#   run, silently, with the symptom arriving later as behaviour rather than as an error.\n` +
+  `# </auto-generated>\n`;
+
+// THE API PREFIXES ARE THE MODEL'S CONTEXTS, because that is the route convention this generator emits:
+// every endpoint it scaffolds is `/{camel(context)}/{camel(slice)}`, and the hand-owned read endpoints
+// beside them follow it. Every context gets a prefix, including one with no route yet — a prefix pointing
+// at nothing costs a 404 on a URL nobody has, while a MISSING prefix costs the silent empty screen this
+// whole file exists to prevent. That asymmetry is the whole argument.
+//
+// The derivation is checked rather than trusted: a route in the generated tree whose first segment is not
+// one of these is reported as ROUTE NOT PROXIED at the end of the run, because a hand-owned endpoint is
+// free to move off the convention and nothing else would notice.
+const apiPrefixes = [...new Set((ir.models ?? []).map((m) => camel(m.context)))].sort();
+const screenSlugs = (ir.shared.screens ?? []).map((s) => s.slug).sort();
+// The concrete reason the trailing slash is not tidiness, named from THIS model rather than asserted.
+//
+// THIS USED TO EXCLUDE THE EQUALITY CASE (`s !== p`) AND THAT WAS BACKWARDS: a screen slug EQUAL to an API
+// prefix is the one that actually breaks, and it was the one case the derivation could not report. Measured
+// under real nginx with a control — with the `^~ /cart/` block present, a request for `/cart` comes back
+// **301 to /cart/**, which then proxies to the API and 404s; remove the block and it is 200 from the SPA. So
+// the prefix location captures the slash-less form after all, and the trailing slash only saves the LONGER
+// slugs. The old comment named /cart-error, measured 200 and perfectly fine, while staying silent about
+// /cart. KIT-HISTORY BO3.
+const swallowed = apiPrefixes.flatMap((p) =>
+  screenSlugs.filter((s) => s.startsWith(p)).map((s) => ({ prefix: p, screen: s, exact: s === p })));
+// A screen slug that IS a prefix needs an exact-match location, because `location = /x` beats `location ^~
+// /x/` for the bare URI and hands it to the SPA. Verified as the fix, not assumed.
+const exactScreens = [...new Set(swallowed.filter((s) => s.exact).map((s) => s.screen))];
+// A REAL route to make the proxy_pass rule concrete. An abstract "the matched prefix would be stripped"
+// is forgettable; "/charging/holdBay would arrive as /holdBay" is not, and the route is the one this
+// generator actually emits for that slice.
+const exampleRoute = (() => {
+  const p = apiPrefixes[0];
+  if (!p) return null;
+  const s = (ir.slices ?? []).find((x) =>
+    camel(x.context) === p && x.pattern === "state-change" && (x.commands ?? []).length);
+  return s ? { full: `/${p}/${camel(s.name)}`, stripped: `/${camel(s.name)}` } : null;
+})();
+
+emit(join(OUT, "docker-compose.yml"),
+  `${hashBanner(hasWeb
+    ? `the deployed shape of ${NS} — the thing a UI journey is supposed to walk`
+    : `the deployed shape of ${NS} — its API and its database, and nothing else`)}
+#   docker compose -f ${OUT_REL}/docker-compose.yml up -d --build
+${hasWeb ? `#   PW_BASE_URL=http://localhost:${WEB_PORT} npx playwright test    # from ${OUT_REL}/web
+` : ""}#
+# WHY THIS EXISTS RATHER THAN "just run the app". ${hasWeb
+  ? `Vite proxies the API prefixes itself, so the dev server
+# cannot see a wrong nginx proxy_pass prefix, a missing ASPNETCORE_ENVIRONMENT that leaves the demo seed
+# unapplied, or a runtime that cannot do Wolverine's codegen. All three have happened in this kit, and each
+# of them renders as AN EMPTY SCREEN WITH NO ERROR — which is why a journey's guard is \`assert real data\`,
+# and not \`assert no error\`.
+#
+# THE BROWSER SEES ONE ORIGIN. nginx serves the bundle and proxies ${apiPrefixes.length === 1 ? "the API prefix" : `all ${apiPrefixes.length} API prefixes`}, so every fetch in
+# web/src is relative and there is no CORS anywhere in this file.`
+  : `\`dotnet run\` reads appsettings.json and expects a
+# Postgres somebody started by hand. This is the whole system in one command, and it is what proves the
+# published image can do Wolverine's codegen — which a local run with an SDK on the PATH cannot.
+#
+# THERE IS NO WEB SERVICE AND NO NGINX, because ${OUT_REL}/web/package.json does not exist:
+# this system has no front end to serve. ${screenSlugs.length
+    ? `Its model declares ${screenSlugs.length} screen(s) — ${screenSlugs.join(", ")} —
+# which is a statement about the model rather than about the tree; port one and regenerate to get nginx.`
+    : `Its model declares no screens either, so that is settled.`}`}
+
+name: ${SLUG}
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${SLUG}
+    # DELIBERATELY NOT PUBLISHED TO THE HOST. The Testcontainers Postgres the integration suite spins up
+    # and the dev-loop container appsettings.json points at are different databases with different
+    # lifetimes, and a published port here is how they get confused for each other. Nothing outside this
+    # network needs to reach it; docker-compose.override.yml is where to publish it if you disagree.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${SLUG}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      # The demo database is disposable, and a run that inherits the last one's state is a run asserting
+      # on somebody else's data. \`down\` and \`up\` is a clean world.
+      - /var/lib/postgresql/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      # THE SEED LIVES BEHIND THIS. Program.cs does \`if (builder.Environment.IsDevelopment())
+      # marten.InitializeWith(new GenesisData())\`, so without this line the app is healthy, every endpoint
+      # answers 200, and ${hasWeb
+        ? `every screen is empty — indistinguishable from "nothing here yet".`
+        : `every read comes back empty — indistinguishable from "nothing here yet".`}
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Marten: "Host=db;Port=5432;Database=${SLUG};Username=postgres;Password=postgres"
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "8080"
+${hasWeb
+  ? `    # Published so a failing journey can be interrogated with curl against the same process the browser
+    # is talking to, rather than against a second one started by hand. It stays on ${API_PORT} whether or not
+    # there is an nginx in front, so a command written today does not quietly change meaning tomorrow.`
+  : `    # Published so a failing run can be interrogated with curl against the process compose started,
+    # rather than against a second one started by hand. It is ${API_PORT} rather than ${WEB_PORT} because ${WEB_PORT} is the
+    # browser's origin by convention here, and the API's door must not move when a front end arrives.`}
+    ports:
+      - "${API_PORT}:8080"
+${hasWeb ? `
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT}:80"
+` : ""}`);
+
+emit(join(OUT, "Dockerfile"),
+  `${hashBanner(`the ${NS} API. Build context is ${OUT_REL}, so the solution's own layout is preserved`)}
+# WOLVERINE GENERATES CODE AT RUNTIME, AND THAT IS THE INTERESTING PART OF THIS FILE.
+#
+# By default (\`TypeLoadMode.Dynamic\`) Wolverine compiles its handler and endpoint wrappers with Roslyn on
+# first use. WolverineFx.RuntimeCompilation is referenced by the csproj, so the compiler ships in the publish
+# output — and it works in this runtime image: measured, by running exactly this stack in Dynamic mode and
+# serving real requests. So runtime compilation here is not broken and this file is not a workaround for it.
+#
+# WHAT IT IS FOR is turning a SILENT FALLBACK into a LOUD FAILURE, plus a faster cold start. Two steps, and
+# both are needed — either alone does nothing:
+#
+#   1. \`codegen write\` below emits the wrappers as C# under Internal/Generated, and the publish compiles
+#      them into the assembly. On its own this is dead weight: Dynamic mode recompiles anyway.
+#   2. WOLVERINE_CODEGEN_STATIC below makes Program.cs set \`opts.CodeGeneration.TypeLoadMode = Static\`, so
+#      the host LOADS those types by name. A handler with no pre-generated code then fails HOST STARTUP with
+#      an error naming the missing file, instead of quietly compiling and working only where an SDK exists.
+#
+# THE VARIABLE IS THIS APPLICATION'S OWN, and Program.cs is what reads it. It is not a framework switch:
+# nothing in JasperFx or Wolverine reads any environment variable for this, which is why the \`ENV
+# JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static\` line that used to sit here did nothing whatsoever. KIT-HISTORY BO2.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY src/${NS}/${NS}.csproj src/${NS}/
+RUN dotnet restore src/${NS}/${NS}.csproj
+
+COPY src/ src/
+
+# Emits src/${NS}/Internal/Generated/**.cs. It needs no database: JasperFx's codegen command builds the
+# application's model, not its data.
+RUN dotnet run --project src/${NS}/${NS}.csproj --no-launch-profile -- codegen write
+
+RUN dotnet publish src/${NS}/${NS}.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish ./
+
+# Read by Program.cs, which turns it into TypeLoadMode.Static. Unset — in \`dotnet run\` and in the test
+# host — the app stays on Dynamic, which is correct there: neither has run \`codegen write\`, so Static
+# would fail startup for a completely good reason.
+ENV WOLVERINE_CODEGEN_STATIC=true
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "${NS}.dll"]
+`);
+
+if (hasWeb) {
+  // COPY EVERYTHING AND EXCLUDE, RATHER THAN NAME WHAT TO INCLUDE.
+  //
+  // THIS USED TO BE AN EIGHT-NAME ALLOW-LIST, filtered by existsSync and described in this comment as
+  // "what the web app actually has". It was not: it was what the generator's author had thought of. A
+  // `vite.config.mts` (a Vite-supported extension) and a `tsconfig.base.json` were both silently dropped —
+  // exactly the failure the comment claimed to prevent — and an app with none of the eight emitted a bare
+  // `COPY  ./`, which is not a parseable Dockerfile at all while codegen reported success. KIT-HISTORY BO4.
+  //
+  // An exclude list cannot have that failure mode: a file the front end adds is copied by default, and the
+  // things that must NOT go in are few, known, and named in a .dockerignore beside the Dockerfile. Note
+  // .dockerignore is read from the BUILD CONTEXT root, which is web/ — so it belongs here and not at the
+  // solution root, and it is what keeps node_modules (hundreds of MB) out of the daemon's context upload.
+  emit(join(WEB, ".dockerignore"),
+    `${hashBanner(`what must not enter the ${NS} web image's build context`)}
+# node_modules is reinstalled inside the image by the Dockerfile, and sending it costs hundreds of MB of
+# context upload plus any native module built for the wrong platform.
+node_modules
+
+# Build output. Stale dist/ inside the context is worse than absent: the image builds its own.
+dist
+.vite
+
+# The UI-journey layer. Playwright specs, its config, its report and its shots are not part of the app's
+# bundle, and journeys/ deliberately typechecks against Node types the browser build excludes.
+journeys
+playwright.config.ts
+playwright-report
+test-results
+
+# Screenshot scratch from tools/shoot.mjs's iframe trick.
+_shot*.html
+`);
+  // npm ci REQUIRES a lockfile and fails outright without one, which is a worse first impression than a
+  // slower install. Derived, not assumed.
+  const locked = existsSync(join(WEB, "package-lock.json"));
+
+  emit(join(WEB, "Dockerfile"),
+    `${hashBanner(`the ${NS} front end: node builds the bundle, nginx serves it`)}
+# \`npm run build\` typechecks before it bundles, so a type error fails the IMAGE rather than shipping. That
+# is deliberate, and it is the app's own check: the journey specs are typechecked separately, because
+# Playwright transpiles TypeScript and never checks it.
+FROM node:22-alpine AS build
+WORKDIR /app
+
+${locked ? `COPY package.json package-lock.json ./\nRUN npm ci` : `# NO package-lock.json IN web/, so this cannot be \`npm ci\` — and the image is therefore not\n# reproducible. Commit a lockfile and this becomes \`npm ci\` on the next codegen run.\nCOPY package.json ./\nRUN npm install`}
+
+# Everything else, with .dockerignore deciding what stays out — so a config the front end adds later is in
+# the image without this file having to have predicted it. The install above is a separate, earlier layer on
+# purpose: it is cached until the dependencies themselves change.
+COPY . ./
+RUN npm run build
+
+FROM nginx:1.27-alpine AS serve
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+`);
+
+  emit(join(WEB, "nginx.conf"),
+    `${hashBanner(`${NS}'s one origin: the bundle, and ${apiPrefixes.length} proxied API prefix(es)`)}
+server {
+  listen 80;
+  server_name _;
+
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # KEEP THE ORIGINAL HOST AND PORT ON ANY REDIRECT NGINX GENERATES ITSELF. Measured: a 301 out of this
+  # server carried \`Location: http://localhost/…\` while nginx was published on :8080, because nginx builds
+  # an absolute URL from its own listen port and knows nothing about the host mapping. A browser following
+  # that leaves the app's origin — so every redirect below is relative.
+  absolute_redirect off;
+
+  # ══════════════════════════════════════════════════════════════════════════════════════════════════
+  # THE API PREFIXES, ANCHORED WITH ^~ AND A TRAILING SLASH. THIS IS NOT TIDINESS.
+  #
+  # A plain \`location /x\` is a PREFIX match, so it also swallows any SCREEN route that merely STARTS
+  # with x and forwards it to the API — which has no such route and answers 404. The page simply does
+  # not load, and the browser shows an empty screen with no error. Nothing in tsc, the vite build or
+  # design.mjs can see it; web/vite.config.ts documents the same trap on the dev proxy and says outright
+  # that "the same trap is waiting in the compose nginx config". This is that config.
+  #
+${swallowed.length
+  ? swallowed.map(({ prefix, screen, exact }) => exact
+      ? `  #   LIVE, AND THE ANCHORING IS NOT ENOUGH FOR IT: the screen route /${screen} is EXACTLY the API\n` +
+        `  #   prefix /${prefix}. nginx redirects the bare /${screen} to /${screen}/ 301, which then proxies to the API\n` +
+        `  #   and 404s — measured. The \`location = /${screen}\` block below is what hands it back to the SPA.`
+      : `  #   LIVE: \`location /${prefix}\` (no trailing slash) would swallow the screen route /${screen}.`).join("\n")
+  : `  #   No screen route in this model starts with an API prefix today, so nothing is being swallowed\n` +
+    `  #   right now. The anchoring stays: the next screen slug is one \`add-slice\` away, and the failure\n` +
+    `  #   it produces is an empty page rather than an error.`}
+  #
+  # \`^~\` also stops any regex location being considered once this prefix wins, and the trailing slash is
+  # what makes a longer screen route fall through to the SPA fallback below where it belongs.
+  #
+  # proxy_pass carries NO path component on purpose: with a bare host:port nginx forwards the original
+  # URI unchanged${exampleRoute ? `, so ${exampleRoute.full} arrives as ${exampleRoute.full}` : ""}. Adding a trailing slash to proxy_pass would STRIP the matched
+  # prefix and the API would see ${exampleRoute ? `${exampleRoute.stripped}` : "the remainder"} — a 404, and the same silent empty screen by a different route.
+  # ══════════════════════════════════════════════════════════════════════════════════════════════════
+${exactScreens.length ? `${exactScreens.map((s) => `  # \`= \` is an EXACT match and beats the \`^~ /${s}/\` prefix below for the bare URI, which is the only way
+  # to serve a screen whose slug IS an API prefix. Without it nginx 301s /${s} to /${s}/ and the API 404s.
+  location = /${s} {
+    try_files /index.html =404;
+  }`).join("\n\n")}
+
+` : ""}${apiPrefixes.map((p) => `  location ^~ /${p}/ {
+    proxy_pass http://api:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }`).join("\n\n")}
+
+  # THE SPA FALLBACK. Every screen is a real URL a user can link, bookmark and RELOAD${screenSlugs.length ? ` —\n  # ${screenSlugs.map((s) => "/" + s).join(", ")}` : ""}.
+  # Without this they are 404s from nginx and only "/" works, which would make every deep link in the app
+  # a broken link and every reload a lost page.
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+
+  # The built bundle is content-hashed, so it can be cached hard. index.html must never be, or a deploy
+  # ships new assets behind a stale document — and nginx adds no cache headers of its own, so leaving
+  # index.html out of this block is what keeps it fresh.
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+  }
+}
+`);
+}
 
 // --- journeys: the one test shape that spans slices --------------------------------------------
 //
@@ -2365,6 +2759,45 @@ if (unIngested.length) {
   console.log(`AND THE SEAM EXISTING IS NOT THE WHOLE PATH. The transport in front of the durable queue — a`);
   console.log(`webhook, a table they INSERT into, a broker, a poll — is hand-owned and generated nowhere. A feed`);
   console.log(`wired to nothing at all still leaves the suite green: only running it proves an arrival happens.`);
+}
+
+// ROUTE NOT PROXIED. The nginx prefixes above are DERIVED from the model's contexts, because that is the
+// route convention this generator emits — but an endpoint is scaffold, so a hand edit is free to move a
+// route somewhere else entirely, and every reference implementation's endpoints have done exactly that
+// (`/emails`, `/projects/{projectId}/commit`). Behind nginx an unproxied route reaches the SPA fallback and
+// the fetch gets index.html with a 200, which parses as neither JSON nor an error: an empty screen. So the
+// derivation is checked against the routes actually in the tree rather than trusted.
+if (hasWeb) {
+  const found = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) { if (!["Internal", "obj", "bin"].includes(e.name)) walk(p); continue; }
+      if (!e.name.endsWith(".cs")) continue;
+      const txt = readFileSync(p, "utf8");
+      // A regex LITERAL, never a string: in a string "\s" is the letter s and "\b" is a backspace, and
+      // the miss is silent — the standing trap in CLAUDE.md, and it has been made three times here.
+      for (const m of txt.matchAll(/(?:\[Wolverine(?:Get|Post|Put|Delete)\(|Route\s*=\s*)"(\/[^"{]*)/g))
+        found.push({ p, route: m[1] });
+    }
+  };
+  if (existsSync(APP)) walk(APP);
+  const seen = new Set();
+  const unproxied = found.filter(({ route }) => {
+    const seg = route.split("/")[1] ?? "";
+    if (!seg || apiPrefixes.includes(seg) || seen.has(seg)) return false;
+    seen.add(seg);
+    return true;
+  });
+  if (unproxied.length) {
+    console.log(`\nROUTE NOT PROXIED — ${unproxied.length}. web/nginx.conf proxies ${apiPrefixes.map((p) => "/" + p + "/").join(", ")} — the model's`);
+    console.log(`contexts, which is the convention codegen emits routes on. These routes are in the tree and start`);
+    console.log(`somewhere else, so behind nginx they hit the SPA FALLBACK and the fetch gets index.html with a 200:`);
+    console.log(`not JSON, not an error, just an empty screen. Move the route onto its context's prefix, or add the`);
+    console.log(`prefix in ${OUT_REL}/docker-compose.override.yml's own nginx — this file is emit:`);
+    for (const u of unproxied)
+      console.log(`  ${u.route}   ${u.p.replace(OUT, "").replace(/^[\\/]/, "")}`);
+  }
 }
 
 console.log(`\nNOTE: Testcontainers is not in reference/llms/ — that harness is the one part written`);

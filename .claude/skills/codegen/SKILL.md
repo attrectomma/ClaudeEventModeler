@@ -172,15 +172,33 @@ later means adding its GWTs rather than undoing this work. Say plainly that you 
 
 ## Running the thing by hand
 
+**Two loops, and they are not the same command.** The dev loop runs the API on your machine; the deployed
+loop runs everything in containers. Reach for the first while writing code and the second before reporting.
+
 ```bash
-docker compose up -d                              # the human's Postgres, port 5433
+# THE DEV LOOP. appsettings.json points at localhost:5433, and nothing publishes that port —
+# generated/<Sys>/docker-compose.yml deliberately keeps its database off the host. So start one:
+docker run -d --name <sys>-dev -p 5433:5432 \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=<sys> postgres:16
 ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/<Sys>   # env VAR, not --environment
 npx vite --port 5173 --prefix web                 # proxies to the API
+
+# THE DEPLOYED LOOP. The whole system, from the generated files, on one origin.
+docker compose -f generated/<Sys>/docker-compose.yml up -d --build   # app on :8080, API on :8081
 ```
 
-Tests use **Testcontainers**; the demo uses **docker-compose**. They never share a connection string,
-and nothing in the test project reads the compose file. Marten manages schema, so a test run pointed
-at the demo database drops the data you were halfway through creating.
+**This used to read `docker compose up -d  # the human's Postgres, port 5433`, and that never worked** —
+no compose file in this kit has ever published 5433, so the line described a file that did not exist. It is
+worse now that one does: `docker compose up -d` starts the entire stack with its database *unpublished*, so
+the `dotnet run` on the next line still cannot connect and the failure now looks like the generated file's
+fault. If you want the dev loop pointed at the compose database instead of a second container, publish it in
+`generated/<Sys>/docker-compose.override.yml` — that is what the override file is for, and codegen never
+writes it.
+
+**Three databases, and keeping them apart is deliberate.** Tests use **Testcontainers** (a random port, a
+fresh database per run), the dev loop uses **5433**, and compose uses an unpublished one on its own network.
+None of them shares a connection string, and nothing in the test project reads the compose file. Marten
+manages schema, so a test run pointed at the demo database drops the data you were halfway through creating.
 
 Stop everything you started before reporting.
 

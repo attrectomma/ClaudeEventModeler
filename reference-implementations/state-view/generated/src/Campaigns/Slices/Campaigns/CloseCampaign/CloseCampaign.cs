@@ -18,5 +18,5 @@ public sealed record CloseCampaign(Guid CampaignId)
     /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
     /// and a get-only property is one — which is what lets a composite-keyed stream use
     /// <c>[WriteAggregate(nameof(CloseCampaign.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
-    public Guid StreamKey => CloseCampaignState.StreamKey(CampaignId);
+    public Guid StreamKey => global::Campaigns.Slices.Campaigns.CloseCampaignState.StreamKey(CampaignId);
 }

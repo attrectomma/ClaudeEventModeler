@@ -18,10 +18,10 @@ public sealed record QueueMessage(Guid MessageId, Guid CampaignId, Guid SenderId
     /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
     /// and a get-only property is one — which is what lets a composite-keyed stream use
     /// <c>[WriteAggregate(nameof(QueueMessage.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
-    public Guid StreamKey => QueueMessageState.StreamKey(MessageId);
+    public Guid StreamKey => global::Campaigns.Slices.Campaigns.QueueMessageState.StreamKey(MessageId);
 
     /// <summary>A stream this command READS but does not write. Hand it to a second
     /// <c>[WriteAggregate(nameof(QueueMessage.CampaignStreamKey), AlwaysEnforceConsistency = true)]</c>
     /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
-    public Guid CampaignStreamKey => CloseCampaignState.StreamKey(CampaignId);
+    public Guid CampaignStreamKey => global::Campaigns.Slices.Campaigns.CloseCampaignState.StreamKey(CampaignId);
 }

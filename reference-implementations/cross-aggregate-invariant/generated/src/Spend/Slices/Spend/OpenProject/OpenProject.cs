@@ -17,5 +17,5 @@ public sealed record OpenProject(Guid DepartmentId, string Name)
     /// <summary>A stream this command READS but does not write. Hand it to a second
     /// <c>[WriteAggregate(nameof(OpenProject.DepartmentStreamKey), AlwaysEnforceConsistency = true)]</c>
     /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
-    public Guid DepartmentStreamKey => SetBudgetState.StreamKey(DepartmentId);
+    public Guid DepartmentStreamKey => global::Spend.Slices.Spend.SetBudgetState.StreamKey(DepartmentId);
 }

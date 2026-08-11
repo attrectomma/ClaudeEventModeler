@@ -17,10 +17,10 @@ public sealed record ReserveSlot(Guid PoolId, Guid GrantId)
     /// <summary>A stream this command READS but does not write. Hand it to a second
     /// <c>[WriteAggregate(nameof(ReserveSlot.GrantStreamKey), AlwaysEnforceConsistency = true)]</c>
     /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
-    public string GrantStreamKey => IssueGrantState.StreamKey(GrantId.ToString());
+    public string GrantStreamKey => global::Allocation.Slices.Allocation.IssueGrantState.StreamKey(GrantId.ToString());
 
     /// <summary>A stream this command READS but does not write. Hand it to a second
     /// <c>[WriteAggregate(nameof(ReserveSlot.PoolStreamKey), AlwaysEnforceConsistency = true)]</c>
     /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
-    public string PoolStreamKey => OpenPoolState.StreamKey(PoolId.ToString());
+    public string PoolStreamKey => global::Allocation.Slices.Allocation.OpenPoolState.StreamKey(PoolId.ToString());
 }

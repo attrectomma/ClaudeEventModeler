@@ -23,6 +23,13 @@ and running them as one hid both:
 | **scaffold** (you) | the skeleton, every hole marked | **it compiles, and the tests run** | none |
 | **codegen** | the business logic, one slice at a time | that slice's tests pass | the recipe, per slice |
 
+**You also emit the compose stack, and you do NOT prove it comes up.** `docker-compose.yml` and
+`Dockerfile` are written on every run, and `web/Dockerfile` + `web/nginx.conf` alongside them once
+`web/package.json` exists — all four `emit`, so a hand edit is reverted. Whether the stack actually starts
+is `ui-journey`'s gate, not yours: a docker build is minutes, and adding it here would put that cost on
+every scaffold for a question this step cannot answer anyway (there is usually no front end yet). **Say in
+your report that they were emitted and that nothing here tested them.**
+
 **`architect` straddles you.** `architect.mjs record` needs only the model and must run FIRST (see the
 type-binding note below). `architect.mjs tests` writes race tests **into the test project** and refuses if
 there is none — `generated/<Sys> does not exist — run codegen first` — so that half follows you. The order:
@@ -96,6 +103,7 @@ cause, say where it is, and fix the tool.
 | `IMPLEMENTED BUT STILL UNCLAIMED` | the work is done and `status=` never moved |
 | `VIEW WITH NO REGISTRATION` | the projection exists and nothing runs it. No symptom whatsoever: clean build, clean startup, no table, and a load returns null |
 | `AUTOMATION NOT WOKEN` | nothing runs the slice in production, and its tests still pass |
+| `ROUTE NOT PROXIED` | a route in the tree that `web/nginx.conf` does not forward. Behind nginx the fetch reaches the SPA fallback and gets `index.html` with a **200** — not JSON, not an error, an empty screen |
 | `ARCHITECTURE DECISIONS MISSING` | expected on the first pass — `architect` has not run yet |
 
 **Report every one of them to the user.** Several are *correct* at this point in the workflow, and

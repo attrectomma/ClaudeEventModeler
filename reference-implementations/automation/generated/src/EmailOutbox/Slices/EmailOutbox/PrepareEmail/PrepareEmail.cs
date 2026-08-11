@@ -18,5 +18,5 @@ public sealed record PrepareEmail(Guid EmailId, string To, string Subject, strin
     /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
     /// and a get-only property is one — which is what lets a composite-keyed stream use
     /// <c>[WriteAggregate(nameof(PrepareEmail.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
-    public Guid StreamKey => PrepareEmailState.StreamKey(EmailId);
+    public Guid StreamKey => global::EmailOutbox.Slices.EmailOutbox.PrepareEmailState.StreamKey(EmailId);
 }

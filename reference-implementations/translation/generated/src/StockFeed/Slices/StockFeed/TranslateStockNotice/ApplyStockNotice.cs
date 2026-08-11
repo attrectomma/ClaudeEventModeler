@@ -18,5 +18,5 @@ public sealed record ApplyStockNotice(Guid ProductId, Guid NoticeId, int OnHand,
     /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
     /// and a get-only property is one — which is what lets a composite-keyed stream use
     /// <c>[WriteAggregate(nameof(ApplyStockNotice.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
-    public Guid StreamKey => TranslateStockNoticeState.StreamKey(ProductId);
+    public Guid StreamKey => global::StockFeed.Slices.StockFeed.TranslateStockNoticeState.StreamKey(ProductId);
 }

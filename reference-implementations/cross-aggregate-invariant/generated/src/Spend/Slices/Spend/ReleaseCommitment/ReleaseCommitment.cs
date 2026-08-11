@@ -18,10 +18,10 @@ public sealed record ReleaseCommitment(Guid ProjectId, Guid DepartmentId, decima
     /// A COMPUTED member on purpose: the aggregate handler workflow resolves a stream from a public MEMBER,
     /// and a get-only property is one — which is what lets a composite-keyed stream use
     /// <c>[WriteAggregate(nameof(ReleaseCommitment.StreamKey))]</c> instead of a hand-rolled FetchForWriting.</summary>
-    public Guid StreamKey => CommitSpendState.StreamKey(ProjectId);
+    public Guid StreamKey => global::Spend.Slices.Spend.CommitSpendState.StreamKey(ProjectId);
 
     /// <summary>A stream this command READS but does not write. Hand it to a second
     /// <c>[WriteAggregate(nameof(ReleaseCommitment.DepartmentStreamKey), AlwaysEnforceConsistency = true)]</c>
     /// parameter and Marten refuses the save if that stream moved between the fetch and the commit.</summary>
-    public Guid DepartmentStreamKey => SetBudgetState.StreamKey(DepartmentId);
+    public Guid DepartmentStreamKey => global::Spend.Slices.Spend.SetBudgetState.StreamKey(DepartmentId);
 }

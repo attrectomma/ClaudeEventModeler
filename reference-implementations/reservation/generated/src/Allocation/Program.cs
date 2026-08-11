@@ -6,6 +6,11 @@
 #nullable enable
 
 using JasperFx;
+// TypeLoadMode is JasperFx.CodeGeneration.TypeLoadMode (values Dynamic, Auto, Static), TYPE-FORWARDED into
+// JasperFx.dll — so this using is required and referencing the JasperFx.CodeGeneration package is not. No
+// doc page states the namespace and the package .xml does not document the enum; settled by reflecting over
+// the assembly, which is this kit's documented tiebreaker.
+using JasperFx.CodeGeneration;
 using JasperFx.Resources;
 using JasperFx.Events;
 using Weasel.Core;
@@ -81,6 +86,28 @@ builder.Services.AddResourceSetupOnStartup();
 
 builder.Host.UseWolverine(opts =>
 {
+    // LOAD THE PRE-GENERATED DISPATCH CODE INSTEAD OF COMPILING IT, where it has been pre-generated.
+    //
+    // Wolverine's default is `TypeLoadMode.Dynamic`: it compiles handler and endpoint wrappers with Roslyn
+    // on first use. `Static` says "the pre-generated types are in this assembly; load them by name and skip
+    // the compile step" — and per the AOT page, a handler with no pre-generated code then fails HOST STARTUP
+    // with an error naming the missing file, "rather than silent fallback to Roslyn". That loud failure is
+    // the whole point; the faster cold start is a bonus.
+    //
+    // OPT-IN BY ENVIRONMENT VARIABLE, BECAUSE ONLY SOME BUILDS HAVE RUN `codegen write`. The Dockerfile
+    // does it at build time and sets this; `dotnet run` and the test host do not, and Static there would
+    // fail startup for a completely correct reason. So the variable is the question "has codegen run?" and
+    // nothing else.
+    //
+    // THIS VARIABLE IS OURS, AND SAYING SO MATTERS. Nothing in JasperFx, Wolverine or the docs mirror reads
+    // any `JASPERFX_*` environment variable — the string appears zero times across 394 mirrored pages and
+    // in none of the three assemblies. This kit shipped `ENV JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` in a
+    // hand-written Dockerfile for a whole project, and it did nothing at all: the container ran Dynamic and
+    // said so in its own startup log, while three documents recorded Static as measured. KIT-FINDINGS BO2.
+    // The line below is the mechanism the mirror actually documents, and it works because something READS it.
+    if (Environment.GetEnvironmentVariable("WOLVERINE_CODEGEN_STATIC") == "true")
+        opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
+
     opts.Policies.AutoApplyTransactions();
 
     // WHERE THE OPTIMISTIC-CONCURRENCY GUARD LIVES ONCE THE MIDDLEWARE OWNS THE SAVE.
@@ -101,6 +128,11 @@ builder.Host.UseWolverine(opts =>
     // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
     opts.OnException<ConcurrencyException>().RetryTimes(3);
     opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+    // Durable local queues are what make the ingest seam in Landing/ durable without any durability
+    // code: a message routed to a local queue is written to the Postgres envelope tables before its
+    // handler runs, retried if the handler throws, and dead-lettered when it keeps throwing. That inbox
+    // is a translation's todo list — the one it cannot have as a projection, because a foreign event is
+    // never in our store.
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
     IssueGrantWakeup.ConfigureWolverine(opts);

@@ -57,4 +57,22 @@ public abstract class IntegrationContext(AppFixture fixture) : IAsyncLifetime
             async () => { result = await Host.Scenario(configure); }, timeoutInMilliseconds);
         return (tracked, result);
     }
+
+    /// <summary>
+    /// WHEN: a message ARRIVES, rather than a person posting. The other half of <see cref="WhenPosting"/>,
+    /// and the seam a translation slice is tested through.
+    ///
+    /// A foreign event has no endpoint of ours to be posted to — something outside hands it to Wolverine and
+    /// a handler picks it up. So a test hands it to Wolverine too, and by doing that it drives THE PRODUCTION
+    /// PATH rather than a test-only shortcut: the same handler, the same local queue, the same retries.
+    ///
+    /// Waits for all cascading work exactly as WhenPosting does, so the command the translation issues and
+    /// the event it appends have both landed before the assertion runs.
+    ///
+    /// WHAT IT STILL CANNOT SEE, and it is the one thing worth remembering: whether anything in production
+    /// ever sends this. The transport in front of the queue — a webhook, a table they INSERT into, a broker,
+    /// a poll — is hand-owned, and a feed wired to nothing at all leaves this test green. KIT-FINDINGS T4.
+    /// </summary>
+    protected Task<ITrackedSession> WhenReceiving(object message, int timeoutInMilliseconds = 10000) =>
+        Host.InvokeMessageAndWaitAsync(message, timeoutInMilliseconds);
 }

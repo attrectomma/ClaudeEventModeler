@@ -237,6 +237,22 @@ PW_BASE_URL=http://localhost:8080 npx playwright test
 
 Three of the bug cases in step 5 are only reachable here. Stop everything you started before reporting.
 
+**All four files behind that command are GENERATED, and all four are `emit`.** `codegen.mjs` writes
+`docker-compose.yml`, `Dockerfile`, `web/Dockerfile` and `web/nginx.conf` from the IR — nginx's proxy
+prefixes are the model's contexts and the SPA fallback covers the model's screen slugs. So **do not
+hand-edit any of them when a journey fails**: the next codegen run reverts it silently, and the symptom
+comes back later as an empty screen rather than as an error. A local change belongs in
+`docker-compose.override.yml`, which compose merges natively and codegen never writes. If the derivation
+itself is wrong, that is a generator fix — and `codegen.mjs` already reports `ROUTE NOT PROXIED` for the
+one case it can check.
+
+Two consequences worth knowing before you debug:
+
+- **nginx serves 8080 and the API's own door is 8081.** Curl the API directly at `:8081` to tell "the API
+  is wrong" apart from "the proxy is wrong" — same process the browser is talking to, one hop fewer.
+- **A system with no `web/package.json` gets no nginx and no `web` service at all.** That is not a broken
+  compose file, it is a backend-only system, and a UI journey over it is impossible rather than unwritten.
+
 Then put the evidence where the human already looks:
 
 ```
