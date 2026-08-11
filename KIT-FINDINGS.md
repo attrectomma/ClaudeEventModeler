@@ -82,6 +82,62 @@ immediately, and nobody asks it unprompted.
 
 These pass every check the kit has. That is what makes them the top of the list.
 
+### BP1 — CLAUDE.md says a periphery and an aggregate rejection have the SAME response shape. They do not, and the claim reaches the frontend contract · `kit` · **BROKEN**
+
+CLAUDE.md: *"A rejected rule returns ProblemDetails with the rule name as the Title, which is what
+Wolverine.HTTP already does for FluentValidation failures — so `then="error: RuleName"` asserts the same
+shape whether the rule was caught at the periphery or in the decider."* **Both clauses are false.** Measured
+on the wire on `cancel-booking`, which is the first slice in this kit's history to carry both `enforce=`
+values on one slice — which is exactly why five runs never noticed:
+
+```
+periphery  {"title":"One or more validation errors occurred.","status":400,
+            "errors":{"Reason":["ReasonRequired"]}}
+aggregate  {"title":"AlreadyCancelled","status":400,"detail":"Booking … has already been cancelled."}
+```
+
+Same status, same `type`. **The rule name is in `errors.<Property>[0]` at the periphery and in `title` from
+the decider**, and the periphery body carries no `detail`. Confirmed against
+`Wolverine.Http.FluentValidation.dll` (`ValidationProblemDetails`, `GroupBy`, `ToDictionary`) before it was
+confirmed on the wire.
+
+**Why it is BROKEN and not NOISE:** a UI written to the documented claim reads `title` and shows the user
+*"One or more validation errors occurred."*, losing `ReasonRequired` entirely. The generated `Rejections.cs`
+had already inherited the wrong sentence as a code comment. Fix the claim, and say in `backend-agent` and
+`frontend-agent` that a rejection reader must handle both shapes.
+
+### BP2 — codegen scaffolds the decider ON THE HTTP ARM for a slice `architect` has already flagged as contended, and no report says so · `kit` · **BROKEN**
+
+`architect.mjs` raised `contended-invariant/room-booking/book-room/gwt-book-room-2` **and** generated
+`BookRoomConcurrencyTests` for it. `codegen.mjs` still emitted
+`[WolverinePost(Route), EmptyResponse] public static RoomBooked Handle(...)` — the shape CLAUDE.md's own **V7**
+says turns a lost race into a bare 500, because `OnException(...).RetryTimes(3)` is a message-pipeline policy
+that never reaches a Wolverine.HTTP endpoint. The scaffolded file's own comment explains this at length and
+the generator emits the wrong shape anyway.
+
+Measured in a fresh project, 8 writers at one room-day, both arms built:
+
+```
+decider through the bus   204x1, 400x7  (SlotAlreadyBooked)
+decider inline on HTTP    204x1, 7x escaped EventStreamUnexpectedMaxEventIdException
+```
+
+Same invariant held both ways; completely different thing arriving at the caller.
+
+**The fix is a report, not a rewrite** — `DECIDER ON THE HTTP ARM FOR A CONTENDED SLICE` is derivable from
+the IR plus the architect questions. Related: codegen also emitted `[EmptyResponse]` on `cancel-booking`,
+three lines below the consts naming its three rejections, while the same file's comment warns that
+`[EmptyResponse]` silently discards a returned ProblemDetails.
+
+### BP3 — `SeedData` synthesises values and ignores the model's own GWT example data, while the test hints point AT SeedData · `kit` · **BROKEN**
+
+`seedConstants()` builds constants from a field's NAME and TYPE — `"roomId-1"`, `new DateOnly(2026, 1, 2)` —
+and never reads `whenSteps[].example`, which is in the IR. The same generator interpolates that example into
+the `TODO(codegen)` text three lines away, so one file says *"expect RoomBooked(roomId=Aurora,
+date=2026-09-01…)"* and *"Fixed values for every stream key are on SeedData"* while `SeedData.RoomId` is
+`"roomId-1"` and `SeedData.Date` is `2026-01-02`. Every implementer hand-corrects this, and a run that does
+not notice writes tests whose data contradicts the model the tests came from.
+
 ### V10 — the completeness check cannot tell a SUPPLY edge from a TICK-OFF edge, so a todo View can be "sourced" by its own output · **BROKEN**
 
 **A todo View passed the completeness check while being fed, for two of its fields, by the automation's own
@@ -1023,6 +1079,38 @@ router will not draw. → [detail](KIT-HISTORY.md)
 
 ## 2. Missing capability
 
+### BP4 — FOUR C# FILES A WORKING SYSTEM NEEDS ARE EMITTED BY NOTHING, and deleting them is invisible to `codegen` · `kit` · **GAP**
+
+**This is the answer to BN4's closing claim, and it is the headline finding of the first true fresh-start run.**
+BN4 was verified by regenerating into projects that already existed; Demo001 started from nothing. The
+*infrastructure* half of that claim holds — `docker-compose.yml`, `Dockerfile`, `web/Dockerfile` and
+`web/nginx.conf` were all emitted and the browser walk passed against them with no hand edit. The *code* half
+does not.
+
+Deleted all four, re-ran `node tools/codegen.mjs`, got `15 written, 13 kept` and **not one of them back**:
+
+| File | Why it had to exist |
+| --- | --- |
+| `Slices/<ctx>/Rejections.cs` | CLAUDE.md and `backend-agent` both say to return a rejection *"via the shared `Rejections.Problem` helper"*. **`grep -n "Rejections" tools/codegen.mjs` returns zero hits** — it exists only inside a reference implementation |
+| `Slices/<ctx>/<Slice>/<Slice>Handler.cs` ×2 | the message-path decider **BP2** requires. codegen scaffolds `<Slice>Endpoint.cs` as the decider itself and has no scaffold for the handler + thin-adapter pair |
+| `Slices/<ctx>/TodaysBookings/TodaysBookingsEndpoint.cs` | a `state-view` slice's whole contract is a read model, and **no read endpoint is generated for one**. The GT hint even says to assert *"through its read endpoint **if the slice has one**"* |
+
+Without them the build fails; with them `codegen` is silent. So the kit's own idempotence report — the thing
+CLAUDE.md calls *"how a model change gets reviewed"* — is blind to four load-bearing files. Two fixes, and
+they are separable: scaffold `Rejections.cs` and a state-view read endpoint (both mechanical), and add a
+report for a hand-written file living inside a generated slice folder that the generator does not know about.
+
+### BP5 — nothing reports a decision that is RECORDED and CONTRADICTED BY THE CODE · `kit` · **GAP**
+
+`ARCHITECTURE.md` said register `TodaysBookings` **Inline**, with the reasoning and the cost. Codegen emitted
+`ProjectionLifecycle.Async` into `ViewRegistrations.cs`. `architect.mjs check` reported *"5 decided, 0 still
+TODO, 0 not in the record"*, `codegen` said nothing, the build was clean and 13 tests passed.
+`ARCHITECTURE DECISIONS MISSING` fires only when a decision is **absent**, never when it is present and
+unimplemented — which is the more dangerous state, because the file reads as authoritative. Caught only
+because a human carried the sentence into an agent brief by hand.
+
+The lifecycle case is checkable: `architect` knows the decision text and `codegen` knows what it emitted.
+
 ### BN10 — `NO UI JOURNEY SPEC` cannot tell "not written yet" from "deliberately not written", so a blocked walk reads as laziness · `kit` · **GAP**
 
 `uijourney.mjs check` reports every named chapter with no spec as `NO UI JOURNEY SPEC` and hands you the
@@ -1255,6 +1343,61 @@ reports, not a missing attribute. Recorded so the two findings stop appearing to
 
 ## 3. Noise and cosmetics
 
+### BP6 — `chapter-runs-backward` fires on the commonest chapter shape there is, and no legal layout avoids it · `kit` · **NOISE**
+
+*"Do a thing, then see it in the view"* is the most natural chapter anyone will draw. It cannot be drawn
+without this warning:
+
+- a screen reading a View drawn to its right is `flow/backward-connection`, an **error** — CLAUDE.md:
+  *"put the View's column first"*. So `todays-bookings` must sit LEFT of `book-room`.
+- the chapter therefore walks right-to-left, and `chapter-runs-backward` warns.
+
+The three escapes are all worse: reordering produces an error, redrawing the View a second time is rejected
+by CLAUDE.md outright, and dropping `--then` gives up the executable walk. **Why five runs never hit it:** the
+only chapter in any reference implementation, `campaign-lifecycle`, walks three *state-change* slices left to
+right and never ends at a view.
+
+The warning's own text says *"both are legitimate"*, and the kit's stated bar is that a rule never fires
+falsely. Either it should not fire when the last slice is a `state-view` — which is the whole reason the
+columns are inverted — or the Event→View exception needs a chapter-level counterpart.
+
+### BP7 — `hygiene/no-slice` fires on EVERY chapter cell, including in the kit's own reference implementations · `kit` · **NOISE**
+
+`INFO [hygiene/no-slice] book-then-see-it is not assigned to a slice, so nothing downstream will be generated
+from it.` A chapter is a **system**-level artifact that groups slices; it cannot carry `slice=`, and the claim
+is false — `codegen` generates its journey test. `slice.mjs chapter` writes a cell its own validator
+immediately complains about. Reproduced on `campaign-lifecycle` in
+`reference-implementations/state-view/campaigns/`, so it has been firing falsely on every chapter ever drawn.
+
+### BP8 — `terminal=` is a NO-OP whenever the screen displays a field of the same name, so the trap CLAUDE.md names by name is still invisible · `kit` · **NOISE→BROKEN**
+
+CLAUDE.md documents this exact case: *"the screen displays a `bookingId` — the row being looked at — while
+creating a booking needs a **new** one. Same name, opposite meaning… That is `terminal="bookingId:generated"`,
+not a source."*
+
+Measured: deleting `terminal="bookingId:generated, bookedBy:actor"` from a correct command produced
+**byte-identical** `validate` output — 0 errors, the same warnings, the same notes. The name-match against
+`displays=` resolves both fields first, so the model that gets it **wrong** is not caught *and* the model that
+gets it **right** earns no note, so a reviewer cannot see the decision was made. The only
+`terminal-context` note emitted was for the one terminal field with no same-named display — i.e. the note
+fires exactly where it is least needed.
+
+### BP9 — `slice.mjs add` widens every lane except the ACTOR lane · `kit` · **NOISE**
+
+Adding a third slice reported *"5 lane(s)/band(s) widened +320"*; the UI, command, event, swimlane and GWT
+lanes went 1260→1580 and `actor-employee` stayed at **1260**. It did not bite at three slices because the
+widest screen ends at x=1190. A fourth or fifth screen lands outside the actor lane and raises
+`screen-outside-actor-lane`, an **error**, with nothing pointing at the cause.
+
+### BP10 — `design.mjs sheet` takes ONE `--height` for ALL viewports, so one of them is always wrong · `kit` · **NOISE**
+
+A mobile page is routinely twice the height of the same page at 1440px. With the default, the mobile contact
+sheet **silently cropped** mid-state — the exact defect the `styling` skill says was fixed (*"the sheet is
+captured at whatever size fits all its rows, because a fixed height silently crops the last one"*). Passing
+`--height 2200` to fit mobile then made the **desktop** shot render a partial second copy of the page below
+the fold. The workaround is two `sheet` runs, one per viewport; both shots survive, so the tool is one
+per-viewport height away from being right.
+
 ### BO1 — the ingest seam cannot see a hand-written landing that named its seam message differently, so it scaffolds a DEAD handler and reports it for ever · `kit` · **NOISE**
 
 Found by regenerating `reference-implementations/translation/` while closing **BN4** — the folder had not been
@@ -1338,6 +1481,37 @@ one is not a case for adding it; recorded so it is a decision rather than an omi
 ---
 
 ## 4. Open questions
+
+### BP11 — the mirror CONTRADICTS a retraction CLAUDE.md made while citing the mirror · `kit` · **OPEN**
+
+CLAUDE.md retracts two claims in a table headed as checked against the mirror, and the standing rule it
+invokes is *"where the kit and the critter-stack docs disagree, the docs win."* The page it cites for the
+recommendation — `reference/llms/marten/events/projections/multi-stream-projections.md`, the warning block at
+the top — says, verbatim:
+
+> **Multi-Stream Projections are registered by default as async.** We recommend it as safe default because
+> under heavy load you can easily have contention between requests that effectively stomps over previous
+> updates and leads to apparent "event skipping" and invalid results. Still, you can change that setting and
+> register them synchronously if you're aware of that tradeoff.
+
+Both "retracted" claims are on the page — *"registered by default as async"*, and event skipping attributed to
+**synchronous** registration, the direction CLAUDE.md calls *"attributed backwards"*.
+
+**Nothing is broken:** the generator's behaviour (multi-stream → Async) matches the docs' recommendation
+either way. What is wrong is the **reasoning**, and the reasoning is what the standing rule exists to protect
+— *"a corrected claim that leaves the old sentence standing somewhere else is how the kit ends up disagreeing
+with itself."*
+
+The question worth answering, because it decides how the retraction should be rewritten: the API genuinely
+does require a `ProjectionLifecycle` argument at the call sites in the mirror, and the docs genuinely do say
+there is a default. Those are reconcilable — a documented *default posture* versus a *required parameter* —
+but somebody has to look at whether `Projections.Add<T>()` has a no-lifecycle overload on Marten 9 before the
+sentence is rewritten a third time.
+
+**Also open, from the same run:** the mirror's `Inline`-multi-stream escape hatch was used deliberately in
+Demo001 (`ARCHITECTURE.md`, `stale-read/room-booking/TodaysBookings`) and worked first time with no daemon,
+no wait and no extra registration — the row was in the DOM 100ms after the click. That is one data point
+against *"contention that stomps over previous updates"* at low row-sharing, not a refutation of it.
 
 ### AD2 — is DCB needed, or does multi-stream aggregation suffice? · ***ANSWERED 2026-08-08***
 
