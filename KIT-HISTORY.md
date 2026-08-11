@@ -19,6 +19,53 @@ lettered by run (**A** first, then **B**, **T**, **W**, **X**, **Y**, **Z**, **A
 
 ---
 
+## V19 — a journey could not cross a model boundary · **GAP** · ***FIXED 2026-08-11, and the whole board refactor existed for it***
+
+**The finding.** The `journey` skill said *"a journey belongs to the **system**"*; the implementation bound it
+to a **model**. `journey-unknown-slice` read *"is not a slice in **this model**"*, because `byName` was built
+per model inside the per-model pass. At one model those statements coincide, which is why five runs never
+noticed. At two they do not — and the walk that proves two contexts compose was **unavailable precisely where
+composition is most at risk**, since the two sides were modelled, generated and implemented separately.
+
+**The cause was one departure from the books**, traced in `BOARD-REFACTOR.md`: `UES` ch. 18 says a **board**
+holds many models; the kit made one file per model. Two files are two coordinate spaces, so there was no bar
+to draw. Everything else followed from that — the missing alternative-flow link marker, chapters stopping at
+the file edge, and `_context-map.drawio` existing only because the files were separate.
+
+**So it was not fixed; it was dissolved.** Steps 2–7 of the refactor: `model.mjs` reads a board (a region is
+the band between consecutive model cells, a cell joins by **midpoint**, and the one-model case is the
+**identity function**); `slice.mjs` writes regions; every model set migrated; `chapter` absorbed `journey`
+per ch. 18; `contract="true"` made the boundary real; and the cross-context chapter became a rectangle.
+
+**Closed by `estate-to-driver`** — `open-site → commission-bay → publish-bay-offered` (estate) then
+`translate-bay-offered → bay-availability → hold-bay` (charging). **203 tests, 0 failed.**
+
+**Two refusals had to be opened, both built deliberately in step 3 and both correct until now:**
+`slice.mjs` refused `--slices` naming cells in two models, and `chapter-unknown-slice` resolved against one
+region. A chapter is now **the one write allowed to cross**, drawn in region 1's strip and spanning the x
+range of every slice it names. Two dependent checks moved with it: `chapter-slice-in-design` went board-wide,
+and **`chapter-runs-backward` was scoped to a single model**, because two regions have independent column
+grids and comparing x across them compares two unrelated rulers.
+
+**It passed first time and was therefore mutated rather than trusted.** Removing the single line that sends
+the publisher its trigger turned it red in exactly the right place — `BayListed` empty, no contract crossed.
+The walk genuinely depends on the real publisher, the real durable queue and the real translation handler.
+**It also asserts the negative before publishing**: charging must not see the bay yet. That line is what
+separates *"the contract carried it"* from *"the fold saw it anyway"*, and it is the standing guard against
+the false pass this journey existed to expose — a false pass that had been **real**, and inverted the moment
+the read side was re-pointed.
+
+**`codegen` needed no change**, which was the risk worth checking: it reads the IR's `journeys` list and the
+slice names, and nothing in the emitter cares which model a slice lives in. One cosmetic inaccuracy recorded
+rather than fixed: the IR gives a chapter `context=`, which is merely **where the cell is drawn**. For a
+crossing chapter that field is arbitrary and must not be trusted; it is harmless today only because journey
+tests land in a context-agnostic `Journeys/` folder.
+
+**Also worth keeping:** of the four errors hit on the way, one was **V3 exactly** — `WaitForNonStaleProjectionDataAsync`
+needing `using Marten.Events;` — the finding that exists because a generated hint once named a static class as
+a namespace. A finding re-encountered by a fresh session is the clearest evidence that writing it down was
+worth it.
+
 ## V23 — THREE parsers read one file, and the strict ones DELETED what they could not match · **BROKEN** · ***FIXED 2026-08-10***
 
 Found during the board refactor's step 3, cured in step 3b, **before** step 4 reformatted every `.drawio` in

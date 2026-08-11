@@ -356,7 +356,14 @@ possible because `derived-without-example` pushed example data onto GWTs in the 
 the *only* thing asking the reachability question at all. Together they mean the kit's one reachability check
 is both optional and unavailable at the seam where it matters most.
 
-### V19 — a journey cannot cross a model boundary, so the one walk that proves two contexts compose cannot be drawn · `kit` · **GAP**
+### V19 — ~~a journey cannot cross a model boundary~~ · `kit` · ***FIXED — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
+
+**Closed 2026-08-11 by the board refactor, which existed for it.** A cross-context chapter now validates,
+scaffolds and passes: `estate-to-driver` walks `open-site → commission-bay → publish-bay-offered` (estate)
+then `translate-bay-offered → bay-availability → hold-bay` (charging), and **fails when the boundary is
+broken**. Full entry in the archive.
+
+<!-- ARCHIVED BELOW — the authoritative copy is in KIT-HISTORY.md.
 
 The `journey` skill says it plainly: *"A journey belongs to the **system**, not to a slice, which is why
 neither `codegen` nor a slice's own agent owns it."* The implementation binds it to a **model**. `slice.mjs
@@ -398,6 +405,8 @@ out, in increasing honesty:
 
 Until then a two-model system gets per-context journeys and **no composition test at the seam** — which
 should be said out loud rather than left to look like coverage.
+
+-->
 
 ### V18 — `design.mjs check` pools the design and the port, so the two can disagree and it stays quiet · **BROKEN**
 

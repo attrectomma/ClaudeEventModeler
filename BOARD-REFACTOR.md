@@ -245,9 +245,23 @@ refactor can be stopped between any two.
 
    Measured to establish all of the above: 5 cross-context labels (7 total, minus the 2 genuinely foreign
    Kempworth events), and 96 of 109 hand-owned scaffolds referencing `Voltway.Contracts`.
-7. **V19 closes by construction** — the cross-context chapter is a rectangle on a board. Draw it, walk it,
-   make it pass. **NOT STARTED.** The refactor unblocked it; nobody has drawn it. Only two chapters exist,
-   both single-context.
+7. ~~V19 closes by construction~~ — ✅ **DONE 2026-08-11. THE REFACTOR IS COMPLETE.**
+   `estate-to-driver` walks `open-site → commission-bay → publish-bay-offered` (estate) then
+   `translate-bay-offered → bay-availability → hold-bay` (charging). **203 tests, 0 failed.**
+   `chapter-crosses-models` reports *"walks estate → charging"*. **`codegen` needed no change** — it reads
+   the IR's `journeys` list and the slice names, and nothing in the emitter cares which model a slice lives
+   in. It **passed first time and was mutated rather than trusted**: removing the line that triggers the
+   publisher turns it red with `BayListed` empty. It also **asserts the negative before publishing**, which
+   is what separates *"the contract carried it"* from *"the fold saw it anyway"*.
+
+---
+
+## 7. The result, in one line
+
+**A board holds two models; the boundary between them is a real contract in the model and in the code; and
+the walk that proves the two contexts compose exists, passes, and fails when the boundary is broken.**
+
+Everything else in this file was in service of that sentence.
 
 ---
 
