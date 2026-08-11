@@ -180,6 +180,39 @@ regenerating on every validate would churn a committed file. **Do not close it b
 step 4 established it is *not* redundant (a board shows both models but not what crosses between them), so
 it earns its keep until `contract=` lands.
 
+### V28 — `EnrichEventsAsync` is NOT invoked on an `Inline` projection: it compiles, boots, and silently does nothing · `kit`/stack · **BROKEN**
+
+Marten's `EnrichEventsAsync` is the documented hook for a projection that must look something up before it
+folds — the way a bay-keyed view reaches a fact carried only by a site-keyed event. Registered **`Inline`**
+it is **never called**. No exception, no warning, clean startup.
+
+Measured on Voltway's `BayContractData`, registered `Inline` under CLAUDE.md's own *"a todo View an
+automation's liveness depends on must be `Inline`"* exception. The row appeared with `SiteName` at its
+default, the publisher then **correctly declined to publish an incomplete contract**, and **the bay never
+crossed the boundary**. Every per-slice test stayed green; only the cross-context journey caught it.
+
+**This is the V2 / AD11 shape and now the third instance**, which makes it a pattern rather than a
+coincidence: *a documented Marten member that is silently skipped in one lifecycle*. V2 was
+`Task<T> Apply(TEvent, IQuerySession, T)` skipped on a multi-stream projection. AD11 was the
+source-generated dispatcher with no runtime fallback. All three compile, all three boot, all three do
+nothing.
+
+**And it collides head-on with a kit rule.** CLAUDE.md requires a todo View an automation depends on to be
+`Inline`, for a reason that is measured and correct — an `Async` todo list can be read empty while the
+checkpoint moves past. But a todo View that *also* needs enrichment cannot be `Inline`, because enrichment
+does not run there. **The two requirements are incompatible and nothing says so.**
+
+Voltway's resolution — `Async`, safe *because* the wakeup is a clock rather than a subscription, so there is
+no checkpoint to outrun — is correct here and does **not** generalise: the same view woken by an
+`ISubscription` would reintroduce exactly the hazard the Inline rule exists to prevent. So the real rule is
+three-way, and CLAUDE.md states only two of the legs:
+
+| todo View needs enrichment? | woken by | lifecycle |
+| --- | --- | --- |
+| no | anything | **`Inline`** — the existing rule |
+| yes | a **clock** | **`Async`** is safe: a sweep recomputes from the view every tick, so there is nothing to outrun |
+| yes | a **subscription** | **no safe answer today.** Enrich on the producer side before publishing, or drop the enrichment |
+
 ### V27 — `contract-in-domain-band` enforces the DRAWING, not the separation: a contract band with the same `identity=` is the same physical stream · `kit` · **BROKEN**
 
 `UES` ch. 15 says the contract event is *"stored in another swimlane"*, and `contract-in-domain-band` was
