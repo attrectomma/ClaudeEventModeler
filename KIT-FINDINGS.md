@@ -1124,7 +1124,7 @@ Deleted all four, re-ran `node tools/codegen.mjs`, got `15 written, 13 kept` and
 
 | File | Why it had to exist |
 | --- | --- |
-| `Slices/<ctx>/Rejections.cs` | CLAUDE.md and `backend-agent` both say to return a rejection *"via the shared `Rejections.Problem` helper"*. **`grep -n "Rejections" tools/codegen.mjs` returns zero hits** — it exists only inside a reference implementation |
+| `Slices/<ctx>/Rejections.cs` | CLAUDE.md and `backend-agent` both say to return a rejection *"via the shared `Rejections.Problem` helper"*, and **nothing emits the helper** — it exists only inside a reference implementation. ⚠ **The evidence line here originally read *"`grep -n "Rejections" tools/codegen.mjs` returns zero hits"*, which is WRONG and would make a reader think the finding is stale: that grep returns **5**, all of them the unrelated local variable `rejections` — the GWT filter at `codegen.mjs:999`. The helper class is what is absent. Corrected rather than deleted, because a finding whose evidence does not reproduce is worse than no finding** |
 | `Slices/<ctx>/<Slice>/<Slice>Handler.cs` ×2 | the message-path decider **BP2** requires. codegen scaffolds `<Slice>Endpoint.cs` as the decider itself and has no scaffold for the handler + thin-adapter pair |
 | `Slices/<ctx>/TodaysBookings/TodaysBookingsEndpoint.cs` | a `state-view` slice's whole contract is a read model, and **no read endpoint is generated for one**. The GT hint even says to assert *"through its read endpoint **if the slice has one**"* |
 
