@@ -66,6 +66,42 @@ connection refused, DNS failure, a request killed by a navigation. Once a status
 `/charging/holdBay` would also excuse a genuine `400` from that endpoint, and a refusal reaching the user
 is the single thing this guard most needs to see. A workaround that blinds the check is worse than the bug.
 
+## BN6 — `SELECTOR NOT IN THE MODEL` was scoped to the chapter's own screens, and flagged an honest walk · **NOISE** · ***FIXED 2026-08-11***
+
+The check built its allowed set from the screens the chapter's **slices act on**, then called anything else
+a stranger. `bay-out-and-back` ends by reading its stated outcome — `BayHealth(inService=true,
+openFaultCount=0)` — on the **bay-health** screen, using five selectors bay-health declares and the
+chapter's other three screens do not. All five were model-derived and already held in both directions by
+`design.mjs check`; the report called them invented.
+
+**The confusion is worth naming, because it is a modelling distinction and not a coding slip.** A chapter's
+outcome is a **View**. The place a human reads a view is a **screen**. Reading is not a slice, so no slice of
+the chapter need act on that screen — which means "declared by a screen this chapter acts on" and "declared
+by this system" are different sets, and only the second one expresses the rule the check exists for: *no
+invented selector*.
+
+Now scoped to the system, with the narrower fact kept as a **note** — `READS A SCREEN OFF ITS OWN WALK`,
+naming the selectors and the screen that declares them, because a walk that has quietly wandered looks
+exactly the same and a reader should get the chance to disagree. `check` grew a `notes` channel for it,
+printed separately so the summary line cannot lie.
+
+## BN7 — `actionTimeout` defaults to 0, so a disabled control consumed the whole test budget · **NOISE** · ***FIXED 2026-08-11***
+
+The scaffolded config bounded the test (**BN3**) and not the actions. Playwright's `actionTimeout` defaults
+to **0, meaning no limit**, so a `fill()` on a control that is disabled and never becomes enabled waits until
+the *test* times out and then reports **the test** as the failure, with no mention of the element.
+
+Measured: three minutes of silence that read as "the browser hung". The real cause was three levels away — a
+poll that had raced past the job being raised, leaving a `<textarea disabled>` — and the report pointed at
+`van.close()` in a `finally`. With `actionTimeout: 15_000` the same run says *"this textarea is disabled"* in
+fifteen seconds.
+
+**A disabled control is how every screen in this kit says "there is nothing to do here"**, so a journey meets
+one whenever it arrives early — which is most of the time, since arriving early is the condition these tests
+exist to examine. `expect.timeout` is set alongside it for the same reason. Note `actionTimeout` belongs
+under `use` and not at the top level; putting it at the top level is a **type error**, which is the one
+mistake in this class the compiler does catch.
+
 ## BN3 — Playwright's 30s default test timeout silently capped a journey's own waits · **NOISE** · ***FIXED 2026-08-11***
 
 The scaffolded `playwright.config.ts` set no `timeout`, so every `expect(..., { timeout: 90_000 })` inside a

@@ -26,6 +26,36 @@ Carry **every `data-em` attribute across**. JSX writes them exactly as HTML does
 field you show that the model does not declare is a hard error, and one you drop is a warning. That
 check is the only thing keeping the page honest about what the system can supply.
 
+### A SCREEN WHOSE DATA CAN CHANGE WITHOUT THE USER ACTING NEEDS A REFETCH
+
+`useEffect(() => { void load(); }, [load])` fetches **once, on mount, and never again**. Three ported screens
+carried it — written by two different agents against this brief — so it is the brief that produces it, not a
+slip. KIT-FINDINGS **BN9**.
+
+**Nothing in the kit catches it.** The backend tests assert through the API, `design.mjs check` is a *field*
+contract, `tsc` is types, and the review sheet is a static shot. A retrying assertion cannot even fail
+usefully, because it re-queries a DOM that cannot change.
+
+Ask one question of every screen: **can what this shows change without this user doing anything?**
+
+| | |
+| --- | --- |
+| a form the user submits and immediately re-reads | one fetch is fine |
+| a **list fed by an automation, a subscription or another actor** | **needs a refetch** — a poll, an SSE, or at minimum a Refresh control **present in every state, including empty** |
+
+The empty state is where this bites hardest and where it is most often missed: a control rendered inside the
+non-empty branch is absent precisely when the user is waiting. Measured on `work-list` — a technician opens
+the list, the work arrives ~1s later from a stranger's fault report, and there is nothing on screen to press.
+
+**And never claim a freshness your fetching cannot deliver.** `work-list` renders *"Updated in the same
+transaction as the change · this list is exact"* — true of the `Inline` projection, false of the screen that
+stopped asking. **A projection's consistency is not the screen's.** A stale list that admits it is a
+nuisance; one that certifies itself is a trap. If the design says *"may be behind"*, keep those words.
+
+`UES` ch. 42's **fenced polling** is the principled answer — return the aggregate sequence from the command,
+persist the projection's version beside it, poll only until they match — and it is licensed-but-unbuilt in
+`BOOK-INDEX.md`.
+
 ### SCOPE YOUR STYLESHEET TO A SCREEN-ROOT CLASS. Vite has one bundle.
 
 You port **one screen at a time**, each with its own `.css` — and Vite concatenates all of them into a

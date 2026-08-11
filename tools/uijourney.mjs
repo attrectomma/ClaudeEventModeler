@@ -465,6 +465,7 @@ if (cmd === "scaffold") {
 if (cmd === "check") {
   const w = world();
   const problems = [];
+  const notes = [];
   const specs = existsSync(JDIR)
     ? readdirSync(JDIR).filter((f) => f.endsWith(".journey.spec.ts")).map((f) => join(JDIR, f))
     : [];
@@ -487,6 +488,10 @@ if (cmd === "check") {
     const name = basename(p).replace(".journey.spec.ts", "");
     const j = w.journeys.find((x) => x.name === name);
     const add = (report, detail) => problems.push({ report, file: rel(p), name, detail });
+    // A NOTE IS NOT A PROBLEM, and keeping them in one list would make the summary line lie. Same house
+    // style as `joins="none"` and the Conway rule: report the unacknowledged case, NOTE the legitimate one
+    // that a reader might still want to disagree with.
+    const note = (report, detail) => notes.push({ report, file: rel(p), name, detail });
 
     // A SCAFFOLD NOBODY HAS FILLED IN IS NOT A SPEC, and running the content checks over one reports four
     // findings about a file the tool wrote itself two minutes ago. That is the cry-wolf failure
@@ -577,7 +582,25 @@ if (cmd === "check") {
     //    model-derived and already checked in both directions.
     if (j) {
       const p2 = planOf(j, w);
-      const allowed = new Set(p2.screens.flatMap((s) => [
+      // SCOPED TO THE SYSTEM, NOT TO THE CHAPTER'S OWN SCREENS, and the difference is a real one.
+      //
+      // The rule being enforced is "no INVENTED selector" — the same class design.mjs check catches on a
+      // page. The system-wide declared set enforces exactly that. Restricting it to the screens the
+      // chapter's slices ACT on conflated two different things, and flagged an honest spec: a chapter's
+      // stated outcome is a VIEW (`BayHealth(inService=true, openFaultCount=0)`), and the place a human
+      // reads a view is a screen — which no slice of the chapter need act on, because reading is not a
+      // slice. bay-out-and-back ends on bay-health for precisely that reason, using five selectors
+      // bay-health declares and its own three screens do not. Those are model-derived and checked in
+      // both directions by design.mjs; calling them strangers was wrong.
+      //
+      // The narrower fact is still worth saying, so it is said below as a NOTE rather than a violation.
+      const declared = (s) => [
+        ...[...s.displays].map((f) => `data-em=${f}`),
+        ...[...s.inputs].map((f) => `data-em-input=${f}`),
+        ...[...s.commands].map((c) => `data-em-action=${c}`),
+      ];
+      const allowed = new Set([...w.screens.values()].flatMap(declared));
+      const onWalk = new Set(p2.screens.flatMap((s) => [
         ...s.displays.map((f) => `data-em=${f}`),
         ...s.inputs.map((f) => `data-em-input=${f}`),
         ...s.commands.map((c) => `data-em-action=${c}`),
@@ -585,7 +608,19 @@ if (cmd === "check") {
       const used = [...raw.matchAll(/data-em(-input|-action)?\s*=\s*\\?["']([^"'\\]+)/g)]
         .map((m) => `data-em${m[1] ?? ""}=${m[2]}`);
       const strangers = [...new Set(used.filter((u) => !allowed.has(u)))];
-      if (strangers.length) add("SELECTOR NOT IN THE MODEL", `${strangers.join(", ")} — not declared by ${p2.screens.map((s) => s.screen).join(", ")}`);
+      if (strangers.length) add("SELECTOR NOT IN THE MODEL", `${strangers.join(", ")} — declared by no screen in this system`);
+
+      // Which OTHER screens this spec reads, and where each selector comes from. Not a defect: it is how
+      // a chapter's outcome gets asserted where a human would look at it.
+      const offWalk = [...new Set(used.filter((u) => allowed.has(u) && !onWalk.has(u)))];
+      if (offWalk.length) {
+        const owners = [...w.screens.values()]
+          .filter((s) => declared(s).some((d) => offWalk.includes(d)))
+          .map((s) => s.slug)
+          .filter((slug) => !p2.screens.some((s) => s.screen === slug));
+        note("READS A SCREEN OFF ITS OWN WALK",
+          `${offWalk.join(", ")} — declared by ${owners.join(", ") || "another screen"}, which no slice of this chapter acts on. Normal when the chapter's outcome is a View and this is where a human reads it; wrong if the walk has quietly wandered`);
+      }
     }
 
   }
@@ -625,14 +660,21 @@ if (cmd === "check") {
     for (const j of missing) console.log(`  ${j.name}   ->   node tools/uijourney.mjs scaffold --journey ${j.name}`);
   }
 
-  const byReport = new Map();
-  for (const p of problems) {
-    if (!byReport.has(p.report)) byReport.set(p.report, []);
-    byReport.get(p.report).push(p);
-  }
-  for (const [report, list] of byReport) {
+  const groupBy = (rows) => {
+    const m = new Map();
+    for (const r of rows) { if (!m.has(r.report)) m.set(r.report, []); m.get(r.report).push(r); }
+    return m;
+  };
+  for (const [report, list] of groupBy(problems)) {
     console.log(`\n${report} — ${list.length}.`);
     for (const p of list) console.log(`  ${p.name}: ${p.detail}\n    ${p.file}`);
+  }
+
+  for (const [report, list] of groupBy(notes)) {
+    console.log(`
+note — ${report} — ${list.length}.`);
+    for (const n of list) console.log(`  ${n.name}: ${n.detail}
+    ${n.file}`);
   }
 
   if (!problems.length && !missing.length) {
@@ -841,9 +883,18 @@ export default defineConfig({
   // than "the test ran out of its own budget", which is a full debugging round in the wrong place.
   // Raise it to cover the slowest hop the walk contains; per-assertion timeouts still do the real work.
   timeout: 180_000,
+  // AND BOUND THE ACTIONS, because Playwright's actionTimeout defaults to 0 — MEANING NO LIMIT. A
+  // \`fill\` or \`click\` on a control that is disabled and never becomes enabled therefore waits for the
+  // whole test budget and then reports the TEST as timing out, with no mention of the element. Measured:
+  // three minutes of silence that read as "the browser hung", where a bounded action would have said
+  // "this textarea is disabled" in fifteen seconds. A disabled control is the normal way this kit's
+  // screens say "there is nothing to do here", so a journey meets one whenever it is early.
+  expect: { timeout: 15_000 },
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   use: {
     baseURL: process.env.PW_BASE_URL ?? "http://localhost:5173",
+    // actionTimeout lives HERE and not at the top level — it is a context option, not a runner one.
+    actionTimeout: 15_000,
     // A failing journey may be broken in any slice it walks, or in none of them. The trace is what a
     // human reads to find out which, so keep it for the failure and throw it away for the pass.
     trace: "retain-on-failure",

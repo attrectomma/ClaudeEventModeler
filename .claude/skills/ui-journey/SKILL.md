@@ -144,6 +144,26 @@ Both halves are reported by name:
 node tools/uijourney.mjs check
 ```
 
+### Reaching the starting position: the line is the SLICE LIST, not the transport
+
+*"No step may fake the backend"* is about **stubbing** — `page.route`, `fulfill`, `localStorage` seeding,
+`/harness/`. Using the real API to establish history is not faking, and the backend `journey` skill records
+exactly that for its `open-site` call.
+
+**That ruling was under-specified, and `check` was right where it contradicted it.** The refinement, learned
+on `bay-out-and-back`:
+
+> **A real endpoint reaching a position no slice of the chapter covers is legitimate. Reaching a position a
+> NAMED slice covers is skipping the walk — whatever the transport.**
+
+`commission-bay` was that chapter's **first slice**. POSTing to it is not faking the backend, and it is still
+wrong: the chapter names the slice, so that slice's *screen* is part of what the walk exists to prove.
+Clicking `estate-admin` instead cost a second, removed the argument, and made the story better — four screens
+with the Estate Manager bookending it.
+
+The backend journey's `open-site` call stays legitimate under the same rule, because `open-site` is **not** in
+its slice list.
+
 ## 4 — shots are the proof of an assertion, and the folder is the last run
 
 **Assert, then shoot, in that order, for every state the walk reaches.** An assertion is a claim the suite

@@ -1045,6 +1045,73 @@ to catch were live in it**, which is the argument for generating it:
 None of that is judgement — it is mechanically derivable from the IR (the route prefixes are the contexts,
 the screens are the paths). It belongs in `emit`, with the nginx config `scaffold` if anything is.
 
+### BN9 — EVERY ported screen fetches once on mount and never again, and one of them certifies itself as exact · `kit` · **BROKEN**
+
+Not one screen's slip. **Three screens, two agents, one convention** — `BayFinder.tsx`, `WorkList.tsx` and
+`BayHealth.tsx` all carry `useEffect(() => { void load(); }, [load])`, verified identical. Two independent
+`frontend-agent` runs produced it against the same brief, so **the brief is what produced it**, and the next
+port will produce it again.
+
+**Nothing in the kit can see it.** Every backend test asserts through the API; `design.mjs check` is a *field*
+contract; `tsc` is types; the review sheet is a static shot. A retrying assertion cannot even fail
+usefully — **it re-queries a DOM that cannot change**, so 90 seconds of retry is 90 seconds of asking one
+stale snapshot. Only a browser walk finds it, and only if the walk waits for something that arrives *after*
+load.
+
+**It bites hardest exactly where a human is most likely to be waiting**, and `work-list` is the worst case:
+
+- **The user never causes the change they are waiting for.** Measured every run: `FaultWatcherSubscription`
+  withdraws at 1071ms, `RepairWatcherSubscription` raises the job at 1074ms — both **after** the technician's
+  page has loaded, and triggered by *a stranger's* fault report. `bay-finder`'s driver at least clicked the
+  thing they were waiting for; a technician clicks nothing.
+- **The empty state has no Refresh control at all** — it lives inside the non-empty branch of the render. So
+  the one state where you are most likely to be waiting is the one with no way to re-ask. `bay-health` is
+  structurally identical. The only affordance left is a browser reload, and nothing on screen says so.
+- **THE COPY ASSERTS THE OPPOSITE OF THE TRUTH.** `work-list` renders *"Updated in the same transaction as
+  the change · this list is exact"*. That is true of `WorkListProjection`, which is `Inline` — and false of
+  the **screen**, which stopped asking. The port deliberately replaced the design's honest *"may be behind"*
+  with a promise of exactness and documented why. Proven with two browser contexts, so no timing guess is
+  involved: the host's POST has demonstrably completed, the technician's page is untouched, and the shot
+  shows **`2 open faults` sitting directly above `this list is exact`** while a third is already recorded.
+
+**A stale list that admits it is a nuisance. A stale list that certifies itself is a trap** — and this one
+was authored by following the model correctly, because the *projection* really is `Inline`. The mistake is
+treating a projection's consistency as the screen's.
+
+The fix belongs in `.claude/agents/frontend-agent.md`, not in one file: a screen whose data can change
+without the user acting needs a refetch, and **a screen may not claim a freshness its fetching cannot
+deliver**. `UES` ch. 42 ("fenced polling") is the principled version and is already flagged in
+`BOOK-INDEX.md` as licensed-but-unbuilt.
+
+### BN8 — a `data-em` field is rendered PRESENT-BUT-HIDDEN when it has no value, so `count()` silently passes · **GAP** · cause `kit`
+
+**Every field on a screen's `displays=` has to exist in the DOM for `design.mjs check` to hold the port to
+the model — so the ports render the empty case as a hidden element rather than as no element:**
+
+```tsx
+{hasJob ? <>job <span data-em="jobId">{shortRef(job.jobId!)}</span></>
+        : <><span hidden data-em="jobId" />…</>}
+{job.serviceDue ? <span className="tag due" data-em="serviceDue">service due</span>
+                : <span hidden data-em="serviceDue">false</span>}
+```
+
+That convention is right and it is load-bearing. What nothing says is the consequence for anyone writing a
+UI journey: **`locator('[data-em="jobId"]').count() > 0` is true whether or not a job exists.** A poll written
+that way returns true immediately, the walk races past the state it was waiting for, and the failure surfaces
+somewhere else entirely — measured here as a `fill()` on a `<textarea disabled>` hanging for the whole test
+budget (**BN7**), three levels from the cause.
+
+**So a journey must assert VISIBILITY, never presence** — or better, assert on the *affordance* (`CompleteJob`
+being enabled), which is both the real precondition for the next step and impossible to satisfy with a hidden
+placeholder.
+
+Two things would close it, neither built:
+
+| | |
+| --- | --- |
+| the scaffolded spec's selector list | should mark which fields the port renders conditionally, since `plan` already reads `displays=` and the port is on disk |
+| `uijourney.mjs check` | could report `count()` used on a `data-em` selector at all — it is almost never what a spec means |
+
 ### BN5 — the "no skipped navigation" rule has no notion of an ACTOR CHANGE · **GAP** · cause `kit`
 
 `ui-journey`'s one rule says no step may skip the navigation it is testing, and reaching a screen by typing
