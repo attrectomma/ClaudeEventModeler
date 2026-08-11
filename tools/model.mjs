@@ -442,8 +442,17 @@ function buildIrs(file) {
   // Every model on this board, so a link marker can be checked against the board it points into —
   // ch.18: "a marker below the slice with a link to a different model ON THE BOARD."
   const contexts = regions.map((r) => r.anchor?.context ?? null);
+  // EVERY SLICE ON THE BOARD, and which model it is in. A chapter is a fact about the SYSTEM rather
+  // than about a model — the skill has always said so — so once a board can hold several models, a
+  // chapter must be able to name a slice in any of them. This is what closes KIT-FINDINGS V19.
+  const boardSlices = new Map();
+  for (const n of nodes) {
+    if (n.kind !== "group" || !n.slice || n.id.startsWith(MARK_PREFIX)) continue;
+    boardSlices.set(n.slice, { context: contexts[regionOf(n, regions).index] ?? null, status: n.status ?? null });
+  }
   return regions.map((r) =>
-    irOfRegion(r, nodes, edges, regionOfId, { file, page: name, count: regions.length, contexts }));
+    irOfRegion(r, nodes, edges, regionOfId,
+      { file, page: name, count: regions.length, contexts, boardSlices }));
 }
 
 // Every command except `validate` still takes exactly one model. A file holding one region IS that
@@ -603,6 +612,8 @@ function irOfRegion(region, allNodes, allEdges, regionOfId, meta) {
     regionCount: meta.count,
     // The other models on this board — what an alt= link may point at.
     siblingContexts: (meta.contexts ?? []).filter((c, i) => c && i !== region.index),
+    // slice name -> the context it lives in, ACROSS THE WHOLE BOARD. Only a chapter reads this.
+    boardSlices: meta.boardSlices ?? new Map(),
     // Edges leaving this model. Only ever non-empty on a board — see the rule that reads it.
     outbound: outbound.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     // `mode` is PROVENANCE, not a domain fact, and it is the one thing of its kind on the diagram.
@@ -1430,11 +1441,29 @@ function chapterRules(ir) {
       continue;
     }
 
-    const unknown = j.slices.filter((n) => !byName.has(n));
+    // A CHAPTER RESOLVES ITS SLICES ACROSS THE WHOLE BOARD, not just its own model — KIT-FINDINGS V19.
+    //
+    // The `journey` skill always said this layer "belongs to the SYSTEM, not to a slice, which is why
+    // neither codegen nor a slice's own agent owns it", while the implementation bound it to one model.
+    // At one model those two statements coincide, which is why five runs never noticed. At two they do
+    // not, and the walk worth having most — a bay commissioned in estate, found and held in charging —
+    // was the one that could not be drawn.
+    //
+    // A board is what makes it drawable: the slices are all on one canvas, so a bar spanning them is a
+    // rectangle. That is step 7 of BOARD-REFACTOR.md, and this is the line that closes it.
+    const unknown = j.slices.filter((n) => !ir.boardSlices.has(n));
     if (unknown.length) {
       push("error", "chapter-unknown-slice",
-        `${what} "${name}" names ${unknown.join(", ")}, which ${unknown.length > 1 ? "are" : "is"} not a slice in this model.`, j.id);
+        `${what} "${name}" names ${unknown.join(", ")}, which ${unknown.length > 1 ? "are" : "is"} not a slice on this board.`, j.id);
       continue;
+    }
+    // Crossing is the POINT of this layer rather than a defect, so it is a note — but a loud one,
+    // because a chapter that crosses is the only artifact in the kit that can prove two contexts
+    // compose, and a reader should know which ones do.
+    const crossed = [...new Set(j.slices.map((n) => ir.boardSlices.get(n)?.context).filter(Boolean))];
+    if (crossed.length > 1) {
+      push("info", "chapter-crosses-models",
+        `chapter "${name}" walks ${crossed.join(" -> ")}. This is the one walk that can prove two contexts compose: every slice test appends its own history, so nothing else in the kit asks whether the system can actually get from one context to the other.`, j.id);
     }
 
     // Everything from here is about a RUN, so it applies only to a chapter that walks.
@@ -1459,7 +1488,10 @@ function chapterRules(ir) {
     // It earns its keep on the kit's own campaigns model, where close-campaign is drawn second — beside
     // open-campaign, because they share the Campaign stream — while the story closes last. Neither the
     // column order nor the walk is wrong; the tension between them is exactly what this points at.
-    const xs = j.slices.map((n) => ({ n, x: cellOf(n)?.geometry?.x ?? null })).filter((s) => s.x !== null);
+    // Only within ONE model: two regions have independent column grids, so comparing x across them
+    // would compare two unrelated rulers and warn on every crossing.
+    const xs = crossed.length > 1 ? []
+      : j.slices.map((n) => ({ n, x: cellOf(n)?.geometry?.x ?? null })).filter((s) => s.x !== null);
     for (let i = 1; i < xs.length; i++) {
       if (xs[i].x < xs[i - 1].x) {
         push("warn", "chapter-runs-backward",
@@ -1470,7 +1502,7 @@ function chapterRules(ir) {
 
     // A walk over a slice nobody has built will fail for a reason that has nothing to do with
     // composition. Warned rather than errored: writing it first is a legitimate way to work.
-    const unbuilt = j.slices.filter((n) => byName.get(n)?.status === "in-design");
+    const unbuilt = j.slices.filter((n) => ir.boardSlices.get(n)?.status === "in-design");
     if (unbuilt.length) {
       push("warn", "chapter-slice-in-design",
         `chapter "${name}" walks ${unbuilt.join(", ")}, still in-design. Until they are claimed this walks nothing it could not have told you by reading the model.`, j.id);

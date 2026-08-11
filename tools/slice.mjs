@@ -1077,9 +1077,19 @@ function cmdChapter(target, o) {
   const { file, xml } = read(target);
   if (!o.chapter || !o.slices) die("chapter needs --chapter <slug> and --slices <a,b,c>.");
   const names = o.slices.split(",").map((s) => s.trim()).filter(Boolean);
-  // The slices name themselves into a region. A chapter whose slices live in TWO models is refused by
-  // pickRegion — that is the cross-context chapter, which is V19 and step 7, not this step.
-  const m = model(xml, pickRegion(xml, o, [
+  // A CHAPTER MAY CROSS MODELS, and that is the point of the layer rather than an edge case —
+  // KIT-FINDINGS V19. Every other write goes to exactly one model, so pickRegion refuses ambiguity;
+  // a chapter is a fact about the SYSTEM, so a story spanning two contexts is the one walk that can
+  // prove they compose. It is drawable at all only because a board holds them on one canvas.
+  //
+  // A crossing chapter is drawn in the FIRST region's strip. That is not a fudge: region 1 is
+  // unbounded above (step 2), so the strip above everything belongs to it, and the bar spans the x
+  // range of every slice it names wherever they live.
+  const { cells: allCells, regions: allRegions } = regionsIn(xml);
+  const named = allCells.filter((c) => c.em === "group" && names.includes(c.slice));
+  const spans = new Set(named.map((c) => allRegions.findIndex((r) => inRegion(c, r))).filter((i) => i >= 0));
+  const crossing = spans.size > 1;
+  const m = model(xml, crossing ? allRegions[0] : pickRegion(xml, o, [
     { what: "--slices", pred: (c) => c.em === "group" && names.includes(c.slice) },
   ]));
   if (o.then && names.length < 2) {
@@ -1087,9 +1097,12 @@ function cmdChapter(target, o) {
         "       Drop --then to make it pure structure, which may group one.");
   }
 
+  // Slice cells are looked up ACROSS THE BOARD, not just in the region the bar is drawn in — a
+  // crossing chapter names slices in a model it does not sit in.
   const cells = names.map((n) => {
-    const c = m.sliceCells.find((x) => x.slice === n);
-    if (!c) die(`--slices names "${n}", which has no slice cell. Bands: ${m.sliceCells.map((x) => x.slice).join(", ")}.`);
+    const c = named.find((x) => x.slice === n);
+    if (!c) die(`--slices names "${n}", which has no slice cell on this board. Slices: ${
+      allCells.filter((x) => x.em === "group" && x.slice).map((x) => x.slice).join(", ")}.`);
     return c;
   });
   const x0 = Math.min(...cells.map((c) => c.g.x));
