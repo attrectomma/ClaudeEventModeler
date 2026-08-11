@@ -2578,7 +2578,18 @@ function buildSystemIr(models, system) {
     // that generated artifact has always been called. Renaming the IR field would rename the emitted
     // class and file, which are `scaffold`: the filled ones would be orphaned and a new empty pair
     // written beside them, colliding. So the boundary is drawn here, deliberately — the model says
-    // chapter, the generated test says journey, and codegen and uijourney.mjs need no change at all.
+    // chapter and the generated test says journey.
+    //
+    // THIS COMMENT USED TO END "and codegen and uijourney.mjs need no change at all." IT WAS TRUE OF
+    // CODEGEN AND FALSE OF THE ONE OTHER FILE IT NAMED — KIT-HISTORY BN1. `codegen` reads THIS field
+    // and was genuinely untouched; `uijourney.mjs` reads the **per-model** IR, where the field is
+    // `chapters`, and all three of its commands crashed on `ir.journeys` being undefined the first
+    // time anyone ran them after the rename.
+    //
+    // Kept rather than deleted, because the failure mode is the point: a reassuring comment is read as
+    // evidence, and this one was most confident exactly where it was wrong. **A rename is not done
+    // when the callers you thought of still work.** `grep` for the old field name; do not reason about
+    // who reads it.
     journeys: models.flatMap((m) => m.ir.chapters.filter((j) => j.chapter && j.gwt.then).map((j) => ({
       name: j.chapter, context: contextOf(m), label: j.label ?? null,
       slices: j.slices, then: j.gwt.then ?? null,

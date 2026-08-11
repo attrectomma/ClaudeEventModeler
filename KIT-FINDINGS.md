@@ -1023,6 +1023,48 @@ router will not draw. → [detail](KIT-HISTORY.md)
 
 ## 2. Missing capability
 
+### BN4 — nothing emits `docker-compose.yml`, and the `ui-journey` gate requires it · **GAP** · cause `kit`
+
+**`ui-journey`'s gate says the run that counts is against compose, and no tool in the kit writes a compose
+file, a Dockerfile or an nginx config.** `codegen`'s skill says *"the demo uses docker-compose"*,
+`uijourney.mjs`'s scaffolded config prints the `docker compose -f generated/<System>/docker-compose.yml`
+command, and `web/vite.config.ts`'s own comment warns that *"the same trap is waiting in the compose nginx
+config"* — a file that did not exist. So the gate was unmeetable on a fresh project, and the previous
+project only met it because somebody hand-wrote the files once.
+
+Hand-written for Voltway during the first UI-journey run, and **all four of the things compose is supposed
+to catch were live in it**, which is the argument for generating it:
+
+| | |
+| --- | --- |
+| the nginx prefix trap | `location /estate` swallows `/estate-admin`. Needs `location ^~ /estate/`, exactly as vite.config predicted |
+| the SPA fallback | seven screens are seven real paths; without `try_files … /index.html` only `/` loads and every deep link 404s |
+| `ASPNETCORE_ENVIRONMENT` | the seed hangs off `IsDevelopment()`, so without it every screen is empty with no error |
+| Wolverine runtime codegen | the aspnet runtime image has no reference assemblies for Roslyn. Solved by `codegen write` at build time plus `JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static`, so a missing generated type is a loud startup failure rather than a silent recompile that works in dev only |
+
+None of that is judgement — it is mechanically derivable from the IR (the route prefixes are the contexts,
+the screens are the paths). It belongs in `emit`, with the nginx config `scaffold` if anything is.
+
+### BN5 — the "no skipped navigation" rule has no notion of an ACTOR CHANGE · **GAP** · cause `kit`
+
+`ui-journey`'s one rule says no step may skip the navigation it is testing, and reaching a screen by typing
+its URL is the offence. **That is right within one actor and meaningless across two**, and the skill does
+not draw the line — so the rule as written condemns every cross-actor journey, which is the interesting kind.
+
+Voltway has five actor lanes over seven screens. `estate-to-driver` walks `estate-admin` (Estate Manager) then
+`bay-finder` (Driver): two people, two devices, two buildings. There is no in-app link between them, there
+should not be one, and adding one to make the test "click properly" would invent a workflow nobody has.
+Honouring the rule literally would have meant either building that link or declaring the journey unwalkable.
+
+The model already holds the fact needed to decide it — `actor=` on the lane, which the kit added for exactly
+this class of question. So `uijourney.mjs plan` could say *"step 2 changes actor, so its URL entry is a
+login, not a shortcut"* instead of leaving it to a judgement call the human has to be asked for. Answered by
+the human this run and recorded in the spec's doc comment, which is currently the only place it lives.
+
+**Related and unfixed:** `plan`'s "HOW DOES THE USER GET HERE?" prompt fires on any screen with no
+`displays=`, which cannot distinguish a modal that must be opened from an entry point that is simply typed.
+Both of Voltway's flagged screens were entry points, so the prompt was noise both times.
+
 ### A11 — `codegen` scaffolds no decider · ***FIXED 2026-08-09*** → [detail](KIT-HISTORY.md)
 
 It now scaffolds one per command slice — an HTTP endpoint for `state-change`, a message handler for

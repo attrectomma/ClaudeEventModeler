@@ -19,6 +19,63 @@ lettered by run (**A** first, then **B**, **T**, **W**, **X**, **Y**, **Z**, **A
 
 ---
 
+## BN1 — `uijourney.mjs` read a field the board refactor had removed, so all three commands crashed · **BROKEN** · ***FIXED 2026-08-11***
+
+**Every `uijourney.mjs` command died on `TypeError: Cannot read properties of undefined (reading 'filter')`
+before printing a line.** The whole UI-journey layer was unreachable.
+
+The cause is a **half-finished rename**. V19 retired `em="journey"` into `em="chapter"`, and the
+folder-level IR kept a `journeys` field derived from the executable chapters — the ones carrying a `then=`.
+`model.mjs` says so in a comment, and the comment ends *"so codegen and uijourney.mjs need no change at
+all."* **That is true of `codegen`, which reads the folder-level IR, and false of `uijourney.mjs`, which
+reads the PER-MODEL IR** (it wants each model's own edges, and says so). The per-model IR carries
+`chapters` and has never carried `journeys`.
+
+So the reassuring comment was the defect: it named the one file it was wrong about. `uijourney.mjs` now
+derives journeys from `ir.chapters` itself, filtered exactly as `model.mjs` filters them, so a chapter with
+no `then=` is a grouping rather than a walk at both levels.
+
+**The lesson is the one this kit keeps relearning about `emit` vs a claim in prose.** A comment asserting
+that a downstream consumer needs no change is not checked by anything. Two consumers read two different
+IRs; only one of them was thought about.
+
+## BN2 — the silent-failure guard failed a SUCCESSFUL command, because a 204 has no body to read · **BROKEN** · ***FIXED 2026-08-11***
+
+**`watchForSilentFailure` reported `requestfailed` for a request the server had answered `204`**, and the
+journey went red on a command that worked end to end — event appended, projection updated, screen correct.
+
+Measured, with timestamps, after three wrong hypotheses (the reload aborting an in-flight POST; React
+StrictMode; a duplicate click):
+
+```
+t=17332  REQ POST /charging/holdBay
+t=17347  RES 204  /charging/holdBay
+t=17348  requestfailed POST /charging/holdBay :: net::ERR_ABORTED
+```
+
+The response arrives, and **one millisecond later** Chrome reports the request as failed. `holdBay` returns
+on `res.status === 204` without reading the body — correctly, since there is none — so nothing ever
+consumes the response stream and Chrome cancels it. Every Wolverine `204` in the app is shaped like this,
+which means the guard was primed to fail any state-change slice that returns no content.
+
+**The fix is to ask whether a response exists at all.** An abort matters when there is no response —
+connection refused, DNS failure, a request killed by a navigation. Once a status line exists, the
+`response` handler is what judges it, and judging it twice is how a green path goes red.
+
+**Deliberately not solved with the `allow` list**, which was the tempting one-liner: excusing
+`/charging/holdBay` would also excuse a genuine `400` from that endpoint, and a refusal reaching the user
+is the single thing this guard most needs to see. A workaround that blinds the check is worse than the bug.
+
+## BN3 — Playwright's 30s default test timeout silently capped a journey's own waits · **NOISE** · ***FIXED 2026-08-11***
+
+The scaffolded `playwright.config.ts` set no `timeout`, so every `expect(..., { timeout: 90_000 })` inside a
+journey was truncated to Playwright's 30s per-test default. **The failure reads as "the data never
+arrived"** — a plausible, wrong diagnosis pointing at the backend — rather than "the test ran out of its own
+budget". A journey is longer than a test by construction: it crosses async projections, sweeps on clocks,
+and here a whole context boundary. The template now sets `timeout: 180_000` and says why.
+
+---
+
 ## V19 — a journey could not cross a model boundary · **GAP** · ***FIXED 2026-08-11, and the whole board refactor existed for it***
 
 **The finding.** The `journey` skill said *"a journey belongs to the **system**"*; the implementation bound it

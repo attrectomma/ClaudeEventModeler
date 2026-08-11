@@ -170,8 +170,13 @@ function world() {
       });
     }
 
-    for (const j of ir.journeys.filter((x) => x.journey)) {
-      journeys.push({ name: j.journey, model: file, label: j.label ?? null,
+    // A journey is an EXECUTABLE CHAPTER. `em="journey"` was retired into `em="chapter"` by the board
+    // refactor, and the PER-MODEL ir carries `chapters` — only the folder-level ir derives a `journeys`
+    // field from them. This file reads per-model (it wants each model's own edges), so it does that
+    // derivation itself, filtered exactly as model.mjs filters it: a chapter with no then= is a grouping
+    // of slices and not a walk, so it generates no test at either level.
+    for (const j of (ir.chapters ?? []).filter((x) => x.chapter && x.gwt?.then)) {
+      journeys.push({ name: j.chapter, model: file, label: j.label ?? null,
                       slices: j.slices, then: j.gwt.then ?? null });
     }
     // viewFeeds is PER MODEL and `screens` is cross-model, so this walks every screen found so far and
@@ -740,13 +745,31 @@ export function clearJourneyShots(width: number) {
  * exactly the same. Both have happened; neither was caught by a passing suite.
  *
  * Pass \`allow\` for the requests a step means to fail — a rejected form is a 400 on purpose.
+ *
+ * A REQUEST THAT ALREADY GOT ITS RESPONSE IS NOT A FAILED REQUEST, and getting this wrong made the
+ * guard fail on a SUCCESSFUL command. Measured: a 204 from Wolverine arrives, the caller returns
+ * without reading the body (there is none to read), and Chrome then reports the request as
+ * \`net::ERR_ABORTED\` about a millisecond after the 204 — because nothing ever consumed the response
+ * stream. The command worked, the event was appended, the projection updated, and the journey failed.
+ *
+ * So an abort is only interesting when NO response was received: that is a connection refused, a DNS
+ * failure, a request cancelled by a navigation mid-flight. Once a status line exists, the \`response\`
+ * handler below is the thing that judges it, and judging it twice is how a green path goes red.
+ *
+ * Deliberately NOT solved with \`allow\`: excusing the URL would also excuse a genuine 400 from the same
+ * endpoint, which is the one thing this guard most needs to see.
  */
 export function watchForSilentFailure(page: Page, allow: RegExp[] = []) {
   const bad: string[] = [];
   const excused = (url: string) => allow.some((re) => re.test(url));
   page.on("console", (m) => { if (m.type() === "error") bad.push(\`console: \${m.text()}\`); });
   page.on("pageerror", (e) => bad.push(\`pageerror: \${e.message}\`));
-  page.on("requestfailed", (r) => { if (!excused(r.url())) bad.push(\`requestfailed: \${r.url()}\`); });
+  page.on("requestfailed", async (r) => {
+    if (excused(r.url())) return;
+    // null response => the request never got one, which is the real failure this is for.
+    if (await r.response()) return;
+    bad.push(\`requestfailed: \${r.url()} (\${r.failure()?.errorText ?? "no reason given"})\`);
+  });
   page.on("response", (r) => {
     if (r.status() >= 400 && !excused(r.url())) bad.push(\`HTTP \${r.status()} \${r.url()}\`);
   });
@@ -811,6 +834,13 @@ export default defineConfig({
   workers: 1,
   forbidOnly: true,
   retries: 0,
+  // PLAYWRIGHT'S 30s DEFAULT TEST TIMEOUT SILENTLY CAPS EVERY expect() INSIDE THE TEST, and a journey
+  // is longer than a test by construction — it crosses async projections, sweeps on clocks, and in this
+  // kit's case a whole context boundary. Measured: a deliberate 90s wait on a cross-context hop was
+  // truncated to 30s by this line's absence, and the failure read as "the data never arrived" rather
+  // than "the test ran out of its own budget", which is a full debugging round in the wrong place.
+  // Raise it to cover the slowest hop the walk contains; per-assertion timeouts still do the real work.
+  timeout: 180_000,
   reporter: [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]],
   use: {
     baseURL: process.env.PW_BASE_URL ?? "http://localhost:5173",
