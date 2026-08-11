@@ -82,6 +82,39 @@ immediately, and nobody asks it unprompted.
 
 These pass every check the kit has. That is what makes them the top of the list.
 
+## What the first true fresh-start run says to fix first
+
+**Demo001 (2026-08-11) is the only project ever built by the current kit from nothing** — three slices, one
+screen, `mode=demo`. Every phase gate passed. **It produced 11 findings, 4 of them blocking, and all 4 were
+closed by the orchestrator hand-writing a C# file.**
+
+**That number is the measure that matters for this kit's actual goal** — a domain expert building a system by
+voice — because a human cannot supply a hand-written `Handler.cs`. The right question is not *"did it work"*
+but *"how much did something other than the skills and agents have to supply"*, and on a three-slice domain
+the answer was four files and no code the human could have dictated.
+
+**Why five earlier runs never saw it: the agents absorbed it.** A `backend-agent` writing `Rejections.cs`
+does not experience that as a kit gap — it experiences it as writing the slice. So the friction was invisible
+until a project started from nothing, and the cost was never zero: it was **paid in divergence**, which is
+exactly what BP1 turned out to be.
+
+Ranked by *"what forces something other than a skill or an agent to supply the answer"*:
+
+| | | Why first |
+| --- | --- | --- |
+| **1** | **BP1** — the rejection-shape claim | A **false sentence in the document every agent trusts**, which propagated into a generated code comment and reaches the shipped UI contract. Cheapest fix in the file, largest blast radius: a UI written to it shows *"One or more validation errors occurred."* instead of the rule name |
+| **2** | **BP2 + BP4** — *one gap seen twice* | `codegen` does not know the two-file decider shape exists, so it **emits the wrong arm** for contended slices *and* fails to emit the handler. One scaffold fixes both, and it is the single biggest reduction in hand-written files |
+| **3** | **BP5** — a decision recorded and contradicted | Without it `architect` is advice rather than a step. It is the phase that costs the most human thought and the only one nothing verifies |
+| **4** | **BP6 / BP7** — fire on every chapter, every run | Severity says NOISE; **the BN10 argument says otherwise** — a report that always fires trains the reader to skip reports, which is how a BP5-class finding goes unnoticed |
+
+**And the honest limit of this run: it tested one half of the goal.** `mode=demo` roleplayed the domain
+expert, so every domain question was answered by the same process that asked it. **Nothing here says how well
+the kit elicits answers from a human who is not Claude** — which is the other half, and the half `production`
+mode exists for. The next fresh start should be `mode=production` with a real person answering, and its
+findings will be a different list.
+
+---
+
 ### BP1 — CLAUDE.md says a periphery and an aggregate rejection have the SAME response shape. They do not, and the claim reaches the frontend contract · `kit` · **BROKEN**
 
 CLAUDE.md: *"A rejected rule returns ProblemDetails with the rule name as the Title, which is what
