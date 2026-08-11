@@ -1045,6 +1045,29 @@ to catch were live in it**, which is the argument for generating it:
 None of that is judgement — it is mechanically derivable from the IR (the route prefixes are the contexts,
 the screens are the paths). It belongs in `emit`, with the nginx config `scaffold` if anything is.
 
+### BN10 — `NO UI JOURNEY SPEC` cannot tell "not written yet" from "deliberately not written", so a blocked walk reads as laziness · `kit` · **GAP**
+
+`uijourney.mjs check` reports every named chapter with no spec as `NO UI JOURNEY SPEC` and hands you the
+scaffold command. There is no way to say **"this one is blocked, and here is why"**.
+
+Measured on Voltway: `driver-first-charge` is unwritten because the system has no login — `driver.ts`
+hard-codes one id and `?driverId=` accepts any guid — so a browser walk of *sign up → hold a bay* would act
+as a **different person** in step 2 than it registered in step 1, and **pass**. Writing that spec would
+require inventing a login, which is the one thing the kit refuses. The reason is now in the project's
+`OPEN-QUESTIONS.md`; **nothing in the kit could hold it**, and until it was written down it existed only in
+a session transcript.
+
+**This is the acknowledgement pattern the kit already uses three times and did not apply here**:
+`joins="none"` says *these views are never correlated*; the `VIEW WITH NO REGISTRATION` comment says *this
+projection is deliberately unregistered*; `external="true"` says *this slice is not ours to build*. Each
+converts a permanent report into a recorded decision. The same shape is missing for a chapter — something
+like `blocked="<why>"` on the cell, which would turn the finding into a note and make the reason live where
+the fact does.
+
+**Why it matters more than a cosmetic report:** an unactioned finding that recurs on every run is trained
+away. A reader who sees `NO UI JOURNEY SPEC` on every single run stops reading it — and then does not notice
+the day a *genuinely* unwritten journey appears beside the blocked one.
+
 ### BN9 — EVERY ported screen fetches once on mount and never again, and one of them certifies itself as exact · `kit` · **BROKEN**
 
 Not one screen's slip. **Three screens, two agents, one convention** — `BayFinder.tsx`, `WorkList.tsx` and
