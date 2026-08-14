@@ -127,7 +127,12 @@ export function projectRoot(argv = process.argv.slice(2)) {
     console.error(
       "no project configured for this kit copy.\n" +
       "  node tools/project.mjs init --project <path-to-your-project>\n" +
-      "or pass --project <path> for a one-off run, or set EM_PROJECT.");
+      "or pass --project <path> for a one-off run, or set EM_PROJECT.\n" +
+      // project.json is gitignored, so a fresh clone has none and nothing shows what may go in it.
+      // Naming the template here is the cheapest possible discovery: this is the exact moment
+      // somebody is looking for the file.
+      "\nproject.json is gitignored — copy project-template.json to project.json to see every\n" +
+      "setting with what it costs, or just run init and edit it afterwards.");
     process.exit(2);
   }
   if (!existsSync(r.root)) {

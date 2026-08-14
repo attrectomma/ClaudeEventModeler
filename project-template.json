@@ -1,0 +1,24 @@
+{
+  "_1_what_this_is": "RENAME ME TO project.json. This copy of the kit serves exactly one project, and project.json is where it remembers which. It is gitignored, so a fresh clone has none — this template exists so the structure is visible without reading tools/project.mjs.",
+
+  "_2_the_easy_way": "node tools/project.mjs init --project C:/Repos/acme-shop --name acme-shop  — writes project.json for you, scaffolds the project folders, and MERGES rather than overwrites, so settings you have already set here survive every later init.",
+
+  "_3_comments": "Any key beginning with _ is a comment and is ignored. Every other key must be one this file knows: an unknown key is a hard error, because a typo'd flag is a flag that silently does nothing.",
+
+  "_project": "REQUIRED. Absolute path to the project this kit copy writes to. Forward slashes on Windows. --project <path> beats $EM_PROJECT beats this.",
+  "project": "C:/Repos/acme-shop",
+
+  "_name": "The system name. The project IS the system, so this is what a model cell's system= overrides. Defaults to the folder name.",
+  "name": "acme-shop",
+
+  "_mobile": "DEFAULT false. true makes design.mjs, review.mjs and the emitted Playwright config shoot 1440 AND 390. --widths or --mobile still wins for one run. WHAT false COSTS: mobile is where responsive CSS fails silently — the first styling run in this kit found content running off the right edge, invisible in the CSS and unmissable in the image. Turn it on for anything that ships.",
+  "mobile": false,
+
+  "_kitFixes": "DEFAULT true — leave it alone unless this copy drives a demo. true means a kit defect found mid-run is fixed in tools/, regenerated and carried forward. false means it is LOGGED to KIT-FINDINGS.md and nothing under the kit is edited; if it BLOCKS, the minimum hand edit goes in the project's own scaffold file, out loud — and a blocking emit file is a stop, not a hand edit.",
+  "kitFixes": true,
+
+  "_demo": "DEFAULT false. The only setting no tool reads — it tells whoever is driving the run to spend no time on work the room cannot see: one backend agent for all slices, agent reports capped at ~12 lines, no agent-side review loop, no optional design states. It skips no GATE. See CLAUDE.md, 'Two settings that make a run cheaper'.",
+  "demo": false,
+
+  "_see_also": "node tools/project.mjs where  prints the resolved settings with (default) marked, so a setting is never invisibly on."
+}

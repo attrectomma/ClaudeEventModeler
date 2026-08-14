@@ -18,6 +18,7 @@ node tools/project.mjs where          # what this copy is pointed at
 | | Lives in the **kit** (here) | Lives in the **project** |
 | --- | --- | --- |
 | skills, agents, `.mcp.json`, this file | ✅ | |
+| `project-template.json` — the shape of `project.json`, which is gitignored | ✅ | |
 | `tools/`, `templates/`, `reference-implementations/` | ✅ | |
 | `reference/llms/` — the docs mirror | ✅ regenerable, gitignored | |
 | `tools/fixtures/` — the kit's own regression suite | ✅ | |
@@ -1320,12 +1321,19 @@ never had.
 
 ## Two settings that make a run cheaper, and what each one costs
 
-`project.json` carries two booleans beside the project path. They are **configuration, not domain facts** —
+`project.json` carries three booleans beside the project path. They are **configuration, not domain facts** —
 neither could be drawn on a cell — so they live in the kit copy, one copy per project, exactly like the path.
 
 ```json
-{ "project": "C:/Repos/acme-shop", "name": "acme-shop", "mobile": false, "kitFixes": true }
+{ "project": "C:/Repos/acme-shop", "name": "acme-shop", "mobile": false, "kitFixes": true, "demo": false }
 ```
+
+**`project.json` is gitignored, so a fresh clone has none** — which also means nothing on disk shows what may
+go in it. **[`project-template.json`](project-template.json) is that file, committed**: rename it, or read it
+and run `init`. Every key carries its default *and what the non-default costs*, and any key beginning with `_`
+is a comment, which is how a JSON file gets to explain itself. It is checked in the one way that matters — it
+**validates when renamed**, so a developer who copies it does not meet the strict-key error on their first
+command.
 
 | | Default | On means | Off costs |
 | --- | --- | --- | --- |
