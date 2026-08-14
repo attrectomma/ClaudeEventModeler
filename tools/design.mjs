@@ -18,7 +18,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve, join, basename, dirname, relative } from "node:path";
-import { tryProjectRoot } from "./project.mjs";
+import { tryProjectRoot, defaultWidths } from "./project.mjs";
 import { BROWSER, browserHelp, capture, captureHtml } from "./shoot.mjs";
 
 const BROWSERS = [];   // kept only so the old help text below still has something to print
@@ -36,13 +36,15 @@ const PROJ = tryProjectRoot(args)?.root ?? null;
 const target = explicit ??
   (cmd === "sheet" && PROJ ? join(PROJ, "designs")
    : cmd === "check" && PROJ ? join(PROJ, "diagrams") : null);
-const WIDTHS = flag("widths", "1440,390").split(",").map((n) => +n.trim()).filter(Boolean);
+// project.json's `mobile` decides whether the mobile width is shot at all; --widths and --mobile
+// still win, because the setting is a default for the common case and not a lock.
+const WIDTHS = defaultWidths(args);
 const HEIGHT = +flag("height", "1200");
 
 if (!cmd || !target || !["shot", "sheet", "check"].includes(cmd)) {
   console.error("usage:\n" +
-    "  node tools/design.mjs shot  <file.html>    [--widths 1440,390] [--height 1200]\n" +
-    "  node tools/design.mjs sheet [designs-dir]  [--widths 1440,390] [--height 1200]\n" +
+    "  node tools/design.mjs shot  <file.html>    [--widths 1440,390 | --mobile] [--height 1200]\n" +
+    "  node tools/design.mjs sheet [designs-dir]  [--widths 1440,390 | --mobile] [--height 1200]\n" +
     "  node tools/design.mjs check [diagrams-dir] [--designs <dir>] [--project <path>]\n" +
     "       sheet and check default to the project's designs/ and diagrams/");
   process.exit(2);

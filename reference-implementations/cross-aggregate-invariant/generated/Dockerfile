@@ -28,7 +28,7 @@
 #
 # THE VARIABLE IS THIS APPLICATION'S OWN, and Program.cs is what reads it. It is not a framework switch:
 # nothing in JasperFx or Wolverine reads any environment variable for this, which is why the `ENV
-# JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` line that used to sit here did nothing whatsoever. KIT-FINDINGS BO2.
+# JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` line that used to sit here did nothing whatsoever. KIT-HISTORY BO2.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 

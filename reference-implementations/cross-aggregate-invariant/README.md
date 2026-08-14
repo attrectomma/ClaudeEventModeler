@@ -309,3 +309,14 @@ or does multi-stream aggregation suffice) · **AD9** (`validate` passes on a `.d
 · **AD10** (per-project package pins; the MSBuild workaround that silently downgraded to a CVE-carrying
 2018 package) · **AD11** (three Marten 9 breaks a green build hides) · **AD12** (never assert an invariant
 on a projection) · **AD13** (DCB works, and is not seamless).
+
+## Where this folder's architecture decisions are recorded
+
+```architect-record-elsewhere
+This folder IS the architecture record, and more of one than `architect record` would scaffold.
+The two `cross-stream-rule` questions and `contended-invariant/release-commitment` are answered by
+FOUR built arms with a table of serialisation points and costs (guard row, reservation row, advisory
+lock, DCB) plus TWO control tests that prove the race reproduces without them — see "Where it stands"
+and "The organising principle". `stream-boundaries/spend` is "The model". Duplicating any of it into
+an ARCHITECTURE.md would put one decision in two places, which is what this kit refuses everywhere.
+```

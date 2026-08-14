@@ -11,13 +11,31 @@
       "path": "."
     },
     {
+      "name": "ClaudeEventModelerDCB",
+      "path": "../ClaudeEventModelerDCB"
+    },
+    {
+      "name": "POC001",
       "path": "../POC001"
     },
     {
+      "name": "Demo001",
       "path": "../Demo001"
     },
     {
+      "name": "DemoAllPatterns",
       "path": "../DemoAllPatterns"
+    },
+    {
+      "name": "Demo002",
+      "path": "../Demo002"
+    },
+    {
+      "name": "ForLiveDemoRecipe",
+      "path": "../ForLiveDemoRecipe"
+    },
+    {
+      "path": "../DCB_CourseSubscriptions"
     }
   ],
   "settings": {

@@ -4,6 +4,7 @@
 #nullable enable
 
 using System.Collections.Concurrent;
+using StockFeed.Contracts;   // StockNoticed — the model-declared foreign event
 
 namespace StockFeed.Landing;
 
@@ -24,13 +25,13 @@ namespace StockFeed.Landing;
 /// </summary>
 public sealed class InMemoryWarehouseFeed : IWarehouseFeed
 {
-    private readonly ConcurrentDictionary<Guid, IngestStockNotice> _notices = new();
+    private readonly ConcurrentDictionary<Guid, StockNoticed> _notices = new();
 
     /// <summary>What the warehouse would have recorded. Idempotent on notice id, as theirs would be.</summary>
-    public void Publish(IngestStockNotice notice) => _notices[notice.NoticeId] = notice;
+    public void Publish(StockNoticed notice) => _notices[notice.NoticeId] = notice;
 
-    public Task<IReadOnlyList<IngestStockNotice>> NoticesAfter(long afterSequence, CancellationToken cancellation)
-        => Task.FromResult<IReadOnlyList<IngestStockNotice>>(
+    public Task<IReadOnlyList<StockNoticed>> NoticesAfter(long afterSequence, CancellationToken cancellation)
+        => Task.FromResult<IReadOnlyList<StockNoticed>>(
             _notices.Values
                 .Where(n => n.Sequence > afterSequence)
                 .OrderBy(n => n.Sequence)

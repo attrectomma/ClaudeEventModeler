@@ -275,3 +275,11 @@ Section **T** of `KIT-FINDINGS.md` carries these with the actionable ones flagge
   projection registration, and emptying the wakeup — are edits inside `scaffold` files that regeneration keeps.
   Had the registrations still been inline in `Program.cs`, which is `emit`, both would have been silently
   reinstated.
+
+## Where this folder's architecture decisions are recorded
+
+```architect-record-elsewhere
+The `replay-safety` question and how a foreign event arrives are answered by FOUR built landing
+mechanisms — a webhook, a table the far side INSERTs into, a broker listener, and a poll with a
+high-water mark — with at-least-once and ordering costs stated per mechanism.
+```

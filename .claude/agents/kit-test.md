@@ -90,6 +90,56 @@ looks for, and assert it found a non-zero number:
 **Cross-check the count against the file.** `grep -c 'em="screen"'` and compare. A tool agreeing with
 itself proves nothing.
 
+**This tier is now a STANDING RULE in CLAUDE.md** — *a measurement that returns "none" is not a result until
+it has been shown capable of returning "some"* — so the table above is one application of it rather than a
+local habit. Two things follow for a sweep.
+
+**Add the SUBPROCESS call sites to the list.** The trap generalises past `.drawio` parsing: a tool that shells
+out to another tool and swallows the failure reports "clean" for "could not run". Measured — `architect.mjs`
+hard-coded `<project>/diagrams` and exited 1 on **all six reference implementations**, while `codegen.mjs`
+wrapped it in `try/catch`, so `ARCHITECTURE DECISIONS MISSING` had never once been able to fire there. The
+`does not exist.` line was on stderr in every run for sessions and was read as unrelated noise.
+
+| Run | Must report |
+| --- | --- |
+| `architect.mjs questions <ref-impl-model-dir> --project <ref-impl>` | a non-zero question count, for each of the six |
+| `codegen.mjs` on a ref impl | no `does not exist` on stderr, and the architect-derived lines present |
+| `progress.mjs <ref-impl-model-dir> --project <ref-impl>` | a report, not `not found: …/diagrams` |
+| `refimpl.mjs drift` | `up to date` on a clean tree — and see its own control below |
+| `project.mjs findings` | clean, plus exactly the 3 known A/B-run notes. Control: duplicate a span of KIT-FINDINGS with an `end < start` slice and it must report the repeated ids **and** the repeated span |
+| `project.mjs encoding` | clean. Control below |
+
+**`refimpl.mjs drift` is the cheapest tier-2 check there is and it has its own control.** Clean tree exits 0;
+then tamper a copy of one folder three ways and confirm all three classes fire:
+
+```bash
+node tools/refimpl.mjs drift                       # expect "No emit drift", exit 0
+# then, in one folder: edit an emit file, delete another, plant an emit-bannered file codegen does not make
+node tools/refimpl.mjs drift --folder <that-one>    # expect 1 differ, 1 missing, 1 orphaned, exit 1
+```
+
+It found its own bug on the first run — **a generated tree has more than one generator**, and
+`architect.mjs tests` writes `Concurrency/` with the same emit banner, so every folder with race tests read as
+ORPHANED. If that scoping is ever loosened, this control is what catches it again.
+
+**And ask of every report you see fire ZERO times: could it fire at all?** Break the input on purpose and
+watch. `DECIDER ON THE HTTP ARM FOR A CONTENDED SLICE` and `NO READ ENDPOINT GENERATED` both depend on
+subprocess data or on tree scanning, so a zero from either is only evidence once it has been made non-zero.
+
+**The encoding check has its control written down, and it is the template for the rest.** A clean tree exits 0
+and says so; the proof it means anything is a scratch repo holding four files:
+
+```bash
+node tools/project.mjs encoding                     # the kit — expect 0 and "no double-encoded sequences"
+# then, in a throwaway git repo: one clean file, one double-encoded, one with a BOM, one with U+FFFD
+node tools/project.mjs encoding <that-repo>          # expect exactly 3 hits and exit 1
+```
+
+It caught two real BOMs on its first run (`gaps.drawio`, `resolved.drawio`) and briefly flagged **its own
+source**, because the signatures were spelled literally rather than as `\uXXXX` escapes. Both are worth
+re-checking after any edit to it: *a detector that cannot describe what it detects without becoming a false
+positive is a detector somebody will switch off.*
+
 ## Tier 3 — CRLF, because every `.drawio` in this kit has it
 
 The template is CRLF, so the fixtures are, so the reference implementations are, so every model any

@@ -42,12 +42,8 @@ public static class CloseCampaignEndpoint
     }
 }
 
-/// <summary>
-/// The rule name goes in <c>Title</c>, which is what Wolverine.HTTP's FluentValidation middleware already
-/// does for periphery failures — so a caller reads the rule name the same way whichever side refused.
-/// </summary>
-public static class Rejections
-{
-    public static IResult Problem(string rule, string detail) =>
-        Results.Problem(title: rule, detail: detail, statusCode: 400);
-}
+// The local `Rejections` helper that used to sit here is GONE — codegen now emits one per system at
+// src/Campaigns/Rejections.cs, which is an ancestor namespace, so every call site in this context
+// (CloseCampaign, QueueMessage, RecordOutcome) resolves to it unchanged. It was hand-written here only
+// because nothing emitted it (KIT-FINDINGS BP4), and its doc comment carried the rejection-shape claim
+// that KIT-FINDINGS BP1 measured false.

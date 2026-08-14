@@ -9,6 +9,8 @@ have to rediscover — or when the probe is the template for a shape the kit sho
 | Probe | Answers | Needs |
 | --- | --- | --- |
 | `concurrency-invariant.cs` | can *"two members at the same instant must not both succeed"* be tested? Yes — in **two** forms, with a control that proves the tests bite | Postgres on 55432 |
+| `harness-check.cs` | does the `ConcurrencyHarness` that `architect.mjs` scaffolds actually work, rather than merely compile? | Postgres on 55432 |
+| `rejection-shape.cs` | does an ASP.NET ProblemDetails customiser fire on the path Wolverine's FluentValidation middleware takes, and does it leave `errors` intact? **Yes to both** — so a periphery and a decider rejection can be made to agree on `title` | nothing — no Marten, no Postgres |
 
 ## Running one
 
@@ -18,6 +20,8 @@ They are .NET 10 **file-based apps**, so there is no project to restore:
 docker run -d --name em-probe -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=concpoc -p 55432:5432 postgres:16-alpine
 dotnet run probes/concurrency-invariant.cs
 docker rm -f em-probe
+
+dotnet run probes/rejection-shape.cs    # no container: it starts two Kestrel hosts on 5199/5200
 ```
 
 Exit code 0 means every check passed; the output names each one either way.
@@ -38,3 +42,15 @@ A test belongs to a project and asserts that project's behaviour. A probe assert
 behaviour, so it has no project to live in and no model behind it — and it is the right answer to *"the
 docs say X, is X true on the version we pinned?"*. `concurrency-invariant.cs` exists because the docs said
 `ConcurrencyException` and the runtime says otherwise.
+
+## A probe that answers "did my fix work?" MUST CARRY THE CONTROL
+
+Every probe here asserts the *before* as well as the *after*, in the same run, and that is not thoroughness
+— it is the only thing separating *"the fix worked"* from *"there was never anything wrong."*
+`rejection-shape.cs` is the clean case: had its control failed to reproduce the two different response
+bodies, KIT-FINDINGS **BP1** would have been the mistake and the customiser would have been a fix to
+nothing. The probe says so out loud rather than only exiting 0.
+
+The sibling rule: **assert the payload, not the status code.** Both rejection paths return `400`, so every
+status assertion passes on both and proves nothing. A probe whose checks cannot fail is worse than no probe,
+because it is quoted afterwards as evidence.

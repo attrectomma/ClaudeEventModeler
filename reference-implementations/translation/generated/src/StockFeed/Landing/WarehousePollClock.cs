@@ -5,6 +5,7 @@
 
 using Marten;
 using Wolverine;
+using StockFeed.Contracts;   // StockNoticed — the model-declared foreign event
 
 namespace StockFeed.Landing;
 
@@ -16,7 +17,7 @@ namespace StockFeed.Landing;
 public interface IWarehouseFeed
 {
     /// <summary>Notices with a sequence strictly greater than <paramref name="afterSequence"/>, oldest first.</summary>
-    Task<IReadOnlyList<IngestStockNotice>> NoticesAfter(long afterSequence, CancellationToken cancellation);
+    Task<IReadOnlyList<StockNoticed>> NoticesAfter(long afterSequence, CancellationToken cancellation);
 }
 
 /// <summary>

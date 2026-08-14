@@ -22,7 +22,7 @@
 
 import { readdirSync, writeFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, join, basename, relative } from "node:path";
-import { projectRoot } from "./project.mjs";
+import { projectRoot, defaultWidths } from "./project.mjs";
 import { BROWSER, browserHelp, capture, captureHtml, label, pngSize, fileUrl } from "./shoot.mjs";
 
 const args = process.argv.slice(2);
@@ -31,7 +31,8 @@ const flag = (name, dflt) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1] : dflt;
 };
-const WIDTHS = flag("widths", "1440,390").split(",").map((n) => +n.trim()).filter(Boolean);
+// See design.mjs: project.json's `mobile` decides whether the mobile width is shot, --widths wins.
+const WIDTHS = defaultWidths(args);
 const HEIGHT = +flag("height", "1200");
 // A running app fetches on mount, so a shot taken immediately is of the loading state. Chrome advances
 // a virtual clock rather than sleeping, so this is free.

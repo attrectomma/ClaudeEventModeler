@@ -103,13 +103,7 @@ public static class ReviseSubjectEndpoint
     }
 }
 
-/// <summary>
-/// The rule name goes in <c>Title</c>, which is what Wolverine.HTTP's FluentValidation middleware already does
-/// for periphery failures. So a caller reads the rule name the same way whether it was refused at the
-/// periphery or by the decider — one contract, two enforcement points.
-/// </summary>
-public static class Rejections
-{
-    public static IResult Problem(string rule, string detail) =>
-        Results.Problem(title: rule, detail: detail, statusCode: 400);
-}
+// The local `Rejections` helper that used to sit here is GONE — codegen now emits one per system at
+// src/Drafting/Rejections.cs, which is an ancestor namespace, so the call sites above resolve to it
+// unchanged. It was hand-written here only because nothing emitted it (KIT-FINDINGS BP4), and its doc
+// comment carried the rejection-shape claim that KIT-FINDINGS BP1 measured false.

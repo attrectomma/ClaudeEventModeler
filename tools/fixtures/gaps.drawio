@@ -1,4 +1,4 @@
-﻿<!-- TEST FIXTURE, not a domain model. resolved.drawio with one planted defect per newer rule.
+<!-- TEST FIXTURE, not a domain model. resolved.drawio with one planted defect per newer rule.
      Expected findings, exactly:
        ERROR completeness/undisplayable-data   Cart Page displays discount, no View supplies it
        ERROR gwt/gwt-needs-when                gwt-add-item names no command

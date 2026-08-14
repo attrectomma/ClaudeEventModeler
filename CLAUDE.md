@@ -251,8 +251,14 @@ The alternative — a generator that edits inside files somebody else owns — i
 one thing the emit/scaffold split exists to prevent. So this is **accepted**, not queued. What the generator
 owes you instead is *visibility*, and that is what the reports are for: `GWT WITHOUT A TEST`,
 `TESTS STILL SKIPPED ON A CLAIMED SLICE`, `IMPLEMENTED BUT STILL UNCLAIMED`, `VIEW WITH NO REGISTRATION`,
-`AUTOMATION NOT WOKEN`, `ROUTE NOT PROXIED`. Each names a file and what to change. Add a report rather than
-a rewrite.
+`AUTOMATION NOT WOKEN`, `ROUTE NOT PROXIED`, `NO READ ENDPOINT GENERATED`,
+`DECIDER ON THE HTTP ARM FOR A CONTENDED SLICE`. Each names a file and what to change. Add a report rather
+than a rewrite.
+
+**The last of those is the shape to copy**, because it is a report standing in for a *refusal*: codegen knows
+two of Marten's six read recipes, so rather than emit a `Query<T>()` endpoint that compiles and returns
+nothing for ever against a flat table or a live aggregation, it writes no endpoint and says which view and
+why. See *…and the READ ENDPOINT is scaffolded from the same fact* below.
 
 **The arrival of a foreign event was the missing one, and it is now generated** — see *How a foreign event
 arrives* below. The report is `INGEST NOT WIRED`, by the same logic as the ones above.
@@ -261,7 +267,32 @@ arrives* below. The report is `INGEST NOT WIRED`, by the same logic as the ones 
 carrying what a choice *cost*, and they get better as the stack gets better understood — which is editorial
 work, not generation. A future **skill or agent whose job is keeping them current** is the right home for it:
 re-reading the docs mirror as libraries move, re-measuring the comparisons, and folding in what later runs
-learn. Not built yet; noted so it is a decision rather than a drift.
+learn. **Still not built, and `refimpl.mjs drift` is not it** — that check covers `emit` only, which on these
+folders is 86 files against 120 hand-owned scaffolds. More than half of every folder is still unmeasured.
+
+**But "nothing measures the distance" turned out to be TWO problems wearing one name**, and only one of them
+needs judgement — which is why deferring both to a skill kept the mechanical half unmeasured for months:
+
+| | Who can catch it |
+| --- | --- |
+| **emit drift** — an `emit` file in a folder differing from what the generator now produces | **a check.** Regenerate into a throwaway directory and diff only the `emit` files; `emit` is total and idempotent, so any difference *is* the finding, and no judgement is involved |
+| **editorial decay** — a stale `scaffold`, prose that has gone false, a measured claim the libraries have invalidated | **a reader.** `"1m0s → 47s"`, `"22/22 call sites"` and every cost table are the folders' real value, and they rot silently |
+
+Measured cost of deferring the first: six `Dockerfile`s a citation behind, an ingest scaffold the folder never
+received, and `automation/` — cited four times above as the thing to read — with **no README at all**.
+
+**The mechanical half is now a check**, and it prints its own limits on every run *including a clean one*:
+
+```
+node tools/refimpl.mjs drift [--folder <name>]
+```
+
+It regenerates each folder into a throwaway directory and diffs only the `emit` files — `DIFFERS`, `MISSING`,
+`ORPHANED` — writing nothing into the folders. **A clean run means the mechanically derivable half is current
+and nothing more.** It cannot see a stale `scaffold` (which is where all the reasoning lives), prose that has
+gone false, a folder that no longer demonstrates what it claims, or a measured number the libraries have
+invalidated. Do not report *"drift: clean"* as *"the reference implementations are current"* — the tool says so
+itself precisely so that nobody has to remember this paragraph.
 
 ### Two kinds of generated file, and conflating them is a trap
 
@@ -327,6 +358,26 @@ for the stream you write. And once middleware owns the save, a decider cannot ca
 collision, so the translation moves to `opts.OnException<...>().RetryTimes(3)`, which the generator emits:
 on the retry the middleware re-fetches and **the ordinary rule** refuses it.
 
+**AND IT TAKES THREE POLICIES, NOT TWO, BECAUSE THERE ARE TWO REFUSAL MECHANISMS.** Which one Marten uses
+depends on whether the stream already existed, and the generator covered only one of them for five runs:
+
+| | Refused by | Exception |
+| --- | --- | --- |
+| appending to a stream that exists | the optimistic version check | `EventStreamUnexpectedMaxEventIdException` |
+| **creating the stream** — a first write to the key | the stream table's **primary key** | **`ExistingStreamIdCollisionException`** |
+
+So on any slice whose command *creates* its stream — every *"already X"* latch meeting its first notice — a lost
+race escaped `InvokeAsync` **unhandled**, which is the V7 failure the bus path exists to prevent, surviving on
+the path that was supposed to be safe. Measured red-then-green on Voltway: 8 concurrent `PublishBayOffered` gave
+*"Stream #… already exists in the database"* out of the handler; one emitted line turned 2 red race tests green.
+KIT-HISTORY **BS1**.
+
+**The kit already knew, in another file** — `architect.mjs`'s `ConcurrencyHarness.Classify` switches on all
+three names and the architect skill tabulates both mechanisms. It survived because the harness only
+*classifies* the exception in a test while the generator has to *retry* it in production: **V9's shape at the
+scale of one line.** `ExistingStreamIdCollisionException` is `Marten.Exceptions.*`, settled from the package
+`.xml` because no doc page names it.
+
 **THAT RETRY IS A MESSAGE-PIPELINE POLICY AND DOES NOT REACH AN HTTP ENDPOINT.** A Wolverine.HTTP endpoint
 never enters that pipeline, so a concurrent duplicate leaves as a **500** rather than the ordinary refusal
 — measured by dumping the generated method, which has no `try`/`catch` at all, and corroborated by the
@@ -339,9 +390,91 @@ instead: a version conflict does not mean the business rule failed, and on a str
 context an unrelated concurrent append collides too — the translation then refuses a valid command with a
 rule name that is untrue. A retry re-reads; a translation guesses.
 
-A rejected rule returns **ProblemDetails with the rule name as the Title**, which is what
-Wolverine.HTTP already does for FluentValidation failures — so `then="error: RuleName"` asserts the
-same shape whether the rule was caught at the periphery or in the decider.
+#### `codegen` emits that pair now, and only for a slice `architect` calls contended
+
+**It used to emit the wrong arm for exactly the slices that could not afford it** — `[WolverinePost, EmptyResponse]`
+with the decider inline, on a slice `architect.mjs` had already raised `contended-invariant` for and written a
+race test against. The scaffolded file's own comment explained the problem at length and the generator did it
+anyway. KIT-HISTORY **BP2**.
+
+| | |
+| --- | --- |
+| `<Command>Handler.cs` | the decider, as a **message** handler: `(<Command>Outcome, Events) Handle(cmd, [WriteAggregate] state)` |
+| `<Command>Endpoint.cs` | five lines, no decision — `bus.InvokeAsync<<Command>Outcome>(command)`, and **no `[EmptyResponse]`**, because a slice that can refuse must be able to return ProblemDetails |
+
+**Which slices are contended is ASKED, never recomputed.** `codegen` shells out to
+`architect.mjs questions --json` and reads the `contended-invariant` family. Deriving it a second time is
+**V9's exact shape** — that finding exists because architect and codegen each had a private idea of what
+"multi-stream" meant. So there is one computation and one caller, and agreement is structural.
+
+**Only `contended-invariant`, deliberately — not `cross-stream-rule`.** A cross-stream rule needs a
+*mechanism* (guard row, reservation row, advisory lock, DCB), and every one of those is a hand-rolled
+transaction, which is one of the two documented good reasons to leave the aggregate handler workflow
+entirely. Putting those on the bus would prescribe the wrong fix for a different problem.
+
+**Everything else keeps the single HTTP arm.** That is the answer to *"does every slice move to the pair?"* and
+it is a decision rather than an accident: the aggregate handler workflow on the endpoint is the DEFAULT, and a
+slice with no contended rejection has no race to retry, so the extra in-process hop and the extra outcome type
+buy nothing. **The cost is that two shapes coexist in one project and the code does not say which is which —
+the reason lives in `ARCHITECTURE.md`.** Each generated pair's doc comment names the finding so a reader is not
+left guessing, and if a later model change makes a quiet slice contended the generator **cannot** retrofit the
+already-scaffolded endpoint; it reports instead.
+
+**`DECIDER ON THE HTTP ARM FOR A CONTENDED SLICE` is that report, and it fires where nothing can be written.**
+Both halves are `scaffold`, so a hand-owned endpoint with the decision inline cannot be restructured from
+outside. Writing only the handler half would leave a **discovered message handler that nothing invokes**,
+throwing `NotImplementedException`, with a TODO nobody can honestly close — the dead-scaffold shape BP12
+records. So the pair is written only when the slice has no decider at all; otherwise the gap is named.
+
+**And "no decider at all" is judged by SHAPE, never by filename.** Hand-written deciders in this repo are named
+after the *command*, not the slice — `RaiseRepairJobHandler.cs` on `schedule-repair`,
+`WithdrawFaultyBayHandler.cs` on `auto-withdraw`. The first version of the check additionally required
+`[WriteAggregate]`, which made it blind to every deliberately hand-rolled `FetchForWriting` decider, and it
+promptly wrote a second decider beside four of them — including in `cross-aggregate-invariant/`, the folder
+built to study those mechanisms. **A duplicate handler is worse than a duplicate route**: measured in Demo001,
+build 0 warnings 0 errors, host starts, fixture comes up, **no exception and no ambiguity error anywhere** —
+the caller simply gets the other handler's answer, and 7 of 18 tests fail on wrong business behaviour with
+nothing pointing at the cause.
+
+### A rejected rule returns ProblemDetails, and the rule name is in `title` on both paths ONLY BECAUSE ONE LINE PUTS IT THERE
+
+**This paragraph used to say Wolverine.HTTP already did that for FluentValidation failures, and it was
+false in both clauses.** It does not, and the two enforcement points did not produce the same shape.
+Measured on the wire, with a control, in `probes/rejection-shape.cs` — the rule name in a *different place*
+each time:
+
+```
+periphery  {"title":"One or more validation errors occurred.","status":400,
+            "errors":{"Reason":["ReasonRequired"]}}
+decider    {"title":"AlreadyCancelled","status":400,"detail":"Booking b-1 has already been cancelled."}
+```
+
+Same status, same `type`, and a UI written to the old sentence reads `title` and shows the user
+*"One or more validation errors occurred."* — losing `ReasonRequired` entirely. KIT-FINDINGS **BP1**.
+
+**`Program.cs` now installs an ASP.NET `CustomizeProblemDetails` that copies the first rule name into
+`title`, so the narrow claim below is true — and it is narrow deliberately:**
+
+> **The rule name is always in `title`. A periphery rejection *additionally* carries
+> `errors.<Property>`; a decider rejection *additionally* carries `detail`.**
+
+So `then="error: RuleName"` does assert one shape, and `enforce=` stays an implementation choice rather
+than a contract change. What a rejection reader must **not** assume is that the rest of the body matches:
+`errors` exists only at the periphery and `detail` only from the decider.
+
+**With two periphery failures at once, `title` holds the FIRST** — in the validator's own `RuleFor`
+declaration order — **and the full set stays in `errors`.** A caller that needs every broken rule reads
+`errors`; `title` alone is one of them.
+
+That the customiser fires at all is the measured part, and it was the real risk: Wolverine.Http's
+generated code writes a validation failure as `Results.Problem(problemDetails).ExecuteAsync(httpContext)`,
+and no doc page says whether that reaches `IProblemDetailsService`. It does, on a real `[WolverinePost]`
+with a real `IValidator` attached, with `errors` intact — and **needs nothing Wolverine-specific**, just
+the standard `AddProblemDetails`. Both halves of that are why the probe exists rather than an argument.
+
+`Rejections.Problem(rule, detail)` is the decider half of the contract, and it is now **`emit`, once per
+system, at the root namespace** — see the comment above its emit in `tools/codegen.mjs` for why both of
+those follow from BP1 rather than from tidiness.
 
 ### Live on the write side, inline on the read side
 
@@ -432,6 +565,58 @@ registrations used to be inline in `Program.cs`, which is `emit` — so every re
 made was **lost on the next regeneration**, and on the worked model four views out of five needed one. The
 second hook is separate because `AddAsyncDaemon` sits on the Marten *chain* and not on `StoreOptions`;
 without it, `Async` could not be chosen from a scaffold at all.
+
+#### …and the READ ENDPOINT is scaffolded from the same fact, or refused with a reason
+
+A `state-view` slice's whole contract is its read model, so its deliverable is a `[WolverineGet]` — and
+nothing generated one, which is why the GT hint said *"assert through its read endpoint **if the slice has
+one**"* and every project hand-wrote them. KIT-HISTORY **BP4**. `codegen` now scaffolds
+`Views/<View>Endpoint.cs`, and **the interesting half is when it declines to.**
+
+**`Event(s) → View` does not promise a document, so the recipe is read off the tree.** Two of the six
+recipes cannot be read with `session.Query<T>()`, and both fail *silently*:
+
+| The view is | `Query<T>()` gives you | codegen |
+| --- | --- | --- |
+| single- or multi-stream, `EventProjection`, or `Snapshot<T>` | the rows | scaffolds the endpoint |
+| a **`FlatTableProjection`** | nothing, for ever — the rows are columns in a SQL table, not documents | **refuses**, and reports |
+| a **live aggregation** (registered nowhere) | nothing, for ever — it needs `FetchLatest<T>` | **refuses**, and reports |
+
+`NO READ ENDPOINT GENERATED` names the view and which of those it is. **A named gap beats a plausible wrong
+endpoint** — the same reasoning that stamps a projection `GUESSED` rather than silently grouping the wrong
+rows. This is not hypothetical: `MessageMetrics` in `reference-implementations/state-view/` is a
+`FlatTableProjection` sitting on a state-view slice, so 1 view in 5 there takes the refusal.
+
+**Detection is by EXISTING ENDPOINT, never by expected filename, and that distinction is load-bearing.**
+Eight projects already have read endpoints and they agree on neither location nor route: Voltway, Spend and
+Allocation use `Views/<View>Endpoint.cs`, Demo001 put its in the slice folder, and Voltway's
+`OperationsConsoleEndpoints.cs` serves **two** views from one file under routes named after neither. Keying
+on `Views/<View>Endpoint.cs` being absent would emit a **second endpoint on a duplicate route** for every one
+of those. So the question asked is *"does any GET-bearing file name this view type?"*, and the bias is
+deliberately asymmetric: a false positive costs a missing scaffold, a false negative costs a broken route.
+
+**And what a duplicate route DOES was measured rather than assumed, because the assumption was wrong.** Two
+`[WolverineGet]` methods on one template were built into Demo001 on purpose:
+
+```
+build        succeeds, 0 warnings 0 errors
+host         starts fine — the Alba fixture comes up
+per request  AmbiguousMatchException: "The request matched multiple endpoints",
+             naming BOTH handler types
+result       Failed: 4, Passed: 14
+```
+
+**It is not a startup failure and it does not take the fixture down** — this file and `backend-agent.md` both
+said it did, and neither had run it. It fails **only the tests that hit that route**, and the exception names
+both handlers, which makes it one of the more diagnosable failures on this stack. In production it is worse
+than in the suite: every request to that route is a 500. Either way the fix is the same, and the detection
+above is what prevents it.
+
+**`scaffold`, and here that is the right answer where for `Rejections.cs` it was not.** Three things in the
+file are a starting point rather than a fact — the route (every hand-written one moved), the query (the file
+returns *every* row, because `identity=` says what one row **is** and never which subset a screen wants), and
+whether the slice needs the list or a single row. None of that is a shared contract, so unlike the rejection
+shape there is nothing that must be fixable everywhere at once.
 
 ### A row can carry its own child lines — `Type[]` and `children=`
 
@@ -837,11 +1022,39 @@ and therefore stays invisible to plain Read.
   model at every milestone.
 - **NEVER rewrite a `.drawio` (or any kit file) with PowerShell `Get-Content -Raw` + `Set-Content`.**
   PS 5.1 reads as the ANSI codepage and writes UTF-8, so every non-ASCII character is double-encoded:
-  one round trip turned every `—` in a model into `â€"`. **`drawio.mjs check` still reported "OK" and
+  one round trip turned every `—` in a model into `â€"`. **`drawio.mjs check` still reported "OK" and   <!-- mojibake shown deliberately -->
   `model.mjs validate` still passed at 0 errors**, so nothing catches it — the corruption is only
   visible by reading a label. `Set-Content -Encoding utf8` does not save you either; it adds a BOM.
-  Use the `Edit`/`Write` tools, or Node's `readFileSync`/`writeFileSync` with explicit `utf8`. A
-  CP1252 round-trip reverses it if it has already happened.
+  Use the `Edit`/`Write` tools, or Node's `readFileSync`/`writeFileSync` with explicit `utf8`.
+
+  **It is not only `.drawio`, and "any kit file" includes the tools.** This was done to
+  `tools/codegen.mjs` — a `Get-Content -Raw` / `Set-Content` round trip to temporarily break a line, on the
+  file being actively edited — and it corrupted **364 sequences across 340 lines** in one command. Nothing
+  caught it: `node` ran the file happily, `codegen` produced correct output, and the only tell was `â€"` in   <!-- mojibake shown deliberately -->
+  the *console text* of the run.
+
+  **THERE IS NOW A CHECK, because two instances with nothing catching either is a pattern and not bad luck:**
+
+  ```
+  node tools/project.mjs encoding          # the kit
+  node tools/project.mjs encoding <dir>    # or a project
+  ```
+
+  Git-driven over tracked text files, so it covers `tools/` and the docs and not just models — instance 2 was
+  in `tools/codegen.mjs`. It looks for the double-encoding signatures, for **U+FFFD** (a mis-decode that is
+  *not* reversible, because the original bytes are gone), and for a **BOM**. It found two: `gaps.drawio` and
+  `resolved.drawio` were carrying one, content intact. A line that legitimately *quotes* mojibake while
+  documenting it is exempt when it also names what it is showing — the same acknowledge-don't-suppress shape
+  as `joins="none"`. Its own signatures are written as `\uXXXX` escapes so the checker cannot flag its own
+  source, which it did on the first run.
+
+  **REVERSING IT NEEDS TWO THINGS THE OLD NOTE OMITTED**, and a naive `latin1` round trip fails on both:
+  strip the **BOM** `Set-Content -Encoding utf8` prepends, and map CP1252's **undefined** bytes
+  (`0x81 0x8D 0x8F 0x90 0x9D`) to themselves — `0x90` alone appeared 196 times, and PowerShell had passed it
+  through as U+0090 rather than through the CP1252 table. With those two, the transform is exact: 364 → 0
+  mojibake sequences, zero U+FFFD. **Verify reversibility as a dry run before writing**, and refuse to write
+  if any character has no CP1252 byte — a partial reversal is worse than the corruption, because it looks
+  fixed.
 - **A regex built from a STRING loses its backslashes, and the failure is silent.** In a template literal
   or a double-quoted JS string, `\b` is a **backspace character** and `\s` is a **literal `s`** — so
   `` new RegExp(`\b${k}="…"`) `` can never match, and `"…\s…"` matches the letter s. Neither throws; the
@@ -851,6 +1064,18 @@ and therefore stays invisible to plain Read.
   first was diagnosed. **Escape as `\\b` / `\\s`, or build the pattern from a regex literal.** The tell is a
   branch that "never happens": if a replace-or-append helper is always appending, suspect the pattern before
   the logic.
+- **AND `.` DOES NOT MATCH `\r`, SO A `(.+)$` PATTERN FINDS NOTHING IN A CRLF FILE.** JavaScript's dot excludes
+  every line terminator — `\n`, **`\r`**, `\u2028`, `\u2029` — so on a line split by `split("\n")` the
+  trailing `\r` survives, `(.+)` cannot consume it, and `$` cannot match. `/^#{2,3}\s+(.+)$/` therefore finds
+  **zero headings** in a file that is entirely headings. **Every `.drawio` and every `.md` in this kit is
+  CRLF**, so this is the default case here and not an edge one.
+  **Strip it first — `.map(l => l.replace(/\r$/, ""))` — or anchor on `\r?$`.** It cost a KIT-HISTORY scan
+  that reported *"0 findings"* about a file where `grep -c` said 14, and it was caught only because the two
+  disagreed (KIT-HISTORY **BR5**).
+  **Three costumes now, one tell: a branch that never fires.** `\b` losing its backslash in a string, a
+  shell-quoted `node -e` eating them, and `.` refusing `\r`. All three produce a clean empty answer, which is
+  why *a measurement that returns "none" is not a result until it has been shown capable of returning "some"*
+  is a standing rule rather than advice.
 - **NEVER pipe a file-writing command into `Select-Object -First N`. It TRUNCATES THE FILE TO 0 BYTES.**
   `-First` stops the upstream pipeline as soon as it has N objects, and against a native command PowerShell
   does that by **killing the process** — so `node tools/slice.mjs promote <file> | Select-Object -First 1`
@@ -1017,6 +1242,148 @@ node tools/drawio.mjs render <project>/diagrams/ordering.drawio   # -> ordering.
 Then Read the PNG. Fix what you see. Re-render. This caught two bad edge routes while this
 project was being set up.
 
+## A MEASUREMENT THAT RETURNS "NONE" IS NOT A RESULT UNTIL IT HAS BEEN SHOWN CAPABLE OF RETURNING "SOME"
+
+**Standing rule.** An empty result and a broken instrument are byte-identical. Before believing *"no
+occurrences"*, *"all clean"*, *"zero hits"* — **break something on purpose and watch the check report it.**
+If it cannot be made to fire, it was never measuring.
+
+This is not a new discipline, it is the one already load-bearing in three places, named once so it stops
+being rediscovered:
+
+| Already doing this | The "some" it proves it can return |
+| --- | --- |
+| `probes/rejection-shape.cs`'s **control** | run 1 has no customiser and must reproduce the asymmetry first, or *"the fix worked"* is indistinguishable from *"nothing was wrong"* |
+| `ConcurrencyHarness`'s **per-operation key** and `cross-aggregate-invariant/`'s **control arm** | the race is shown to reproduce deterministically *without* the mechanism, so a green run means the mechanism and not a lucky schedule |
+| `cart-replay.mjs` gating on **errors** while expecting two warnings | a fixture that went silent would fail, rather than looking cleaner |
+
+**Four times in this kit a "none" was nearly believed, and every one had a different broken instrument:**
+
+- an IR sweep reading **fields that do not exist** on the objects it walked — twice, reporting *"all clean"*
+  on a model already known to be affected
+- **BP4**'s evidence line: *"`grep -n "Rejections" tools/codegen.mjs` returns zero hits"*. It returns **five**
+- a `node -e` scan reporting *"no project has an existing read endpoint"* — a **shell-quoting artifact**, on a
+  tree where five files plainly did. Believed, it would have written duplicate routes into four projects
+- `project.mjs palette` reporting every copy `ok` and exiting 0 **because it could not parse its own canonical
+  file** — `paletteKeys(null)` is `{}`, so every copy compared equal to nothing
+- a duplicate-handler probe returning a **green suite**, because the planted class was named `…Probe` and
+  Wolverine's conventional discovery only finds `*Handler`/`*Consumer`. It was never registered
+
+**The tell is a branch that never fires.** The same instinct is already written down for regexes built from
+strings (`\b` becoming a backspace character, so a replace-or-append helper *always appends*) — that is this
+rule in one specific costume. **Where a report says "0", state how you know 0 is real.**
+
+### The commonest instrument in this kit is a subprocess, and a `catch` that continues is how it goes quiet
+
+The `architect` case was not special. **All 19 tools were swept** for a failure handled by continuing, and the
+shape divides cleanly:
+
+| | |
+| --- | --- |
+| **swallowing is CORRECT** | when the failure is *named* — `check-frontmatter` prints `FAIL <file> YAML: …`, `docs.mjs` prints `FAILED (msg)` per library and `MISSING <link>` per page, `shoot.mjs` passes the exit status to `fail()`. Continuing is right for a linter or a sweep; going silent is not |
+| **swallowing is WRONG** | when absence of a result is indistinguishable from absence of the thing. `codegen` swallowed `architect check`; `siblingSlices` returned `[]` on any failure, so the cross-model uniqueness check reported *no siblings* rather than *could not look*; `project.mjs palette` read its own canonical file with a nulling helper, so a malformed palette gave **zero keys** and every copy then compared equal to nothing and printed `ok` |
+
+**That last one is the purest form of it: the check passed *because* it could not read its reference.**
+
+**And the second half of the rule is about the OUTPUT, not the branch.** `architect`'s failure was never
+silent — it printed `diagrams does not exist.` on stderr in every reference-implementation run, for sessions,
+and it read as noise. A failure line is indistinguishable from chatter unless it says **which tool failed,
+what it was trying to do, and what is therefore unknown**. So `ARCHITECT COULD NOT BE ASKED` and
+`ARCHITECT CHECK COULD NOT RUN` both name the consequence — *"every contention-dependent decision defaulted
+to not-contended"*, *"'every decision is answered' is UNVERIFIED for this run, not confirmed"*.
+
+**A related family, found by the same sweep: a tool that hard-codes `<project>/diagrams`** cannot be run
+against a reference implementation at all. `architect` swallowed it; `progress.mjs` and `uijourney.mjs` died
+loudly, which is better and still meant *"what is BUILT against what `status=` claims"* was unavailable on
+every worked example in the repo. All three now take a positional model directory, as `codegen` and
+`model.mjs` always did.
+
+## The delete-and-return gate is for `emit`, and only `emit`
+
+The strongest proof a generation gap is closed: delete the file, re-run `codegen`, watch it come back, and
+confirm the suite is still green. It proved `Rejections.cs`, and **it does not transfer to a `scaffold`.**
+
+A `scaffold` is written once and then hand-owned, so deleting a **filled-in** one and regenerating returns
+the *stub* — not the file that was deleted. The suite then goes red **for a correct reason**. Measured on
+Demo001's read endpoint: the file came back, and the build failed with 5 errors because the deleted file
+carried `UrlFor(date)` and a date filter that the scaffold deliberately does not.
+
+| The file is | The gate |
+| --- | --- |
+| `emit` | delete it, regenerate, **suite stays green** — the regenerated file is byte-identical |
+| `scaffold`, never filled in | delete it, regenerate, suite stays green. Use a generator-owned copy |
+| `scaffold`, filled in | delete it, regenerate, and assert **the stub returns**. Do *not* assert green, and restore it afterwards |
+
+So the gate has a precondition, and the precondition is the emit/scaffold column of the table in *Two kinds
+of generated file*. Asserting green on a filled scaffold is asking the generator to reproduce judgement it
+never had.
+
+## Two settings that make a run cheaper, and what each one costs
+
+`project.json` carries two booleans beside the project path. They are **configuration, not domain facts** —
+neither could be drawn on a cell — so they live in the kit copy, one copy per project, exactly like the path.
+
+```json
+{ "project": "C:/Repos/acme-shop", "name": "acme-shop", "mobile": false, "kitFixes": true }
+```
+
+| | Default | On means | Off costs |
+| --- | --- | --- | --- |
+| `mobile` | **false** | `design.mjs`, `review.mjs` and `ui-journey` shoot **1440 and 390**; the emitted Playwright config gets its mobile project | **mobile is where responsive CSS fails silently.** The first styling run in this kit found content running off the right edge — invisible in the CSS, unmissable in the image. A desktop-only run is now a *choice*, and the only honest sub-500px viewport in the kit is `ui-journey`'s |
+| `kitFixes` | **true** | a defect found mid-run is fixed in `tools/`, regenerated, and carried forward | every future project inherits the defect until somebody else hits it. So the finding must still be **logged** — see below |
+| `demo` | **false** | nothing — it is the *off* position that costs nothing. **On**, it changes how the run is driven, below | the fan-out is one of the things the kit is worth showing, and `demo` collapses it. Read the cost column below before switching it on for anything that is not a demo |
+
+### What `demo: true` changes, and it is the only setting no tool reads
+
+It is addressed to **whoever is driving the run**. The rule is *spend no time on work the room cannot see*,
+and each line below is a measured cost from the 2026-08-14 live run rather than a guess:
+
+| | Instead of | Saves | Costs |
+| --- | --- | --- | --- |
+| **one `backend-agent` for ALL slices** | one per slice | ~11 min and ~190k tokens per slice dropped — each agent re-reads the docs mirror cold | **the fan-out is part of what the demo is showing.** `owner=` on the lanes computes the split and this ignores it. The single agent must still be told which slice owns `GenesisData.cs` |
+| **short agent reports** — *"≤12 lines: recipe, why, cost, the API contract, test counts"* | the full report | ~600k subagent tokens across three agents became the dominant token cost of the run | the long reports are where the API facts and the modelling gaps surfaced. **Keep the gaps**: a one-line *"modelling gaps: …"* is not optional |
+| **no agent-side review loop** — *"shoot once at desktop; I will run compose"* | the agent shooting, looking, re-shooting | most of the frontend agent's **22 min**, which was the single largest item in the run | the agent is the one that closes its own loop by looking. The driver must actually run `review.mjs` afterwards instead |
+| **no optional design states** | the empty state and the refused state as designed pages | the frontend agent implementing both faithfully | *"the list is empty, not an error"* is a **GT on the model**. Skipping the design does not skip the behaviour |
+
+**Nothing in that table skips a GATE.** `validate` at zero errors, `dotnet build` at 0/0, the tests, and
+`design.mjs check` all still run and still have to pass. What `demo` removes is *thoroughness the audience
+cannot see* — never a check, and never a report that names a real gap.
+
+```
+node tools/demo-reset.mjs --warm     # run this right after a rehearsal, not on stage
+```
+
+`--warm` builds the compose images from the finished tree **before** resetting, so the docker layer cache
+survives the `git clean`; the reset itself is unchanged, and every artefact still comes back from scratch.
+It then pulls the five base images. Measured: `docker compose up --build` cold was ~3 minutes of the
+rehearsal, and `emit` is deterministic, so the same Dockerfile and the same `.csproj` hit the same layers
+every run.
+
+**Why the defaults differ in direction.** Mobile off is the cheap default because the *evidence* is
+recoverable at any time by flipping one key and re-shooting. A kit fix skipped is not recoverable in the
+same sense: the run that found it is the run that had the reproduction in hand, and the next person starts
+from zero. So the expensive thing stays on by default and is switched off deliberately, for a demo.
+
+**`kitFixes: false` is about WHERE the fix lands, never about whether you may proceed.** With it off:
+
+- **log the finding to `KIT-FINDINGS.md`** with the evidence you would have put in the commit. Logging is
+  not fixing, and it is the whole reason the flag is safe.
+- if it **blocks**, hand-edit the *project's* own `scaffold` file — legal, because a scaffold is hand-owned
+  from the moment it exists — and **say so out loud**.
+- if the blocking file is `emit`, **stop and ask.** A hand edit there is reverted by the next run, silently,
+  with the symptom arriving later as behaviour. That is the one case the flag cannot absorb.
+- **never** edit `tools/`, a skill, an agent, or this file.
+
+**Both are printed by `node tools/project.mjs where`**, with `(default)` marked, by the same logic that makes
+`codegen` print every `package-versions.json` override on every run: a setting nobody can see is a setting
+nobody remembers is on. An unknown key or a non-boolean value is a **hard error**, because `"mobile": "false"`
+is a string, is truthy, and would otherwise read as configured while behaving as the default — the same class
+of failure as an MSBuild pin that pins nothing.
+
+**`init` preserves them.** It is idempotent and the demo runbook re-runs it after every `git clean`, so a
+wholesale rewrite would erase both flags between one run and the next — and the only symptom would be a run
+that quietly got slower and started editing `tools/` again.
+
 ## Helpers
 
 ```
@@ -1054,14 +1421,20 @@ node tools/uijourney.mjs scaffold [--journey <slug>]   # playwright config, shot
 node tools/uijourney.mjs check               # a spec that fakes its backend, skips its navigation, invents a selector
 
 node tools/project.mjs init --project <path>   # scaffold a project; point this kit copy at it
-node tools/project.mjs where           # which project this copy writes to
+node tools/project.mjs where           # which project this copy writes to, and its two settings
 node tools/project.mjs inbox           # what is in the baseline, and what cannot be read
 node tools/project.mjs palette         # do the three draw.io settings copies still agree?
+node tools/project.mjs encoding [<dir>]  # double-encoded UTF-8, U+FFFD, and a BOM, across tracked files
+node tools/demo-reset.mjs [--warm] [--tag demo-start]   # reset a demo fixture, and leave the machine warm
+node tools/refimpl.mjs drift           # are the reference implementations' EMIT files what the generator now makes?
 
 node tools/architect.mjs questions      # the concurrency/consistency choices the model leaves open
 node tools/architect.mjs record         # a section per question in <project>/ARCHITECTURE.md
 node tools/architect.mjs tests          # a RACE test per contended invariant — no GWT can express one
 node tools/architect.mjs check          # unanswered, still TODO, or answered but now orphaned
+#   all four take an optional <model-dir> first, like codegen and model.mjs. Without it they assume
+#   <project>/diagrams — which is why they used to die on every reference implementation, silently,
+#   because codegen wraps `check` in a try/catch. KIT-HISTORY BP2.
 
 node tools/model.mjs validate <file>   # one model
 node tools/model.mjs validate          # every model in the project, plus the cross-model rules
@@ -1584,7 +1957,8 @@ its rows, because a fixed height silently crops the last one. Both of those were
 by rendering the sheet and looking at it.
 
 Always shoot at least a desktop and a mobile width. A single desktop screenshot hides half the
-problems.
+problems. **Unless `project.json` says `"mobile": false`, which is the default** — see *Two settings
+that make a run cheaper* below. The sentence above is why the setting has a cost written next to it.
 
 **A mobile screenshot below 500px used to be a lie, and that is now fixed in one place.**
 `chrome --headless=new --window-size=390,…` reports `innerWidth=500`: Windows will not make a real

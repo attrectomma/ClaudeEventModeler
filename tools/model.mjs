@@ -1742,6 +1742,18 @@ function conwayRules(ir) {
 // every point it is read, which is the canonical form but doubles the width of the model. The
 // exception is deliberate; everything else pointing left is reported.
 
+// COMPARE CENTRES, NOT LEFT EDGES, AND THAT IS NOT A TOLERANCE — IT IS THE ONLY MEASURE THAT MEANS
+// "which column". A screen is 200 wide against an element's 180 and is drawn SCREEN_X_NUDGE=10 left of
+// its column so it stays centred on it, so a View feeding the screen directly above it — the same
+// column, the tightest legal arrangement there is — had `to.x` 10px LEFT of `from.x` and was reported
+// as pointing backwards. Centres cancel the nudge exactly: an element at column c centres on c+90, and
+// so does a screen at c-10. Nothing is fudged and a real backward edge is still a whole column away.
+//
+// It went five runs unnoticed because every model in the repo happened to read its views from a
+// STRICTLY EARLIER column, where raw x and centre agree. The first model to draw a screen over its own
+// view got a false error naming the one arrangement CLAUDE.md recommends.
+const centreX = (e) => e.geometry.x + e.geometry.w / 2;
+
 function flowRules(ir) {
   const d = [];
   const byId = new Map(ir.elements.map((e) => [e.id, e]));
@@ -1749,7 +1761,7 @@ function flowRules(ir) {
   for (const c of ir.edges) {
     const from = byId.get(c.source), to = byId.get(c.target);
     if (!from?.geometry || !to?.geometry) continue;
-    if (to.geometry.x >= from.geometry.x) continue;                 // forward, fine
+    if (centreX(to) >= centreX(from)) continue;                     // forward, fine
     if (isEvent(from.kind) && to.kind === "readmodel") continue;    // the one exception
     d.push({ family: "flow", severity: "error", rule: "backward-connection",
       message: `${from.label} (${from.kind}) -> ${to.label} (${to.kind}) points backwards. Time runs left to right; only Event -> View may. Reorder the columns.`,

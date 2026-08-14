@@ -5,6 +5,7 @@
 
 using Wolverine;
 using Wolverine.Http;
+using StockFeed.Contracts;   // StockNoticed — the model-declared foreign event
 
 namespace StockFeed.Landing;
 
@@ -13,7 +14,7 @@ namespace StockFeed.Landing;
 /// integrations actually are.
 ///
 /// Its body is the WAREHOUSE'S schema, which is the point: this method and
-/// <see cref="IngestStockNotice"/> are the only two places in the system that speak it.
+/// <see cref="StockNoticed"/> are the only two places in the system that speak it.
 ///
 /// WHAT IT CANNOT DO IS FORGET. If the warehouse's POST fails — our host down, a network partition, a 500 —
 /// the notice exists nowhere on our side and there is nothing to re-read. Recovery is entirely the caller's
@@ -31,7 +32,7 @@ namespace StockFeed.Landing;
 public static class WarehouseWebhookEndpoint
 {
     [WolverinePost("/feed/stock-notices")]
-    public static async Task<IResult> Post(IngestStockNotice notice, IMessageBus bus)
+    public static async Task<IResult> Post(StockNoticed notice, IMessageBus bus)
     {
         if (StockFeedLanding.Chosen != StockFeedLanding.Mechanism.Webhook)
             return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);

@@ -5,12 +5,6 @@
 // </auto-generated>
 #nullable enable
 
-// A nullable field means a '?' annotation, and the BANNER above makes this file auto-generated in the
-// compiler's eyes — so CS8669 says an explicit directive is required even though the csproj already sets
-// <Nullable>enable</Nullable>. Emitted only when a field actually needs it, because an unconditional
-// directive on 40 files that do not is noise.
-#nullable enable
-
 namespace Campaigns.Slices.Campaigns;
 
 /// <summary>

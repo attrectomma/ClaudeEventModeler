@@ -122,7 +122,12 @@ Then **Read the contact sheet PNG** and fix what you see. Three artifacts, three
 - `index.html` — for the human, with live iframes and full-size links. A screenshot cannot be
   hovered, tabbed through or resized, so hand this over as well, never instead.
 
-**Always shoot mobile as well as desktop.** A single desktop screenshot hides half the problems, and
+**Shoot mobile as well as desktop where the project asks for it.** `project.json`'s `mobile` decides,
+it defaults to **false**, and `--mobile` turns it on for one run without editing anything. Do not add
+`--widths 1440,390` by reflex on a project that has switched mobile off — that is overriding a decision
+somebody made, and the whole point of the setting is that it is theirs.
+
+**When it IS on, look at both.** A single desktop screenshot hides half the problems, and
 responsive layout is where CSS silently fails. When this skill was first exercised, the desktop view
 was fine and the mobile view had content running off the right edge, cut off — invisible in the CSS
 and unmissable in the image.

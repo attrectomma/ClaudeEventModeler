@@ -278,3 +278,11 @@ A check that a view whose `identity=` is finer-grained than every event feeding 
 aggregation would have caught `DeliveryLog` mechanically — that is derivable, and it is not built.
 
 A claim without a measurement behind it does not belong in this file.
+
+## Where this folder's architecture decisions are recorded
+
+```architect-record-elsewhere
+The `stale-read` and `view-identity` questions are answered by SIX built read-model recipes with
+measured Inline-vs-Async costs — which of them force the async daemon, which survive a rebuild, and
+which are assertable in the append's own transaction. That comparison is the decision record.
+```

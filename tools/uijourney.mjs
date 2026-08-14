@@ -42,8 +42,8 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join, basename, relative } from "node:path";
-import { projectRoot, projectName } from "./project.mjs";
+import { join, basename, relative, resolve } from "node:path";
+import { projectRoot, projectName, settings } from "./project.mjs";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -67,6 +67,17 @@ if (!cmd || !["plan", "scaffold", "check"].includes(cmd)) {
 
 const PROJ = projectRoot(args);
 const rel = (p) => relative(PROJ, p).replace(/\\/g, "/");
+// A POSITIONAL MODEL DIRECTORY, as codegen/model/architect/progress all accept. Same family as
+// KIT-HISTORY BP2: hard-coding `<project>/diagrams` makes a tool unrunnable against every reference
+// implementation. `--journey` and `--project` are the two flags that consume a value.
+const explicitTarget = (() => {
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === "--project" || args[i] === "--journey") { i++; continue; }
+    if (args[i].startsWith("--")) continue;
+    return args[i];
+  }
+  return null;
+})();
 
 // generated/ IS NAMED AFTER THE SYSTEM, NOT AFTER THE PROJECT FOLDER, and the two differ in the run this
 // was written against — project CPOC01, system RecipeBox. The system name is a domain fact and lives on
@@ -96,7 +107,7 @@ const pascal = (s) => s.replace(/[^A-Za-z0-9]+(.)?/g, (_, c) => (c ? c.toUpperCa
 // attribute.
 
 function compileModels() {
-  const dir = join(PROJ, "diagrams");
+  const dir = explicitTarget ? resolve(explicitTarget) : join(PROJ, "diagrams");
   if (!existsSync(dir)) die(`${rel(dir)} does not exist. Is this project initialised?`);
   const files = readdirSync(dir).filter((f) => f.endsWith(".drawio") && !f.startsWith("_"));
   if (!files.length) die(`no models in ${rel(dir)}.`);
@@ -350,11 +361,12 @@ if (cmd === "plan") {
     if (p.rejections.length) {
       console.log(`\n  RULE NAMES THE UI MUST BE ABLE TO SURFACE`);
       console.log(`  A rejection's rule name is what a user sees and what the failing test is called after, so`);
-      console.log(`  asserting the name in the browser ties the two together. Note the wire shape differs:`);
+      console.log(`  asserting the name in the browser ties the two together. It is always in title; what each`);
+      console.log(`  rejection carries IN ADDITION is what differs:`);
       for (const r of p.rejections) {
         const shape = r.enforce === "periphery"
-          ? `{ errors: { <Field>: ["${r.name}"] } }   (FluentValidation, rejected before any stream is read)`
-          : `{ title: "${r.name}" }   (ProblemDetails from the decider)`;
+          ? `title + errors.<Field>: ["${r.name}"]   (FluentValidation, before any stream is read — names the input)`
+          : `title + detail: "…"   (ProblemDetails from the decider — prose, names no field)`;
         console.log(`    ${r.name.padEnd(28)} ${shape}`);
         if (r.rule) console.log(`      ${r.rule}`);
       }
@@ -646,7 +658,7 @@ if (cmd === "check") {
     if (!mine.length) {
       problems.push({ report: "UI JOURNEY NOT SHOT", file: rel(SHOTS), name: j.name,
         detail: `no shot of ${screens.join(", ")} in review/_shots/. The states only a click reaches are the ones review.mjs could never take — shoot them there and they land beside the design` });
-    } else if (!mine.some((f) => f.includes("-mobile."))) {
+    } else if (settings().mobile && !mine.some((f) => f.includes("-mobile."))) {
       problems.push({ report: "UI JOURNEY SHOT ONLY WIDE", file: rel(SHOTS), name: j.name,
         detail: `${mine.length} shot(s), none at the mobile width. Playwright's 390px viewport is honest — no iframe, no 500px crop — so a desktop-only run is a choice, and responsive navigation is where getting from a list to a modal breaks` });
     }
@@ -902,8 +914,13 @@ export default defineConfig({
     screenshot: "off",   // shots are taken deliberately by journeys/_shot.ts, where the human reviews them
   },
   projects: [
-    { name: "desktop", use: { channel: "chrome", viewport: { width: 1440, height: 900 } } },
-    { name: "mobile", use: { channel: "chrome", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
+    { name: "desktop", use: { channel: "chrome", viewport: { width: 1440, height: 900 } } },${settings().mobile ? `
+    { name: "mobile", use: { channel: "chrome", viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },` : `
+    // MOBILE IS OFF because project.json says "mobile": false. Turn it on there rather than here —
+    // this file is emitted, so a project added by hand is reverted on the next scaffold, silently.
+    // What it costs: a browser walk is the only check in this kit that gets a HONEST sub-500px
+    // viewport (Playwright takes it from device metrics; every other shooter is an iframe inside a
+    // 500px window), and responsive navigation is where getting from a list to a modal breaks.`}
   ],
 });
 `;
@@ -914,9 +931,14 @@ function spec(p) {
   const steps = p.screens.map((s, i) => `//   ${i + 1}. ${s.screen} — ${s.slices.join(", ")}`).join("\n");
   const sel = p.screens.map((s) =>
     `//   ${s.screen.padEnd(18)} ${s.selectors.join("  ") || "(no bound attribute)"}`).join("\n");
+  // EVERY REJECTION CARRIES THE RULE NAME IN `title`, whichever enforcement point refused it — one
+  // assertion, not two. This used to print `{ errors: { <Field>: [...] } }` for a periphery rule with no
+  // title at all, which was measured false (KIT-FINDINGS BP1) and is the shape a spec would have been
+  // written against. What differs is only what each carries IN ADDITION, so that is what is printed.
   const rejections = p.rejections.length
-    ? p.rejections.map((r) => `//   ${r.name.padEnd(26)} ${r.enforce === "periphery"
-        ? `{ errors: { <Field>: ["${r.name}"] } }` : `{ title: "${r.name}" }`}`).join("\n")
+    ? p.rejections.map((r) => `//   ${r.name.padEnd(26)} title: "${r.name}"${r.enforce === "periphery"
+        ? `   + errors.<Field>: ["${r.name}"]  (periphery — names the input)`
+        : `   + detail: "…"  (decider — prose, names no field)`}`).join("\n")
     : "//   (none — no GWT on these slices expects a rejection)";
   const undrivable = p.screens.filter((s) => !s.entryDerivable).map((s) => s.screen);
   // THE WALK IS WHERE THE USER ACTS, AND NOT WHERE THEY ARRIVE. `slices=` orders the slices, so the
@@ -959,8 +981,10 @@ ${steps}
 //
 ${sel}
 //
-// RULE NAMES THIS WALK CAN SURFACE, and the shape each arrives in. The rule name is what the user sees
-// and what the failing GWT is called after, so asserting it in the browser ties the two together:
+// RULE NAMES THIS WALK CAN SURFACE. The rule name is what the user sees and what the failing GWT is called
+// after, so asserting it in the browser ties the two together — and it is ALWAYS in \`title\`, so one
+// assertion covers both enforcement points. What each additionally carries differs, and only the periphery
+// shape says WHICH INPUT was refused:
 ${rejections}
 //
 ${undrivable.length ? `// HOW THE USER REACHES ${undrivable.join(", ")} IS NOT IN THE MODEL. ${undrivable.length > 1 ? "Those screens show" : "That screen shows"} no view

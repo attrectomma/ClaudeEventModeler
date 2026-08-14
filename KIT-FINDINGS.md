@@ -82,6 +82,179 @@ immediately, and nobody asks it unprompted.
 
 These pass every check the kit has. That is what makes them the top of the list.
 
+### BT10 — a signature element in `tokens.css` is an UNSCOPED GLOBAL, and that file is copied unedited into every screen · `kit` · **BROKEN**
+
+**Found by `frontend-agent` — 2026-08-13 — in a file authored the same afternoon, which is what makes it a
+kit-shape problem rather than one project's slip.**
+
+`styling`'s rule is that `<project>/designs/tokens.css` holds *"4–6 named colours, two type roles, one
+spacing scale, and one signature element"*, and `frontend-agent`'s rule is that `web/src/tokens.css` is a
+**copy** of it. Both were followed. The result:
+
+```css
+.prep      { font-family: var(--mono); color: var(--heat); … }
+.prep .bar { height: 3px; background: var(--heat); … }
+```
+
+Two **unscoped global class selectors**, in a file every screen imports and no screen author owns. The next
+screen that wants a `.prep` — or, far more likely, **any `.bar`** — silently inherits paprika monospace and a
+3px rule, and the fix lives in a file the rule says to copy unedited. `.bar` is about as reachable a class
+name as exists in a UI.
+
+**This is the measured `.bay` shape again** (the agent's own comparison), and the general form is: *"one
+signature element"* invites authoring a **component** in the token file, while everything else in there is a
+**custom property**. A custom property is inert until used; a class selector is not.
+
+**The rule needs one more clause:** a token file may define custom properties globally, and any *selector* it
+carries must be namespaced (`.em-prep`) or must live in the screen's own stylesheet instead. Worth checking
+`DemoAllPatterns`' and `Demo001`'s token files for the same shape before deciding the wording.
+
+Interaction worth noting: the port scoped **its own** page CSS under `.screen-recipes` off its own initiative,
+so the collision surface is now exactly the two selectors that came from the token file.
+
+### BT11 — `review.mjs`'s MOBILE capture cannot span a slow-failing fetch, and files a plausible picture under the wrong `--state` · `kit` · **BROKEN**
+
+**Measured by `frontend-agent`: a 3-second nginx failure produced a `loading` picture filed as
+`--state unreachable`, three runs running, including at `--settle 8000`. The desktop path got it right every
+time.**
+
+The asymmetry is the mechanism: mobile goes through the `<iframe>` wrapper (Windows will not make a real
+window narrower than ~500px, which is `shoot.mjs`'s whole reason to exist), and the nested document does not
+finish a slow request inside Chrome's `--virtual-time-budget`. Desktop uses direct capture and does not.
+
+**The failure mode is the dangerous kind: a mislabelled shot, not an error.** The file is named for the state
+you asked for, it is a perfectly plausible screenshot, and it goes into `review/index.html` beside the design
+as evidence of a state nobody has actually seen. Same family as the sub-500px viewport lie that `shoot.mjs`'s
+iframe was built to fix — and it is the *same tool*, one layer down.
+
+Workaround the agent used: make the failure instant (21ms) before shooting. That is a real answer for a 502
+and no answer at all for a genuinely slow state, which is the interesting half of what one would want to shoot.
+
+Candidate fixes, in order of honesty: have the iframe path **detect that the frame never settled** and refuse
+to write the file (a missing shot must read as missing — the same rule `ui-journey`'s `beforeAll` clear
+exists for); or wait on a readiness signal rather than a time budget; or, cheapest, print a warning whenever
+an iframe capture hits its budget with an in-flight request.
+
+### BT7 — `design.mjs check` is a sound DESIGN gate and an unsound PORT gate: it reports 0/0 when nothing has been ported · `kit` · **BROKEN**
+
+**Found by `frontend-agent` refusing a task and auditing its own gate on the way out — 2026-08-13.** The
+`codegen` and `styling` skills both state the frontend gate as *"`design.mjs check` at 0 errors, 0
+warnings"*. That sentence is satisfiable by doing nothing at all.
+
+`tools/design.mjs` around line 153:
+
+```js
+for (const [slug, rec] of screens) {
+  const file = join(designs, `${slug}.html`);
+  if (!existsSync(file)) {
+    push("info", "design-not-drawn", …);
+    continue;                          // <-- EVERY data-em check is below this line
+  }
+  const portFiles = ports.filter(…);
+  const html = [file, ...portFiles].map(…).join("\n");
+```
+
+**Measured, all three states, on one screen:**
+
+| Tree | `design.mjs check` |
+| --- | --- |
+| no design page, no port | `0 error(s), 0 warning(s)` + one INFO |
+| design page, **no port at all** | **`0 error(s), 0 warning(s)`** — there is no `port-missing` rule |
+| design page + a binding the model does not declare | `ERROR [design/design-unknown-field]` — so the instrument **can** fire |
+
+The third row matters: this is not a dead check, which is why it went unnoticed. It genuinely holds a
+*design* to the model in both directions. What it cannot do is notice that **the port does not exist**, and
+that is exactly what it is being cited as the gate for.
+
+The agent's own words: *"the brief's 'it must pass at 0 errors, 0 warnings' would have been satisfied by my
+doing nothing. The instrument cannot be made to fire; per the kit's standing rule that is not a result."*
+
+**Two candidate fixes, and they are not equivalent.** Promote `design-not-drawn` to a warning once a port
+exists (cheap, but still silent when neither exists); or add a `port-missing` rule and check the port's
+bindings against the model **independently of the design page**, which is the one that makes the sentence in
+the skills true. Note the second needs the port-discovery rule below to be sound first.
+
+### BT8 — the port filename is load-bearing and undocumented, so a correctly-built screen can be silently unchecked · `kit` · **NOISE**
+
+Port discovery in `tools/design.mjs` is a **non-recursive** `readdirSync` over `generated/*/web/src`, matched
+as `basename(p, ".tsx").toLowerCase() === slug.replace(/-/g, "").toLowerCase()`.
+
+So the screen component must be **`web/src/<Slug>.tsx`, directly in `src/`**. A port at
+`src/screens/Recipes.tsx`, or named `RecipesPage.tsx`, is **silently not checked** — no error, no warning, no
+note, and combined with **BT7** the gate then reports 0/0 over a port nothing looked at.
+
+Nothing states this. Not `frontend-agent.md`, not the `styling` or `codegen` skills, not CLAUDE.md. My own
+inline port in this session complied **by luck** — I copied the reference project's flat layout without
+knowing it was required. A `PORT NOT DISCOVERED` note (a `.tsx` under `web/src/**` whose name is close to a
+slug but does not match, or a slug with a design and no discoverable port) would cost little.
+
+### BT9 — OPEN, and it is a modelling question rather than a defect: nothing says how a screen learns about somebody else's write
+
+Raised by `frontend-agent`, and left unanswered rather than invented. `RecipeList` being `Inline` makes a
+re-read authoritative **after this user's own POST** — it says nothing about a write by a second client, a
+demo seed, or another actor. The model has no notation for *"this screen polls"*, *"this screen subscribes"*
+or *"this screen offers Refresh"*, and `displays=` cannot express it.
+
+The sharp half is a design consequence the agent spotted and is worth keeping: **if the answer is a Refresh
+control, it must be present in the EMPTY state too** — which is precisely where a `No recipes yet` block
+would otherwise hide it, leaving a user who arrives before the first write with no way to see the first one.
+
+Adjacent to the `stale-read` architect question but not the same: that one asks how stale a view may be,
+this one asks what makes the *screen* re-read. Probably `styling`'s to decide per screen, but it needs
+somewhere to be written down, and today there is nowhere.
+
+### BT6 — codegen resolves the stream from a `terminal="…:generated"` member, so EVERY stream is `Guid.Empty` · `kit` · **BROKEN**
+
+**Found by `backend-agent` on 2026-08-13, and it is the worst shape a defect can have here: a green build, a
+green suite, a 200 response, and every event in the system in one stream.**
+
+`codegen` emits, for a command whose id the model marks `terminal="recipeId:generated"`:
+
+```csharp
+public Guid StreamKey => AddRecipeState.StreamKey(RecipeId);        // emit
+
+[WolverinePost(Route), EmptyResponse]
+public static RecipeAdded Handle(AddRecipe command,
+    [WriteAggregate(nameof(AddRecipe.StreamKey), Required = false)] AddRecipeState? state)
+```
+
+**`terminal="recipeId:generated"` means the HANDLER supplies the id — so the caller never sends one, so
+`RecipeId` is `default(Guid)`, so `StreamKey` is `Guid.Empty` on every single request.** The middleware
+resolves stream `Guid.Empty` every time. Every recipe ever created lands in one stream, `identity="recipeId"`
+is destroyed, and a single-stream projection over it collapses the whole cookbook into one last-write-wins row.
+
+**Measured, not argued.** The agent minted `Guid.Empty` deliberately: the POST returned **200 and Marten
+started the stream**. The store raises nothing for an empty stream id, so there is no error anywhere — not at
+build, not at startup, not at request time. The only symptom is a read model that is quietly, permanently
+wrong.
+
+**Root cause is one line of missing logic:** `terminal` occurs in `tools/codegen.mjs` **only inside comment
+and doc-comment text** (around lines 1211-1260). The `StreamKey` emit and the `[WriteAggregate]` decider
+(around 677-947) never consult it. So the generator wires stream resolution to a value the model explicitly
+says the generator does not have.
+
+**The fix the finder proposed, and it is the right shape** — `codegen` cannot know what to write instead, since
+minting an id is a decision (v7 vs v4 vs Comb, client-supplied vs not), so it should **refuse and name the
+gap** exactly as `NO READ ENDPOINT GENERATED` does:
+
+```
+STREAM RESOLVED FROM A terminal=generated MEMBER — 1.
+  add-recipe   AddRecipe.StreamKey reads recipeId, which the model marks terminal="recipeId:generated".
+               The caller never sends it, so [WriteAggregate] would resolve Guid.Empty for every request.
+               A slice that CREATES its stream wants MartenOps.StartStream with an id the decider mints.
+```
+
+**Not fixed in this session** because it changes `emit` output for every project, which is a decision rather
+than a typo. Note the interaction: the correct answer (`MartenOps.StartStream`) also **drops
+`[EmptyResponse]`**, because a caller cannot know an id it did not supply — so the response shape of every
+creating slice is part of this, not a detail.
+
+**Why five runs missed it.** Every earlier creating slice was hand-written straight to `StartStream` — the
+reference implementation does exactly that and explains why — so nobody ever *kept* the scaffolded
+`[WriteAggregate]` arm on a `terminal=generated` command and ran it. I missed it in this same session by
+writing `command.RecipeId == Guid.Empty ? Guid.NewGuid() : command.RecipeId`, which accidentally avoids the
+bug while leaving the scaffold's wrong default in place for the next implementer.
+
 ## What the first true fresh-start run says to fix first
 
 **Demo001 (2026-08-11) is the only project ever built by the current kit from nothing** — three slices, one
@@ -102,9 +275,9 @@ Ranked by *"what forces something other than a skill or an agent to supply the a
 
 | | | Why first |
 | --- | --- | --- |
-| **1** | **BP1** — the rejection-shape claim | A **false sentence in the document every agent trusts**, which propagated into a generated code comment and reaches the shipped UI contract. Cheapest fix in the file, largest blast radius: a UI written to it shows *"One or more validation errors occurred."* instead of the rule name |
-| **2** | **BP2 + BP4** — *one gap seen twice* | `codegen` does not know the two-file decider shape exists, so it **emits the wrong arm** for contended slices *and* fails to emit the handler. One scaffold fixes both, and it is the single biggest reduction in hand-written files |
-| **3** | **BP5** — a decision recorded and contradicted | Without it `architect` is advice rather than a step. It is the phase that costs the most human thought and the only one nothing verifies |
+| ~~**1**~~ | ~~**BP1** — the rejection-shape claim~~ ***DONE*** | A **false sentence in the document every agent trusts**, which propagated into a generated code comment and reaches the shipped UI contract. Cheapest fix in the file, largest blast radius: a UI written to it shows *"One or more validation errors occurred."* instead of the rule name. ⚠ **"Cheapest fix in the file" was wrong** — the sentence had **five** homes, not one, and the fix needed a probe with a control to establish which of two opposite answers to write. Ranking a documentation defect as cheap assumes one copy; BP4 is exactly why there were five |
+| ~~**2**~~ | ~~**BP2 + BP4** — *one gap seen twice*~~ ***DONE*** | `codegen` did not know the two-file decider shape existed, so it **emitted the wrong arm** for contended slices *and* failed to emit the handler. The ranking's "one gap seen twice" was literally true — the pair closed both. ⚠ **"One scaffold fixes both" was the estimate, and it cost more than BP1 and BP4's other rows combined**: reading architect's answer required fixing architect, which turned out to have been failing on six of eight projects; and the shape detector wrote a duplicate decider into four slices before it was widened. What remains of BP4 is the *report*, not a file |
+| **3** | **BP5** — a decision recorded and contradicted | Without it `architect` is advice rather than a step. It is the phase that costs the most human thought and the only one nothing verifies. **Now genuinely reachable**: `architect check` had never been able to run on a reference implementation, so BP5's own class of defect was unobservable there |
 | **4** | **BP6 / BP7** — fire on every chapter, every run | Severity says NOISE; **the BN10 argument says otherwise** — a report that always fires trains the reader to skip reports, which is how a BP5-class finding goes unnoticed |
 
 **And the honest limit of this run: it tested one half of the goal.** `mode=demo` roleplayed the domain
@@ -115,52 +288,161 @@ findings will be a different list.
 
 ---
 
-### BP1 — CLAUDE.md says a periphery and an aggregate rejection have the SAME response shape. They do not, and the claim reaches the frontend contract · `kit` · **BROKEN**
+### BP1 — ~~a periphery and an aggregate rejection have DIFFERENT response shapes, and CLAUDE.md says they are the same~~ · `kit` · ***FIXED — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
 
-CLAUDE.md: *"A rejected rule returns ProblemDetails with the rule name as the Title, which is what
-Wolverine.HTTP already does for FluentValidation failures — so `then="error: RuleName"` asserts the same
-shape whether the rule was caught at the periphery or in the decider."* **Both clauses are false.** Measured
-on the wire on `cancel-booking`, which is the first slice in this kit's history to carry both `enforce=`
-values on one slice — which is exactly why five runs never noticed:
+**The sentence had five homes**, not one: CLAUDE.md, both projects' hand-written `Rejections.cs`, and an
+endpoint scaffold in two reference implementations — because **BP4** meant nothing emitted the helper, so
+every project copied the file *and the claim*. Settled by `probes/rejection-shape.cs`, which carries its
+control and asserts the body rather than the 400 both paths return: an ASP.NET `CustomizeProblemDetails`
+**does** fire on Wolverine's FluentValidation path and **does** leave `errors` intact, so `Program.cs` now
+unifies `title` and CLAUDE.md carries the narrow claim — *`title` always, `errors.<Property>` only at the
+periphery, `detail` only from a decider.* Full entry, including why this is what made `Rejections.cs` `emit`,
+is in the archive.
+
+**It took a second pass to actually finish, and the miss is instructive.** The session that fixed the claim
+updated `backend-agent.md` and left **`frontend-agent.md`** documenting the two-shape world — in the one
+document whose reader causes BP1's observed damage. Worse, two sites in `tools/uijourney.mjs` were *generating*
+the old shape into every scaffolded UI-journey spec. **Counting the homes of a false claim is part of fixing
+it**; the first pass counted five and there were eight. KIT-HISTORY **BP1 (part 2)**.
+
+### BP2 — ~~codegen scaffolds the decider ON THE HTTP ARM for a slice `architect` has already flagged as contended~~ · `kit` · ***FIXED — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
+
+**BP4's last open row closed with it**, because the `<Slice>Handler.cs` pair *is* what BP2 needed — the two
+findings really were one gap seen twice, as the ranking said. `codegen` now **asks**
+`architect.mjs questions --json` which slices are contended (never recomputes: that is V9's shape) and emits
+the decider as a message handler plus a five-line endpoint that invokes it through the bus. Non-contended
+slices keep the single HTTP arm, deliberately — the cost of that choice is stated in the archive.
+
+**Three things this cost that "the fix is a report" did not predict:**
+
+- **Asking architect did not work.** It hard-coded `<project>/diagrams`, so it exited 1 on all six reference
+  implementations while codegen's `try/catch` swallowed it — `ARCHITECTURE DECISIONS MISSING` had **never once
+  been able to fire** on three quarters of this repo, and the `diagrams does not exist.` line had been read as
+  unrelated noise for sessions. This is the finding that promoted the vacuous-negative discipline to a
+  **standing rule** in CLAUDE.md.
+- **Detecting an existing decider by `[WriteAggregate]` was too narrow**, and wrote a second decider beside
+  four deliberately hand-rolled ones — including in `cross-aggregate-invariant/`, the folder built to study
+  hand-rolled mechanisms. A **duplicate handler is worse than a duplicate route**: measured, no exception and
+  no error anywhere, the caller simply gets the other handler's answer.
+- **One predicate cannot answer two questions.** *"Is there a decider?"* must be loose; *"is it on the arm the
+  retry cannot reach?"* must additionally require that the **middleware** owns the save — otherwise the report
+  accuses a deliberate guard-row arm of a defect.
+
+### BP13 — ~~`siblingSlices` returns an EMPTY LIST when its subprocess fails~~ · `kit` · ***FIXED — moved to [KIT-HISTORY.md](KIT-HISTORY.md) BQ1***
+
+**Fixed as part of the sweep it prompted.** The subprocess is gone (it existed only to call `readdirSync`), a
+folder that cannot be listed now throws with the path, and a sibling that cannot be read warns and says the
+consequence — *"slice names in it are NOT checked for collision, so this add may duplicate one."* The full
+sweep found **14 sites, 5 needing a fix**, and proved itself able to return "some" before any "none" was
+believed. Details below are kept because the reasoning is the artifact.
+
+Found by sweeping for the shape BP2 exposed, now that CLAUDE.md carries the vacuous-negative rule.
+`tools/slice.mjs:777` reads the sibling models in a folder — the one thing that lets `add` refuse a slice name
+already used by another model, and *"slice names are unique across the system"* is a rule the kit states
+outright, because a slice is a branch and a ticket.
+
+```js
+try { names = execFileSync("node", ["-e", `…readdirSync(…)…`], …).split("\n")… } catch { return out; }
+```
+
+**Two defects in one line.** It shells out to a second `node` process to do a `readdirSync` the same process
+could do directly — and on any failure of that subprocess it returns `[]`, which is indistinguishable from
+*"there are no sibling models"*. So the uniqueness check does not report a problem; it reports **no siblings**,
+and `add` then accepts a duplicate slice name across two models with nothing said.
+
+Unmeasured how often it fires, and that is the point: a check that cannot distinguish "clean" from "broken"
+gives no evidence either way. The fix is to call `readdirSync` inline and let a real failure be loud — the
+subprocess buys nothing.
+
+**Related but not the same**: `codegen.mjs:3208`'s `catch {}` around `architect check` is the one that already
+bit (see KIT-HISTORY **BP2**); it stays, because a missing report must never break a generation run, but its
+call site now passes `target` so it no longer hides a wiring bug. These are the two remaining
+swallow-and-return-empty sites in `tools/`; the rest are `rmSync` cleanups and JSON parses where empty is the
+honest answer.
+
+### BP14 — Voltway's record answers 17 of 68, and `codegen` showed you 6 of an 85-line mixture · `kit`/project · ***REPORTING FIXED and the 5 RACE TESTS WRITTEN 2026-08-11; the 51 stay open by decision***
+
+Surfaced by running `architect check` on all eight projects as a gate item for the first time.
 
 ```
-periphery  {"title":"One or more validation errors occurred.","status":400,
-            "errors":{"Reason":["ReasonRequired"]}}
-aggregate  {"title":"AlreadyCancelled","status":400,"detail":"Booking … has already been cancelled."}
+Demo001                    5 question(s);  5 decided, 0 TODO,  0 not in the record
+reservation               16 question(s); 16 decided, 0 TODO,  0 not in the record   + RACE TEST NOT WRITTEN — 3
+Voltway                   68 question(s); 17 decided, 0 TODO, 51 NOT IN THE RECORD   + RACE TEST NOT WRITTEN — 5
+                                                                       + ANSWER TO A QUESTION NOBODY ASKS — 32
 ```
 
-Same status, same `type`. **The rule name is in `errors.<Property>[0]` at the periphery and in `title` from
-the decider**, and the periphery body carries no `detail`. Confirmed against
-`Wolverine.Http.FluentValidation.dll` (`ValidationProblemDetails`, `GroupBy`, `ToDictionary`) before it was
-confirmed on the wire.
+#### The two reporting defects, both fixed — and the first was worse than a cap
 
-**Why it is BROKEN and not NOISE:** a UI written to the documented claim reads `title` and shows the user
-*"One or more validation errors occurred."*, losing `ReasonRequired` entirely. The generated `Rejections.cs`
-had already inherited the wrong sentence as a code comment. Fix the claim, and say in `backend-agent` and
-`frontend-agent` that a rejection reader must handle both shapes.
+**`codegen` did not cap 51 at 6. It capped an 85-LINE MIXTURE at 6.** Its filter grepped `architect check`'s
+stdout for `/^\s{2}\S/` containing a slash, which sweeps up **both** `QUESTION WITH NO SECTION` (51 — the
+model asks and the record is silent) **and** `ANSWER TO A QUESTION NOBODY ASKS` (32 — an orphaned decision,
+the opposite problem), then printed the first six under one heading claiming the record *"does not answer
+everything the model asks"*. Six of eighty-five, of two different findings, under one wrong label.
 
-### BP2 — codegen scaffolds the decider ON THE HTTP ARM for a slice `architect` has already flagged as contended, and no report says so · `kit` · **BROKEN**
+Now it reads the numbers architect computed — one computation, one caller, V9's lesson at small scale — and
+says: *"is silent on 51 of the 68 question(s) the model asks. Separately, 32 recorded answer(s) point at
+question ids that no longer exist — a DIFFERENT finding"*, shows 6, and prints **"… and 45 more NOT shown
+here. This list is a sample; the count above is the finding."** No silent cap.
 
-`architect.mjs` raised `contended-invariant/room-booking/book-room/gwt-book-room-2` **and** generated
-`BookRoomConcurrencyTests` for it. `codegen.mjs` still emitted
-`[WolverinePost(Route), EmptyResponse] public static RoomBooked Handle(...)` — the shape CLAUDE.md's own **V7**
-says turns a lost race into a bare 500, because `OnException(...).RetryTimes(3)` is a message-pipeline policy
-that never reaches a Wolverine.HTTP endpoint. The scaffolded file's own comment explains this at length and
-the generator emits the wrong shape anyway.
+**And the orphans now name their nearest current id.** The kit caused these — `command`→`state-change`, the
+board refactor — and gave no way to carry a decision across a rename. `architect check` suggests only when it
+is earned (same family, same slice, and one id's last segment a suffix of the other's — the prefix-gain shape
+and nothing looser). Measured on Voltway's 32:
 
-Measured in a fresh project, 8 writers at one room-day, both arms built:
+| | |
+| --- | --- |
+| **27** | *"almost certainly `contended-invariant/charging/cancel-hold/charging-gwt-cd-2` (the id gained a prefix)"* |
+| **4** | the slice still asks, but under a different number — **CANNOT TELL**, and it lists what the scope does ask |
+| **1** | nothing current asks about that family/scope at all — the answer may be genuinely dead |
+
+**Deliberately not a migrator.** Re-pointing a decision claims the old reasoning still answers the new
+question, and only a reader can make that claim.
+
+#### The 51: LEAVE THEM, and the report must keep saying so
+
+**Decided.** Voltway is `mode="demo"` — every domain fact in it was roleplayed. Answering 51 concurrency
+questions there means **inventing 51 decisions with costs for a system nobody operates**, and the result would
+be fiction wearing the shape of architecture. Nothing points an agent at Voltway's ARCHITECTURE.md as a worked
+example; that is what `reference-implementations/` is for. Voltway's value to the kit is that it *exercises*
+the tooling at scale — 27 slices, two contexts, 203 tests — not that it is well-architected.
+
+**What that costs, stated rather than discovered later:** Voltway reports `ARCHITECTURE DECISIONS MISSING` on
+every run, for ever. That is the **BN10** trap — a report that always fires trains the reader to skip reports,
+and then a genuine one goes unread beside it.
+
+**And it must NOT be silenced with the `architect-record-elsewhere` fence.** That fence means *"the decisions
+are recorded, in another artifact"*, which is true of the reference implementations and **false of Voltway** —
+its 51 are not recorded anywhere. Using it here would convert an honest finding into a lie, and would corrode
+the one acknowledgement the kit has for this. So the report stays loud, and the reason it is unactioned lives
+in `<project>/OPEN-QUESTIONS.md` where a reader will find it.
+
+#### The 5 race tests: WRITTEN, and they found a generator defect
+
+**Written live, not skipped.** The kit's skip precedent is for an *unclaimed* slice; all five of these sit on
+`ready` slices, so skipping them would have tripped the kit's own `TESTS STILL SKIPPED ON A CLAIMED SLICE`
+report. Ten tests (five files × two), all passing, none skipped — **Voltway 203 → 213**.
 
 ```
-decider through the bus   204x1, 400x7  (SlotAlreadyBooked)
-decider inline on HTTP    204x1, 7x escaped EventStreamUnexpectedMaxEventIdException
+AlreadyPublished   PublishBayEnergy     on ChargingContract (bayId)
+AlreadyNoted       NoteBayAvailability  on Bay (bayId)
+AlreadyListed      ListBay              on Bay (bayId)
+AlreadyPublished   PublishBayOffered    on EstateContract (bayId)
+AlreadyRecorded    RecordBayEnergy      on Bay (bayId)
 ```
 
-Same invariant held both ways; completely different thing arriving at the caller.
+**Four of the five needed no guard, and that is the result rather than a shortfall.** Every one is keyed by
+`bayId` and folds an *"already X"* predicate, so the stream key already contains the contested thing and
+optimistic concurrency refuses the loser — exactly what the architect answer claimed, now measured instead of
+asserted.
 
-**The fix is a report, not a rewrite** — `DECIDER ON THE HTTP ARM FOR A CONTENDED SLICE` is derivable from
-the IR plus the architect questions. Related: codegen also emitted `[EmptyResponse]` on `cancel-booking`,
-three lines below the consts naming its three rejections, while the same file's comment warns that
-`[EmptyResponse]` silently discards a returned ProblemDetails.
+**But two went red, on the MECHANISM, and that is KIT-FINDINGS BS1** (KIT-HISTORY): the emitted retry policy
+covered `EventStreamUnexpectedMaxEventIdException` and **not** `ExistingStreamIdCollisionException`, so on a
+slice whose command *creates* its stream a lost race escaped `InvokeAsync` unhandled. One emitted line fixed
+it; 52/52 concurrency tests green. **The race tests earned their keep on the first run** — not by finding a bad
+decider, but by finding the generator's own gap.
+
+**Mutation-checked**, per the architect skill: a per-operation key instead of the per-bay key gives
+`Won should be 1 but was 10`. The test bites.
 
 ### BP3 — `SeedData` synthesises values and ignores the model's own GWT example data, while the test hints point AT SeedData · `kit` · **BROKEN**
 
@@ -1112,7 +1394,38 @@ router will not draw. → [detail](KIT-HISTORY.md)
 
 ## 2. Missing capability
 
-### BP4 — FOUR C# FILES A WORKING SYSTEM NEEDS ARE EMITTED BY NOTHING, and deleting them is invisible to `codegen` · `kit` · **GAP**
+### BP4 — ~~FOUR C# FILES A WORKING SYSTEM NEEDS ARE EMITTED BY NOTHING~~ · `kit` · ***ALL FOUR FIXED 2026-08-11; the REPORT is what remains***
+
+> All four files are now generated: `Rejections.cs` (`emit`, once per system), the state-view read endpoint
+> (`scaffold`, or a named refusal where the recipe is not document-backed), and **the `<Slice>Handler.cs` pair,
+> which closed with BP2** — it was never a separate gap.
+>
+> **What is still open is the report BP4 asked for and did not get**: a hand-written file living inside a
+> generated slice folder that the generator does not know about is still invisible. Three of the four rows were
+> closed by *generating* the file; the fourth needs codegen to notice a file it did not write.
+
+> **`Rejections.cs` is done** — emitted once per system at `src/<System>/Rejections.cs`, namespace
+> `<System>`, and **`emit` rather than `scaffold`** because its doc comment *is* the rejection wire contract
+> and **BP1** is what happens when that contract is hand-owned in five places. Gated by deleting it from
+> Demo001 and re-running codegen: `16 written` where it was `15`, the file back, 18/18 green. Reasoning, the
+> location argument, and the four pre-existing copies that had to be reconciled: KIT-HISTORY **BP4 (part)**.
+>
+> **The state-view read endpoint is done** — `Views/<View>Endpoint.cs`, **`scaffold`**, 7 written across
+> three reference implementations and **1 refused**: the recipe is read off the tree, and a
+> `FlatTableProjection` or a live aggregation gets `NO READ ENDPOINT GENERATED` instead of a `Query<T>()`
+> that compiles and returns nothing for ever. Detection is by *existing endpoint*, never by filename —
+> without that, Voltway, Demo001, Spend and Allocation would each have gained a duplicate.
+> KIT-HISTORY **BP4 (part 2)**.
+>
+> **The two `<Slice>Handler.cs` files closed with BP2** — the pair is what BP2 needed, so the ranking's
+> "one gap seen twice" was literally true.
+>
+> ⚠ **The gate in this finding does not transfer to a scaffold, and that is now measured.** Delete-and-
+> regenerate proved `Rejections.cs` because it is `emit` and comes back byte-identical. Run on the read
+> endpoint in Demo001 the file *does* come back — but the suite goes red with 5 compile errors, because the
+> deleted file carried `UrlFor(date)` and a date filter the scaffold deliberately does not. **Deleting a
+> filled-in scaffold returns the stub, never the filled-in file.** Gate a scaffold on a
+> generator-owned copy instead.
 
 **This is the answer to BN4's closing claim, and it is the headline finding of the first true fresh-start run.**
 BN4 was verified by regenerating into projects that already existed; Demo001 started from nothing. The
@@ -1124,14 +1437,163 @@ Deleted all four, re-ran `node tools/codegen.mjs`, got `15 written, 13 kept` and
 
 | File | Why it had to exist |
 | --- | --- |
-| `Slices/<ctx>/Rejections.cs` | CLAUDE.md and `backend-agent` both say to return a rejection *"via the shared `Rejections.Problem` helper"*, and **nothing emits the helper** — it exists only inside a reference implementation. ⚠ **The evidence line here originally read *"`grep -n "Rejections" tools/codegen.mjs` returns zero hits"*, which is WRONG and would make a reader think the finding is stale: that grep returns **5**, all of them the unrelated local variable `rejections` — the GWT filter at `codegen.mjs:999`. The helper class is what is absent. Corrected rather than deleted, because a finding whose evidence does not reproduce is worse than no finding** |
+| ~~`Slices/<ctx>/Rejections.cs`~~ ***FIXED*** | CLAUDE.md and `backend-agent` both say to return a rejection *"via the shared `Rejections.Problem` helper"*, and **nothing emitted the helper** — it existed only inside a reference implementation. ⚠ **The evidence line here originally read *"`grep -n "Rejections" tools/codegen.mjs` returns zero hits"*, which is WRONG and would make a reader think the finding is stale: that grep returns **5**, all of them the unrelated local variable `rejections` — the GWT filter at `codegen.mjs:999`. The helper class is what was absent. Corrected rather than deleted, because a finding whose evidence does not reproduce is worse than no finding.** Now emitted at `src/<System>/Rejections.cs` — note the location moved, deliberately: see KIT-HISTORY |
 | `Slices/<ctx>/<Slice>/<Slice>Handler.cs` ×2 | the message-path decider **BP2** requires. codegen scaffolds `<Slice>Endpoint.cs` as the decider itself and has no scaffold for the handler + thin-adapter pair |
-| `Slices/<ctx>/TodaysBookings/TodaysBookingsEndpoint.cs` | a `state-view` slice's whole contract is a read model, and **no read endpoint is generated for one**. The GT hint even says to assert *"through its read endpoint **if the slice has one**"* |
+| ~~`Slices/<ctx>/TodaysBookings/TodaysBookingsEndpoint.cs`~~ ***FIXED*** | a `state-view` slice's whole contract is a read model, and **no read endpoint was generated for one**. The GT hint even said to assert *"through its read endpoint **if the slice has one**"*. Now scaffolded at `Views/<View>Endpoint.cs` — the location moved, and the generator **declines** where the recipe is not document-backed |
 
 Without them the build fails; with them `codegen` is silent. So the kit's own idempotence report — the thing
 CLAUDE.md calls *"how a model change gets reviewed"* — is blind to four load-bearing files. Two fixes, and
 they are separable: scaffold `Rejections.cs` and a state-view read endpoint (both mechanical), and add a
 report for a hand-written file living inside a generated slice folder that the generator does not know about.
+
+**The first of those turned out NOT to be mechanical, and that is the transferable part.** *Where* the helper
+goes and *whether* it is `emit` are both real decisions with real consequences — a per-context copy is N
+identical files, and `scaffold` would have preserved BP1's false comment in every project that already
+exists. "Both mechanical" was the estimate; one of them was a contract question wearing a one-liner's
+clothes. Expect the read endpoint to have one of these too.
+
+**It had three, and none of them was the route convention.** *Whether an endpoint may be written at all*
+(two of Marten's six recipes are not documents, and both fail silently), *how an existing endpoint is
+detected* (by view type, never by filename — eight projects agree on neither location nor route), and
+*emit vs scaffold* (here `scaffold`, where `Rejections.cs` was `emit`, because a route and a query filter are
+per-project judgement and not a shared contract). **"Both mechanical" was wrong twice out of two.** The
+remaining row — the handler pair — should be assumed to hide the same thing.
+
+### BP12 — ~~the reference implementations were STALE against `codegen.mjs`~~ · `kit` · ***CLOSED 2026-08-11 — moved to [KIT-HISTORY.md](KIT-HISTORY.md) BQ3/BR1***
+
+> It had three members by the end, not one, and each was a different kind of drift:
+>
+> | | |
+> | --- | --- |
+> | **stale citations** | six `Dockerfile`s carried `KIT-FINDINGS BO2` where the generator emits `KIT-HISTORY BO2`. Regenerated. |
+> | **five folders with no `ARCHITECTURE.md`** | and after the architect fix they produced 29 questions with nowhere to answer them. **Acknowledged, not answered** — a ```architect-record-elsewhere` fence in each README, naming the section that decides. See below for why that is the right way round. |
+> | **the unsatisfiable `INGEST NOT WIRED`** | **the generator was wrong, and not in the way this finding guessed.** |
+>
+> **`automation/` also turned out to have no README at all**, while CLAUDE.md cites it four times as the thing
+> to read before writing an automation. Written.
+>
+> **The `INGEST NOT WIRED` diagnosis in the original text is retracted.** It said the generated seam took the
+> model's event label while the folder's took its own transport record, so the folder was behind. Both records
+> were byte-identical, so one was genuinely redundant — but that was not why the report could never be
+> satisfied. The model declares `automations: ["StockTranslator"]` on that slice, and `codegen` emits
+> `opts.Discovery.IncludeType(typeof(StockTranslator))` into `Program.cs`, which is **`emit`** — so the trigger
+> class is *required to exist*. Scaffolding a seam as well meant **the generator emitted a second consumer for
+> a message the model had already assigned a trigger**, which is the duplicate-handler hazard, generated. On a
+> translation slice the automation cell **is** the seam. `codegen` no longer emits one where the slice names a
+> trigger.
+>
+> **What remains is the question the finding actually raised**, and it is now the only open part: nothing
+> measures the distance between these folders and the generator. See the proposal below.
+
+Found while gating BP1: regenerating all six reference implementations produced diffs that **had nothing to
+do with the change being made.** All six `Dockerfile`s carried a `KIT-FINDINGS BO2` citation that
+`codegen.mjs` had already corrected to `KIT-HISTORY BO2`, and `translation` gained a `Landing/` ingest
+scaffold that the generator has emitted since **T1** and that folder had never received.
+
+**Neither is harmful and that is the point** — one is a comment, the other builds clean and the suite is
+still 15/15. What is wrong is that **nothing measures the distance.** These folders are the worked examples
+CLAUDE.md tells every agent to read, they contain `emit` files by construction, and the only way anyone
+learns they are behind the generator is by regenerating them for an unrelated reason. CLAUDE.md already says
+they are *"not the generator's responsibility… a future skill or agent whose job is keeping them current"*
+— this is the first measurement of what that costs when deferred.
+
+**And the translation one is a second, sharper finding.** `IngestStockNoticedHandler` handles `StockNoticed`
+— the model's external-event label — while the folder's own hand-written seam takes `IngestStockNotice`, its
+own transport message. So the generated seam is **dead code nothing ever sends**, it will trip
+`INGEST NOT WIRED` for ever, and its `TODO(codegen)` can never be honestly closed. Deleting it is not an
+option: it is a `scaffold`, so the next `codegen` writes it back — verified. Either the folder's seam should
+be renamed to the generated one, or the generator should be reading the transport message rather than the
+event label. Left as-is with the suite green, because reconciling a reference implementation with the
+generator is editorial work and not part of the BP1 change.
+
+#### The distance check is BUILT — `refimpl.mjs drift`
+
+```
+node tools/refimpl.mjs drift [--folder <name>]
+```
+
+Regenerates each folder into a **throwaway directory** and diffs only the `emit` files against the committed
+ones. `emit` is total and idempotent by definition, so any difference *is* the finding and no judgement is
+involved — which is exactly why it could be a check rather than the "future skill or agent" CLAUDE.md had
+deferred it to. It writes nothing into the folders, so it cannot break one. Three classes:
+**DIFFERS**, **MISSING** (the generator emits it and the folder never received it), **ORPHANED**
+(emit-bannered, and the generator no longer produces it).
+
+**Proved both ways, because a check seen only to pass is not a check.** Clean on a current tree, exit 0; and on
+a deliberately tampered copy of `state-view` — one edited `Dockerfile`, one deleted `Events.cs`, one planted
+emit-bannered file — it reported exactly `1 differ, 1 missing, 1 orphaned` and exited 1.
+
+**And the clean answer is QUANTIFIED, because a comparison of zero files would also print "up to date".** Each
+folder reports how many emit files it compared and how many scaffolds it skipped — 86 emit files across the six
+(`automation` 14, `cross-aggregate-invariant` 15, `reservation` 16, `state-change` 13, `state-view` 15,
+`translation` 13), against 120 scaffolds deliberately left alone. That ratio is itself the argument for the
+second half of this finding: **more than half of every folder is hand-owned and this tool cannot see any of
+it.**
+
+**It found its own bug on the first run, and that bug is worth keeping:** a generated tree has **more than one
+generator**. `architect.mjs tests` writes `tests/<Sys>.IntegrationTests/Concurrency/` with the same emit banner,
+so every folder with race tests was reported ORPHANED. The orphan check is now scoped to directories codegen
+itself writes into. Not fixed by also running `architect tests` into the throwaway — that would report
+reservation's three *unwritten* race tests as MISSING, relabelling architect's finding as drift. Two reports,
+two owners.
+
+**What it cannot see, and it prints this on every run including a clean one** — because a green run is exactly
+when somebody concludes the folders are current:
+
+| | |
+| --- | --- |
+| **a stale `scaffold`** | where all the reasoning lives. Four wakeup mechanisms, six read recipes, four concurrency arms — all in scaffolded files or a README, none reachable by a generator improvement. It cannot tell "deliberately different" from "left behind" |
+| **prose that has gone false** | `automation/` had no README at all while CLAUDE.md cited it four times as the thing to read. No diff of emit output would ever have said so |
+| **a folder that no longer demonstrates what it claims** | the translation ingest seam was *correct emit output* the whole time; what was wrong was that the folder and the generator disagreed about which class is the seam |
+| **whether the measured claims are still true** | *"1m0s → 47s"*, *"22/22 call sites"*, *"restore resolved Marten 2.10.3"*. These are the folders' real value and they decay silently as the libraries move |
+
+**So the finding closes with its own framing intact: "nothing measures the distance" was TWO problems wearing
+one name.** The mechanical half now has a check; the editorial half still needs a reader, and shipping the
+first must never be read as handling the second. That is why the tool says so itself rather than leaving it in
+a document nobody opens beside the output.
+
+### BP15 — the evidence audit forced by five blind instruments · `kit` · **QUEUE, not work**
+
+Three tools — `architect` (all four subcommands), `progress.mjs` and `uijourney.mjs` — hard-coded
+`<project>/diagrams` and so **could not run against any reference implementation at all** until 2026-08-11
+(KIT-HISTORY **BQ1**). That makes *"regenerated all six, green"* weak evidence for an unknown stretch of this
+repo's history, so the closed findings resting on it needed listing.
+
+**A LIST ONLY. Nothing below was re-verified and nothing is re-opened.** The point is that the queue exists.
+
+**11 sections of KIT-HISTORY cite a reference implementation; 4 of them are closed findings. 10 of the 11
+judged still sound, 1 needs re-checking.**
+
+The judgement is mechanical and worth stating so it can be disagreed with: the blind tools were `architect`,
+`progress` and `uijourney`. **`codegen.mjs`, `model.mjs validate` and `dotnet build`/`test` always worked on a
+reference implementation**, so any finding whose evidence rests on those is untouched by the blindness.
+
+| | Finding | Verdict |
+| --- | --- | --- |
+| 1 | *Trap 1 — `Event(s) → View` does not promise a document* (`state-view`) | **stands** — `MessageMetrics` being a `FlatTableProjection` is read off the tree |
+| 2 | *A SYSTEM WITH NO FRONT END GETS NO NGINX* (`state-view`) | **stands** — two services, two files, measured from codegen output |
+| 3 | **V23** — three parsers, the strict ones deleted (`translation`) · *closed* | **stands** — parser behaviour, nothing to do with architect |
+| 4 | **T** — the translation run (`translation`) | **stands** — codegen → build → 15 tests |
+| 5 | **A2** — a read model cannot hold structured children (`state-view`) | **stands** — twelve checks against real Marten/Postgres |
+| 6 | **A6** — a rule cannot choose its HTTP status (`state-change`) | **stands** — a route and a status code on the wire |
+| 7 | **W2** — a GWT step could not have both a label and example data (`translation`) · *closed* | **stands** — `model.mjs` parsing |
+| 8 | *What this licenses saying* (`state-view`) | **stands** — a sizing remark, not a measurement |
+| 9 | **AD10** — a project could not pin a package version (`cross-aggregate-invariant`) · *closed* | **stands** — `dotnet restore` resolved Marten 2.10.3; measured by restore |
+| 10 | **AD13** — DCB enforces the cross-aggregate invariant (`cross-aggregate-invariant`) · *closed* | **stands** — real Postgres, four arms, with a control |
+| 11 | **BL** — the sixth run, `reservation/` | ⚠ **RE-CHECK** |
+
+**Why 11 is the only one exposed, and it is not arbitrary.** Its stated evidence is *"the kit's standing
+sequence: `model.mjs validate` → **`architect record`** + answer → `codegen.mjs` → **`architect tests`** →
+implement → `dotnet test`"*. It is the only finding in the file whose evidence is the **full** sequence
+including two architect subcommands — on a folder where architect provably could not resolve the model as of
+last session. Something ran (the 261-line `ARCHITECTURE.md` and the race tests exist), so the question is not
+*"is it fake"* but *"under what layout, and does the sequence still work end to end there"*. Consistent with
+today's `RACE TEST NOT WRITTEN — 3` in that folder: architect ran once, then the model moved.
+
+**What re-checking would mean, when somebody picks this up:** run the full sequence against
+`reference-implementations/reservation/allocation` with the fixed argument handling and confirm the record and
+the race tests it produces match what is committed. That is one command and a diff — `refimpl.mjs drift`
+cannot answer it, because both artifacts are `scaffold`.
 
 ### BP5 — nothing reports a decision that is RECORDED and CONTRADICTED BY THE CODE · `kit` · **GAP**
 
@@ -1376,6 +1838,37 @@ reports, not a missing attribute. Recorded so the two findings stop appearing to
 
 ## 3. Noise and cosmetics
 
+### BT13 — BT1 fixed the CHECKER and not the WRITER, so `slice.mjs route` refuses an edge `model.mjs` calls legal · `kit` · **NOISE**
+
+**A partial fix, and the half that was left is the half a human has to work around by hand.** BT1 taught
+`model.mjs` that a View feeding the screen **directly above it** is forward, not backward — a screen is 200
+wide against an element's 180 and drawn `SCREEN_X_NUDGE = 10` px left of its column, so raw left edges lie and
+**centres** are the honest comparison. `flowRules` now uses `centreX`, with a comment naming *"the one
+arrangement CLAUDE.md recommends"*.
+
+`tools/slice.mjs` line 1179 never got it:
+
+```js
+const backward = to.g.x < from.g.x;              // slice.mjs — raw left edge
+const centreX  = (e) => e.geometry.x + e.geometry.w / 2;   // model.mjs — since BT1
+```
+
+So on the second run of the same fixture:
+
+```
+node tools/slice.mjs route recipes.drawio --from rm-recipe-list --to scr-recipes-list
+  slice: Recipe List (readmodel) -> Recipes (screen) points backwards, and only Event -> View may.
+       That is flow/backward-connection. Reorder the columns instead.
+```
+
+The advice is wrong as well as the verdict — there is nothing to reorder, the two cells are in **one** column.
+The edge was authored by hand instead, which is exactly the outcome `route` exists to prevent: it owns routing
+geometry so nobody hand-writes a `<mxPoint>`.
+
+**Fix: lift `centreX` into one shared helper both files import.** The subtlety is worth stating once, which is
+what BT1's comment already says — it just says it in a file the writer does not read. Same shape as **V9** at
+one line: two callers, one computation, and agreement made structural rather than remembered.
+
 ### BP6 — `chapter-runs-backward` fires on the commonest chapter shape there is, and no legal layout avoids it · `kit` · **NOISE**
 
 *"Do a thing, then see it in the view"* is the most natural chapter anyone will draw. It cannot be drawn
@@ -1514,6 +2007,70 @@ one is not a case for adding it; recorded so it is a decision rather than an omi
 ---
 
 ## 4. Open questions
+
+### BT3 — a LIST and a FORM on one screen share one `displays=`, so a command field looks sourced when the form cannot supply it · `kit` · **OPEN**
+
+**Found on stage-rehearsal, and it is the honest edge of the completeness check rather than a bug in it.** The
+check sources a command's attribute from *"the triggering screen's `displays=` **or** `inputs=`"*. On a screen
+that is a list **and** a form — Kata's "one page", the commonest shape there is — `displays=` describes the
+**list rows** while the command is fed by the **form**. They are not the same knowledge.
+
+Measured on `ForLiveDemoRecipe`, walking `prepTimeMinutes` backwards through the model:
+
+| step | the edit | `validate` |
+| --- | --- | --- |
+| 1 | (start) `RecipeList` shows it | `RecipeList.prepTimeMinutes` unsourced by `RecipeAdded` |
+| 2 | add it to `RecipeAdded` | `RecipeAdded.prepTimeMinutes` unsourced by `AddRecipe` |
+| 3 | add it to `AddRecipe` | **0 errors** |
+| 4 | add it to the screen's `inputs=` | 0 errors — *and this step was never forced* |
+
+**After step 3 the model validated with a form that had no box to type a prep time into.** The screen already
+*displayed* `prepTimeMinutes`, in its list, so the command counted as sourced. Step 4 was a human judgement.
+
+Left open rather than guessed at, because every obvious fix is wrong in a real case. Requiring `inputs=` for a
+created value breaks legitimate row-scoped commands — `RemoveItem(itemId)` genuinely *is* sourced from what the
+screen displays, which is the book's own ch. 12 worked example. Splitting the slug into two screens contradicts
+`displays=` having to agree across cells. **The distinction the grammar cannot currently draw is "a field of
+the row being acted on" vs "a field of the thing being created"**, and `terminal="…:generated"` is the nearest
+existing notation — it may be that a created row's non-terminal fields simply must come from `inputs=`.
+
+Recorded in the demo project's own `OPEN-QUESTIONS.md` under "what the checker cannot see", and it is now a
+deliberate beat in `DEMO-RECIPE.md` §3: showing the check finding a hole and *then* failing to find the last
+one is a more honest account of what the tooling is worth than stopping at "0 errors".
+
+### BT4 — `dotnet build` on a fresh generated project is 2 WARNINGS, and `scaffold`'s gate says 0 · `kit` · **OPEN**
+
+`Testcontainers.PostgreSql` is pinned `4.*`, which today floats to 4.13.0 and drags in **`SSH.NET` 2025.1.0**,
+carrying `NU1903` — GHSA-q939-rpr3-3284, high severity. Measured on a brand-new project:
+
+```
+Build succeeded.
+  2 Warning(s)      <- the same NU1903, once per restore and once per build
+  0 Error(s)
+```
+
+**This breaks a stated gate on every project the kit generates today**, and `scaffold`'s gate is *"the skeleton
+compiles, 0 errors 0 warnings"*. The warning is real (a transitive dependency with a live advisory) and is
+**test-project only** — SSH.NET is how Testcontainers does port forwarding.
+
+Not fixed here because every option is a real decision and none is obviously right: a direct `PackageReference`
+to a patched SSH.NET pins a transitive dependency the kit does not own; `NuGetAudit` suppression **hides a live
+CVE**, which is exactly the class of silent-downgrade failure CLAUDE.md already records for
+`Directory.Build.targets`; and `package-versions.json` cannot express it, since SSH.NET is not a package the
+generator references and *"an unknown package name is an error, not a no-op"*.
+
+The related question is whether a floating `4.*` on a test-only dependency is worth its cost at all — the kit
+holds the four stack majors current *deliberately*, for the docs-mirror argument, and that argument does not
+apply to Testcontainers, which is **not in the mirror at all**.
+
+### BT5 — the Alba scenario trap is documented where nobody reads it · `kit` · **OPEN**
+
+`_.Post.Json(x).ToUrl(r).StatusCodeShouldBe(204)` does not compile: Alba's assertions hang off the `Scenario`,
+not the `SendExpression`. `cross-aggregate-invariant/`'s test carries a comment saying so, ending *"which reads
+like a missing using"* — and this run hit it anyway, in a fresh project, and it read exactly like a missing
+using. A comment in a reference implementation is read *after* you have written the test; the generated test
+scaffold is read *before*. **Move it into codegen's GWT test scaffold**, one line, next to the existing
+`TODO(codegen)`. KIT-HISTORY **BT2**.
 
 ### BP11 — the mirror CONTRADICTS a retraction CLAUDE.md made while citing the mirror · `kit` · **OPEN**
 

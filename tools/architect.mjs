@@ -33,17 +33,40 @@
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { projectRoot, projectName } from "./project.mjs";
 import { distinctTypes, renderBindings } from "./type-bindings.mjs";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
 const has = (n) => args.includes(`--${n}`);
+// A POSITIONAL MODEL DIRECTORY, exactly as codegen.mjs and model.mjs accept one.
+//
+// Without it this tool hard-coded `<project>/diagrams` and **died on every reference implementation**, which
+// keeps its model in `<folder>/<model-name>/`. It printed "diagrams does not exist." to stderr and exited 1;
+// codegen.mjs shells out to `architect check` inside a try/catch, so the failure was swallowed and
+// `ARCHITECTURE DECISIONS MISSING` **could never fire for six of the eight projects in this repo**. Nobody
+// noticed because the symptom of a broken check is silence, which is the whole reason CLAUDE.md now carries
+// "a measurement that returns NONE is not a result until it has been shown capable of returning SOME".
+// Found while making codegen READ this tool's answer for BP2 — a report built on it would have been
+// decorative on three quarters of the repo.
+//
+// SCANNED, not `args[1]`. The first version read args[1] and so was defeated by
+// `questions --json <dir>` — it took `--json` as the directory, rejected it for starting with `--`, and
+// silently fell back to `<project>/diagrams`, i.e. straight back to the bug. `--project` is the one flag
+// that consumes a value, so it is the one that has to be stepped over.
+const explicitTarget = (() => {
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === "--project") { i++; continue; }
+    if (args[i].startsWith("--")) continue;
+    return args[i];
+  }
+  return null;
+})();
 
 if (!cmd || !["questions", "record", "check", "tests"].includes(cmd)) {
   console.error("usage:\n" +
-    "  node tools/architect.mjs questions [--json]   what the model implies and cannot answer\n" +
+    "  node tools/architect.mjs questions [<model-dir>] [--json]   what the model implies and cannot answer\n" +
     "  node tools/architect.mjs record               scaffold <project>/ARCHITECTURE.md, one section per question\n" +
     "  node tools/architect.mjs tests                scaffold a RACE test per contended invariant\n" +
     "  node tools/architect.mjs check                unanswered questions, and answers that have gone stale\n\n" +
@@ -77,7 +100,7 @@ function scaffoldFile(p, body) {
 // --- the model, read by the one parser that owns it ------------------------------------------------
 
 function models() {
-  const dir = join(PROJ, "diagrams");
+  const dir = explicitTarget ? resolve(explicitTarget) : join(PROJ, "diagrams");
   if (!existsSync(dir)) { console.error(`${rel(dir)} does not exist.`); process.exit(1); }
   const files = readdirSync(dir).filter((f) => f.endsWith(".drawio") && !f.startsWith("_"));
   if (!files.length) { console.error(`no models in ${rel(dir)}. Nothing to reason about yet.`); process.exit(1); }
@@ -1039,8 +1062,37 @@ public sealed class ${cls}(AppFixture fixture) : IntegrationContext(fixture)
 
 // --- check ----------------------------------------------------------------------------------------
 
+// THE RECORD MAY DELIBERATELY LIVE SOMEWHERE ELSE, and saying so is an acknowledgement rather than a
+// suppression — the same house style as `joins="none"`, `ingested="true"` and `_why` in
+// package-versions.json: the unacknowledged case is reported, the acknowledged one becomes a note carrying
+// its reason.
+//
+// It exists for the reference implementations. Each is a worked example of ONE pattern whose README is a
+// *measured comparison* — mechanisms, serialisation points, costs, and a control proving the race
+// reproduces — which is strictly richer than the per-question sections `record` would scaffold. Writing an
+// ARCHITECTURE.md beside it would put the same decision in two places, which is the one thing this kit
+// refuses everywhere else. `cross-aggregate-invariant/` is the clearest case rather than the hardest:
+// four arms, a cost table and two control tests, i.e. nothing BUT recorded decisions.
+//
+// A fenced block, matching the ```type-bindings convention that ARCHITECTURE.md already uses.
+const recordElsewhere = () => {
+  const readme = join(PROJ, "README.md");
+  if (!existsSync(readme)) return null;
+  const m = /```architect-record-elsewhere\s*\n([\s\S]*?)```/.exec(readFileSync(readme, "utf8"));
+  return m ? m[1].trim() : null;
+};
+
 if (cmd === "check") {
   const qs = derive();
+  const elsewhere = !existsSync(RECORD) ? recordElsewhere() : null;
+  if (elsewhere) {
+    console.log(`RECORD DELIBERATELY ELSEWHERE — ${qs.length} question(s), and this folder says where its`);
+    console.log(`answers live. A note, not a finding, because the claim is on the record and a reader can`);
+    console.log(`disagree with it:\n`);
+    for (const l of elsewhere.split("\n")) console.log(`  ${l}`);
+    console.log(`\n  Every question is still listed by: node tools/architect.mjs questions`);
+    process.exit(0);
+  }
   if (!existsSync(RECORD)) {
     console.log(`NO ARCHITECTURE RECORD, and the model asks ${qs.length} question(s).`);
     console.log(`Every one of them is a choice that gets made by accident if nobody makes it on purpose:`);
@@ -1095,8 +1147,40 @@ if (cmd === "check") {
   if (stale.length) {
     console.log(`\nANSWER TO A QUESTION NOBODY ASKS — ${stale.length}. The model changed and this decision may now`);
     console.log(`describe something that no longer exists. Re-read it rather than deleting it blind — the reasoning`);
-    console.log(`may still apply under a new id:`);
-    for (const k of stale) console.log(`  ${k}`);
+    console.log(`may still apply under a new id.`);
+    // THE NEAREST CURRENT ID, because the kit caused most of these and gave no way to carry a decision across
+    // a rename. `command`→`state-change` and the board refactor both moved ids under standing answers; on
+    // Voltway 32 of them are orphaned purely by a GWT id gaining a context prefix (`gwt-cd-2` →
+    // `charging-gwt-cd-2`). Naming the candidate turns twenty minutes of grepping into a re-point.
+    //
+    // DELIBERATELY NOT A MIGRATOR. Re-pointing a decision is a claim that the old reasoning still answers the
+    // new question, and only a reader can make it — two ids can share a slice and mean different rules. So
+    // this suggests and never edits, and where it cannot tell it says so rather than picking.
+    //
+    // The suggestion is earned, not fuzzy-matched: same family, same context, same slice, AND one id's last
+    // segment is a suffix of the other's — which is exactly the prefix-gain shape and nothing looser.
+    const parse = (id) => { const p = id.split("/"); return { family: p[0], scope: p.slice(1, -1).join("/"), tail: p[p.length - 1], full: id }; };
+    const current = qs.map((q) => parse(q.id));
+    const seen = new Set();
+    for (const k of stale) {
+      if (seen.has(k)) { console.log(`  ${k}\n      DUPLICATE HEADING in the record — the same id has two sections`); continue; }
+      seen.add(k);
+      const s = parse(k);
+      const sameScope = current.filter((c) => c.family === s.family && c.scope === s.scope);
+      const suffix = sameScope.filter((c) => c.tail.endsWith(s.tail) || s.tail.endsWith(c.tail));
+      if (suffix.length === 1) {
+        console.log(`  ${k}\n      -> almost certainly ${suffix[0].full}   (same family, same slice; the id gained a prefix)`);
+      } else if (suffix.length > 1) {
+        console.log(`  ${k}\n      -> one of: ${suffix.map((c) => c.tail).join(", ")}   in ${s.family}/${s.scope} — CANNOT TELL WHICH, read the section`);
+      } else if (sameScope.length) {
+        console.log(`  ${k}\n      -> ${s.family}/${s.scope} still asks ${sameScope.map((c) => c.tail).join(", ")}, but none matches "${s.tail}".`);
+        console.log(`         CANNOT TELL: the rule itself was renumbered or replaced, not just re-prefixed.`);
+      } else {
+        console.log(`  ${k}\n      -> CANNOT TELL: nothing current asks about ${s.family}/${s.scope} at all. Either the slice or`);
+        console.log(`         view is gone, or the question stopped applying — this answer may be genuinely dead.`);
+      }
+    }
+    console.log(`  Re-point by hand: the heading is ### \`<id>\`, and only you can say the reasoning still fits.`);
   }
   if (!unanswered.length && !undecided.length && !stale.length && !missingRaces.length) {
     console.log(`\nEvery question the model asks has a decision, and no decision is orphaned.`);

@@ -91,6 +91,15 @@ hand-edit a generated file to make it compile: `emit` files are overwritten on t
 fix would vanish, and a `scaffold` file that needs editing to *compile* is a generator bug. Find the
 cause, say where it is, and fix the tool.
 
+**Unless `project.json` says `"kitFixes": false`** — then you diagnose exactly as above and the fix
+lands somewhere else. Log the finding to `KIT-FINDINGS.md` with the same evidence you would have put in
+the commit, and if it **blocks the build**, make the minimum hand edit inside the *project's* own
+`scaffold` file, say out loud that you did, and note that the next project will hit it too. Never edit
+anything under the kit. This exists so a live demo does not detour into `tools/` in front of an
+audience; it is not permission to leave a blocking defect undiagnosed, and it does not apply to an
+`emit` file — an emit that will not compile with kit fixes off is a **stop**, because a hand edit there
+is reverted by the next run and the symptom returns later as behaviour.
+
 ## Reports to act on, not to skim
 
 `codegen.mjs` prints these because they name things a green build cannot see:

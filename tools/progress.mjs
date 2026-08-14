@@ -17,7 +17,7 @@
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { projectRoot } from "./project.mjs";
 
@@ -26,8 +26,22 @@ const has = (f) => argv.includes(f);
 const PROJECT = projectRoot(argv);
 const MODEL = fileURLToPath(new URL("model.mjs", import.meta.url));
 
+// A POSITIONAL MODEL DIRECTORY, as codegen.mjs, model.mjs and architect.mjs all accept. Without it this
+// tool hard-codes `<project>/diagrams` and therefore **cannot be run against any reference implementation**,
+// which keeps its model in `<folder>/<model-name>/`. It dies loudly rather than silently — better than the
+// architect case (KIT-HISTORY BP2) — but "what is BUILT against what status= claims" was unavailable on
+// every worked example in the repo. Same fix, same reason, found by sweeping for the family.
+const explicitTarget = (() => {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--project") { i++; continue; }
+    if (argv[i].startsWith("--")) continue;
+    return argv[i];
+  }
+  return null;
+})();
+
 const ir = JSON.parse(execFileSync(process.execPath,
-  [MODEL, "compile", join(PROJECT, "diagrams"), "--stdout",
+  [MODEL, "compile", explicitTarget ? resolve(explicitTarget) : join(PROJECT, "diagrams"), "--stdout",
    ...(argv.includes("--project") ? ["--project", argv[argv.indexOf("--project") + 1]] : [])],
   { encoding: "utf8", maxBuffer: 1 << 28 }));
 

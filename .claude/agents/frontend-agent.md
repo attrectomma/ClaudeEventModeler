@@ -121,16 +121,46 @@ Two things about the wire format that have bitten:
 policy, so the serializer is configured for camelCase on the Marten side. If you see PascalCase,
 that is a backend misconfiguration — report it, do not adapt to it.
 
-**A rejection arrives in one of two shapes**, depending on where the rule was enforced, and you must
-read both:
+**A rejection always carries the rule name in `title`.** That is one guarantee, not two shapes, and it
+holds whichever enforcement point refused the command — so a `catch` that reads `title` is correct and can
+never show a user *"One or more validation errors occurred."* **This paragraph used to say the opposite** and
+described a periphery rejection as carrying no `title` at all; a UI written to that lost the rule name
+entirely, which is the observed damage in KIT-FINDINGS **BP1**.
+
+**What is guaranteed, and what is merely additional, are different things.** Measured on the wire in
+`probes/rejection-shape.cs` — these are the real bodies, not illustrations:
 
 ```
-periphery (FluentValidation) -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
-the decider                  -> { title: "DailyCapExceeded", detail: "..." }
+periphery   {"type":"…rfc9110#section-15.5.1","title":"ReasonRequired","status":400,
+             "errors":{"Reason":["ReasonRequired"]}}
+decider     {"type":"…rfc9110#section-15.5.1","title":"AlreadyCancelled","status":400,
+             "detail":"Booking b-1 has already been cancelled."}
 ```
+
+| | |
+| --- | --- |
+| **GUARANTEED** | `title` carries the rule name, both enforcement points, always |
+| **ADDITIONAL** | a **periphery** rejection also carries `errors.<Property>`, which **names the field**; a **decider** rejection also carries `detail`, a sentence |
+
+**Read `title` first, then look for `errors` — do not stop at `title`.** The one-line title read is the
+easy mistake in the other direction: `errors.Reason` is the only thing in the response that says *which
+input* was refused, so it is what lets you put the message on the field and mark that control invalid.
+`detail` is prose for a banner and names no field. A form that only reads `title` shows the right words in
+the wrong place.
+
+**With two periphery failures at once, `title` holds only the FIRST** — in the validator's own `RuleFor`
+declaration order — **and the full set stays in `errors`:**
+
+```
+{"title":"ReasonRequired","status":400,
+ "errors":{"Reason":["ReasonRequired"],"BookingId":["BookingIdRequired"]}}
+```
+
+So a form marking every offending input **must** iterate `errors`; `title` alone is one of them. Nothing
+about `title` being present makes `errors` redundant, and that is deliberate — the unification was additive.
 
 The **rule name** is the part worth showing a user — it is the same name the GWT uses, so a rejection
-in the UI and a failing test name the same thing.
+in the UI and a failing test name the same thing. `title` is where you get it either way.
 
 ## Close the loop by looking
 
@@ -165,7 +195,11 @@ node <kit>/tools/review.mjs sheet
 `--screen` must be the model's `screen=` slug, or the shot cannot be paired with its design.
 `--state` names anything with no design counterpart: `rejected`, `pending`, `empty`, `page2`.
 
-**Always desktop and mobile** — that is the default. Responsive layout is where CSS silently fails.
+**Whichever widths `project.json` asks for**, and `review.mjs` already resolves that — so run it with
+no `--widths` and shoot what it gives you. `mobile` defaults to **false** because a second viewport
+doubles every shot; where it is on, responsive layout is where CSS silently fails and both widths must
+be looked at. **Do not pass `--widths` to get mobile back on a project that turned it off** — say in
+your report that mobile was not shot, which is what makes the choice visible rather than forgotten.
 
 **Shoot every state you can reach, and say which you could not.** On a real slice that meant the
 populated list, both sort directions, page 2, the last page, empty, loading, and the modal open over the

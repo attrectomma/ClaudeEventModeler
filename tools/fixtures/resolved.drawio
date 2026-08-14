@@ -1,4 +1,4 @@
-﻿<!-- TEST FIXTURE, not a domain model. The resolution of unsourced.drawio, per Fig. 12.14:
+<!-- TEST FIXTURE, not a domain model. The resolution of unsourced.drawio, per Fig. 12.14:
      the itemId's real source is the earlier "Item Added" event, reached through a read model that
      the Cart Page displays. Expected: zero errors. If this ever reports one, the checker is wrong. -->
 <mxfile host="Electron" agent="Claude" type="device">

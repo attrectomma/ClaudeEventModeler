@@ -52,7 +52,7 @@ public sealed class TranslateStockNoticeTests(AppFixture fixture) : IntegrationC
     {
         using var scope = Host.Services.CreateScope();
         await scope.ServiceProvider.GetRequiredService<IMessageBus>().InvokeAsync(
-            new IngestStockNotice(SeedData.ProductId, noticeId, quantity, sequence, SeedData.SeededAt));
+            new StockNoticed(SeedData.ProductId, noticeId, quantity, sequence, SeedData.SeededAt));
     }
 
     // a notice from the warehouse becomes an event of our own

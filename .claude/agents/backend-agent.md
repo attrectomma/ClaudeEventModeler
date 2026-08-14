@@ -117,6 +117,23 @@ Same `[WriteAggregate]`, same pure decider, same route/body/status codes — the
 message handlers included — the retry lives in the executor around them. Only behaviour distinguishes the
 two arms. KIT-FINDINGS **V7**.
 
+**`codegen` NOW EMITS THIS PAIR FOR YOU, so check before you write one.** On a slice `architect` raised
+`contended-invariant` for, the scaffold is already two files: `<Command>Handler.cs` with the decider and the
+`<Command>Outcome` record, and a five-line `<Command>Endpoint.cs` that invokes it. Your job is to fill the
+decision, not to restructure the slice.
+
+Two things follow:
+
+- **On an existing slice it emits nothing and REPORTS instead.** `DECIDER ON THE HTTP ARM FOR A CONTENDED
+  SLICE` names the file: the endpoint is hand-owned, and half a pair would be a discovered handler nothing
+  invokes. Splitting it is yours, and the two arms sit side by side in
+  `reference-implementations/state-change/`.
+- **Keep the command type in the decider's signature.** Detection is *"does a method here take this
+  command?"*, so a decider that stops mentioning its command type reads as absent and the next regeneration
+  writes a second one. **A duplicate handler is worse than a duplicate route** — measured: build 0/0, host
+  starts, fixture fine, no exception and no ambiguity error, and the caller silently gets the *other*
+  handler's answer. 7 of 18 tests failed on wrong business behaviour with nothing naming the cause.
+
 **No checker can see any of these.** The model validates, the code compiles, the tests pass, and the
 choice can still be wrong. So the rule is the same in every case: **look up what the library offers,
 pick deliberately, and say in your report which option you took and why.** A slice that does not state
@@ -191,6 +208,36 @@ single- or multi-stream projection registered `Inline`, because that is all `ide
 The scaffold is yours: if the right answer is an `EventProjection` or a flat table, change the base
 class and the registration and **say so in your report** — the model is not wrong, the generator just
 has one default.
+
+**And the recipe decides whether you get a read endpoint at all.** A state-view slice's contract is its
+read model, so `codegen` scaffolds `Views/<View>Endpoint.cs` — but only where a document exists to query.
+It reads the recipe off your tree and **refuses** in two cases, reporting `NO READ ENDPOINT GENERATED`:
+
+| | Why nothing was written |
+| --- | --- |
+| you chose a **`FlatTableProjection`** | the rows are columns in a SQL table. `session.Query<T>()` returns an empty list for ever, and compiles |
+| the view is **registered nowhere** — a live aggregation, or you have not registered it yet | there is no document to read. A live aggregation needs `FetchLatest<T>`; an unregistered one is also `VIEW WITH NO REGISTRATION` |
+
+**That refusal is a job for you, not a bug.** Write the endpoint by hand in `Views/` with the right
+mechanism for the recipe you chose — or, if the slice genuinely has no HTTP read surface, say so in your
+report so the next reader knows it was decided rather than forgotten.
+
+**If you MOVE a generated read route, re-run `codegen`.** Behind nginx an unproxied route reaches the SPA
+fallback and a fetch gets `index.html` with a **200** — neither JSON nor an error. `ROUTE NOT PROXIED` is
+what catches it.
+
+**Keep the view's type name in the endpoint file.** Detection is by *"does a GET-bearing file name this view
+type?"*, never by filename — you may rename or move the file freely, and it was measured that renaming
+`TodaysBookingsEndpoint.cs` to `ReadSurface.cs` still suppresses the scaffold. What you must not do is stop
+mentioning the type, because then the view reads as unserved and the next regeneration adds a second
+endpoint.
+
+**What that costs, measured — and it is NOT what this brief used to claim.** Two `[WolverineGet]` methods on
+one route template were built into Demo001 deliberately: the build succeeded at 0/0, **the host started, and
+the Alba fixture came up fine.** The failure is per request —
+`AmbiguousMatchException: "The request matched multiple endpoints"`, naming both handler types — so
+`Failed: 4, Passed: 14`: only the tests that hit that route. This file previously said it failed at host
+startup and took the whole fixture down; that was asserted, never run, and is false.
 
 **`Inline` is the kit's default for a reason, and multi-stream fights it.** Inline is what makes a
 GWT's THEN assertable the moment the request returns. A multi-stream projection registered `Inline`
@@ -313,17 +360,31 @@ then dies produces exactly one, and reads as success.
 ## Rejections
 
 Return `ProblemDetails` with the **rule's name as `Title`**, via the shared `Rejections.Problem`
-helper. A GWT says `then="error: RuleName"`, so the name is the machine-readable part.
+helper — which is now **emitted** at `src/<System>/Rejections.cs`, not something you write. A GWT says
+`then="error: RuleName"`, so the name is the machine-readable part.
 
-There are **three** shapes, not one, and none of them is yours to unify:
+There are **three** shapes, not one. `title` has already been unified across the two HTTP ones for you,
+and **the rest of each body is still different**:
 
 ```
-periphery (FluentValidation middleware)  -> { errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
+periphery (FluentValidation middleware)  -> { title: "HoursMustBeWholeOrHalf",
+                                              errors: { Hours: ["HoursMustBeWholeOrHalf"] } }
 an HTTP decider (Rejections.Problem)     -> { title: "DailyCapExceeded", detail: "..." }
 an automation's decider (an outcome type)-> { rule: "AlreadyFilled", detail: "..." }
 ```
 
-The third exists because an automation has **no HTTP caller** to hand a `ProblemDetails` to, so the
+**`title` on the periphery line is one emitted line of `Program.cs` and nothing more.** Wolverine's
+FluentValidation middleware puts *"One or more validation errors occurred."* there; an ASP.NET
+`CustomizeProblemDetails` copies the first rule name over it. Measured with a control in
+`probes/rejection-shape.cs`; the claim that Wolverine did this by itself was false and cost
+KIT-FINDINGS **BP1**. So `then="error: RuleName"` asserts `title` whichever way the rule was enforced,
+and `enforce=` is genuinely an implementation choice.
+
+What is **not** unified, and must not be assumed: `errors.<Property>` exists only at the periphery,
+`detail` only from a decider, and with two periphery failures at once `title` holds only the **first**
+while the full set stays in `errors`.
+
+The third shape exists because an automation has **no HTTP caller** to hand a `ProblemDetails` to, so the
 handler returns an outcome the trigger reads. The invariant across all three is that the **rule name is
 the machine-readable part**. Say in your report which shapes this slice can produce, because the
 frontend has to read whichever reach it.

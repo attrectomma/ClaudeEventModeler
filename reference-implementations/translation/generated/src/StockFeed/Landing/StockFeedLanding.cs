@@ -13,6 +13,7 @@ using Wolverine;
 // ~/.nuget/packages and carries fully-qualified names for every documented member. It only lists DOCUMENTED
 // members, so absence there proves nothing — but a hit is definitive.
 using Wolverine.RDBMS.Transport;
+using StockFeed.Contracts;   // StockNoticed — the model-declared foreign event
 
 namespace StockFeed.Landing;
 
@@ -97,7 +98,7 @@ public static class StockFeedLanding
                 table.IdColumnName = "id";
                 table.JsonBodyColumnName = "body";
                 table.TimestampColumnName = "added";
-                table.MessageType = typeof(IngestStockNotice);
+                table.MessageType = typeof(StockNoticed);
 
                 // A second a tick rather than the default ten. This is the knob that decides how late our
                 // stock is, and it is a free choice ONLY because ingest is idempotent — the same row can

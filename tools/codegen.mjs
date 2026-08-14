@@ -55,6 +55,37 @@ const irPath = join(PROJECT, "build", `${ir.system}.ir.json`);
 mkdirSync(dirname(irPath), { recursive: true });
 writeFileSync(irPath, JSON.stringify(ir, null, 2) + "\n", "utf8");
 
+// --- WHICH SLICES ARE CONTENDED: ASKED, NEVER RECOMPUTED --------------------------------------------
+//
+// `architect.mjs` already derives this, in ~70 lines carrying several hard-won corrections — among them
+// that the test is `key.length` and not `key.length > 1`, without which the simplest cross-stream rule
+// there is gets misfiled as a contended invariant. Deriving it a second time here is **V9's exact shape**:
+// that finding exists because architect and codegen each had their own idea of what "multi-stream" meant,
+// and four Async views were never questioned as a result. So this shells out and reads the answer.
+//
+// Agreement is therefore STRUCTURAL rather than measured — there is one computation and one caller. What
+// still needs proving is that the pipe is not empty, because a swallowed failure here would make every
+// report below quietly vacuous. It very nearly was: `architect.mjs` hard-coded `<project>/diagrams` and
+// died on all six reference implementations, and codegen's other call site swallows that in a try/catch.
+// So a failure is RECORDED AND PRINTED rather than ignored.
+let architectQuestions = [];
+let architectFailure = null;
+try {
+  const ARCHITECT = fileURLToPath(new URL("architect.mjs", import.meta.url));
+  architectQuestions = JSON.parse(execFileSync(process.execPath,
+    [ARCHITECT, "questions", target, "--json", ...pass],
+    { encoding: "utf8", maxBuffer: 1 << 26, stdio: ["ignore", "pipe", "pipe"] })).questions ?? [];
+} catch (e) {
+  architectFailure = (e.stderr || e.message || String(e)).toString().trim().split("\n")[0];
+}
+// ONLY `contended-invariant`. A `cross-stream-rule` slice needs a MECHANISM — guard row, reservation row,
+// advisory lock, DCB — and every one of those is a deliberate hand-rolled transaction, which is one of
+// CLAUDE.md's two good reasons to leave the aggregate handler workflow entirely. Forcing those onto the bus
+// would be prescribing the wrong fix for a different problem.
+const contendedSlices = new Set(architectQuestions
+  .filter((q) => q.family === "contended-invariant")
+  .map((q) => q.id.split("/")[2]));
+
 const pascal = (s) => s.replace(/(^|[^a-zA-Z0-9])([a-z])/g, (_, a, b) => b.toUpperCase()).replace(/[^a-zA-Z0-9]/g, "");
 const camel = (s) => { const p = pascal(s); return p[0].toLowerCase() + p.slice(1); };
 const NS = pascal(ir.system);
@@ -229,6 +260,26 @@ const ruleName = (g) => pascal((/^error:\s*(.+)$/i.exec((g.then ?? "").trim())?.
 const testName = (g, i) => {
   const base = (g.rule || g.label || g.id).replace(/\s*\n[\s\S]*$/, "");
   return pascal(base.replace(/[^a-zA-Z0-9 ]/g, " ").split(/\s+/).slice(0, 12).join(" ")) || `Rule${i + 1}`;
+};
+
+// TWO GWTs IN ONE SLICE LEGITIMATELY SHARE A RULE NAME — the same refusal reached by two different
+// histories, which is exactly what "don't save on GWTs" produces: `servings=0` and `servings=-2` are
+// both ServingsMustBePositive. The emitter below already knows this (it keeps each cell id in the
+// comment for precisely that reason) and still named both test methods after the rule, so the test
+// class did not compile: CS0111, "already defines a member called X". A rule name is not unique and
+// nothing may assume it is — the same lesson as labels, one scope down.
+//
+// Suffix the later ones rather than reaching for the label: a label is prose and pascal-casing twelve
+// words of it produces a name nobody can read, while the comment above each test already carries the
+// label AND the unique cell id. Deterministic, so a re-run stays byte-identical.
+const testNames = (gwts) => {
+  const used = new Map();
+  return gwts.map((g, i) => {
+    const base = testName(g, i);
+    const n = (used.get(base) ?? 0) + 1;
+    used.set(base, n);
+    return n === 1 ? base : `${base}_${n}`;
+  });
 };
 
 // The fixed values a GIVEN needs to name things. Derived, because hard-coding them leaked one retired
@@ -921,13 +972,7 @@ for (const s of ir.slices) {
 
   emit(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}.cs`),
     `${banner(`${cmd} — the command as the model declares it`)}
-${fields.some((f) => f.nullable) ? `// A nullable field means a '?' annotation, and the BANNER above makes this file auto-generated in the
-// compiler's eyes — so CS8669 says an explicit directive is required even though the csproj already sets
-// <Nullable>enable</Nullable>. Emitted only when a field actually needs it, because an unconditional
-// directive on 40 files that do not is noise.
-#nullable enable
-
-` : ""}namespace ${NS}.Slices.${pascal(s.context)};
+namespace ${NS}.Slices.${pascal(s.context)};
 
 /// <summary>
 /// Slice: ${s.name}. Fields exactly as the model declares them: ${fields.map((f) => f.name).join(", ") || "none"}.
@@ -989,6 +1034,73 @@ ${gwts.map((g) => `        // ${ruleName(g)}: ${(g.rule ?? "").replace(/\s+/g, "
 //   state-change   an HTTP endpoint — somebody types this command
 //   automation     a message HANDLER — the trigger issues it in process, and giving it a route would
 //   translation    invent public surface the model does not draw
+// WHAT SHAPE IS THIS SLICE'S DECIDER, ACCORDING TO THE TREE?
+//
+// BY SHAPE, NEVER BY FILENAME — the lesson the read endpoint paid for in BP4, and the stakes here are
+// higher. Hand-written deciders are named after the COMMAND and not the slice, so the filenames in this repo
+// include `RaiseRepairJobHandler.cs` on slice `schedule-repair`, `WithdrawFaultyBayHandler.cs` on
+// `auto-withdraw` and `RecordChargingStopHandler.cs` on `translate-charge-stop`. A filename check would miss
+// every one of them and write a SECOND handler for the same command.
+//
+// WHAT A DUPLICATE HANDLER COSTS WAS MEASURED, not assumed, and it is worse than a duplicate route because
+// nothing at all complains. A second discovered handler for `BookRoom` in Demo001: build 0 warnings
+// 0 errors, host starts, fixture comes up, **no exception and no ambiguity error anywhere** — the caller
+// simply got the OTHER handler's answer (`title: "ZzProbeRanInstead"`), and 7 of 18 tests failed on wrong
+// business behaviour rather than on any infrastructure signal. Whether Wolverine also ran the real one was
+// not established and does not change the symptom: a silently substituted decision.
+//
+// (The first attempt at that measurement returned GREEN and was nearly believed. The probe class was named
+// `...Probe`, and Wolverine's conventional discovery only finds `*Handler`/`*Consumer` — so it was never
+// registered. A broken instrument reporting "no problem", caught only by asking why it could not fail.)
+const httpArmOnContended = [];
+const twoFileWritten = [];
+const HTTP_ATTR = /\[Wolverine(Post|Put|Delete|Patch)/;
+const stripComments = (t) => t.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+const sliceCsFiles = (dir) => (existsSync(dir)
+  ? readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isFile() && e.name.endsWith(".cs"))
+      .map((e) => ({ path: join(dir, e.name), src: stripComments(readFileSync(join(dir, e.name), "utf8")) }))
+  : []);
+
+const existingDeciderShape = (cmd, dir) => {
+  const files = sliceCsFiles(dir);
+  // A DECIDER IS ANY METHOD THAT TAKES THE COMMAND — however it resolves its stream.
+  //
+  // The first version of this required `[WriteAggregate]`/`[Aggregate]`, and that was WRONG in the most
+  // expensive available way. CLAUDE.md names two good reasons to leave the aggregate handler workflow — a
+  // decider that must SEARCH for its stream, and a slice whose whole point is a concurrency MECHANISM — and
+  // a hand-rolled `FetchForWriting` decider carries neither attribute. So four such slices read as "no
+  // decider here" and got a second one written beside them: Voltway's hold-bay, register-driver and
+  // commission-bay, and `cross-aggregate-invariant`'s release-commitment — the last in the folder built to
+  // study exactly those mechanisms. That is the duplicate handler measured above, generated on purpose by
+  // the check meant to prevent it.
+  //
+  // So the test is the command type followed by a parameter name, which every one of those forms has. A
+  // false positive means a scaffold is not written; a false negative means a silently substituted decision.
+  // Only one of those is recoverable, so the loose test is the correct one.
+  const takesCommand = (f) => new RegExp(String.raw`\b${pascal(cmd)}\s+[a-z]\w*`).test(f.src);
+  const isDecider = (f) => takesCommand(f) && !/bus\.InvokeAsync/.test(f.src);
+  // TWO PREDICATES, FOR TWO DIFFERENT QUESTIONS, and conflating them made the report cry wolf.
+  //
+  //   "is there already a decider here?"  -> LOOSE. Any mechanism counts, so nothing is duplicated.
+  //   "is it on the arm the retry cannot reach?" -> STRICT. Only where the MIDDLEWARE owns the save.
+  //
+  // The distinction is CLAUDE.md's own: once `[WriteAggregate]`/`[Aggregate]` owns the transaction the
+  // decider *cannot* catch the collision, so the message-pipeline retry is the only answer and an HTTP
+  // endpoint does not get it. A hand-rolled `FetchForWriting`/`IDocumentSession` endpoint owns its own
+  // transaction and catches for itself — that is one of the two documented good reasons to leave the
+  // workflow, and reporting it would be flatly wrong. Measured on `release-commitment` in
+  // reference-implementations/cross-aggregate-invariant/, the folder built to study those mechanisms: the
+  // loose predicate reported it, and its endpoint is a deliberate guard-row arm.
+  const middlewareOwned = (f) => /\[WriteAggregate|\[Aggregate\]/.test(f.src);
+  return {
+    anyDecider: files.find(isDecider)?.path ?? null,
+    httpArmDecider: files.find((f) => HTTP_ATTR.test(f.src) && isDecider(f) && middlewareOwned(f))?.path ?? null,
+    messageDecider: files.find((f) => !/\[Wolverine(Post|Put|Delete|Patch|Get)/.test(f.src) && isDecider(f))?.path ?? null,
+    thinEndpoint: files.find((f) => HTTP_ATTR.test(f.src) && /bus\.InvokeAsync/.test(f.src))?.path ?? null,
+  };
+};
+
 for (const s of ir.slices) {
   if (!s.generates || !s.commands.length) continue;
   const cmd = s.commands[0];
@@ -1010,10 +1122,176 @@ for (const s of ir.slices) {
         //   reference-implementations/reservation/SlotReservation, a decider that has to search for its stream.
         IDocumentSession session`;
 
-  scaffold(join(APP, "Slices", pascal(s.context), pascal(s.name), `${pascal(cmd)}${http ? "Endpoint" : "Handler"}.cs`),
-    `${banner(`${s.name} — the decider. Scaffolded once, then hand-owned.`)}
-#nullable enable
+  // --- V7 / BP2: A CONTENDED HTTP SLICE NEEDS THE DECIDER OFF THE HTTP ARM ------------------------
+  //
+  // `opts.OnException<...>().RetryTimes(3)` is a MESSAGE-PIPELINE policy. A Wolverine.HTTP endpoint never
+  // enters that pipeline, so on a contended slice a lost race escapes as a bare 500 instead of the ordinary
+  // refusal — measured, both arms, 8 writers at one room-day:
+  //
+  //   decider through the bus   204x1, 400x7  (the rule name)
+  //   decider inline on HTTP    204x1, 7x escaped EventStreamUnexpectedMaxEventIdException
+  //
+  // So a contended slice gets TWO files: the decider as a message handler, and a thin endpoint that invokes
+  // it through the bus. Everything else keeps the single HTTP arm, which CLAUDE.md calls the DEFAULT — a
+  // slice with no contended rejection has no race to retry, so the extra hop and the extra outcome type buy
+  // nothing. KIT-FINDINGS BP2.
+  //
+  // THE PAIR IS A UNIT, AND THAT DECIDES WHAT HAPPENS TO AN EXISTING PROJECT. Both files are `scaffold`, so
+  // a hand-owned endpoint with the decider inline cannot be restructured by a generator. Writing only the
+  // handler half would leave a discovered message handler that NOTHING INVOKES, throwing
+  // NotImplementedException, with a TODO nobody can honestly close — the same dead-scaffold shape as the
+  // translation ingest seam in BP12. So: write both when neither exists, keep both when both do, and
+  // otherwise write NOTHING and report. That is BP2's own prescription — "the fix is a report".
+  const sliceDir = join(APP, "Slices", pascal(s.context), pascal(s.name));
+  const contended = http && contendedSlices.has(s.name);
+  const existing = existingDeciderShape(cmd, sliceDir);
+  // Write the pair ONLY when this slice has no decider of any kind — a fresh slice. Anything already
+  // deciding this command is hand-owned and cannot be restructured from here.
+  const twoFile = contended && !existing.anyDecider;
 
+  if (contended && existing.httpArmDecider && !existing.messageDecider) {
+    httpArmOnContended.push({ slice: s.name, path: existing.httpArmDecider });
+  }
+
+  if (twoFile) {
+    const C = pascal(cmd);
+    const outcome = `${C}Outcome`;
+    const consts = [...new Set(rejections.map((g) => ruleName(g)))];
+
+    if (!existing.messageDecider) twoFileWritten.push({ slice: s.name, cmd: C });
+
+    // ---- file 1: the decider, as a MESSAGE handler ------------------------------------------------
+    scaffold(join(sliceDir, `${C}Handler.cs`),
+      `${banner(`${s.name} — the decider, OFF the HTTP arm. Scaffolded once, then hand-owned.`)}
+using JasperFx.Events;
+using Marten;
+using Wolverine.Marten;
+using ${NS}.Contracts;
+
+namespace ${NS}.Slices.${pascal(s.context)};
+
+/// <summary>
+/// A PURE DECIDER: <c>(command, state) -&gt; events</c>, as a Wolverine MESSAGE handler — no HTTP anywhere in
+/// this file. No session, no fetch, no save, no try/catch; <c>[WriteAggregate]</c> fetches the stream, folds
+/// it live, and carries its version into the append.
+///
+/// WHY THIS IS NOT ON THE ENDPOINT, WHICH IS THE WHOLE POINT OF THE PAIR. \`architect\` flagged this slice as
+/// a CONTENDED INVARIANT: a rejection here depends on state in the very stream the command appends to, so two
+/// callers at the same instant can both fold a state that passes the rule. What refuses the loser is
+/// optimistic concurrency plus <c>opts.OnException&lt;...&gt;().RetryTimes(3)</c> in Program.cs — and that is a
+/// MESSAGE-PIPELINE policy. A Wolverine.HTTP endpoint never enters that pipeline, so with the decider inline
+/// on the endpoint the collision escapes as a bare 500. Measured, 8 writers at one key:
+///
+/// <code>
+///   decider through the bus   204x1, 400x7  (the rule name)
+///   decider inline on HTTP    204x1, 7x escaped EventStreamUnexpectedMaxEventIdException
+/// </code>
+///
+/// On the retry the middleware re-fetches, the state now includes the winner's event, and THE ORDINARY RULE
+/// below refuses it. So do NOT add a try/catch here and do NOT translate a version conflict into a rule
+/// name: a conflict does not mean the business rule failed, and on a stream another context also appends to
+/// an unrelated write collides too. A retry re-reads; a translation guesses. KIT-FINDINGS V7, BP2.
+///
+/// THE RETURN TUPLE IS <c>(${outcome}, Events)</c> AND BOTH SLOTS ARE LOAD-BEARING. In the aggregate handler
+/// workflow a returned value is APPENDED, so an outcome returned on its own would be written to the stream —
+/// which is not an event and has no business there. <c>Events</c> is Wolverine's explicit "these go on the
+/// stream" collection, leaving the other slot as what <c>InvokeAsync&lt;T&gt;</c> hands back. An empty
+/// <c>Events</c> appends nothing, so a refusal is a tuple with nothing in it. An <c>out</c> parameter does not
+/// work — <c>CS1615</c> — and because the failure is in GENERATED code it takes the whole host down.
+///
+/// <c>Required = false</c> so a MISSING stream reaches the decider as null. Left required, a message handler
+/// "logs that the aggregate was not found and stops processing" — the message is discarded, so a GWT saying
+/// <c>then="error: X"</c> would be unobservable: nothing fails and the rule quietly does not exist.
+/// </summary>
+public static class ${C}Handler
+{
+${consts.map((n) => `    public const string ${n} = "${n}";`).join("\n")}${consts.length ? "\n" : ""}
+    public static (${outcome}, Events) Handle(
+        ${C} command,
+${aggregateParam})
+    {
+        var events = new Events();
+
+${rejections.map((g) => `        // ${ruleName(g)}: ${(g.rule ?? "").replace(/\s+/g, " ")}
+        // TODO(codegen): if (state is ...) return (${outcome}.Rejected(${ruleName(g)}, "…"), events);`).join("\n\n")}${rejections.length ? "\n" : ""}
+        // TODO(codegen): decide, then append the event(s) this slice promises and return the outcome:
+${emitted.map((e) => `        //   events += new ${pascal(e)}(…);`).join("\n") || "        //   (the model names none)"}
+        throw new NotImplementedException("TODO(codegen): the decision for ${s.name}.");
+    }
+}
+
+/// <summary>
+/// What the caller reads back. Same shape as an automation's outcome, and for the same reason: this handler
+/// has no HTTP caller, so <c>Rule</c> carries what <c>Title</c> would have. The thin endpoint next door is
+/// what turns it back into ProblemDetails — see Rejections.cs for why the rule name is in <c>title</c> on
+/// both enforcement paths.
+///
+/// IT CARRIES NO SUCCESS PAYLOAD, and that is a refusal to guess rather than an oversight. What a caller
+/// wants back is a domain answer the model does not state: on a slice that MINTS an id
+/// (<c>terminal="x:generated"</c>) it is usually that new id, which is not any part of the stream key. Add
+/// the field if the caller needs one — <c>Succeeded</c> plus the rule name is all the contract requires.
+/// </summary>
+public sealed record ${outcome}(string? Rule, string? Detail)
+{
+    public bool Succeeded => Rule is null;
+
+    // TODO(codegen): if the caller needs something back on success — a minted id, a new version — add it
+    // here and to Ok(). ${(s.terminals ?? []).some((t) => t.kind === "generated")
+      ? `This slice declares terminal="${(s.terminals ?? []).filter((t) => t.kind === "generated").map((t) => t.name).join(", ")}:generated", so it probably does.`
+      : "Nothing on the model suggests it does."}
+    public static ${outcome} Ok() => new(null, null);
+
+    public static ${outcome} Rejected(string rule, string detail) => new(rule, detail);
+}
+`);
+
+    // ---- file 2: the thin HTTP adapter -----------------------------------------------------------
+    scaffold(join(sliceDir, `${C}Endpoint.cs`),
+      `${banner(`${s.name} — the thin HTTP adapter. Scaffolded once, then hand-owned.`)}
+using Wolverine;
+using Wolverine.Http;
+
+namespace ${NS}.Slices.${pascal(s.context)};
+
+/// <summary>
+/// FIVE LINES, AND NO DECISION IN THEM. The decider is <see cref="${C}Handler"/>; this invokes it through the
+/// bus, which is the only path on which Program.cs's <c>OnException&lt;...&gt;().RetryTimes(3)</c> exists.
+/// Inlining the decision back into this method would compile, pass every GWT, and silently give that up —
+/// which is exactly the defect KIT-FINDINGS BP2 records.
+///
+/// <c>[EmptyResponse]</c> IS DELIBERATELY ABSENT. It forces 204 and a returned ProblemDetails is discarded, so
+/// on a slice that can REFUSE it makes the endpoint report success for a rejected command.
+///
+/// WHERE A TERMINAL VALUE GOES. <c>terminal="x:generated"</c> and <c>terminal="x:actor"</c> are facts about the
+/// REQUEST, not about the stream, so they are resolved HERE and not in the decider — that is what keeps the
+/// decider a pure function of (command, state).${(s.terminals ?? []).length ? `
+/// This slice declares: ${(s.terminals ?? []).map((t) => `${t.name}:${t.kind}`).join(", ")}.` : ""}
+/// </summary>
+public static class ${C}Endpoint
+{
+    public const string Route = "/${camel(s.context)}/${camel(s.name)}";
+${consts.map((n) => `
+    /// <summary>The rule name lives on the decider; re-exported so a caller of either has one spelling.</summary>
+    public const string ${n} = ${C}Handler.${n};`).join("")}
+
+    [WolverinePost(Route)]
+    public static async Task<IResult> Handle(${C} command, IMessageBus bus)
+    {
+        // TODO(codegen): resolve any terminal= value here (a generated id, the authenticated principal, the
+        // clock) and pass it on the command. Then leave the decision where it is.
+        var outcome = await bus.InvokeAsync<${outcome}>(command);
+
+        return outcome.Succeeded
+            ? Results.NoContent()
+            : Rejections.Problem(outcome.Rule!, outcome.Detail!);
+    }
+}
+`);
+    continue;
+  }
+
+  scaffold(join(sliceDir, `${pascal(cmd)}${http ? "Endpoint" : "Handler"}.cs`),
+    `${banner(`${s.name} — the decider. Scaffolded once, then hand-owned.`)}
 using JasperFx.Events;
 using Marten;
 using Wolverine.Marten;${http ? `
@@ -1366,7 +1644,7 @@ namespace ${NS}.IntegrationTests.Slices.${pascal(s.context)};
 /// </summary>
 public sealed class ${pascal(s.name)}Tests(AppFixture fixture) : IntegrationContext(fixture)
 {
-${s.gwts.map((g, i) => {
+${((names) => s.gwts.map((g, i) => {
       const thens = (g.then ?? "").split(",").map((x) => x.trim()).filter(Boolean);
       const err = thens.find((t) => /^error:/i.test(t));
       // No when= means this is a GT, not a GWT — a read model reads events that already exist, so there
@@ -1379,15 +1657,15 @@ ${s.gwts.map((g, i) => {
       // construction, so a test that quotes it can be told apart; keep it in the comment.
       return `    // ${(g.rule || g.label || g.id).replace(/\s+/g, " ")}  [${g.id}]
     //   GIVEN ${g.given || "(nothing)"}${g.when ? `\n    //   WHEN  ${g.when}` : ""}
-    //   THEN  ${g.then || "(nothing)"}${g.when ? "" : gtHint(s)}${isPeriphery(g) && g.when ? "\n    //   No GIVEN, so this is a periphery rule: expect 400 from the validator." : ""}
+    //   THEN  ${g.then || "(nothing)"}${g.when ? "" : gtHint(s)}${isPeriphery(g) && g.when ? "\n    //   enforce=\"periphery\": rejected by the validator before any stream is read." : ""}
     ${factAttr(s)}
-    public Task ${testName(g, i)}()
+    public Task ${names[i]}()
         => throw new NotImplementedException(
-            "TODO(codegen): ${err ? `expect a 400/ProblemDetails for ${ruleName(g)}` : `expect ${thens.join(", ") || "the modelled outcome"}`}. " +
+            "TODO(codegen): ${err ? `expect a 400 whose ProblemDetails title is \\"${ruleName(g)}\\" — title carries the rule name at BOTH enforcement points, so assert that and not the ${isPeriphery(g) ? "errors dictionary" : "detail sentence"}` : `expect ${thens.join(", ") || "the modelled outcome"}`}. " +
             "Stream key: ${key.replace(/"/g, "'")}. Fixed values for every stream key are on SeedData: ${
       [...new Set(ir.shared.aggregates.flatMap((a) => a.identity ?? []))].map((k) => `SeedData.${pascal(k)}`).join(", ") || "none — no band declares identity="
     }.");`;
-    }).join("\n\n")}
+    }).join("\n\n"))(testNames(s.gwts))}
 }
 `);
 }
@@ -1652,6 +1930,19 @@ for (const s of ir.slices) {
     // foreign one. It is already in our store, appended by the context that owns it, and there is
     // nothing to ingest — the consuming context just projects it. Only `origin=` events land here.
     if (!foreignLabels.has(label)) continue;
+    // AND NOT WHEN THE MODEL ALREADY NAMES A TRIGGER FOR THIS SLICE. On a translation slice the automation
+    // cell IS the thing the arrival wakes — `Event(s) → View → Automated Trigger → Command` — and codegen
+    // emits `opts.Discovery.IncludeType(typeof(<Trigger>))` into Program.cs, which is `emit`, so that class
+    // is REQUIRED to exist. Scaffolding a seam as well produced a SECOND consumer of the same message, which
+    // is the duplicate-handler hazard: no exception, no ambiguity error, and the caller gets whichever
+    // handler Wolverine picked.
+    //
+    // KIT-FINDINGS BP12 filed this as the folder being behind the generator — the generated seam took the
+    // model's event label while the folder's took its own transport record. That reading was wrong. The
+    // folder's two records were byte-identical and one was genuinely redundant, but the seam itself was the
+    // generator emitting a handler for a message the model had already assigned a trigger. An
+    // `INGEST NOT WIRED` on it could therefore never be satisfied — the fix was always to not emit it.
+    if ((s.automations ?? []).length) continue;
     if (!ingestsByEvent.has(label)) ingestsByEvent.set(label, []);
     ingestsByEvent.get(label).push(s);
   }
@@ -1879,6 +2170,220 @@ ${(() => {
 `);
 }
 
+// --- the read endpoint of a state-view slice ----------------------------------------------------
+//
+// A state-view slice's whole contract IS its read model, and nothing generated one — so the GT hint said
+// to assert *"through its read endpoint IF the slice has one"*, and every project hand-wrote them.
+// KIT-FINDINGS BP4.
+//
+// TWO THINGS MAKE THIS NOT MECHANICAL, and both would have shipped a plausible wrong endpoint.
+//
+// 1. `Event(s) -> View` DOES NOT PROMISE A DOCUMENT. CLAUDE.md's identity= table lists six Marten
+//    recipes and this generator knows two; the view file and its registration are both SCAFFOLD, so a
+//    human has legitimately chosen another. A generated `Query<T>()` endpoint is **wrong** for a live
+//    aggregation (nothing is stored — it needs `FetchLatest<T>`) and wrong for a `FlatTableProjection`
+//    (a SQL table, not a document at all). Both COMPILE and both return an empty list for ever.
+//    Measured: `MessageMetrics` in reference-implementations/state-view/ is a `FlatTableProjection` ON A
+//    STATE-VIEW SLICE, so this is not hypothetical — 1 view in 5 there.
+//    So the recipe is READ OFF THE TREE, and where it is not document-backed the endpoint is NOT
+//    written and the gap is REPORTED. Same logic as stamping a projection GUESSED rather than silently
+//    grouping the wrong rows: a named gap beats a plausible wrong answer.
+//
+// 2. FILE-ABSENT IS NOT ENDPOINT-ABSENT, and keying on a filename would have broken routes in four projects.
+//    Eight projects already have hand-written read endpoints, and they agree on neither the location nor
+//    the route: Voltway/Spend/Allocation put them in `Views/<View>Endpoint.cs`, Demo001 in the slice
+//    folder, and Voltway's `OperationsConsoleEndpoints.cs` serves TWO views from one file under routes
+//    named after neither it nor its slice. "Scaffold where the expected file is missing" emits a SECOND
+//    endpoint for every one of those. So detection asks *"does an endpoint for this view exist anywhere?"*,
+//    never *"is this path on disk?"* — measured both ways, including renaming an endpoint's FILE, which
+//    still suppresses the scaffold.
+//
+//    WHAT A DUPLICATE ROUTE ACTUALLY DOES WAS MEASURED, because the first version of this comment asserted
+//    it and was wrong. It said Wolverine rejects one at host startup and takes the Alba fixture down. It
+//    does not: two [WolverineGet] methods on one template BUILD at 0/0 and the HOST STARTS FINE. The
+//    failure is per request — `AmbiguousMatchException: "The request matched multiple endpoints"`, naming
+//    both handler types — so only the tests hitting that route fail (measured: 4 of 18 in Demo001). In
+//    production every request to that route is a 500. KIT-HISTORY BP4 (part 2).
+//
+// THE BIAS IS DELIBERATE AND ASYMMETRIC. A false positive (we think one exists, so we write nothing) costs
+// a missing scaffold, which the GT hint already covers. A false negative costs a broken route. So any
+// GET-bearing file naming the view type counts as an endpoint.
+const readEndpointsWritten = [];
+const readEndpointsFound = [];
+const readEndpointsSkipped = [];
+
+const appCsFiles = () => {
+  const out = [];
+  (function walk(d) {
+    if (!existsSync(d)) return;
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) { if (!/^(bin|obj)$/.test(e.name)) walk(p); }
+      else if (e.name.endsWith(".cs")) out.push(p);
+    }
+  })(APP);
+  return out;
+};
+
+if (ir.shared.views.length) {
+  const tree = appCsFiles().map((p) => ({ path: p, src: readFileSync(p, "utf8") }));
+  const uncommented = (s) => s.split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  // A WORD-BOUNDARY REGEX BUILT FROM A REGEX LITERAL, not from a string — `\\b` in a template literal is
+  // a backspace character and the test then never matches, which for a detector means it reports
+  // "nothing exists" and cheerfully writes the duplicate. CLAUDE.md's standing warning, and it bit while
+  // measuring this very feature: a first pass run through `node -e` said no project had a read endpoint
+  // at all, on a tree where five files plainly did.
+  const namesType = (src, label) => new RegExp(String.raw`\b${pascal(label)}\b`).test(src);
+
+  for (const v of ir.shared.views) {
+    const onStateView = ir.slices.some(
+      (s) => (s.kind ?? s.pattern) === "state-view" && (s.views ?? []).includes(v.label));
+    // A todo View is machinery an automation consults, not a contract anybody reads — `then=` on such a
+    // slice names an EVENT. Giving it a public GET would publish the inside of a process.
+    if (!onStateView || (v.todoFor ?? []).length) continue;
+
+    const existing = tree.find((f) => f.src.includes("WolverineGet") && namesType(uncommented(f.src), v.label));
+    if (existing) {
+      readEndpointsFound.push({ view: v.label, path: existing.path });
+      continue;
+    }
+
+    // WHICH RECIPE, read off the tree rather than assumed. `FlatTableProjection` is the one that is
+    // registered like any other and is NOT a document; a live aggregation registers nothing at all.
+    // UNCOMMENTED, like every other check here. `Campaigns/Views/MessageStatus.cs` carries a doc comment
+    // reading "scaffolded this as a separate MessageStatusProjection : SingleStreamProjection<…>" — prose
+    // about a decision that was then REVERSED. Reading comments would let a sentence about the past decide
+    // what gets generated now, which is the same class of mistake as matching a rule name inside a comment
+    // that says the rule was removed.
+    const decl = tree.map((f) => uncommented(f.src))
+      .find((s) => new RegExp(String.raw`class\s+${pascal(v.label)}Projection\b`).test(s));
+    const base = decl?.match(
+      new RegExp(String.raw`class\s+${pascal(v.label)}Projection\s*:\s*([A-Za-z]+)`))?.[1] ?? null;
+    const snapshotted = tree.some((f) =>
+      new RegExp(String.raw`Snapshot<\s*${pascal(v.label)}\s*>`).test(uncommented(f.src)));
+    const registered = snapshotted || tree.some((f) =>
+      uncommented(f.src).includes(`${pascal(v.label)}Projection`) && f.path.endsWith("ViewRegistrations.cs"));
+
+    if (base === "FlatTableProjection" || !registered) {
+      readEndpointsSkipped.push({
+        view: v.label,
+        why: base === "FlatTableProjection"
+          ? "a FlatTableProjection — rows in a SQL table, not documents, so Query<T>() would return nothing for ever"
+          : "registered nowhere as a document projection — a live aggregation needs FetchLatest<T>, and an "
+            + "unregistered view has no store to read",
+      });
+      continue;
+    }
+
+    // THE ROUTE FOLLOWS THE CONVENTION THE HAND-WRITTEN ONES CONVERGED ON — `/{context}/{view}`, camel,
+    // which is what Voltway, Demo001, Spend and Allocation all chose independently. It is a starting
+    // point and not a promise: this file is SCAFFOLD precisely because Demo001 then added `/{date}` and
+    // every reference implementation moved a route.
+    const route = `/${camel(v.context ?? ir.system)}/${camel(v.label)}`;
+    // LAST GUARD, and it is the one whose absence takes down a fixture: if that route string is already
+    // in the tree under any name, do not write a second endpoint on it. Detection above is by view type,
+    // so a GET that serves this route while naming a DIFFERENT type would slip past it.
+    if (tree.some((f) => uncommented(f.src).includes(`"${route}"`))) {
+      readEndpointsSkipped.push({ view: v.label, why: `route ${route} is already taken in this tree` });
+      continue;
+    }
+
+    const t = pascal(v.label);
+    const p = join(APP, "Views", `${t}Endpoint.cs`);
+    if (!existsSync(p)) readEndpointsWritten.push({ view: v.label, route });
+    scaffold(p,
+      `${banner(`${v.label} — the read endpoint of a state-view slice`)}
+using Marten;
+using Wolverine.Http;
+
+namespace ${NS}.Views;
+
+/// <summary>
+/// THE CONTRACT OF A STATE-VIEW SLICE IS THIS ENDPOINT, which is why it is generated at all — a GT
+/// asserts "the read model shows this" and the honest place to assert it is through the query surface a
+/// caller actually gets, not against the document store. Finding <b>BP4</b> — which resolves with
+/// <c>grep -n BP4 KIT-FINDINGS.md KIT-HISTORY.md</c>, since an id lives in whichever file matches its status.
+///
+/// SCAFFOLD: yours from here, and regeneration keeps it. Three things below are a starting point rather
+/// than an answer, and all three are why this is not <c>emit</c>:
+/// <list type="number">
+///   <item><b>the route.</b> <c>/{context}/{view}</c> is the convention every hand-written read endpoint
+///     in this kit converged on, and every one of them then changed it. Moving it is a legal edit — but
+///     if this app is served behind nginx, run <c>codegen</c> afterwards: an unproxied route reaches the
+///     SPA fallback and a fetch gets <c>index.html</c> with a <b>200</b>, and <c>ROUTE NOT PROXIED</c> is
+///     what says so.</item>
+///   <item><b>the query.</b> This returns every row, because <c>identity=</c> says what one row IS and
+///     the model never says which subset a screen wants. "${v.label}" almost certainly implies a filter
+///     the model does not carry — take it from the screen's own <c>displays=</c> and the GT.</item>
+///   <item><b>list or one row.</b> One row is keyed by ${(v.identity ?? []).length
+        ? `<c>${(v.identity ?? []).join(", ")}</c>` : "nothing the model declares"}. A detail screen wants
+///     that single row; add the second route rather than making the caller filter a list.</item>
+/// </list>
+///
+/// <c>IQuerySession</c>, not <c>IDocumentSession</c> — then "a read endpoint never writes" is a compile
+/// error rather than a code review.
+/// </summary>
+public static class ${t}Endpoint
+{
+    public const string Route = "${route}";
+
+    [WolverineGet(Route)]
+    public static Task<IReadOnlyList<${t}>> Get(IQuerySession session, CancellationToken cancellation)
+        // TODO(codegen): narrow this. Every row of every ${t} is almost never what the screen asked for.
+        => session.Query<${t}>().ToListAsync(cancellation);
+}
+`);
+  }
+}
+
+// HOW A RULE NAME REACHES AN HTTP CALLER — one helper per SYSTEM, and EMIT rather than scaffold.
+//
+// WHY ONE PER SYSTEM, at the root namespace rather than in Slices/<Context>/: the body holds no domain
+// fact and no context-specific content, so a per-context copy would be N byte-identical files. The root
+// namespace is an ancestor of every `<NS>.Slices.<Context>` namespace, so every call site resolves
+// `Rejections` with no using at all — measured on Voltway, 14 call sites across 8 endpoints in TWO
+// contexts, against exactly this placement.
+//
+// WHY EMIT: the file has no judgement in it, and there is independent evidence of that — two projects
+// wrote it by hand in two uncoordinated runs and converged on the same signature and the same one-line
+// body, differing only in `400` vs `StatusCodes.Status400BadRequest`. But the decisive reason is the doc
+// comment. That comment IS the rejection wire contract, and KIT-FINDINGS BP1 is what happens when the
+// contract is wrong: a false sentence in CLAUDE.md propagated into both hand-written copies and nothing
+// could reach back to fix either. `scaffold` would rebuild that exact trap — a corrected contract would
+// never reach a project that already exists. Emit is the only setting under which fixing the shape fixes
+// every project on the next run.
+//
+// The rejection SHAPE below is measured, not asserted: probes/rejection-shape.cs runs both paths through
+// a real [WolverinePost] with a real validator attached, with a control.
+emit(join(APP, "Rejections.cs"),
+  `${banner("how a rule name reaches an HTTP caller")}
+namespace ${NS};
+
+/// <summary>
+/// THE RULE NAME IS ALWAYS IN <c>Title</c>, ON BOTH ENFORCEMENT PATHS — but only because Program.cs
+/// installs a ProblemDetails customiser that puts it there for a periphery failure. Without that line the
+/// two shapes differ, and a UI reading <c>title</c> shows the user "One or more validation errors
+/// occurred." instead of the rule that refused them. KIT-FINDINGS BP1.
+///
+/// What each path additionally carries is NOT the same, and a reader must not assume it is:
+/// <list type="bullet">
+///   <item>a PERIPHERY rejection (FluentValidation) additionally carries <c>errors.&lt;Property&gt;</c></item>
+///   <item>a DECIDER rejection (this helper) additionally carries <c>detail</c></item>
+/// </list>
+/// With two periphery failures at once, <c>title</c> holds the FIRST — in the validator's own
+/// <c>RuleFor</c> declaration order — and the full set stays in <c>errors</c>. So a caller that needs
+/// every broken rule must read <c>errors</c>; <c>title</c> alone is one of them.
+///
+/// <c>then="error: RuleName"</c> on a GWT therefore asserts <c>title</c> whichever path refused the
+/// command, which is what makes <c>enforce=</c> an implementation choice rather than a contract change.
+/// </summary>
+public static class Rejections
+{
+    public static IResult Problem(string rule, string detail) =>
+        Results.Problem(title: rule, detail: detail, statusCode: StatusCodes.Status400BadRequest);
+}
+`);
+
 emit(join(APP, "Program.cs"),
   `${banner("application bootstrapping")}
 using JasperFx;
@@ -1898,7 +2403,11 @@ using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
 using Marten.Schema;
+// ExistingStreamIdCollisionException is Marten.Exceptions.*, settled from the package .xml
+// (T:Marten.Exceptions.ExistingStreamIdCollisionException) — no doc page names it.
+using Marten.Exceptions;
 using Wolverine.Marten;
+using Microsoft.AspNetCore.Mvc;        // ValidationProblemDetails, for the rejection-shape customiser below
 using ${NS};
 using ${NS}.Views;${automations.length ? `
 using ${NS}.Automation;
@@ -2001,6 +2510,24 @@ builder.Host.UseWolverine(opts =>
     // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
     opts.OnException<ConcurrencyException>().RetryTimes(3);
     opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+    // THE THIRD ONE, AND ITS ABSENCE WAS A MEASURED DEFECT. There are TWO refusal mechanisms, not one, and
+    // which you get depends on whether the stream already existed:
+    //
+    //   creating the stream — a first write to the key   the stream table's primary key
+    //                                                    -> ExistingStreamIdCollisionException
+    //   appending to a stream that exists                the optimistic version check
+    //                                                    -> EventStreamUnexpectedMaxEventIdException
+    //
+    // Only the second was retried. So on any slice whose command CREATES the stream — every "already X"
+    // latch on a first notice — a lost race escaped \`InvokeAsync\` as an unhandled exception, which is
+    // exactly the V7 failure the bus path is supposed to prevent. Measured on Voltway: 8 concurrent
+    // \`PublishBayOffered\` gave "Stream #… already exists in the database" out of the handler, and the same
+    // for \`ListBay\`. Two of five race tests, red on the mechanism and not on the rule.
+    //
+    // THE KIT ALREADY KNEW. \`architect.mjs\`'s own \`ConcurrencyHarness.Classify\` switches on all THREE
+    // names, and the architect skill tabulates both mechanisms — so one tool documented what the other
+    // omitted, which is V9's shape at the level of a single line. KIT-FINDINGS BS1.
+    opts.OnException<ExistingStreamIdCollisionException>().RetryTimes(3);
     // Durable local queues are what make the ingest seam in Landing/ durable without any durability
     // code: a message routed to a local queue is written to the Postgres envelope tables before its
     // handler runs, retried if the handler throws, and dead-lettered when it keeps throwing. That inbox
@@ -2019,6 +2546,49 @@ ${automations.length === 0 ? "" : `
     // a generic argument.
 ${automations.flatMap((s) => (s.automations ?? []).map(
   (a) => `    opts.Discovery.IncludeType(typeof(${pascal(a)}));`)).join("\n")}`}
+});
+
+// THE ONE LINE THAT MAKES THE TWO REJECTION PATHS THE SAME SHAPE.
+//
+// A rule refused at the PERIPHERY and a rule refused by a DECIDER do not produce the same body. Measured
+// on the wire with a control, in probes/rejection-shape.cs:
+//
+//   periphery  {"title":"One or more validation errors occurred.","status":400,
+//               "errors":{"Reason":["ReasonRequired"]}}
+//   decider    {"title":"AlreadyCancelled","status":400,"detail":"Booking b-1 has already been cancelled."}
+//
+// Same status, same type, and the rule name in a DIFFERENT PLACE. A UI written to read \`title\` — which is
+// what CLAUDE.md told every agent to do — shows the user "One or more validation errors occurred." and
+// loses \`ReasonRequired\` entirely. KIT-FINDINGS BP1.
+//
+// The customiser copies the first rule name into \`title\`, so \`title\` carries it on both paths and
+// \`then="error: RuleName"\` asserts one thing. \`errors\` is left ALONE and still holds every broken rule,
+// so nothing is traded away: with two failures at once \`title\` holds the first in RuleFor declaration
+// order and the full set stays in \`errors\`.
+//
+// THAT IT FIRES AT ALL IS THE MEASURED PART, and it was the real risk. Wolverine.Http's generated code
+// writes a validation failure as \`Results.Problem(problemDetails).ExecuteAsync(httpContext)\`, and whether
+// that reaches IProblemDetailsService is stated on no doc page. It does: the probe runs a real
+// [WolverinePost] with a real IValidator attached and the customiser fires on both paths, with \`errors\`
+// intact. Nothing Wolverine-specific is needed beyond this standard ASP.NET registration.
+builder.Services.AddProblemDetails(opts =>
+{
+    opts.CustomizeProblemDetails = ctx =>
+    {
+        // Both shapes are tried because the middleware's choice is not contractual: it builds a
+        // ValidationProblemDetails today, and an \`errors\` extension on a plain ProblemDetails would be
+        // the same wire format with a different CLR type.
+        var rule = ctx.ProblemDetails switch
+        {
+            ValidationProblemDetails { Errors.Count: > 0 } v => v.Errors.Values.First().FirstOrDefault(),
+            _ when ctx.ProblemDetails.Extensions.TryGetValue("errors", out var raw)
+                   && raw is IDictionary<string, string[]> { Count: > 0 } d
+                => d.Values.First().FirstOrDefault(),
+            _ => null,
+        };
+
+        if (!string.IsNullOrWhiteSpace(rule)) ctx.ProblemDetails.Title = rule;
+    };
 });
 
 builder.Services.AddWolverineHttp();
@@ -2614,6 +3184,61 @@ derivable one:
 Best once two of them are in-review: earlier and it fails on slices nobody has built yet.`);
 }
 
+// BP2 — THE DECIDER'S ARM ON A CONTENDED SLICE. Two lines when all is well, and a loud report when it is not.
+if (architectFailure) {
+  console.log(`
+ARCHITECT COULD NOT BE ASKED, so every contention-dependent decision below defaulted to "not contended":
+  ${architectFailure}
+That is a BROKEN INSTRUMENT, not a clean result — codegen reads architect's answer for which slices are
+contended rather than recomputing it (V9), so a failure here silently turns the two-file decider shape off
+for the whole project. Fix the invocation before trusting this run:
+  node tools/architect.mjs questions ${relative(PROJECT, target).replace(/\\/g, "/") || "diagrams"}`);
+} else if (contendedSlices.size) {
+  console.log(`  ${contendedSlices.size} slice(s) architect calls contended${
+    twoFileWritten.length ? `; ${twoFileWritten.length} decider(s) written OFF the HTTP arm: ${
+      twoFileWritten.map((t) => t.slice).join(", ")}` : ""}`);
+}
+if (httpArmOnContended.length) {
+  console.log(`
+DECIDER ON THE HTTP ARM FOR A CONTENDED SLICE — ${httpArmOnContended.length}. \`architect\` flagged a rejection
+here that depends on state in the stream the command appends to, so two callers at the same instant can both
+pass the rule. What refuses the loser is OnException(...).RetryTimes(3) — and that is a MESSAGE-PIPELINE
+policy a Wolverine.HTTP endpoint never reaches, so the collision leaves as a bare 500 instead of the rule
+name. Measured, 8 writers at one key: through the bus 204x1 + 400x7; inline on HTTP 204x1 + 7 escaped
+EventStreamUnexpectedMaxEventIdException. KIT-FINDINGS V7, BP2.
+NOTHING WAS WRITTEN, deliberately: the endpoint is a hand-owned scaffold and the pair is a unit, so emitting
+only the handler half would leave a discovered message handler nothing invokes. Split it by hand — move the
+decision into <Command>Handler.cs returning (<Command>Outcome, Events), and leave a five-line endpoint that
+invokes it with bus.InvokeAsync. reference-implementations/state-change/ has both arms side by side:`);
+  for (const h of httpArmOnContended) {
+    console.log(`  ${h.slice.padEnd(26)} ${h.path.replace(OUT, "").replace(/^[\\/]/, "")}`);
+  }
+}
+
+// READ ENDPOINTS: what was written, what was already there under another name, and — the one that matters
+// — which views deliberately got NO endpoint because the generator could not tell what to read from.
+if (readEndpointsWritten.length) {
+  console.log(`  ${readEndpointsWritten.length} read endpoint(s) for state-view slices: ${
+    readEndpointsWritten.map((r) => `${r.view} -> ${r.route}`).join(", ")}`);
+}
+// "already served", NOT "hand-written": after the first pass these include the scaffolds this generator
+// wrote itself, and calling those hand-written is a false statement in a report — which is the one thing a
+// report may not be.
+if (readEndpointsFound.length) {
+  console.log(`  ${readEndpointsFound.length} view(s) already served by an existing endpoint: ${
+    readEndpointsFound.map((r) => `${r.view} (${r.path.replace(OUT, "").replace(/^[\\/]/, "")})`).join(", ")}`);
+}
+if (readEndpointsSkipped.length) {
+  console.log(`
+NO READ ENDPOINT GENERATED — ${readEndpointsSkipped.length}. A state-view slice's contract IS its read
+model, and these views got no endpoint ON PURPOSE: the generator knows two of Marten's six recipes, and for
+these it cannot tell what a caller would read from. A generated Query<T>() here would COMPILE and return an
+empty list for ever, which is worse than nothing — so the gap is named instead, the way a projection with no
+derivable identity= is stamped GUESSED rather than silently grouping the wrong rows.
+Write it by hand in Views/, or say why there is none:`);
+  for (const r of readEndpointsSkipped) console.log(`  ${r.view.padEnd(26)} ${r.why}`);
+}
+
 // ARCHITECTURE DECISIONS: the choices the model deliberately leaves open, and which get made by ACCIDENT
 // if nobody makes them on purpose. Reported here rather than enforced, in this file's house style — but
 // reported loudly, because the default this generator picks (Inline on every read model) is one of the
@@ -2625,22 +3250,90 @@ if (claimed.length) {
   // second copy here would drift the first time one of them changed. Failure is non-fatal — a missing
   // report must never break a generation run.
   let r = null;
+  let checkFailure = null;
   try {
+    // `target` IS PASSED, and its absence was a silent failure for six of the eight projects in this repo.
+    // A reference implementation keeps its model in `<folder>/<model-name>/`, architect used to hard-code
+    // `<project>/diagrams`, and this catch swallowed the resulting exit-1 — so ARCHITECTURE DECISIONS MISSING
+    // could never fire there. The catch stays (a missing report must never break a run) but it no longer
+    // hides a wiring bug.
     r = execFileSync(process.execPath,
-      [fileURLToPath(new URL("architect.mjs", import.meta.url)), "check", ...pass],
+      [fileURLToPath(new URL("architect.mjs", import.meta.url)), "check", target, ...pass],
       { encoding: "utf8", maxBuffer: 1 << 24 });
-  } catch { /* no project, no models, or no record — the branches below cover it */ }
-  if (!existsSync(rec)) {
+  } catch (e) {
+    // NAMED, not swallowed. This is the exact site that hid the architect wiring bug for six of the eight
+    // projects in this repo, and the reason it hid is that the catch was empty — so a `check` that could
+    // not run and a `check` that found nothing produced identical output. The catch stays, because a
+    // missing report must never break a generation run; what changes is that it says so.
+    //
+    // ONLY WHEN THE OTHER CALL SITE SUCCEEDED. `questions` runs earlier against the same tool and the same
+    // target, so if that failed the reader already has `ARCHITECT COULD NOT BE ASKED` with the reason and a
+    // second copy is noise. A failure HERE with a success THERE is strictly a bug in this call.
+    if (!architectFailure) {
+      checkFailure = (e.stderr || e.message || String(e)).toString().trim().split("\n")[0];
+    }
+  }
+  if (checkFailure) {
+    console.log(`
+ARCHITECT CHECK COULD NOT RUN, so "every decision is answered and current" is UNVERIFIED for this run —
+not confirmed. \`questions\` ran fine against the same model, so this is a bug in how codegen invokes
+\`check\`, not a missing record:
+  ${checkFailure}
+  node tools/architect.mjs check ${relative(PROJECT, target).replace(/\\/g, "/") || "diagrams"}`);
+  }
+  // THE ACKNOWLEDGED CASE IS A NOTE, and architect is the one that decides it — this reads `check`'s answer
+  // rather than looking for the fenced block itself, so there is one definition of "acknowledged" and not
+  // two that can drift (V9's lesson, applied to a much smaller thing).
+  if (r && /RECORD DELIBERATELY ELSEWHERE/.test(r)) {
+    console.log(`  architecture decisions recorded outside ARCHITECTURE.md — acknowledged, see README.md`);
+  } else if (!existsSync(rec)) {
     console.log(`
 NO ARCHITECTURE RECORD, and ${claimed.length} slice(s) are claimed. The model leaves the concurrency and
 consistency choices open on purpose — they are technical, so they are not on a cell — but "open" becomes
 "whatever the generator picked" the moment a slice is built:
   node tools/architect.mjs questions`);
-  } else if (r && /DECISION STILL TODO|QUESTION WITH NO SECTION/.test(r)) {
+  } else if (r && /DECISION STILL TODO|QUESTION WITH NO SECTION|ANSWER TO A QUESTION NOBODY ASKS/.test(r)) {
+    // THE COUNTS COME FROM ARCHITECT'S OWN SUMMARY LINE, not from counting lines of its prose.
+    //
+    // This report used to grep `check`'s stdout for `/^\s{2}\S/` containing a slash and print the first SIX.
+    // It was wrong twice over, and the second way is the worse one:
+    //
+    //   1. A SILENT CAP. On Voltway it showed 6 where the record does not mention 51 — so a reader trusting
+    //      the summary was told the record was nearly complete. CLAUDE.md's own rule is "no silent caps: if a
+    //      workflow bounds coverage, log what was dropped".
+    //   2. A CAP ON THE WRONG SET. That filter matches **85 lines** on Voltway, because it sweeps up both
+    //      `QUESTION WITH NO SECTION` (51 — the model asks, the record is silent) and
+    //      `ANSWER TO A QUESTION NOBODY ASKS` (32 — an orphaned decision, the opposite problem) and prints
+    //      them under one heading claiming the record "does not answer everything the model asks". Six of
+    //      eighty-five, of two different findings, under one wrong label.
+    //
+    // So: read the numbers architect computed. One computation, one caller — V9's lesson at small scale.
+    const num = (re) => { const m = re.exec(r); return m ? Number(m[1]) : null; };
+    const total = num(/(\d+) question\(s\) from the model/);
+    const unanswered = num(/(\d+) not in the record/);
+    const todo = num(/(\d+) still TODO/);
+    const orphaned = num(/ANSWER TO A QUESTION NOBODY ASKS — (\d+)/);
+    // The ids under the one heading that means "the model asks and the record is silent", and nothing else.
+    const missingIds = (/QUESTION WITH NO SECTION[\s\S]*?\n((?:  \S[^\n]*\n(?:    [^\n]*\n)?)+)/.exec(r)?.[1] ?? "")
+      .split("\n").map((l) => l.trim()).filter((l) => l && l.includes("/") && !l.startsWith("fix:"));
+    const SHOW = 6;
     console.log(`
-ARCHITECTURE DECISIONS MISSING. ARCHITECTURE.md exists but does not answer everything the model asks:
-${r.split("\n").filter((l) => /^\s{2}\S/.test(l) && l.includes("/")).slice(0, 6).map((l) => "  " + l.trim()).join("\n")}
-  node tools/architect.mjs check`);
+ARCHITECTURE DECISIONS MISSING. ARCHITECTURE.md exists and ${
+      unanswered === null ? "does not answer everything the model asks" :
+      `is silent on ${unanswered} of the ${total} question(s) the model asks`}${
+      todo ? `; ${todo} more are still TODO` : ""}${
+      orphaned ? `. Separately, ${orphaned} recorded answer(s) point at question ids that no longer exist —
+a DIFFERENT finding, and \`architect check\` names each with its nearest current id` : ""}.`);
+    if (missingIds.length) {
+      for (const id of missingIds.slice(0, SHOW)) console.log(`  ${id}`);
+      // NO SILENT CAP. Say what was dropped, in the same breath as what was shown.
+      if (missingIds.length > SHOW) {
+        console.log(`  … and ${missingIds.length - SHOW} more NOT shown here. This list is a sample; the count above is the finding.`);
+      }
+    }
+    console.log(`  node tools/architect.mjs check${
+      relative(PROJECT, target).replace(/\\/g, "/") && relative(PROJECT, target) !== "diagrams"
+        ? " " + relative(PROJECT, target).replace(/\\/g, "/") : ""}`);
   }
 }
 

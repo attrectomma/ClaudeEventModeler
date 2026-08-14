@@ -31,7 +31,7 @@
 //   READ THE GRID OFF THE MODEL. CLAUDE.md's layout table is a snapshot and says so -- its GWT row
 //   starts at 1375 while the real campaigns.drawio starts at 1330. Every y is derived per run.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -770,17 +770,34 @@ function cmdAdd(target, o) {
 }
 
 // One place the folder gets read, so `add` can refuse a name used by a sibling model.
+//
+// EVERY FAILURE HERE USED TO RETURN AN EMPTY LIST, which is indistinguishable from "there are no sibling
+// models" — so the cross-model uniqueness check did not report a problem, it reported NO SIBLINGS, and `add`
+// then accepted a duplicate slice name with nothing said. *"Slice names are unique across the system"* is a
+// rule this kit states outright, because a slice is a branch and a ticket. KIT-FINDINGS BP13.
+//
+// It also shelled out to a second `node` process to do a `readdirSync` this one can do directly, which is
+// where the swallow came from: `execFileSync` throws on any non-zero exit, and the catch turned that into
+// silence. Reading the directory inline removes the subprocess and the catch together.
 function siblingSlices(file) {
   const dir = file.replace(/[\\/][^\\/]+$/, "");
   const out = [];
-  let names = [];
-  try { names = execFileSync("node", ["-e",
-    `const fs=require('fs');process.stdout.write(fs.readdirSync(${JSON.stringify(dir)}).filter(f=>f.endsWith('.drawio')&&!f.startsWith('_')).join('\\n'))`],
-    { encoding: "utf8" }).split("\n").filter(Boolean); } catch { return out; }
+  // No try/catch: a folder that cannot be listed is a real error and `add` must not proceed as though the
+  // folder were empty. readdirSync throws with the path in the message, which is the loud failure wanted.
+  const names = readdirSync(dir).filter((f) => f.endsWith(".drawio") && !f.startsWith("_"));
   for (const n of names) {
     const p = `${dir}/${n}`;
     if (resolve(p) === resolve(file)) continue;
-    let x; try { x = readFileSync(p, "utf8"); } catch { continue; }
+    // A SIBLING THAT CANNOT BE READ IS NAMED, not skipped. Skipping it silently narrows the uniqueness
+    // check to whichever files happened to open, and the caller cannot tell a clean answer from a partial
+    // one. This must not abort — one unreadable sibling should not block an otherwise valid `add` — so it
+    // warns and says what the consequence is.
+    let x;
+    try { x = readFileSync(p, "utf8"); } catch (e) {
+      console.error(`  WARN  cannot read sibling model ${n} (${e.code ?? e.message}) — slice names in it are`);
+      console.error(`        NOT checked for collision, so this add may duplicate one.`);
+      continue;
+    }
     for (const b of cellBlocks(x)) {
       if (!/\bem="group"/.test(b)) continue;
       const s = attr(b, "slice");

@@ -75,6 +75,14 @@ write; it already exists.
 **Backend first, then frontend** — for one slice, sequentially, because the frontend wants the real
 contract rather than a predicted one and the cost of waiting is minutes.
 
+**Under `demo: true` in `project.json`, give ALL the slices to one backend agent** and brief every agent
+to report in ≤12 lines and to skip its own review loop. Check with `node tools/project.mjs where`, which
+prints the setting. This is a **driving** decision, not a quality one: the gates are unchanged and every
+one of them still has to pass. What it gives up is the fan-out itself, which is one of the things worth
+showing — so it is off by default and CLAUDE.md carries the full cost table. One thing the single agent
+must still be told: **which slice owns `GenesisData.cs`**, because that file is why the per-slice agents
+were sequential rather than parallel in the first place.
+
 They are *separable* though, not *ordered by necessity*: the API shape is derivable from the model
 alone (command `fields` → request, view `fields` → response). That is what makes a parallel fan-out
 possible later without redesigning anything, which is the standing principle — keep it simple, prepare
@@ -166,6 +174,18 @@ fails.
 
 A State Change slice is screen → command → event, and the screen reads a View another slice owns. So
 finishing one slice end to end may require a **minimal read endpoint** belonging to a neighbour.
+
+**Look before you write one — `codegen` now scaffolds it.** A `state-view` slice gets
+`Views/<View>Endpoint.cs` automatically, so the neighbour's endpoint usually already exists and your job is
+to *narrow its query*, not to add a second endpoint. Writing one anyway is how a view ends up served twice:
+detection is by *"does a GET-bearing file name this view type?"*, so a second class under a different name
+is invisible to the generator and every request to a colliding route then fails with
+`AmbiguousMatchException` (measured — see KIT-HISTORY **BP4 (part 2)**; it is not a startup failure, so the
+build and boot stay clean and only the tests hitting that route go red).
+
+There are exactly two cases where you *do* write one: `NO READ ENDPOINT GENERATED` named the view — the
+recipe is a flat table or a live aggregation, so you supply the right mechanism by hand — or the neighbour's
+slice is still `in-design` and has no view yet.
 
 Add the minimum, mark clearly which slice it belongs to, add no rules to it — so promoting that slice
 later means adding its GWTs rather than undoing this work. Say plainly that you did it.

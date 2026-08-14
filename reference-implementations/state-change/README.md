@@ -238,3 +238,11 @@ the report starts complaining, and the tests go on being skipped.
 and there is nothing to fetch; it uses `MartenOps.StartStream`. Worth stating because it marks the boundary:
 **the aggregate handler workflow is for changing state, not creating it.** Both slices in this model are
 Command slices and only one of them can use it.
+
+## Where this folder's architecture decisions are recorded
+
+```architect-record-elsewhere
+The `contended-invariant/revise-subject` question is answered by BOTH arms built side by side:
+the decider on a Wolverine.HTTP endpoint and the same decider as a message handler, with the four
+differences between them enumerated in the files themselves. That is the choice, worked.
+```

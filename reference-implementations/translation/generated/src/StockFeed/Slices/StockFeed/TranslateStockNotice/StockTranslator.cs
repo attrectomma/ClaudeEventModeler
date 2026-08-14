@@ -46,7 +46,7 @@ namespace StockFeed.Slices.StockFeed;
 public static class StockTranslator
 {
     public static async Task Handle(
-        IngestStockNotice notice,
+        StockNoticed notice,
         IMessageBus bus,
         ILogger logger,
         CancellationToken cancellation)

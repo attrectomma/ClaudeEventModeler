@@ -46,10 +46,21 @@ written, which is the failure mode every write-once file in this kit has eventua
 ## 1 — read the questions
 
 ```
-node tools/architect.mjs questions          # what the model implies and cannot answer
+node tools/architect.mjs questions              # <project>/diagrams
+node tools/architect.mjs questions <model-dir>   # anywhere else — a reference implementation, say
 ```
 
 Six families, all derived mechanically from the compiled IR. **The tool asks; it never answers.**
+
+**If it prints `<something> does not exist.` and exits 1, pass the model directory.** All four subcommands
+assumed `<project>/diagrams` until 2026-08-11, which meant they died on every reference implementation — and
+`codegen` wraps `check` in a `try/catch`, so that death was *silent* and `ARCHITECTURE DECISIONS MISSING` could
+never fire there. Do not read a quiet `check` as a clean one without confirming it ran. KIT-HISTORY **BP2**.
+
+**`codegen` reads this tool's answer.** `questions --json`'s `contended-invariant` family is what decides
+whether a slice's decider is scaffolded off the HTTP arm, so a question family that fails to derive here
+changes generated code. That is deliberate — one computation, one caller (V9) — and it means this tool
+failing is never a local problem.
 
 | | What it means, and why it is a question |
 | --- | --- |
@@ -274,13 +285,45 @@ All from `probes/concurrency-invariant.cs`, which you can re-run.
   winners for one desk-day.** That is this whole question family in one number.
 
 **Mutation-check at least one race test before believing it.** Temporarily point it at a per-operation key;
-test 1 must fail. A green concurrency test is exactly the kind that proves nothing.
+test 1 must fail. A green concurrency test is exactly the kind that proves nothing. Measured on Voltway:
+`Won should be 1 but was 10`.
+
+### The second test assumes an HTTP ENDPOINT, and a contended AUTOMATION slice has none
+
+The scaffold hands you `Host.Scenario(...).ToUrl(<Slice>Endpoint.Route)`, which is right for a state-change
+slice and impossible for an automation or translation one — those commands are issued by a trigger and have no
+route at all. **Race the BUS instead**, and it is the better test rather than a workaround:
+
+```csharp
+var bus = Host.Services.GetRequiredService<IMessageBus>();
+var outcomes = await Task.WhenAll(Enumerable.Range(0, 8)
+    .Select(_ => bus.InvokeAsync<TheOutcome>(command)));
+outcomes.Count(o => o.Succeeded).ShouldBeLessThanOrEqualTo(1, summary);
+outcomes.Where(o => !o.Succeeded).ShouldAllBe(o => o.Rule == TheRule, summary);
+```
+
+`InvokeAsync` is the production path *and* the only path `OnException<...>().RetryTimes(3)` covers — which is
+exactly why it is what caught **BS1**: the emitted policy retried the version-conflict exception and not the
+stream-creation one, so a lost race on a stream-creating slice escaped unhandled. Five worked examples are in
+`DemoAllPatterns`'s `Concurrency/` folder. **The scaffold should generate this shape when the slice has no
+endpoint; it does not yet.**
 
 ## 5 — the gate
 
 | | Must be true |
 | --- | --- |
 | `architect.mjs check` | no `QUESTION WITH NO SECTION`, no `DECISION STILL TODO`, no `RACE TEST NOT WRITTEN` |
+
+**`RECORD DELIBERATELY ELSEWHERE` is the one other clean outcome**, and it is an acknowledgement rather than a
+pass: a folder whose decisions genuinely live in another artifact says so in a ```architect-record-elsewhere`
+fence in its `README.md`, naming the section that decides. Every question is still listed by `questions` — what
+changes is that the *absence of ARCHITECTURE.md* stops being reported. The five reference implementations use it,
+because each one's README is a measured comparison of mechanisms with their costs, which is richer than the
+per-question sections `record` scaffolds; duplicating it would put one decision in two places.
+
+**A project should almost never use this.** It exists for a folder whose entire purpose is to record a decision.
+If you reach for it because writing the record is tedious, that is the wrong reason and the fence will read as an
+excuse to whoever finds it.
 | race tests | every `contended-invariant` has a race test whose deterministic half **passes**, and one of them has been mutation-checked against a wrong key |
 | every decision | has all three lines, and `It costs:` is not "nothing" unless that is genuinely true |
 | the mirror | was read. "Same as the reference implementation" is not an answer unless you checked for a closer fit |

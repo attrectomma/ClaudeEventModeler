@@ -22,7 +22,11 @@ using Wolverine.FluentValidation;
 using Wolverine.Http;
 using Wolverine.Http.FluentValidation;
 using Marten.Schema;
+// ExistingStreamIdCollisionException is Marten.Exceptions.*, settled from the package .xml
+// (T:Marten.Exceptions.ExistingStreamIdCollisionException) — no doc page names it.
+using Marten.Exceptions;
 using Wolverine.Marten;
+using Microsoft.AspNetCore.Mvc;        // ValidationProblemDetails, for the rejection-shape customiser below
 using Drafting;
 using Drafting.Views;
 
@@ -82,7 +86,7 @@ builder.Host.UseWolverine(opts =>
     // any `JASPERFX_*` environment variable — the string appears zero times across 394 mirrored pages and
     // in none of the three assemblies. This kit shipped `ENV JASPERFX_CODEGEN_TYPE_LOAD_MODE=Static` in a
     // hand-written Dockerfile for a whole project, and it did nothing at all: the container ran Dynamic and
-    // said so in its own startup log, while three documents recorded Static as measured. KIT-FINDINGS BO2.
+    // said so in its own startup log, while three documents recorded Static as measured. KIT-HISTORY BO2.
     // The line below is the mechanism the mirror actually documents, and it works because something READS it.
     if (Environment.GetEnvironmentVariable("WOLVERINE_CODEGEN_STATIC") == "true")
         opts.CodeGeneration.TypeLoadMode = TypeLoadMode.Static;
@@ -107,6 +111,24 @@ builder.Host.UseWolverine(opts =>
     // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
     opts.OnException<ConcurrencyException>().RetryTimes(3);
     opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+    // THE THIRD ONE, AND ITS ABSENCE WAS A MEASURED DEFECT. There are TWO refusal mechanisms, not one, and
+    // which you get depends on whether the stream already existed:
+    //
+    //   creating the stream — a first write to the key   the stream table's primary key
+    //                                                    -> ExistingStreamIdCollisionException
+    //   appending to a stream that exists                the optimistic version check
+    //                                                    -> EventStreamUnexpectedMaxEventIdException
+    //
+    // Only the second was retried. So on any slice whose command CREATES the stream — every "already X"
+    // latch on a first notice — a lost race escaped `InvokeAsync` as an unhandled exception, which is
+    // exactly the V7 failure the bus path is supposed to prevent. Measured on Voltway: 8 concurrent
+    // `PublishBayOffered` gave "Stream #… already exists in the database" out of the handler, and the same
+    // for `ListBay`. Two of five race tests, red on the mechanism and not on the rule.
+    //
+    // THE KIT ALREADY KNEW. `architect.mjs`'s own `ConcurrencyHarness.Classify` switches on all THREE
+    // names, and the architect skill tabulates both mechanisms — so one tool documented what the other
+    // omitted, which is V9's shape at the level of a single line. KIT-FINDINGS BS1.
+    opts.OnException<ExistingStreamIdCollisionException>().RetryTimes(3);
     // Durable local queues are what make the ingest seam in Landing/ durable without any durability
     // code: a message routed to a local queue is written to the Postgres envelope tables before its
     // handler runs, retried if the handler throws, and dead-lettered when it keeps throwing. That inbox
@@ -115,6 +137,49 @@ builder.Host.UseWolverine(opts =>
     opts.Policies.UseDurableLocalQueues();
     opts.UseFluentValidation();
 
+});
+
+// THE ONE LINE THAT MAKES THE TWO REJECTION PATHS THE SAME SHAPE.
+//
+// A rule refused at the PERIPHERY and a rule refused by a DECIDER do not produce the same body. Measured
+// on the wire with a control, in probes/rejection-shape.cs:
+//
+//   periphery  {"title":"One or more validation errors occurred.","status":400,
+//               "errors":{"Reason":["ReasonRequired"]}}
+//   decider    {"title":"AlreadyCancelled","status":400,"detail":"Booking b-1 has already been cancelled."}
+//
+// Same status, same type, and the rule name in a DIFFERENT PLACE. A UI written to read `title` — which is
+// what CLAUDE.md told every agent to do — shows the user "One or more validation errors occurred." and
+// loses `ReasonRequired` entirely. KIT-FINDINGS BP1.
+//
+// The customiser copies the first rule name into `title`, so `title` carries it on both paths and
+// `then="error: RuleName"` asserts one thing. `errors` is left ALONE and still holds every broken rule,
+// so nothing is traded away: with two failures at once `title` holds the first in RuleFor declaration
+// order and the full set stays in `errors`.
+//
+// THAT IT FIRES AT ALL IS THE MEASURED PART, and it was the real risk. Wolverine.Http's generated code
+// writes a validation failure as `Results.Problem(problemDetails).ExecuteAsync(httpContext)`, and whether
+// that reaches IProblemDetailsService is stated on no doc page. It does: the probe runs a real
+// [WolverinePost] with a real IValidator attached and the customiser fires on both paths, with `errors`
+// intact. Nothing Wolverine-specific is needed beyond this standard ASP.NET registration.
+builder.Services.AddProblemDetails(opts =>
+{
+    opts.CustomizeProblemDetails = ctx =>
+    {
+        // Both shapes are tried because the middleware's choice is not contractual: it builds a
+        // ValidationProblemDetails today, and an `errors` extension on a plain ProblemDetails would be
+        // the same wire format with a different CLR type.
+        var rule = ctx.ProblemDetails switch
+        {
+            ValidationProblemDetails { Errors.Count: > 0 } v => v.Errors.Values.First().FirstOrDefault(),
+            _ when ctx.ProblemDetails.Extensions.TryGetValue("errors", out var raw)
+                   && raw is IDictionary<string, string[]> { Count: > 0 } d
+                => d.Values.First().FirstOrDefault(),
+            _ => null,
+        };
+
+        if (!string.IsNullOrWhiteSpace(rule)) ctx.ProblemDetails.Title = rule;
+    };
 });
 
 builder.Services.AddWolverineHttp();

@@ -23,7 +23,7 @@ namespace StockFeed.IntegrationTests;
 /// way to an event of ours, with nobody in this file asking for any of it.
 ///
 /// Every other test in this project hands the notice to the translator itself, by putting
-/// <see cref="IngestStockNotice"/> on the bus. That is right — it is the production path — and it means none of
+/// <see cref="StockNoticed"/> on the bus. That is right — it is the production path — and it means none of
 /// them can tell you whether anything ever DELIVERS a notice. Nothing in the model or the generated code makes an
 /// arrival happen, so a completely disconnected feed leaves the suite green.
 ///
@@ -88,7 +88,7 @@ public sealed class LandingMechanismTests : IAsyncLifetime
     /// query for "the outstanding row" could return somebody else's. Naming the stream makes each test
     /// independent without isolation the generator does not offer.
     /// </summary>
-    private static IngestStockNotice Notice(Guid productId, long sequence = 1, int quantity = 12) =>
+    private static StockNoticed Notice(Guid productId, long sequence = 1, int quantity = 12) =>
         new(productId, Guid.NewGuid(), quantity, sequence, new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
 
     /// <summary>

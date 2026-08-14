@@ -3,6 +3,8 @@
 // </auto-generated-scaffold>
 #nullable enable
 
+using StockFeed.Contracts;   // StockNoticed — the model-declared foreign event
+
 namespace StockFeed.Landing;
 
 /// <summary>
@@ -22,14 +24,14 @@ public static class WarehouseDemoData
     {
         var at = new DateTimeOffset(2026, 1, 1, 9, 0, 0, TimeSpan.Zero);
 
-        warehouse.Publish(new IngestStockNotice(Widget, Notice(1), 42, 1, at));
-        warehouse.Publish(new IngestStockNotice(Sprocket, Notice(2), 7, 2, at.AddMinutes(1)));
-        warehouse.Publish(new IngestStockNotice(Flange, Notice(3), 0, 3, at.AddMinutes(2)));
+        warehouse.Publish(new StockNoticed(Widget, Notice(1), 42, 1, at));
+        warehouse.Publish(new StockNoticed(Sprocket, Notice(2), 7, 2, at.AddMinutes(1)));
+        warehouse.Publish(new StockNoticed(Flange, Notice(3), 0, 3, at.AddMinutes(2)));
 
         // A SECOND NOTICE FOR ONE PRODUCT, later and with a higher sequence. Here so that running the app shows
         // the behaviour worth seeing rather than only the happy path: the todo View collapses both notices to
         // one outstanding row, and the Widget settles at 40 rather than 42.
-        warehouse.Publish(new IngestStockNotice(Widget, Notice(4), 40, 4, at.AddMinutes(3)));
+        warehouse.Publish(new StockNoticed(Widget, Notice(4), 40, 4, at.AddMinutes(3)));
 
         // THERE IS NO STALE NOTICE HERE, AND TRYING TO ADD ONE IS HOW A REAL FINDING TURNED UP.
         //
