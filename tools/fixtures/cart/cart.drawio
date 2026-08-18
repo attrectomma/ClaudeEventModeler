@@ -79,7 +79,7 @@
             <mxGeometry x="730" y="276" width="200" height="240" as="geometry" />
           </mxCell>
         </object>
-        <object note="ch.12 Fig.12.15: itemId's real source is the Item Added event, so the command mints it." terminal="aggregateId:generated, itemId:generated" fields="aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double" aggregate="Cart" id="cmd-add-item" label="Add Item" em="command" slice="add-item">
+        <object note="ch.12 Fig.12.15: itemId's real source is the Item Added event, so the command mints it." terminal="aggregateId:generated, itemId:generated" fields="aggregateId:UUID, itemId:UUID, productId:UUID, description:string, image:string, price:Double" id="cmd-add-item" label="Add Item" em="command" slice="add-item" aggregate="Cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="740" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -136,7 +136,7 @@
             <mxGeometry x="1050" y="276" width="200" height="240" as="geometry" />
           </mxCell>
         </object>
-        <object fields="aggregateId:UUID, itemId:UUID" aggregate="Cart" id="cmd-remove-item" label="Remove Item" em="command" slice="remove-item">
+        <object fields="aggregateId:UUID, itemId:UUID" id="cmd-remove-item" label="Remove Item" em="command" slice="remove-item" aggregate="Cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="1060" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -183,7 +183,7 @@
             <mxGeometry x="1370" y="276" width="200" height="240" as="geometry" />
           </mxCell>
         </object>
-        <object fields="aggregateId:UUID" aggregate="Cart" id="cmd-clear-cart" label="Clear Cart" em="command" slice="clear-cart">
+        <object fields="aggregateId:UUID" id="cmd-clear-cart" label="Clear Cart" em="command" slice="clear-cart" aggregate="Cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="1380" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -230,7 +230,7 @@
             <mxGeometry x="1690" y="276" width="200" height="240" as="geometry" />
           </mxCell>
         </object>
-        <object note="ch.15: orderedProducts is a list of {productId, price} -- &quot;I often provide the structure of the data as an example in the form of simple JSON.&quot; It is built from the cart rows the screen shows, so derived= from productId, not a field the user types." derived="orderedProducts=productId" fields="aggregateId:UUID, orderedProducts:string" aggregate="Cart" id="cmd-submit-cart" label="Submit Cart" em="command" slice="submit-cart">
+        <object note="ch.15: orderedProducts is a list of {productId, price} -- &quot;I often provide the structure of the data as an example in the form of simple JSON.&quot; It is built from the cart rows the screen shows, so derived= from productId, not a field the user types." derived="orderedProducts=productId" fields="aggregateId:UUID, orderedProducts:string" id="cmd-submit-cart" label="Submit Cart" em="command" slice="submit-cart" aggregate="Cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="1700" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -279,7 +279,7 @@
             <mxGeometry x="2020" y="726" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object fields="productId:UUID, inventory:int" aggregate="Inventory" id="cmd-change-inventory" label="Change Inventory" em="command" slice="change-inventory">
+        <object fields="productId:UUID, inventory:int" id="cmd-change-inventory" label="Change Inventory" em="command" slice="change-inventory" aggregate="Inventory">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="2340" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -386,7 +386,7 @@
             <mxGeometry x="2660" y="726" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object fields="productId:UUID, oldPrice:Double, newPrice:Double" aggregate="Inventory" id="cmd-change-price" label="Change Price" em="command" slice="change-price">
+        <object fields="productId:UUID, oldPrice:Double, newPrice:Double" id="cmd-change-price" label="Change Price" em="command" slice="change-price" aggregate="Inventory">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="2980" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -428,7 +428,7 @@
             <mxGeometry x="3300" y="726" width="180" height="60" as="geometry" />
           </mxCell>
         </object>
-        <object note="ch.17: &quot;This command only requires the cartId (we called it aggregateId) and the affected product-id.&quot; An automation types nothing: both come from the todo-list View." fields="aggregateId:UUID, productId:UUID" aggregate="Cart" id="cmd-archive-item" label="Archive Item" em="command" slice="archive-item">
+        <object note="ch.17: &quot;This command only requires the cartId (we called it aggregateId) and the affected product-id.&quot; An automation types nothing: both come from the todo-list View." fields="aggregateId:UUID, productId:UUID" id="cmd-archive-item" label="Archive Item" em="command" slice="archive-item" aggregate="Cart">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="3620" y="676" width="180" height="60" as="geometry" />
           </mxCell>
@@ -507,7 +507,7 @@
             <mxGeometry x="410" y="2431" width="200" height="240" as="geometry" />
           </mxCell>
         </object>
-        <object note="attempt is the handler's count of what is already in the stream, not something the user types." terminal="attempt:generated" fields="aggregateId:UUID, reason:string, attempt:int" aggregate="CartError" id="cmd-fail-submission" label="Record Submission Failure" em="command" slice="fail-submission">
+        <object note="attempt is the handler's count of what is already in the stream, not something the user types." terminal="attempt:generated" fields="aggregateId:UUID, reason:string, attempt:int" id="cmd-fail-submission" label="Record Submission Failure" em="command" slice="fail-submission" aggregate="CartError">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="420" y="2831" width="180" height="60" as="geometry" />
           </mxCell>
@@ -543,7 +543,7 @@
             <mxGeometry x="730" y="2431" width="200" height="240" as="geometry" />
           </mxCell>
         </object>
-        <object fields="aggregateId:UUID" aggregate="CartError" id="cmd-abort-cart" label="Abort Cart" em="command" slice="abort-cart">
+        <object fields="aggregateId:UUID" id="cmd-abort-cart" label="Abort Cart" em="command" slice="abort-cart" aggregate="CartError">
           <mxCell style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
             <mxGeometry x="740" y="2831" width="180" height="60" as="geometry" />
           </mxCell>

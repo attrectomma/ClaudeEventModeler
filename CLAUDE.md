@@ -1024,6 +1024,37 @@ Everything a generator cannot decide, and the traps found by running rather than
 **Smells the checker cannot see are catalogued in [ANTI-PATTERNS.md](ANTI-PATTERNS.md)**, with the
 tooling-catches-it column made explicit. Read it before trusting a green run.
 
+### The two phases, and the only thing that may cross between them
+
+**Phase 1 — modelling — is thinking, and it is meant to be.** A human supplies the domain; Claude turns it
+into a model that obeys Event Modeling's rules, relentlessly asking for what is missing rather than filling
+it in. The completeness check exists for exactly this, and so does `add-slice`'s gap list. Asking *"have you
+thought of every GWT?"* or warning about an anti-pattern is the job, not overhead. **It cannot be scripted
+away and should not be.**
+
+**Phase 2 — model to code — assumes that model is COMPLETE**, and its goal is the opposite: the traffic
+between the driving session and its agents should approach zero. Every gate is mechanical, every decision is
+either in the model or in `ARCHITECTURE.md`, and an agent that needs nothing is the success condition.
+
+**So there is exactly one thing allowed to cross back, and it is a modelling mistake.** Those are accepted
+— a model is never perfect — but they are *phase 1's* to fix. An implementing agent that has to decide a
+domain fact has not completed a task; it has found a hole, and the only correct destination is the domain
+expert.
+
+| | Where it is settled |
+| --- | --- |
+| a **domain** question — what the business does, what a rule refuses, what a screen shows when empty | back to phase 1. The slice is **demoted** and waits for a human |
+| an **implementation** question — which Marten recipe, which wakeup, how stale a view may be | `architect`, once, before the first slice. Never per slice, never by an agent mid-run |
+| anything else the agent needed | a defect in the brief, the scaffold or this file — fix it there, so the next run does not need it either |
+
+**The failure mode is a green suite over a known hole**, and it is not hypothetical: the ToolCrib run had
+one agent, zero questions, `Failed: 0, Passed: 7`, and five reported modelling gaps — one of them a tool
+that was never registered being checkable-out, silently opening a stream. Every one of them reached a chat
+message and nothing else. The loop that closes it: both agent contracts require a `MODELLING GAPS` section
+classified **SILENT** or **NARROW**, the `codegen` skill copies them into `<project>/OPEN-QUESTIONS.md` and
+demotes every slice carrying a SILENT one, and `codegen` reports
+`MODELLING GAP RAISED BY IMPLEMENTATION` on every run until the status changes.
+
 ### The four documents, and which one to open
 
 | | |

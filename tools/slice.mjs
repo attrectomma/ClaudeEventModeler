@@ -893,6 +893,13 @@ function cmdAdd(target, o) {
       g = { x, y: home.g.y + BAND_TOP_PAD + BAND_ROW * r, w: EL_W, h: EL_H };
       extra += ` aggregate="${(home.streams ?? "").split(",")[0].trim()}"`;
     } else {
+      // A COMMAND CARRIES ITS AGGREGATE TOO — CLAUDE.md's attribute table says `aggregate` is "on:
+      // command, event", and only the event was ever stamped. Nothing failed loudly: codegen maps a
+      // command to its aggregate through the aggregate's own command list, so it never noticed. What
+      // DID notice is `architect`'s id-generation question, which resolves the stream lane through
+      // `cmd.aggregate` — with it absent the lookup returned undefined and the question SILENTLY never
+      // fired, on exactly the creating slice it exists for. Found on a fresh end-to-end run.
+      if (kind === "command" && band) extra += ` aggregate="${(band.streams ?? "").split(",")[0].trim()}"`;
       const n = perCol.get(col) ?? 1;
       // n=1 -> lane.y+50, matching campaigns.drawio. n=2 -> +20 and +100, both clear of the edges.
       g = { x, y: lane.y + 50 - (n - 1) * 30 + row * (EL_H + 20), w: EL_W, h: EL_H };

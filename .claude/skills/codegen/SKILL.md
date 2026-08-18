@@ -143,6 +143,42 @@ file somebody else owns. ANTI-PATTERNS.md #13.
 Then promote the slice past `in-progress` and **stop**. Do not start a second slice in the same
 session: the point of one-at-a-time is that the second one tells you what the first cost.
 
+## A MODELLING GAP IS NOT YOURS TO CLOSE — route it and demote
+
+**This phase assumes a complete model.** That is the whole division of labour: the human supplies the
+domain, the modelling phase turns it into a model, and you turn that model into code. So the one thing an
+implementing agent can legitimately interrupt for is *"the model is silent here and I had to decide"* —
+and the destination for that is **the domain expert**, not your judgement and not a chat message.
+
+**The failure mode is a green suite over a known hole.** Measured on the ToolCrib run: one agent, zero
+questions asked, `Failed: 0, Passed: 7`, and five modelling gaps in the report — one of them real. None of
+them reached `OPEN-QUESTIONS.md`, the model, or the slice status. The kit said done; the expert had never
+been asked.
+
+So, every time an agent returns, do these three in order and do not skip the third:
+
+1. **Read its `MODELLING GAPS` section.** It is required in both agent contracts. If an agent returns
+   without one, ask for it rather than assuming there were none — *"no gaps"* is a claim, and a claim that
+   is never made is not the same as one that is made and true.
+2. **Copy each gap into `<project>/OPEN-QUESTIONS.md`**, under *Modelling gaps raised by implementation*,
+   verbatim and with its status. You write it, not the agent — one writer, the same discipline as `mark`.
+3. **Demote every slice carrying a `SILENT` gap back to `in-design`:**
+
+   ```
+   node tools/slice.mjs demote <model> --slice <name>
+   ```
+
+   This is the little book's own rule — *"I treat changes to existing Slices like new Slices… set it back
+   to Status 'Created'"* — applied to the case where implementation is what found the change. **A slice
+   whose domain question is unanswered is not finished, however green its tests are.** A `NARROW` gap is a
+   scope decision somebody already made: record it, do not demote.
+
+`codegen.mjs` then reports `MODELLING GAP RAISED BY IMPLEMENTATION` on every run until the status changes,
+which is what stops a gap living in a transcript.
+
+**In `mode=demo` you answer these yourself**, as the roleplayed expert — but *out loud and in the file*
+first, exactly as `add-slice`'s gap list works. What was invented has to be visible before it is built on.
+
 ## Before you stop: does this slice make a journey possible?
 
 **Every test you have just made green is a single slice's scenario**, and each one appends its own GIVEN

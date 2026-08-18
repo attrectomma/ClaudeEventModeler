@@ -950,9 +950,9 @@ public sealed class ${cls}(AppFixture fixture) : IntegrationContext(fixture)
         //   var key = $"...";        // the ONE stream key all writers contend on: (${r.identity.join(", ") || "?"})
         //   var results = await RaceAsync(10, async (i, session) =>
         //   {
-        //       var stream = await session.Events.FetchForWriting<${pascal(r.aggregate)}>(key);
+        //       var stream = await session.Events.FetchForWriting<${pascal(r.command ?? r.slice)}State>(key);
         //       if (/* the rule already refuses this */) return false;
-        //       stream.AppendOne(new ${r.emits[0] ?? "TheEvent"}(/* ... */));
+        //       stream.AppendOne(new ${pascal(r.emits[0] ?? "TheEvent")}(/* ... */));
         //       return true;
         //   }, Store);
         //

@@ -36,6 +36,9 @@
     },
     {
       "path": "../DCB_CourseSubscriptions"
+    },
+    {
+      "path": "../ForLiveDemo"
     }
   ],
   "settings": {

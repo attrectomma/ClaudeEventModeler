@@ -3675,6 +3675,47 @@ them is wrong is a domain question, and a generator that chose would be inventin
   }
 }
 
+// A MODELLING GAP FOUND WHILE IMPLEMENTING IS THE ONE THING PHASE 2 IS ALLOWED TO INTERRUPT FOR.
+//
+// The division of labour: a human supplies domain knowledge, Claude turns it into a model, and the
+// model→code phase assumes that model is COMPLETE. So when an implementing agent has to decide a
+// domain fact, it has not found a task — it has found a hole, and the only correct response is to put
+// the question back in front of the domain expert.
+//
+// Measured on the ToolCrib run, which is why this exists: one agent, zero questions asked, and FIVE
+// modelling gaps reported — one of them real (a tool that was never registered could be checked out,
+// silently opening a stream whose first event is ToolCheckedOut). Where did it go? Nowhere. Not
+// OPEN-QUESTIONS.md, not the model, not the slice status. It existed in one chat message, and
+// `dotnet test` said Failed: 0, Passed: 7. **A green suite over a known hole is the failure mode.**
+//
+// Reported rather than enforced, in this file's house style — but reported until somebody changes the
+// STATUS, which is the difference between a record and a transcript.
+const gapsFile = join(PROJECT, "OPEN-QUESTIONS.md");
+if (existsSync(gapsFile)) {
+  const md = readFileSync(gapsFile, "utf8");
+  // Only the headings inside the gap section, and only real entries — the template lives in an HTML
+  // comment and `(none yet)` is the empty state, so neither may be counted as a finding.
+  const sec = md.split(/^## /m).find((s) => /^Modelling gaps raised by implementation/.test(s)) ?? "";
+  // PARSED LINE BY LINE RATHER THAN WITH A REGEX, deliberately. The first version of this was written
+  // through a shell heredoc and lost its backslashes on the way in — `[\s\S]` arrived as `[sS]` and
+  // `\s*\[` as `s*[` — so the pattern could not match and the report was silent while looking correct.
+  // That is CLAUDE.md's standing rule in its third costume, and the cheapest cure is not to need the
+  // escapes: a startsWith/endsWith test has nothing to lose in transit.
+  const body = sec.split("<!--")[0];              // the template lives in an HTML comment; never count it
+  const open = body.split("\n").map((l) => l.trim())
+    .filter((l) => l.startsWith("### ") && l.endsWith("[OPEN]"))
+    .map((l) => l.slice(4, -6).trim());
+  if (open.length) {
+    console.log(`
+MODELLING GAP RAISED BY IMPLEMENTATION — ${open.length}. An agent had to decide a DOMAIN fact, which
+means the model is silent where it should speak. This is the one interruption phase 2 is entitled to:
+the question goes back to the domain expert, and the slice is not finished until the MODEL is. Mark the
+entry NARROW if it is a deliberate scope decision, or RESOLVED once the model changed — in
+${gapsFile.replace(PROJECT, "<project>")}:`);
+    for (const q of open) console.log(`  ${q}`);
+  }
+}
+
 // CREATING SLICES — BT6. Three outcomes, and only the first is silent-by-success.
 if (createStreamWritten.length) {
   console.log(`  ${createStreamWritten.length} slice(s) CREATE their stream, scaffolded with MartenOps.StartStream: ${

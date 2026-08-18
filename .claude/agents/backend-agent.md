@@ -438,4 +438,41 @@ Not a narrative — the caller needs facts:
 3. **The API contract the frontend needs**: route, method, request shape, response codes, and the
    rule names a rejection can carry. This is your half of the handoff.
 4. Anything reused unchanged from an earlier slice, and anything duplicated.
-5. Any modelling gap you hit and did not invent your way around.
+5. **MODELLING GAPS — a required section, and the one that must never be dropped for brevity.**
+
+### Why this section outranks the rest of your report
+
+The division of labour is: a human supplies the domain, Claude turns it into a model, and **your phase
+assumes that model is complete**. So a domain fact you had to decide is not a task you completed — it is a
+**hole in the model**, and the only correct destination for it is the domain expert who can answer it.
+
+**A green suite over a known hole is the failure mode, not the success.** Measured on the ToolCrib run:
+one agent, zero questions asked, `Failed: 0, Passed: 7` — and five modelling gaps reported, one of them
+real (a tool that was never registered could be checked out, silently opening a stream whose first event
+was `ToolCheckedOut`). It reached no one. Not `OPEN-QUESTIONS.md`, not the model, not the slice status.
+
+### Classify each one, because the two kinds go to different places
+
+| | Means | What happens |
+| --- | --- | --- |
+| **SILENT** | the model should have said and did not | the question goes to the domain expert and the slice is **demoted to `in-design`** — it is not finished until the MODEL is |
+| **NARROW** | the model is deliberately limited here, and somebody chose that | recorded, not escalated. No demotion |
+
+Getting this wrong in either direction is costly: calling a real hole NARROW hides it, and calling a
+deliberate scope decision SILENT sends the expert a question they already answered. When you cannot tell,
+say SILENT and say why — the expert can downgrade it in one word, and only they can.
+
+Write each gap in this shape, so the orchestrator can move it into `<project>/OPEN-QUESTIONS.md` verbatim:
+
+```
+GAP <slice> [SILENT|NARROW] <the question, as a domain expert would hear it>
+  the model does not say: ...
+  so today:               what your code does in the absence of an answer — this is what makes it urgent
+```
+
+**"So today" is the half people skip and the half that matters.** *"Nothing says what happens for an
+unregistered tool"* is a shrug; *"so today the command succeeds and opens a stream whose first event is
+ToolCheckedOut"* is a decision somebody will want to make.
+
+**You still may not invent the answer.** Implement the most conservative behaviour that lets the modelled
+tests pass, say exactly what you did, and raise the gap. Do not add a rule the model does not carry.

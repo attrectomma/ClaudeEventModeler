@@ -240,3 +240,14 @@ that file is the `styling` session's and editing it makes the design and the app
 3. **What you looked at**, and at which widths — plus anything you could not reach without clicking.
 4. Which affordances are live and which are disabled, and why.
 5. Anything in the design that did not survive the port, or that you think is wrong.
+6. **MODELLING GAPS — required, in the same shape `backend-agent` uses**, and for the same reason: your
+   phase assumes a complete model, so a domain fact you had to decide is a hole in the model rather than a
+   task of yours. On the UI side these are usually *"the model says the screen shows this, and never says
+   what it shows when there is none of it"* — an empty state, an ordering, a page size, or what makes the
+   screen re-read (KIT-FINDINGS BN9). Classify each **SILENT** or **NARROW**:
+
+```
+GAP <slice> [SILENT|NARROW] <the question, as a domain expert would hear it>
+  the model does not say: ...
+  so today:               what the screen does in the absence of an answer
+```

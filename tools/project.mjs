@@ -527,6 +527,33 @@ completeness gate passed:
 - **Whether the stream boundary is right.** The test is manual: read one swimlane's events aloud to
   someone from the business and see if it is a story.
 
+## Modelling gaps raised by implementation
+
+**Phase 2 is entitled to assume a complete model, so anything it discovers about the DOMAIN belongs
+here and in front of a human.** An implementing agent that has to decide a domain fact has found a hole
+in the model, not a task of its own — and a green suite over that hole is the failure mode, not the
+success.
+
+One entry per gap. \`codegen\` reports every OPEN one on every run and keeps reporting until the status
+changes. That is the point: a gap that lives only in a session transcript is a gap nobody answered.
+
+| Status | Means |
+| --- | --- |
+| \`OPEN\` | the model is **silent where it should speak**. The slice goes back to \`in-design\` and waits for the domain expert |
+| \`NARROW\` | the model is **deliberately narrow** here — a scope decision somebody made on purpose. Not a defect, and it does not demote |
+| \`RESOLVED\` | the model was changed. Say what changed, so a reader can tell this from a gap that was merely argued away |
+
+### (none yet)
+
+<!-- Template — copy for each gap:
+
+### <slice> — <the question, as a domain expert would hear it>   [OPEN]
+- **raised by:** backend-agent, implementing <slice>
+- **the model does not say:** ...
+- **so today:** what the code does in the absence of an answer, which is what makes it urgent
+- **resolution:** TODO(domain-expert)
+-->
+
 ## Domain questions
 
 (none yet)
