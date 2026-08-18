@@ -78,6 +78,29 @@ export function capture({ url, out, width, height, settleMs = 0 }) {
 </style>
 <iframe src="${target}"></iframe>
 `, "utf8");
+  // THE NARROW PATH CANNOT TELL A SETTLED PAGE FROM A LOADING ONE — KIT-FINDINGS BT11.
+  //
+  // The iframe is a separate document, and --virtual-time-budget advances a clock in the MAIN frame, so it
+  // does not wait for the nested document's in-flight fetch. Measured: a backend failing after 3s produced
+  // a `loading` picture filed under `--state unreachable`, three runs running, including at --settle 8000.
+  // The desktop path uses direct capture and got it right every time.
+  //
+  // The failure mode is the dangerous kind — not an error, a PLAUSIBLE PICTURE WITH THE WRONG CAPTION, and
+  // it goes into review/index.html beside the agreed design as evidence of a state nobody has seen.
+  //
+  // WARNED RATHER THAN DETECTED, deliberately. Whether a request was still in flight is not observable from
+  // the Chrome CLI — the only outputs are the PNG and an exit code — so anything stronger means a second
+  // browser invocation or a readiness protocol the page would have to co-operate with. What IS knowable is
+  // the condition that makes the shot untrustworthy: this path, against a LIVE url. A static design page
+  // fetches nothing and is unaffected, which is why the warning is conditioned on the scheme rather than
+  // printed on every narrow capture.
+  if (/^https?:/i.test(target)) {
+    console.warn(`  ! ${width}px is captured through an <iframe> (Windows will not lay out a real window `
+      + `below ~${MIN_HONEST_WIDTH}px), and that path CANNOT wait for the page's own fetch. If this screen `
+      + `loads data, the shot may be of the loading state while carrying the name you asked for. The `
+      + `desktop shot is authoritative; a ui-journey walk is what actually proves a mobile state.`);
+  }
+
   try {
     const r = chrome([
       ...budget,

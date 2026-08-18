@@ -19,12 +19,450 @@ lettered by run (**A** first, then **B**, **T**, **W**, **X**, **Y**, **Z**, **A
 
 ---
 
+## BU — the two the TOOLING could never have found, because both are about what a human sees · ***2026-08-18***
+
+**Both reported by the human, and that is the finding about the findings.** Every net in this kit checks
+*content* — is the attribute sourced, does the rule name resolve, does the port match the model. Neither of
+these breaks any of that: both models validate at 0 errors, generate correct code and pass their tests. What
+they break is **legibility**, and the kit has no instrument for it at all. The model is the artifact a human
+reads left to right; that is the entire method. A picture nobody can read has failed at its job while every
+check reports success.
+
+### BU1 — several arrows into one sticky landed on ONE point, so they overlapped for the whole final leg
+
+`route` already gives every long edge its own **y** — CLAUDE.md insists on it, because one y per *target*
+makes several events feeding one View share a horizontal run. What it never gave them is their own **x**:
+`entryX=0.5` was hard-coded on every Event → View hint, so N arrows ran at N heights and then converged into
+a single point on the target's edge.
+
+It scales with the model, which is why the human hit it and the fixtures did not. Measured on Voltway:
+`estate-rm-bay-health` and `charging-rm-available-bays` take **eight** incoming edges each, and
+`entryX=0.5,entryY=1` was shared by three of them.
+
+`reflow` now spreads anchors — the k-th of n gets `(k+1)/(n+1)`, sorted by the other end's x so the fan does
+not cross itself — and moves the routing point with the anchor, so the final leg stays straight instead of
+jogging sideways. Idempotent. On Voltway: **102 anchors**, and the eight edges into one view went from four
+distinct entry points to eight.
+
+**Whole file, not per region — and that cost a debugging round.** An edge carries no geometry, so region
+detection puts *every* edge in region 0 while its endpoints stay in their own region. Scoped per region, the
+first pass saw all the edges and none of the second model's elements, so every one of that model's edges
+failed the endpoint lookup and was skipped — the anchors changed everywhere **except the two views with eight
+incoming edges**, which is exactly where the problem was. The count went 52 → 102 once `allCells` was used.
+
+**Verified by rendering, per the standing rule**, on a purpose-built minimal fixture (five events into one
+read model) because the real model at 8360px downscales into mush: before is one funnel into the green box,
+after is five separate arrowheads with five vertical legs.
+
+### BU2 — a GWT cell rendered as a blank grey box, and Demo001 had already solved it
+
+`given=`/`when=`/`then=` are where the machine reads a scenario. A human reads the **picture** — and a cell
+whose label carries only prose shows none of its steps without a click and an Edit Data panel. On a model
+with 97 GWTs that means nobody reads any of them.
+
+Demo001 wrote the skeleton into the label and is legible at a glance; Voltway did not and is not. **Nothing
+in the kit asked for it** — CLAUDE.md required the *rule text* in the label and no more — which is exactly
+why it was lost: it was one run's habit rather than a rule, so there was nothing to regress against.
+
+`reflow` now renders it from the attributes, so it cannot drift:
+
+```
+A new driver registers with a name, an email and the number on their card.
+
+WHEN RegisterDriver
+THEN Driver Registered
+```
+
+Three deliberate details, all taken from Demo001 rather than invented. **The human's first line is
+preserved** — `rule=` is often a PascalCase identifier (`DriverRegisters`) while the label is the sentence
+somebody wrote for a reader, so using `rule=` would make every model *less* legible. **`GIVEN —` is printed
+when there is no prior history**, because that is a claim rather than an omission, while **WHEN is dropped
+entirely when absent**, because that is what makes a cell a GT and printing `WHEN —` would invite a reader
+to think one had gone missing. And **example data is stripped** from the step labels: it belongs in the
+attributes and a label carrying it is too long to read.
+
+Measured: **97 labels** on Voltway, a **no-op on Demo001** (which was already right — matching it exactly is
+how that was confirmed rather than assumed), and idempotent on a second run. The cart fixture's diff is
+**55 lines, every one an anchor or a routing point**, with `cart-replay` still green.
+
 ## BT — the smallest honest model in the repo, and it found a rule that had never met the tightest legal layout · ***2026-08-13***
 
 Built as a **live-demo fixture** (`ForLiveDemoRecipe`, `DEMO-RECIPE.md`): two slices, one screen, one stream,
 deliberately arranged so the information completeness check fires on stage and is then walked backwards. Two
 slices is the smallest model that can hold one screen shared between a view and a command, and that turned
 out to be a layout nothing in the repo had ever drawn.
+
+### BN9 / BT10 / BT11 — the three frontend findings · ***2026-08-18***
+
+**BN9 — CLOSED, and it had been fixed for a while without the entry saying so.** Every ported screen carried
+`useEffect(() => { void load(); }, [load])` — fetch once on mount, never again — across three screens written
+by two different agents against one brief, so the brief produced it. The worst case measured: a technician
+opens the work list, ~1s later *a stranger's* fault report withdraws a bay and raises a job, and the page
+never finds out; the Refresh control lives inside the non-empty branch, so the state where you are most
+likely to be waiting has nothing to press. And the screen rendered *"Updated in the same transaction as the
+change · this list is exact"* — true of the `Inline` projection, false of the screen that stopped asking.
+Proven with two browser contexts: `2 open faults` sitting directly above `this list is exact` while a third
+was already recorded. **A projection's consistency is not the screen's.**
+
+The finding's own prescription was *"the fix belongs in `.claude/agents/frontend-agent.md`"*, and it is there
+— the question to ask of every screen, the table, the empty-state trap, and *"never claim a freshness your
+fetching cannot deliver"*. Closed on that basis. **What is NOT closed is that nothing checks it**: only a
+browser walk can see a screen that stopped asking, and only if it waits for something arriving after load.
+That is `ui-journey`'s to catch, and `UES` ch. 42's **fenced polling** is the principled version, still
+licensed-but-unbuilt in `BOOK-INDEX.md`.
+
+**BT10 — a class selector in `tokens.css` is a global nobody owns, and it is now a check.** Two correct rules
+combining badly: `styling` says the token file carries *"one signature element"*, and `frontend-agent` says
+the app's copy is that file **unedited**. Everything else in there is a custom property, which is **inert
+until used**; a class selector is not. So `.bar { height: 3px }` restyles any screen that ever wants a
+`.bar`, and the fix would have to be made in a file no screen author owns.
+
+`tokens-unscoped-selector` in `design.mjs check` reports unnamespaced **class** selectors and deliberately
+ignores **element** selectors — `body`, `h2`, `main` in a token file are a base/reset layer, which is a
+legitimate thing for it to carry, and flagging those would fire on every honest design system. Measured
+across three real projects, which is also the proof it can return "some" and "none": ForLiveDemoRecipe
+**silent**, Demo001 **`.slot`**, Voltway **31 selectors** including `.card`, `.field`, `.empty` and `.page`.
+
+**BT11 — WARNED rather than detected, and the distinction is the finding.** Below ~500px `shoot.mjs` renders
+inside an `<iframe>` because Windows will not lay out a real window narrower than that. The iframe is a
+separate document and `--virtual-time-budget` advances a clock in the **main** frame, so it does not wait for
+the nested document's fetch: a backend failing after 3s produced a `loading` picture filed under
+`--state unreachable`, three runs running, including at `--settle 8000`. Not an error — **a plausible picture
+with the wrong caption**, filed into `review/index.html` beside the agreed design as evidence of a state
+nobody has seen.
+
+**Whether a request was in flight is not observable from the Chrome CLI** — the only outputs are the PNG and
+an exit code — so refusing to write the file would need a second browser invocation or a readiness protocol
+the page must co-operate with. What *is* knowable is the condition that makes the shot untrustworthy: this
+path, against a **live URL**. So the warning is conditioned on the scheme, which is why a static design page
+(which fetches nothing) stays silent. Verified both ways. With `mobile: false` — the default, and this kit's
+usual setting — the narrow path never runs and the warning never prints.
+
+### The stale-entry correction — FOUR findings were fixed in code and still listed BROKEN · ***2026-08-18***
+
+**KIT-FINDINGS is the file agents read to decide what to work on, so a stale entry is not a documentation
+slip — it is a round-trip.** An agent picks the finding up, goes to fix it, discovers it is already done, and
+comes back to ask. That is the exact cost this session was convened to reduce.
+
+| | Listed as | Actually, in the code |
+| --- | --- | --- |
+| **V10** | supply vs tick-off edge indistinguishable | `tickoff-is-not-a-source` is a live **error** rule in `model.mjs` |
+| **V13** | coverage matched by rule name | `codegen.mjs` reports ambiguity where a name is genuinely shared |
+| **V21** | two same-named test methods will not compile | `testNames()` suffixes duplicates deterministically |
+| **V25** | the attribute writer appends a duplicate | `setAttr` rewritten, plus an `assertNoDuplicateAttrs` tripwire |
+
+**BO1 was a fifth instance in a different costume** — the finding was live, but the case it was filed against
+had already been closed by the `automations` guard, so its evidence was describing a state that no longer
+existed. All five were found the same way: by reading the code before trusting the file.
+
+**The lesson is procedural rather than technical.** Every one of these was fixed by a session that changed
+the tool and did not move the entry — because moving an ID from findings to history is the *last* step and
+the easiest to skip once the code is green. The standing rule this file already carries for measurements
+applies to the to-do list too: **a finding is not open because the file says so.** Check the code first.
+
+### V9, V18, V24, Z5, BL3, BT5 — the low-hanging sweep · ***FIXED 2026-08-18***
+
+Six mechanical fixes, none needing a decision, each shown able to fire before being believed.
+
+**V9 — one definition of "multi-stream", shared.** `codegen` decided it by *"one feeding stream AND
+`identity=` equal to that stream's key"*; `architect` re-derived it as `streamTypes.length > 1`. A view fed
+by one stream but keyed by something else was multi to the generator and single to the architect, so it was
+registered `Async` and `stale-read` was never raised for it. Extracted to `tools/view-recipe.mjs` and read by
+both — the same cure as the three `.drawio` parsers in V23, for the same reason: **two copies of a rule are
+two rules.** Measured on `state-view/campaigns` by evaluating both predicates side by side: **4 of 5 views
+disagreed**, every one of them previously unquestioned.
+
+**V18 — the design and the port are compared, not pooled.** A binding present in *either* counted as present
+in *both*, so the two artifacts this check exists to keep in step could drift while the run got **greener**.
+Two new rules: `design-port-disagree` (neither is behind the model; the agreed artifact is now fiction) and
+`port-field-missing` (the leg that had no rule at all, because the design drawing it satisfied the old
+check). Probed in three states on one screen — field removed from the design only, from the port only, and
+both restored byte-identical, back to 0/0.
+
+**V24 — `CONTEXT MAP IS STALE`.** `_context-map.drawio` is generated, nothing ever regenerates it, and its
+leading `_` is exactly the prefix `validate` uses to skip it — so the only tool that could notice was told
+not to look. Now validate compares the map's recorded counts against the live models. **It fires on the real
+Voltway map** (`map says 10 slices, the model has 12`) and goes **silent** on a regenerated one.
+*The first version could not go silent*: it counted `e.public` where the map counts `e.isPublic`, so it
+always reported 0 and always disagreed — the standing rule's inverse, caught only by testing that it could
+be made quiet.
+
+**Z5 — `TWO LABELS, ONE IDENTIFIER`.** `Stock Level Set` and `StockLevelSet` are two cells and one C# type,
+so one generated file overwrote the other and — because `scaffold()` reports an existing file as `kept` — the
+run counted the casualty as healthy work. Reported, never renamed: which label is wrong is a domain question.
+
+**BL3 — writes are atomic.** A crashed run left a half-written scaffold, and `scaffold()` never overwrites an
+existing file, so the wreckage was hand-owned from the moment the process died and counted in `M kept`.
+Temp-then-rename means the path either does not exist or holds a complete file; there is no third state.
+
+**BT5 — the Alba trap moved to where it is read first.** `_.Post.Json(x).ToUrl(r).StatusCodeShouldBe(204)`
+does not compile — assertions hang off the `Scenario`, not the send expression — and it reads exactly like a
+missing `using`. The note lived in a reference implementation's test, which you reach *after* writing yours;
+it is now in the generated GWT test scaffold, which you read *before*.
+
+### V12 — the retry budget was a CEILING on concurrent writers, and the proposed fix turned out not to be one · **BROKEN** · ***FIXED 2026-08-18***
+
+Re-measured against real Postgres, through the message pipeline, on an existing stream, with all writers
+released by a barrier — [`probes/retry-budget.cs`](probes/retry-budget.cs), four arms, two full runs each.
+
+| 16 concurrent appends to ONE stream | landed |
+| --- | --- |
+| `RetryTimes(3)` — what the kit emitted | **7**, 9 destroyed |
+| `RetryWithCooldown(50,100,250)` — what V12 proposed as the fix | **6** |
+| partitioned local queue, **published** | **16** |
+| partitioned config but **invoked inline** | **7** — identical to no protection |
+
+**V12's own proposed fix was wrong, and only measuring showed it.** The finding said *"the fix is a cooldown
+rather than a larger integer"*. Cooldown moves the cliff by exactly **one writer** and is then
+indistinguishable. Below 5 writers everything lands in every arm, which is the control: the harness can
+succeed, so the shortfall above it is the budget and not a broken probe.
+
+**The first partitioned arm ALSO lost work, and nearly shipped as "partitioning does not help either".**
+A routing diagnostic added to the handler said otherwise:
+
+```
+dest=local://bumps1/  group=(NONE)  |  dest=local://bumps2/  group=(NONE)
+```
+
+`UseInferredMessageGrouping()` — documented as grouping by *"the stream id of any command that is part of
+the aggregate handler workflow"* — produced **no group id** for a `[WriteAggregate]` **parameter**. And a
+null group id is not a no-op: Wolverine then picks a queue **at random**, so one stream's commands scattered
+across four queues and raced exactly as before while the configuration read as though contention had been
+handled. One explicit `.ByMessage<T>(x => x.StreamKey)` took it to 16/16. **That changes the cost estimate
+this file would otherwise have carried**: partitioning is not one global line, it is a generated rule per
+command.
+
+**And partitioning cannot cover the HTTP arm at all** — measured as the fourth arm rather than assumed. It is
+a *routing* rule; `InvokeAsync` runs the handler inline and is never routed. So an endpoint that invokes its
+decider to get the outcome back — which the rejection contract requires — is unprotected, and moving it to
+publish would cost the refusal. That trade is now `write-contention/<ctx>`'s to answer.
+
+**What was implemented:** `.Then.MoveToErrorQueue()` on all three policies (an exhausted retry used to escape
+as a bare 500 with no dead letter); partitioned sequential messaging emitted per command that carries its
+whole stream key, creating slices excluded because a minted key does not exist at routing time (BT6); a **409**
+for a lost race on the HTTP arm; and the `write-contention/<ctx>` architect question carrying the measured
+numbers so the choice is made from evidence. **No cooldown** — measured not to be a fix.
+
+**The 409 is measured on the wire with a control**, because BP1 is the precedent for asserting a response
+shape from reading the code. [`probes/conflict-status.cs`](probes/conflict-status.cs), 8 concurrent POSTs:
+`204 x1, 500 x7` without the handler, `204 x2, 409 x6` with it — so the failure reproduces first, and the
+winner still succeeds.
+
+Two smaller things: `ConcurrencyException` is in **`JasperFx`**, not `Marten.Exceptions` (the probe would not
+compile until that was found), and the exception that actually fires on the aggregate handler path is always
+`EventStreamUnexpectedMaxEventIdException`. `PartitionSlots` is documented but not publicly reachable —
+CS0103 even from `Wolverine.Runtime.Partitioning` — so `MaxDegreeOfParallelism` cannot be set from user code
+on 6.28.0; ordering within a group is the listener's guarantee regardless.
+
+### BN10 — a walk that CANNOT honestly be written now says so, instead of reading as laziness for ever · **GAP** · ***FIXED 2026-08-18***
+
+`blocked="<why>"` on the chapter cell. `uijourney check` moves it out of `NO UI JOURNEY SPEC` and into
+**`DELIBERATELY NOT WALKED`**, which prints the reason. The measured case is Voltway's
+`driver-first-charge`: the system has no login — the front end hard-codes one driver id and `?driverId=`
+accepts any guid — so *sign up → hold a bay* would act as a **different person** in step 2 than it
+registered in step 1, and **pass**. Writing that spec means inventing a login, which is the one thing the
+kit refuses; the reason previously survived only in a session transcript until somebody copied it into
+`OPEN-QUESTIONS.md`, and **nothing in the kit could hold it**.
+
+Fourth instance of an acknowledgement the kit already had three times — `joins="none"`, the
+`VIEW WITH NO REGISTRATION` comment, `external="true"`. Kept **narrow on purpose**: one attribute for
+chapters, not a general "acknowledged" mechanism any report can read. Each existing acknowledgement states a
+*domain* fact in its own place; a general suppressor would be a tooling concept, and one edit away from
+silencing a real finding.
+
+**A bare `blocked=` is a hard ERROR** (`chapter-blocked-without-reason`, under 12 characters of reason).
+The reason is the entire value — an acknowledgement used as a mute records nothing and is strictly worse
+than the noisy report it replaced. Same shape as `package-versions.json` refusing a version with no `_why`.
+
+Measured, four states: a real reason → `chapter-blocked` note; `blocked="tbd"` → error; no `blocked=` →
+unchanged; and on the Voltway model, `NO UI JOURNEY SPEC — 3` became **`— 2` plus one
+`DELIBERATELY NOT WALKED`**, with the other two still demanded. That last check is the one that matters: an
+acknowledgement that silenced its neighbours would be the BN10 trap wearing the fix's clothes.
+
+### BO1 — the ingest seam asked "did I write this file?" instead of "does a translation exist?" · **NOISE** · ***FIXED 2026-08-18***
+
+`checkIngestWired` looked at exactly one hard-coded path — `Landing/Ingest<Event>Handler.cs`, the file the
+generator would itself have written. **Detect by SHAPE, never by expected filename** is a rule this kit has
+already paid for twice, in the read endpoint (BP4) and the decider (BP2); this was the third place it had
+not been applied. Detection is now two signals, both required: some file in the app tree TAKES the contract
+type, **and** issues one of the consuming slices' commands (through the bus, or by constructing it for
+Wolverine to cascade). Taking it alone is not a translation — the translation folder's
+`InMemoryWarehouseFeed.Publish(StockNoticed notice)` stores them and translates nothing, and reading that as
+"wired" would suppress a real finding. When a translation is found, **the seam is not written at all**,
+because a second discovered handler for one message is BP2's measured duplicate-handler failure.
+
+**Two things about this finding turned out to be wrong, and the second is worth more than the fix.**
+
+*It was filed as NOISE — a dead file — and it is worse than that.* The reference implementation's transports
+send the contract type itself, so the scaffolded seam would have been a **second consumer of the same
+message**: no exception, no ambiguity error, and the caller gets whichever handler Wolverine picked.
+
+*And the case it was filed against is already closed by something else.* An earlier guard —
+`if ((s.automations ?? []).length) continue;`, added while closing BP12 — skips the seam whenever the model
+names a trigger for the slice, which every translation slice in this repo does. So `ingestsByEvent` is
+**empty for every model in the repo**, the seam loop is unreachable, and the two committed
+`Ingest*Handler.cs` files in Voltway are pre-guard leftovers that nothing generates any more.
+
+That made the fix undemonstrable on real models, and the standing rule says an undemonstrated branch is not
+a result. So the branch was made reachable deliberately — the translation model copied to scratch with its
+automation cell reclassified — giving three states in sequence: **seam written** (control, the loop runs);
+**`INGEST NOT WIRED`** on the second run (the report is alive); and, with a hand-written `MyOwnTranslator`
+planted in the slice folder under a name the generator would never choose, **`already translated by an
+existing handler`** with no seam written.
+
+### BT7 / BT8 — the frontend gate was satisfiable by building nothing, and a correct port could be silently unchecked · **BROKEN** / **NOISE** · ***FIXED 2026-08-18***
+
+**Two halves of one hole.** `design.mjs check` `continue`d past every `data-em` check when a screen had no
+design page, and had no rule at all for *"the design exists and nothing has been ported"* — so the sentence
+both the `styling` and `codegen` skills quote as the frontend gate, *"0 errors, 0 warnings"*, was satisfiable
+by doing nothing. And port discovery was a **non-recursive** `readdirSync` matched on exact filename, so a
+port at `src/screens/Recipes.tsx` or named `RecipesPage.tsx` was invisible: no error, no warning, no note.
+Together the gate reported `0/0` over a screen nothing had looked at.
+
+**The severity is now the CALLER'S choice, because one tool serves two gates at opposite ends of the
+workflow.** `styling` runs before a line of React exists and would fail for ever on a warning; `codegen`'s
+frontend gate exists precisely to catch that state. So `port-missing` is an **info** by default and an
+**error** under `--expect-ports`, which the codegen skill and `frontend-agent` now pass. **The finding is
+said either way** — only its severity moves, so the information is never absent.
+
+Discovery is recursive (skipping `node_modules`), and a near miss is reported as `port-not-discovered`
+rather than auto-matched: guessing which file is the port would let the check silently validate the wrong
+component. Every message below the port check also stopped hard-coding `<slug>.html`, which became a false
+statement the moment a port could be checked without a design page.
+
+Measured, all four states on one screen:
+
+| Tree | before | after |
+| --- | --- | --- |
+| design page, no port | `0 error(s), 0 warning(s)` | `port-missing` — INFO, or **ERROR** under `--expect-ports` |
+| port named `RecipesPage.tsx` | silent | `port-not-discovered` **and** `port-missing` |
+| port at `screens/Recipes.tsx` | silent | found — `design-has-port` |
+| design page + matching port | `design-has-port` | unchanged |
+
+### BP3 — `SeedData` synthesised values while the same file quoted the model's real ones three lines away · **BROKEN** · ***FIXED 2026-08-18***
+
+`seedConstants()` built every constant from a field's NAME and TYPE — `"roomId-1"`, `2026-01-02` — and never
+read the example data that is already in the IR, while the same generator interpolated that example into the
+`TODO(codegen)` text beside it. So one file said *expect `RoomBooked(roomId=Aurora, date=2026-09-01)`* and
+*fixed values for every stream key are on SeedData*, with `SeedData.RoomId = "roomId-1"`. Every implementer
+hand-corrected it, and a run that did not notice wrote tests whose data contradicts the model they came from.
+
+Now, on Demo001 — BP3's own worked example — regenerated from scratch:
+
+```csharp
+public const string RoomId = "Aurora";   // from the model: book-room/gwt-book-room-1  (2 different values in the GWTs; this is the first)
+public static readonly DateOnly Date = DateOnly.Parse("2026-09-01");   // from the model: book-room/gwt-book-room-1
+```
+
+Three deliberate limits. **A `$Name` example is skipped**, because `$Name` already *means* `SeedData.Name` and
+seeding from it would define the constant in terms of itself. **First in model order wins and a disagreement
+is named** — several GWTs legitimately mention one key with different values, but a stream key is one fixed
+value for the whole suite, so the reader is told which was taken. And **a literal that will not render for
+its declared type falls back to the synthetic value**, labelled `// synthesised: no GWT example names <field>`
+— `gwt-example-type` already errors on a literal that cannot be its type, so anything reaching here and
+failing is a shape the generator does not understand, where a wrong constant is worse than an honest fake.
+
+`SeedData.cs` is a **scaffold**, so this reaches new projects only. Existing ones keep their hand-corrected
+file, which is the correct outcome and the standing rule: the generator does not reach backwards.
+
+### BP6 / BP7 — two rules that fired on every chapter ever drawn · **NOISE** · ***FIXED 2026-08-18***
+
+**BP7 was false as well as noisy.** `hygiene/no-slice` said a chapter *"is not assigned to a slice, so nothing
+downstream will be generated from it"* — but a chapter is a SYSTEM-level artifact that *groups* slices, so
+carrying `slice=` is a category error, and codegen generates its journey test. `slice.mjs chapter` wrote a
+cell its own validator then complained about. Exempted on `kind === "chapter"` alone.
+
+**BP6 could not be avoided by any legal layout.** *"Do a thing, then see it in the view"* is the most natural
+chapter anyone will draw: a screen reading a View drawn to its RIGHT is `flow/backward-connection`, an
+**error**, so the View's column must come first — and the chapter therefore walks right-to-left at exactly
+that step. Now a backward step is forgiven only when its TARGET is a `state-view`; a chapter that runs
+backward for any other reason still warns.
+
+**And the first version of that exemption was a branch that could never fire.** `ir.boardSlices` carried only
+`{ context, status }`, so `pattern` was always `undefined` and the test was always false — the fix looked
+right, the reference implementation went quiet (for the *other* reason, BP7), and nothing would have said so.
+Caught because the standing rule was applied rather than quoted: two probes were built from the campaigns
+model, one walking backward onto a **state-change** (must warn) and one onto a **state-view** (must be
+silent). The first pass returned `1` and `1`. `pattern` is now carried on `boardSlices`, and the probes
+return `1` and `0`.
+
+### BT6 — codegen resolved the stream from a `terminal="…:generated"` member, so EVERY stream was `Guid.Empty` · **BROKEN** · ***FIXED 2026-08-18***
+
+**The worst shape a defect can have here: a clean build, a green suite, a 204, and every event in the system
+in one stream.** `codegen` emitted `[WriteAggregate(nameof(Cmd.StreamKey))]` for a command whose key the
+model marks `terminal="recipeId:generated"` — the handler mints it, so the caller never sends it, so
+`StreamKey` evaluated `default(Guid)` on every request. Marten accepts an all-zeros stream id without
+complaint, so nothing failed anywhere; a single-stream view over that stream collapsed to one
+last-write-wins row. **It only bites on the SECOND instance**, which is why five runs missed it: every
+earlier creating slice was hand-written straight to `StartStream`, so nobody ever *kept* the scaffolded arm
+and ran it twice.
+
+**The fix is not the refusal the finding proposed, and that is the interesting part.** BT6 argued codegen
+should decline and name the gap, because minting an id is a decision (v7 vs v4 vs Comb, client-supplied or
+not). Reading the mirror showed the decision is **already made** for the common case — Wolverine documents
+the whole creating-slice shape in `guide/http/metadata` and `tutorials/cqrs-with-marten`:
+
+```csharp
+[WolverinePost(Route)]
+public static (CreationResponse<Guid>, IStartStream) Handle(AddRecipe command)
+{
+    var recipeId = Guid.CreateVersion7();
+    var added    = new RecipeAdded(recipeId, command.Name, …);
+    var start    = MartenOps.StartStream<AddRecipeState>(recipeId, added);
+    return (new CreationResponse<Guid>($"{Route}/{start.StreamId}", start.StreamId), start);
+}
+```
+
+`CreationResponse` implements `IHttpAware` — **201**, a `Location` header, the new id in the body — which
+also settles the knock-on the finding flagged as a separate decision: `[EmptyResponse]` is not merely
+dropped, it is *impossible*, because a caller cannot know an id it did not supply.
+
+**A correction the fix produced, and it reverses a first reading.** `MartenOps.StartStream<T>(events)` — the
+no-id overload — does have Marten assign the stream id, and the docs call it *"a new sequential Guid"*. It is
+**unusable in this kit**, because Marten assigns it *after* the events are built and every model here
+declares the key as a field **of** its event (that is how a view keyed on it is sourced at all). So the value
+must exist before the event does, the handler mints it, and the question *"with what"* comes back — answered
+`Guid.CreateVersion7()`, since Marten's identity page asks for a sequential Guid to avoid fragmenting the
+primary-key index and its own `CombGuidIdGeneration` carries `[Obsolete]` as of the Marten 9 migration guide.
+**The hand-written endpoint in `ForLiveDemoRecipe` had already reached exactly this**, with a nine-line
+comment explaining why — which is the "paid in divergence" cost this file records elsewhere, caught in the act.
+
+**What is refused, and where.** Only the part that is genuinely a domain decision:
+
+| The minted key is | codegen |
+| --- | --- |
+| a single **Guid** on a Guid-identity store | scaffolds the whole shape above |
+| a **string** key, or a composite with a minted part | writes the scaffold with the gap named, and reports `ID GENERATION NOT DECIDED` — an id *format* and a collision rule are domain answers |
+
+`architect` gained `id-generation/<slice>`, raised for **every** creating slice: one confirming line in the
+Guid case, a real decision otherwise. It asks on the same simple predicate codegen uses — *an identity field
+this command marks generated* — while codegen alone decides *derivability*, which is a fact about C# rather
+than about the domain. Splitting it the other way would have been **V9**'s shape: two tools with private
+ideas of one word.
+
+**A kept endpoint on the old shape is reported, never rewritten** — `STREAM RESOLVED FROM A
+terminal=generated MEMBER`, naming the file. The generator does not reach backwards, and a second decider
+written beside a hand-owned one is the duplicate-handler failure BP2 measured.
+
+**All three paths were shown able to fire before any "none" was believed**, per the standing rule:
+
+| | |
+| --- | --- |
+| the new scaffold | wrote the full `CreationResponse`/`StartStream` shape for `add-recipe` with the event's fields correctly split between the minted local and `command.*` |
+| `STREAM RESOLVED FROM A terminal=generated MEMBER` | fired against a **deliberately planted pre-fix endpoint**, named the file, and wrote no second decider beside it |
+| `ID GENERATION NOT DECIDED` | fired on a scratch copy of the model with `recipeId:Guid` rewritten to `recipeId:string` |
+
+Measured: `dotnet build` on the affected project **0 warnings, 0 errors**; `cart-replay` 0 errors;
+`refimpl.mjs drift` showed exactly **6** emit files adrift, every one a command record losing the dead
+`StreamKey` member and nothing else. No reference implementation carried the bad shape — every hand-written
+creating slice in the repo had independently reached `StartStream`, and the `[WriteAggregate]` matches in
+those folders were all doc comments explaining why it is *not* used, correctly ignored by `stripComments`.
+
+**Two smaller things found on the way.** `s.terminals` does not exist on the IR — the slice-level field two
+`codegen` doc-comment branches read is `undefined`, so both have always rendered their "nothing on the model
+suggests it does" fallback; the real data is `terminal` on the command. And the sentence *"there are exactly
+two good reasons to leave the aggregate handler workflow"* in CLAUDE.md was wrong by one: creating a stream
+never enters the workflow at all, and it is not a judgement call.
 
 ### BT1 — every View → Screen edge INSIDE ONE COLUMN was a false `flow/backward-connection` · **NOISE** · ***FIXED***
 

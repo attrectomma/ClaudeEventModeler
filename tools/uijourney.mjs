@@ -188,7 +188,8 @@ function world() {
     // of slices and not a walk, so it generates no test at either level.
     for (const j of (ir.chapters ?? []).filter((x) => x.chapter && x.gwt?.then)) {
       journeys.push({ name: j.chapter, model: file, label: j.label ?? null,
-                      slices: j.slices, then: j.gwt.then ?? null });
+                      slices: j.slices, then: j.gwt.then ?? null,
+                      blocked: j.blocked ?? null });   // BN10
     }
     // viewFeeds is PER MODEL and `screens` is cross-model, so this walks every screen found so far and
     // resolves only the view ids this model knows. That looks like a bug worth "fixing" and is not: a cell
@@ -483,7 +484,11 @@ if (cmd === "check") {
     : [];
 
   const walkable = w.journeys.filter((j) => screenWalk(j.slices, w).length);
-  const missing = walkable.filter((j) => !existsSync(join(JDIR, `${j.name}.journey.spec.ts`)));
+  // A CHAPTER THAT DECLARES blocked= IS NOT MISSING A SPEC — KIT-FINDINGS BN10. It is a walk somebody
+  // decided cannot honestly be written, and the reason is on the cell. Reported as a note below, so the
+  // decision is visible on every run without being an item on a list nobody can close.
+  const blocked = walkable.filter((j) => j.blocked && !existsSync(join(JDIR, `${j.name}.journey.spec.ts`)));
+  const missing = walkable.filter((j) => !j.blocked && !existsSync(join(JDIR, `${j.name}.journey.spec.ts`)));
   // "You have not written it yet" already says everything, so do not also tell someone that a test they
   // have not written has taken no screenshots.
   const unwritten = new Set();
@@ -670,6 +675,16 @@ if (cmd === "check") {
   if (missing.length) {
     console.log(`\nNO UI JOURNEY SPEC — ${missing.length}. Named on the model, walks screens, and nothing drives it:`);
     for (const j of missing) console.log(`  ${j.name}   ->   node tools/uijourney.mjs scaffold --journey ${j.name}`);
+  }
+
+  // The acknowledged case, printed as a DECISION rather than as work outstanding. Loud enough to be read
+  // and re-argued — a blocked walk is usually blocked by something worth fixing — but never on the list of
+  // things to do, which is what trained readers to skip this report.
+  if (blocked.length) {
+    console.log(`\nDELIBERATELY NOT WALKED — ${blocked.length}. blocked= on the chapter says why, and this is a`);
+    console.log(`recorded decision rather than an outstanding spec. Worth re-reading occasionally: the reason is`);
+    console.log(`usually a gap in the SYSTEM, and it stops being true the day that gap is closed.`);
+    for (const j of blocked) console.log(`  ${j.name}: ${j.blocked.trim()}`);
   }
 
   const groupBy = (rows) => {

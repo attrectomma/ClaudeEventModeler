@@ -365,6 +365,18 @@ function parseCells(body) {
       // no then= is pure structure — the book's original use. One WITH a then= is what the kit called
       // a journey and still gets the generated end-to-end test.
       chapter: a.chapter ?? null,
+      // WHY THIS ONE IS DELIBERATELY NOT WALKED — KIT-FINDINGS BN10. `uijourney check` could not tell
+      // "not written yet" from "cannot honestly be written", so a blocked walk read as laziness and the
+      // same complaint printed on every run for ever; a reader trained to skip it then misses the day a
+      // genuinely missing journey appears beside it. The measured case is Voltway's driver-first-charge:
+      // the system has no login, so a browser walk of "sign up -> hold a bay" would act as a DIFFERENT
+      // person in step 2 than it registered in step 1, and pass. Writing that spec means inventing a
+      // login, which is the one thing this kit refuses.
+      //
+      // Fourth instance of an acknowledgement this kit already uses three times — joins="none", the
+      // VIEW WITH NO REGISTRATION comment, external="true". Each turns a permanent report into a recorded
+      // decision, with the REASON living where the fact does rather than in a session transcript.
+      blocked: a.blocked ?? null,
       slices: a.slices ? a.slices.split(",").map((x) => x.trim()).filter(Boolean) : [],
       gwt: { given: a.given ?? null, when: a.when ?? null, then: a.then ?? null, rule: a.rule ?? null,
               // The same three fields parsed into label + example data. Kept ALONGSIDE the raw strings
@@ -448,7 +460,15 @@ function buildIrs(file) {
   const boardSlices = new Map();
   for (const n of nodes) {
     if (n.kind !== "group" || !n.slice || n.id.startsWith(MARK_PREFIX)) continue;
-    boardSlices.set(n.slice, { context: contexts[regionOf(n, regions).index] ?? null, status: n.status ?? null });
+    // `pattern` is carried because chapter-runs-backward has to know whether a backward step lands on a
+    // state-view, whose column HAS to come first (BP6). It was added when that exemption turned out to be
+    // a branch that could never fire — the entry held only context and status, so the test was always
+    // undefined !== "state-view" and every chapter still warned.
+    boardSlices.set(n.slice, {
+      context: contexts[regionOf(n, regions).index] ?? null,
+      status: n.status ?? null,
+      pattern: n.pattern ?? null,
+    });
   }
   return regions.map((r) =>
     irOfRegion(r, nodes, edges, regionOfId,
@@ -1019,7 +1039,14 @@ function completeness(ir) {
   }
 
   for (const e of ir.elements) {
-    if (!e.slice && e.kind !== "unknown") {
+    // A CHAPTER CANNOT CARRY slice= AND IS NOT MISSING IT — KIT-FINDINGS BP7. A chapter is a SYSTEM-level
+    // artifact that GROUPS slices (it names them in slices=), so belonging to one of them is a category
+    // error. Worse, the message was flatly false: codegen generates a chapter's journey test, so "nothing
+    // downstream will be generated from it" said the opposite of the truth. `slice.mjs chapter` wrote a
+    // cell its own validator then complained about, on every chapter ever drawn including the kit's own
+    // reference implementations — the BN10 trap, where a report that always fires trains the reader to
+    // skip reports.
+    if (!e.slice && e.kind !== "unknown" && e.kind !== "chapter") {
       d.push({ family: "hygiene", severity: "info", rule: "no-slice",
         message: `${e.label || e.id} is not assigned to a slice, so nothing downstream will be generated from it.`, at: e.id });
     }
@@ -1441,6 +1468,19 @@ function chapterRules(ir) {
       continue;
     }
 
+    // blocked= — THE REASON IS THE WHOLE VALUE, so an empty one is worse than none: it silences the
+    // report and records nothing, which is the acknowledgement pattern used as a mute. Same shape as
+    // package-versions.json refusing a bare version with no `_why`. KIT-FINDINGS BN10.
+    if (j.blocked !== null) {
+      if (j.blocked.trim().length < 12) {
+        push("error", "chapter-blocked-without-reason",
+          `${what} "${name}" declares blocked= with no usable reason. blocked= exists to record WHY a walk cannot honestly be written — "the system has no login, so step 2 would act as a different person than step 1 registered and the test would pass". A bare blocked= turns a report into silence and records nothing.`, j.id);
+      } else {
+        push("info", "chapter-blocked",
+          `${what} "${name}" is deliberately not walked: ${j.blocked.trim()}`, j.id);
+      }
+    }
+
     // A CHAPTER RESOLVES ITS SLICES ACROSS THE WHOLE BOARD, not just its own model — KIT-FINDINGS V19.
     //
     // The `journey` skill always said this layer "belongs to the SYSTEM, not to a slice, which is why
@@ -1492,10 +1532,25 @@ function chapterRules(ir) {
     // would compare two unrelated rulers and warn on every crossing.
     const xs = crossed.length > 1 ? []
       : j.slices.map((n) => ({ n, x: cellOf(n)?.geometry?.x ?? null })).filter((s) => s.x !== null);
+    // A STEP ONTO A state-view IS EXEMPT, BECAUSE NO LEGAL LAYOUT AVOIDS IT — KIT-FINDINGS BP6.
+    //
+    // "Do a thing, then see it in the view" is the most natural chapter anyone will draw, and it could not
+    // be drawn without this warning. A screen reading a View drawn to its RIGHT is
+    // flow/backward-connection, an ERROR, so CLAUDE.md requires the View's column to come first — and the
+    // chapter therefore walks right-to-left at exactly that step. All three escapes are worse: reordering
+    // produces the error, redrawing the View a second time is refused outright, and dropping then= gives up
+    // the executable walk. The kit's bar is that a rule never fires falsely, and this one did so
+    // structurally on the commonest shape there is.
+    //
+    // NARROW ON PURPOSE: only the step whose TARGET is a state-view is forgiven. A chapter that runs
+    // backward for any other reason still warns, which is the case the rule was written for — the kit's own
+    // campaigns model, where close-campaign sits beside open-campaign because they share a stream while the
+    // story closes last.
+    const isViewStep = (n) => ir.boardSlices.get(n)?.pattern === "state-view";
     for (let i = 1; i < xs.length; i++) {
-      if (xs[i].x < xs[i - 1].x) {
+      if (xs[i].x < xs[i - 1].x && !isViewStep(xs[i].n)) {
         push("warn", "chapter-runs-backward",
-          `chapter "${name}" goes ${xs[i - 1].n} -> ${xs[i].n}, which runs right to left. Either the columns tell the story in a different order than the chapter walks it, or it revisits a slice on purpose — both are legitimate, and only one of them is worth reordering the model for.`, j.id);
+          `chapter "${name}" goes ${xs[i - 1].n} -> ${xs[i].n}, which runs right to left. Either the columns tell the story in a different order than the chapter walks it, or it revisits a slice on purpose — both are legitimate, and only one of them is worth reordering the model for. (A step onto a state-view slice is exempt: its column HAS to come first, or the screen's feed would be a backward connection.)`, j.id);
         break;
       }
     }
@@ -2861,6 +2916,56 @@ if (isSystem || (isBoardFile && cmd === "validate")) {
       `${models.length} models / ${models.reduce((n, m) => n + m.ir.slices.length, 0)} slices / ` +
       `${models.reduce((n, m) => n + m.ir.elements.length, 0)} elements`
   );
+
+  // IS THE GENERATED CONTEXT MAP STILL TRUE? — KIT-FINDINGS V24.
+  //
+  // `model.mjs map` writes `_context-map.drawio` and NOTHING EVER RUNS IT AGAIN — not validate, not
+  // compile, not codegen, not any skill's gate. And because it is generated its name begins with `_`,
+  // which is exactly the prefix validate uses to SKIP it: the one tool that could notice it had gone
+  // stale is the one told not to look. It is also the artifact a newcomer opens first to understand how
+  // the contexts relate.
+  //
+  // Measured when this was filed: the map said estate had 12 slices and 6 public events while the model
+  // had 13 and 7 — drift dating from the commit that added `schedule-repair`, and it survived a full
+  // frontend build, two journeys and 190 passing tests with nothing anywhere reporting it.
+  //
+  // A STALENESS CHECK RATHER THAN AUTO-REGENERATION, deliberately: regenerating on every validate would
+  // churn a committed file, and this comparison is nearly free because validate has already built
+  // everything the map is derived from. Reported as a warning — the map being behind does not make the
+  // MODELS wrong, and the fix is one command.
+  const mapFile = join(file, "_context-map.drawio");
+  if (existsSync(mapFile)) {
+    const mapXml = readFileSync(mapFile, "utf8");
+    const stale = [];
+    for (const m of models) {
+      const ctx = m.ir.model?.context;
+      if (!ctx) continue;
+      // The map records each context as `<ctx>\n\n<N> slices · <W>px\n<own> internal + <pub> public events`.
+      const cell = new RegExp(`id="ctx-${ctx}"[^>]*label="([^"]*)"`).exec(mapXml)
+                ?? new RegExp(`label="${ctx}&#10;([^"]*)"`).exec(mapXml);
+      if (!cell) { stale.push(`${ctx}: not on the map at all`); continue; }
+      const recordedSlices = +(/(\d+) slices/.exec(cell[0])?.[1] ?? -1);
+      const recordedPublic = +(/\+ (\d+) public/.exec(cell[0])?.[1] ?? -1);
+      // `isPublic`, NOT `public` — the same field contextMap() counts. Reading a field that does not
+      // exist would make this always report 0 and always disagree, which is a check that cannot be made
+      // to go quiet: the standing rule's inverse, and it fired on the first probe.
+      const livePublic = m.ir.elements.filter((e) => e.kind === "event" && e.isPublic).length;
+      if (recordedSlices >= 0 && recordedSlices !== m.ir.slices.length)
+        stale.push(`${ctx}: map says ${recordedSlices} slices, the model has ${m.ir.slices.length}`);
+      if (recordedPublic >= 0 && recordedPublic !== livePublic)
+        stale.push(`${ctx}: map says ${recordedPublic} public event(s), the model has ${livePublic}`);
+    }
+    const onMap = [...mapXml.matchAll(/id="ctx-([^"]+)"/g)].map((x) => x[1]);
+    for (const c of onMap) {
+      if (!models.some((m) => m.ir.model?.context === c)) stale.push(`${c}: on the map and no longer a model`);
+    }
+    if (stale.length) {
+      console.log(`\nCONTEXT MAP IS STALE — ${stale.length}. \`_context-map.drawio\` is generated and nothing`);
+      console.log(`regenerates it, so it drifts silently — and it is the first thing a newcomer opens to see how`);
+      console.log(`the contexts relate. Regenerate: node tools/model.mjs map`);
+      for (const s of stale) console.log(`  ${s}`);
+    }
+  }
 
   // DEMO MODELS SAY SO ON EVERY RUN. The domain answers in these were roleplayed rather than given by
   // a human, which changes what the artifact IS — a fixture, not a specification. Printed rather than

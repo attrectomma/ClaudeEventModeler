@@ -82,7 +82,7 @@ immediately, and nobody asks it unprompted.
 
 These pass every check the kit has. That is what makes them the top of the list.
 
-### BT10 — a signature element in `tokens.css` is an UNSCOPED GLOBAL, and that file is copied unedited into every screen · `kit` · **BROKEN**
+### BT10 — ~~a signature element in `tokens.css` is an UNSCOPED GLOBAL~~ · `kit` · ***FIXED 2026-08-18*** — `tokens-unscoped-selector` is a check, not advice
 
 **Found by `frontend-agent` — 2026-08-13 — in a file authored the same afternoon, which is what makes it a
 kit-shape problem rather than one project's slip.**
@@ -112,7 +112,7 @@ carries must be namespaced (`.em-prep`) or must live in the screen's own stylesh
 Interaction worth noting: the port scoped **its own** page CSS under `.screen-recipes` off its own initiative,
 so the collision surface is now exactly the two selectors that came from the token file.
 
-### BT11 — `review.mjs`'s MOBILE capture cannot span a slow-failing fetch, and files a plausible picture under the wrong `--state` · `kit` · **BROKEN**
+### BT11 — ~~`review.mjs`'s MOBILE capture cannot span a slow-failing fetch~~ · `kit` · ***WARNED 2026-08-18*** — detection is not available from the Chrome CLI; the condition that makes the shot untrustworthy is
 
 **Measured by `frontend-agent`: a 3-second nginx failure produced a `loading` picture filed as
 `--state unreachable`, three runs running, including at `--settle 8000`. The desktop path got it right every
@@ -135,7 +135,7 @@ to write the file (a missing shot must read as missing — the same rule `ui-jou
 exists for); or wait on a readiness signal rather than a time budget; or, cheapest, print a warning whenever
 an iframe capture hits its budget with an in-flight request.
 
-### BT7 — `design.mjs check` is a sound DESIGN gate and an unsound PORT gate: it reports 0/0 when nothing has been ported · `kit` · **BROKEN**
+### BT7 — ~~`design.mjs check` is a sound DESIGN gate and an unsound PORT gate~~ · `kit` · ***FIXED 2026-08-18***
 
 **Found by `frontend-agent` refusing a task and auditing its own gate on the way out — 2026-08-13.** The
 `codegen` and `styling` skills both state the frontend gate as *"`design.mjs check` at 0 errors, 0
@@ -174,7 +174,7 @@ exists (cheap, but still silent when neither exists); or add a `port-missing` ru
 bindings against the model **independently of the design page**, which is the one that makes the sentence in
 the skills true. Note the second needs the port-discovery rule below to be sound first.
 
-### BT8 — the port filename is load-bearing and undocumented, so a correctly-built screen can be silently unchecked · `kit` · **NOISE**
+### BT8 — ~~the port filename is load-bearing and undocumented~~ · `kit` · ***FIXED 2026-08-18***
 
 Port discovery in `tools/design.mjs` is a **non-recursive** `readdirSync` over `generated/*/web/src`, matched
 as `basename(p, ".tsx").toLowerCase() === slug.replace(/-/g, "").toLowerCase()`.
@@ -203,7 +203,24 @@ Adjacent to the `stale-read` architect question but not the same: that one asks 
 this one asks what makes the *screen* re-read. Probably `styling`'s to decide per screen, but it needs
 somewhere to be written down, and today there is nowhere.
 
-### BT6 — codegen resolves the stream from a `terminal="…:generated"` member, so EVERY stream is `Guid.Empty` · `kit` · **BROKEN**
+### BT6 — ~~codegen resolves the stream from a `terminal="…:generated"` member, so EVERY stream is `Guid.Empty`~~ · `kit` · ***FIXED 2026-08-18 — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
+
+**Fixed as the generator emitting Wolverine's own creating-slice idiom rather than as a report**, which the
+finding did not expect: it proposed a refusal on the grounds that minting an id is a decision. Reading the
+mirror showed the decision is already made *for the Guid case* — `(CreationResponse<Guid>, IStartStream)` with
+`MartenOps.StartStream`, documented in `guide/http/metadata` and `tutorials/cqrs-with-marten` — so only the
+non-Guid case is genuinely open, and that is where the refusal now sits (`ID GENERATION NOT DECIDED`, plus a
+new `architect` family `id-generation/<slice>`). The dead `StreamKey` member is no longer emitted on a
+creating slice, and a kept endpoint still on the old shape is named by
+`STREAM RESOLVED FROM A terminal=generated MEMBER` and left alone. Full entry in the archive.
+
+**One correction the fix produced, worth carrying:** the no-id overload `MartenOps.StartStream<T>(events)`
+does let Marten assign the id — and it is **unusable here**, because it assigns *after* the events are built
+and every model in this kit declares the key as a field OF its event. So the handler mints it, and
+`Guid.CreateVersion7()` is the answer rather than `Guid.NewGuid()` — Marten's own `CombGuidIdGeneration` is
+the same sequential advice and is `[Obsolete]` as of Marten 9.
+
+<!-- ARCHIVED BELOW — the authoritative copy is in KIT-HISTORY.md.
 
 **Found by `backend-agent` on 2026-08-13, and it is the worst shape a defect can have here: a green build, a
 green suite, a 200 response, and every event in the system in one stream.**
@@ -254,6 +271,8 @@ reference implementation does exactly that and explains why — so nobody ever *
 `[WriteAggregate]` arm on a `terminal=generated` command and ran it. I missed it in this same session by
 writing `command.RecipeId == Guid.Empty ? Guid.NewGuid() : command.RecipeId`, which accidentally avoids the
 bug while leaving the scaffold's wrong default in place for the next implementer.
+
+-->
 
 ## What the first true fresh-start run says to fix first
 
@@ -444,7 +463,7 @@ decider, but by finding the generator's own gap.
 **Mutation-checked**, per the architect skill: a per-operation key instead of the per-bay key gives
 `Won should be 1 but was 10`. The test bites.
 
-### BP3 — `SeedData` synthesises values and ignores the model's own GWT example data, while the test hints point AT SeedData · `kit` · **BROKEN**
+### BP3 — ~~`SeedData` synthesises values and ignores the model's own GWT example data~~ · `kit` · ***FIXED 2026-08-18***
 
 `seedConstants()` builds constants from a field's NAME and TYPE — `"roomId-1"`, `new DateOnly(2026, 1, 2)` —
 and never reads `whenSteps[].example`, which is in the IR. The same generator interpolates that example into
@@ -453,7 +472,7 @@ date=2026-09-01…)"* and *"Fixed values for every stream key are on SeedData"* 
 `"roomId-1"` and `SeedData.Date` is `2026-01-02`. Every implementer hand-corrects this, and a run that does
 not notice writes tests whose data contradicts the model the tests came from.
 
-### V10 — the completeness check cannot tell a SUPPLY edge from a TICK-OFF edge, so a todo View can be "sourced" by its own output · **BROKEN**
+### V10 — ~~the completeness check cannot tell a SUPPLY edge from a TICK-OFF edge~~ · `kit` · ***FIXED — `tickoff-is-not-a-source` is a live error rule in model.mjs. Entry stayed BROKEN here for several runs after the fix; found 2026-08-18 by checking the code rather than the file***
 
 **A todo View passed the completeness check while being fed, for two of its fields, by the automation's own
 completion event.** `SessionsToPrice` declares `driverId` and `pricePerKwh`. Its drawn feeds were
@@ -527,7 +546,7 @@ reformatting of every `.drawio` in the repo.
 
 -->
 
-### V24 — `_context-map.drawio` is generated, regenerated by nothing, and excluded from the one check that would notice · `kit` · **BROKEN**
+### V24 — ~~`_context-map.drawio` is generated, regenerated by nothing, and excluded from the one check that would notice~~ · `kit` · ***FIXED 2026-08-18*** — `CONTEXT MAP IS STALE` compares its recorded counts against the live models
 
 `model.mjs map` writes it. **Nothing ever runs `map` again.** It is not regenerated by `validate`, by
 `compile`, by `codegen`, or by any skill's gate — and because it is a *generated* artifact its filename
@@ -608,7 +627,7 @@ The fix is a **model** change — a prefixed or composite key so a contract band
 `identity=` must not collide with a domain band's.** That second part is what stops the same mistake being
 made again in the next project, and it is derivable today from the IR.
 
-### V25 — `slice.mjs`'s attribute writer can APPEND a duplicate attribute, and the old value wins · `kit` · **BROKEN**
+### V25 — ~~`slice.mjs`'s attribute writer can APPEND a duplicate attribute~~ · `kit` · ***FIXED — setAttr deletes every occurrence and writes one, plus an `assertNoDuplicateAttrs` tripwire on the way out. Entry stayed BROKEN here after the fix; corrected 2026-08-18***
 
 Setting an attribute that already exists can produce **two copies of it on one cell** rather than replacing
 the first. `attrsOf` then lets the **last** occurrence win — so the *original* value keeps winning and the
@@ -643,7 +662,7 @@ It matters more now than when it was written. Step 6 makes translation slices ro
 consuming context gets one per contract event, so what used to be an occasional hand-fix becomes a step in a
 repeated recipe. A `--band` argument, or creating a foreign band when none exists, removes it.
 
-### V21 — two GWTs sharing a rule name generate TWO METHODS WITH THE SAME NAME, and the scaffold does not compile · `kit` · **BROKEN**
+### V21 — ~~two GWTs sharing a rule name generate TWO METHODS WITH THE SAME NAME~~ · `kit` · ***FIXED — `testNames()` suffixes duplicates deterministically. Entry stayed BROKEN here after the fix; corrected 2026-08-18***
 
 `codegen` names each generated test method after the GWT's **rule**. Two GWTs sharing a rule name is legitimate
 — the same refusal reached by two histories — and **the kit already depends on that in two places**: rejection
@@ -779,7 +798,7 @@ should be said out loud rather than left to look like coverage.
 
 -->
 
-### V18 — `design.mjs check` pools the design and the port, so the two can disagree and it stays quiet · **BROKEN**
+### V18 — ~~`design.mjs check` pools the design and the port~~ · `kit` · ***FIXED 2026-08-18*** — `design-port-disagree` and `port-field-missing` check the legs separately
 
 The three-way check is documented as `displays=`/`inputs=` ↔ wireframe `binds=` ↔ **HTML `data-em`** — and the
 third leg reads *both* `designs/<slug>.html` **and** the ported `.tsx`, then treats a binding found in
@@ -885,7 +904,7 @@ outside `web/` via an alias, and both folders live in the project, so a single s
 looking at two pictures, not a check — so it is caught only if somebody runs the review and notices the
 theme, and it is invisible to `tsc`, to the test suite and to every generated report.
 
-### V13 — `GWT WITHOUT A TEST` matches by RULE NAME, so a new scenario for an existing rule is invisible · **BROKEN**
+### V13 — ~~`GWT WITHOUT A TEST` matches by RULE NAME~~ · `kit` · ***FIXED — codegen reports ambiguity where a rule name is genuinely shared, requiring the cell id only there. Entry stayed BROKEN here after the fix; corrected 2026-08-18***
 
 Two GWTs legitimately share a rule name — the same refusal reached by two different histories — and the kit
 already depends on that elsewhere: deduping the generated rejection constants **by rule name** was the fix
@@ -917,7 +936,7 @@ The tell is `MSB3021` / `MSB3027` / `MSB3026` rather than a `CS` code. `Get-Proc
 `Stop-Process -Force`, and rebuild before believing any error count. Related to the standing rule that a build
 in a shared tree is not a measurement — this is the single-agent version of it.
 
-### V12 — the emitted retry budget is a system-wide ceiling on concurrent writers, and nobody has decided it · **BROKEN**
+### V12 — ~~the emitted retry budget is a system-wide ceiling on concurrent writers~~ · `kit` · ***FIXED 2026-08-18 — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
 
 `Program.cs` emits `opts.OnException<...>().RetryTimes(3)` — **four attempts in total**. On a contended stream
 each round lets exactly **one** writer commit, so the budget is not a margin, it is a hard limit on how many
@@ -984,13 +1003,13 @@ This is the same family as **V1** (a race test that passes for a non-reason) and
 generated from a non-contended GWT). Three findings now say the concurrency scaffolding produces tests that
 look like proof and are not, which makes it the weakest generated artifact in the kit.
 
-### Z5 — two labels that PascalCase to one identifier: one is silently dropped, and reported as `kept` · **BROKEN**
+### Z5 — ~~two labels that PascalCase to one identifier: one is silently dropped, and reported as `kept`~~ · `kit` · ***FIXED 2026-08-18*** — `TWO LABELS, ONE IDENTIFIER` names both cells; renaming is a domain choice and stays the human's
 
 `Stock Level Set` and `StockLevelSet` become the same C# identifier. The second file overwrites the first
 and the run reports it as `kept (already filled in)`, so the count looks healthy. **The report actively
 lies here**, which is worse than the collision. → [detail](KIT-HISTORY.md)
 
-### V9 — `architect` and `codegen` disagree about what "multi-stream" MEANS, so four Async views were never questioned · **BROKEN**
+### V9 — ~~`architect` and `codegen` disagree about what "multi-stream" MEANS~~ · `kit` · ***FIXED 2026-08-18*** — one definition in `tools/view-recipe.mjs`, read by both
 
 Two tools, two definitions, and the gap between them is silent:
 
@@ -1374,7 +1393,7 @@ string-identity store.
 
 Standing rule unchanged and earning its keep: **read the mirror, grep the package `.xml`, then compile.**
 
-### BL3 — a codegen run that CRASHES leaves partial scaffolds, and the next run reports them as `kept` · **BROKEN**
+### BL3 — ~~a codegen run that CRASHES leaves partial scaffolds~~ · `kit` · ***FIXED 2026-08-18*** — every write is temp-then-rename, so a path either does not exist or holds a complete file
 
 Measured: `codegen.mjs` died partway through view generation (BL1), and the re-run after the fix printed
 `29 file(s) written, 4 kept (already filled in)`. Nobody had filled anything in — those four were the
@@ -1606,7 +1625,7 @@ because a human carried the sentence into an agent brief by hand.
 
 The lifecycle case is checkable: `architect` knows the decision text and `codegen` knows what it emitted.
 
-### BN10 — `NO UI JOURNEY SPEC` cannot tell "not written yet" from "deliberately not written", so a blocked walk reads as laziness · `kit` · **GAP**
+### BN10 — ~~`NO UI JOURNEY SPEC` cannot tell "not written yet" from "deliberately not written"~~ · `kit` · ***FIXED 2026-08-18***
 
 `uijourney.mjs check` reports every named chapter with no spec as `NO UI JOURNEY SPEC` and hands you the
 scaffold command. There is no way to say **"this one is blocked, and here is why"**.
@@ -1629,7 +1648,7 @@ the fact does.
 away. A reader who sees `NO UI JOURNEY SPEC` on every single run stops reading it — and then does not notice
 the day a *genuinely* unwritten journey appears beside the blocked one.
 
-### BN9 — EVERY ported screen fetches once on mount and never again, and one of them certifies itself as exact · `kit` · **BROKEN**
+### BN9 — ~~EVERY ported screen fetches once on mount and never again, and one of them certifies itself as exact~~ · `kit` · ***CLOSED 2026-08-18 — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
 
 Not one screen's slip. **Three screens, two agents, one convention** — `BayFinder.tsx`, `WorkList.tsx` and
 `BayHealth.tsx` all carry `useEffect(() => { void load(); }, [load])`, verified identical. Two independent
@@ -1869,7 +1888,7 @@ geometry so nobody hand-writes a `<mxPoint>`.
 what BT1's comment already says — it just says it in a file the writer does not read. Same shape as **V9** at
 one line: two callers, one computation, and agreement made structural rather than remembered.
 
-### BP6 — `chapter-runs-backward` fires on the commonest chapter shape there is, and no legal layout avoids it · `kit` · **NOISE**
+### BP6 — ~~`chapter-runs-backward` fires on the commonest chapter shape there is~~ · `kit` · ***FIXED 2026-08-18***
 
 *"Do a thing, then see it in the view"* is the most natural chapter anyone will draw. It cannot be drawn
 without this warning:
@@ -1887,7 +1906,7 @@ The warning's own text says *"both are legitimate"*, and the kit's stated bar is
 falsely. Either it should not fire when the last slice is a `state-view` — which is the whole reason the
 columns are inverted — or the Event→View exception needs a chapter-level counterpart.
 
-### BP7 — `hygiene/no-slice` fires on EVERY chapter cell, including in the kit's own reference implementations · `kit` · **NOISE**
+### BP7 — ~~`hygiene/no-slice` fires on EVERY chapter cell~~ · `kit` · ***FIXED 2026-08-18***
 
 `INFO [hygiene/no-slice] book-then-see-it is not assigned to a slice, so nothing downstream will be generated
 from it.` A chapter is a **system**-level artifact that groups slices; it cannot carry `slice=`, and the claim
@@ -1924,7 +1943,7 @@ captured at whatever size fits all its rows, because a fixed height silently cro
 the fold. The workaround is two `sheet` runs, one per viewport; both shots survive, so the tool is one
 per-viewport height away from being right.
 
-### BO1 — the ingest seam cannot see a hand-written landing that named its seam message differently, so it scaffolds a DEAD handler and reports it for ever · `kit` · **NOISE**
+### BO1 — ~~the ingest seam cannot see a hand-written landing that named its seam message differently~~ · `kit` · ***FIXED 2026-08-18***
 
 Found by regenerating `reference-implementations/translation/` while closing **BN4** — the folder had not been
 regenerated since the ingest seam landed.
@@ -2038,7 +2057,18 @@ Recorded in the demo project's own `OPEN-QUESTIONS.md` under "what the checker c
 deliberate beat in `DEMO-RECIPE.md` §3: showing the check finding a hole and *then* failing to find the last
 one is a more honest account of what the tooling is worth than stopping at "0 errors".
 
-### BT4 — `dotnet build` on a fresh generated project is 2 WARNINGS, and `scaffold`'s gate says 0 · `kit` · **OPEN**
+### BT4 — ~~`dotnet build` on a fresh generated project is 2 WARNINGS, and `scaffold`'s gate says 0~~ · `kit` · ***FIXED 2026-08-18 — moved to [KIT-HISTORY.md](KIT-HISTORY.md)***
+
+**Decided: Testcontainers is pinned EXACTLY (`4.14.0`), the only package in the kit that is.** The
+docs-mirror argument that makes the four stack majors float does not reach Testcontainers, which is not in
+the mirror at all — so the float was never justified by the kit's own stated reason.
+
+**The instance had already evaporated before the fix, and that is the part worth keeping.** Measured on a
+forced restore and a non-incremental rebuild: `4.*` now resolves 4.14.0, SSH.NET arrives at 2026.0.0,
+`dotnet list package --vulnerable` is clean and the build is 0/0. **The float carried the fix in by itself.**
+So pinning gives that up, deliberately, and the cost is recorded in CLAUDE.md beside the decision rather than
+rediscovered: the next transitive advisory sits there until somebody bumps the line, and **nothing in the kit
+prompts for it**. Shouldly, xunit and Microsoft.NET.Test.Sdk still float and carry the same exposure.
 
 `Testcontainers.PostgreSql` is pinned `4.*`, which today floats to 4.13.0 and drags in **`SSH.NET` 2025.1.0**,
 carrying `NU1903` — GHSA-q939-rpr3-3284, high severity. Measured on a brand-new project:
@@ -2063,7 +2093,7 @@ The related question is whether a floating `4.*` on a test-only dependency is wo
 holds the four stack majors current *deliberately*, for the docs-mirror argument, and that argument does not
 apply to Testcontainers, which is **not in the mirror at all**.
 
-### BT5 — the Alba scenario trap is documented where nobody reads it · `kit` · **OPEN**
+### BT5 — ~~the Alba scenario trap is documented where nobody reads it~~ · `kit` · ***FIXED 2026-08-18*** — the note is now in the GWT test scaffold, which is read BEFORE the test is written
 
 `_.Post.Json(x).ToUrl(r).StatusCodeShouldBe(204)` does not compile: Alba's assertions hang off the `Scenario`,
 not the `SendExpression`. `cross-aggregate-invariant/`'s test carries a comment saying so, ending *"which reads

@@ -11,6 +11,8 @@ have to rediscover — or when the probe is the template for a shape the kit sho
 | `concurrency-invariant.cs` | can *"two members at the same instant must not both succeed"* be tested? Yes — in **two** forms, with a control that proves the tests bite | Postgres on 55432 |
 | `harness-check.cs` | does the `ConcurrencyHarness` that `architect.mjs` scaffolds actually work, rather than merely compile? | Postgres on 55432 |
 | `rejection-shape.cs` | does an ASP.NET ProblemDetails customiser fire on the path Wolverine's FluentValidation middleware takes, and does it leave `errors` intact? **Yes to both** — so a periphery and a decider rejection can be made to agree on `title` | nothing — no Marten, no Postgres |
+| `conflict-status.cs` | does a lost race on the HTTP arm actually return **409** rather than 500? **Yes** — measured on the wire with a control that reproduces `500 x7` first, then `409 x6` with the emitted handler and the winner still 204 | Postgres on 55432 |
+| `retry-budget.cs` | how many concurrent writers to ONE stream survive the emitted `RetryTimes(3)`? **Four–five.** Above that work is silently lost, and `RetryWithCooldown` moves the cliff by one writer rather than fixing it. **Partitioned local messaging fixes it outright — 16/16 — but only with an EXPLICIT `ByMessage` rule**: `UseInferredMessageGrouping()` alone yielded `group=(NONE)`, which makes Wolverine pick a queue at random and is worse than not configuring it (KIT-FINDINGS **V12**) | Postgres on 55432 |
 
 ## Running one
 

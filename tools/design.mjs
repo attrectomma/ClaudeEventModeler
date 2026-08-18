@@ -29,6 +29,11 @@ const flag = (name, dflt) => {
   const i = args.indexOf(`--${name}`);
   return i >= 0 && args[i + 1] ? args[i + 1] : dflt;
 };
+// ONE TOOL, TWO GATES, AT OPPOSITE ENDS OF THE WORKFLOW — KIT-FINDINGS BT7. `styling` runs before a line of
+// React exists and `codegen`'s frontend gate runs after, so "a screen with an agreed design and no port" is
+// the normal state for one and the defect for the other. The caller says which it is; the finding is
+// reported either way.
+const EXPECT_PORTS = args.includes("--expect-ports");
 // `shot` needs a file, but `sheet` and `check` have exactly one sensible target in a one-project
 // kit: the project's designs/ and diagrams/. Defaulting removes the kit-relative-path mistake.
 const explicit = args[1] && !args[1].startsWith("--") ? args[1] : null;
@@ -139,14 +144,29 @@ if (cmd === "check") {
 
   // Any ported implementation of the same screen. JSX writes data-em exactly as HTML does, so the
   // same extraction works and the port is held to the model too — not just the static design.
+  // RECURSIVE, BECAUSE THE FILENAME WAS LOAD-BEARING AND UNDOCUMENTED — KIT-FINDINGS BT8.
+  //
+  // This used to be a single non-recursive readdirSync over `generated/*/web/src`, so a port at
+  // `src/screens/Recipes.tsx` was SILENTLY not checked: no error, no warning, no note. Combined with BT7
+  // the gate then reported 0/0 over a screen nothing had looked at. Nothing stated the requirement —
+  // not frontend-agent.md, not the styling or codegen skills, not CLAUDE.md — and the one compliant port
+  // in the repo complied by luck, having copied a reference project's flat layout.
   const ports = [];
   const genRoot = join(PROJECT, "generated");
+  const walkTsx = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== "node_modules") walkTsx(p); }
+      else if (e.name.endsWith(".tsx")) ports.push(p);
+    }
+  };
   for (const web of existsSync(genRoot)
     ? readdirSync(genRoot, { withFileTypes: true }).filter((d) => d.isDirectory())
         .map((d) => join(genRoot, d.name, "web", "src")).filter(existsSync)
-    : []) {
-    for (const f of readdirSync(web)) if (f.endsWith(".tsx")) ports.push(join(web, f));
-  }
+    : []) walkTsx(web);
+
+  const norm = (x) => x.replace(/-/g, "").toLowerCase();
+  const matchesSlug = (p, slug) => norm(basename(p, ".tsx")) === norm(slug);
 
   const pageFiles = existsSync(designs)
     ? readdirSync(designs).filter((f) => f.endsWith(".html") && f !== "index.html" && !f.startsWith("_"))
@@ -154,15 +174,50 @@ if (cmd === "check") {
 
   for (const [slug, rec] of screens) {
     const file = join(designs, `${slug}.html`);
+    // A port counts as the same screen when its file name matches the slug, case-insensitively.
+    const portFiles = ports.filter((p) => matchesSlug(p, slug));
+
+    // A NEAR MISS IS THE DANGEROUS CASE, not an absent port — BT8. `RecipesPage.tsx` is plainly this
+    // screen to a human and invisible to the matcher, so the screen reads as unported while a real
+    // implementation sits beside it unchecked. Named, never auto-matched: guessing which file is the port
+    // would let the check silently validate the wrong component.
+    if (!portFiles.length) {
+      const near = ports.filter((p) => {
+        const b = norm(basename(p, ".tsx"));
+        return b !== norm(slug) && (b.includes(norm(slug)) || norm(slug).includes(b));
+      });
+      if (near.length) push("warn", "port-not-discovered",
+        `screen "${slug}" has no port this check can see, but ${near.map((p) => rel(p)).join(", ")} looks like one. A port is matched by FILE NAME: it must be <Slug>.tsx (case and hyphens ignored) anywhere under web/src. Rename it, or this screen's bindings are never checked against the model.`);
+    }
+
+    // THE DESIGN PAGE IS NO LONGER A GATE ON EVERYTHING BELOW — KIT-FINDINGS BT7.
+    //
+    // This `continue` used to sit above every data-em check, so a tree with no design page reported
+    // `0 error(s), 0 warning(s)` and one INFO — and the frontend gate both the styling and codegen skills
+    // quote as "design.mjs check at 0 errors, 0 warnings" was satisfiable by doing nothing at all. The
+    // check is a sound DESIGN gate and was never a PORT gate. Now a port is checked against the model on
+    // its own, whether or not anybody has drawn the page.
     if (!existsSync(file)) {
       push("info", "design-not-drawn",
         `screen "${slug}" has no styled page yet (expected ${rel(file)}). The wireframe stands in until it does.`);
-      continue;
+      if (!portFiles.length) continue;                     // nothing to check against at all
     }
-    // A port counts as the same screen when its file name matches the slug, case-insensitively.
-    const portFiles = ports.filter((p) =>
-      basename(p, ".tsx").toLowerCase() === slug.replace(/-/g, "").toLowerCase());
-    const html = [file, ...portFiles].map((f) => readFileSync(f, "utf8")).join("\n");
+
+    // PORT MISSING. Severity is deliberately a CHOICE THE CALLER MAKES, because one tool serves two gates
+    // that run at opposite ends of the workflow: `styling` runs before anything is ported and would fail
+    // for ever on a warning here, while `codegen`'s frontend gate exists precisely to catch this state.
+    // `--expect-ports` is what the codegen skill passes. Without it the finding is still SAID, at info —
+    // the information is never absent, only its severity moves.
+    if (existsSync(file) && !portFiles.length) {
+      push(EXPECT_PORTS ? "error" : "info", "port-missing",
+        `screen "${slug}" has an agreed design at ${rel(file)} and no port under web/src. The design is what a human signed off; until it is built, review.mjs is comparing the app to a picture of a screen that does not exist.${EXPECT_PORTS ? "" : " (info: pass --expect-ports to make this a gate.)"}`);
+    }
+
+    const html = [...(existsSync(file) ? [file] : []), ...portFiles].map((f) => readFileSync(f, "utf8")).join("\n");
+    // NAME WHAT WAS ACTUALLY READ. Every message below used to say "<slug>.html" unconditionally, which is
+    // a false statement once the design page is absent and only the port was inspected — and a finding that
+    // names the wrong file sends a reader to edit something that does not exist.
+    const where = [...(existsSync(file) ? [`${slug}.html`] : []), ...portFiles.map((p) => basename(p))].join(" + ");
     if (portFiles.length) push("info", "design-has-port",
       `${slug} is also implemented at ${portFiles.map((p) => rel(p)).join(", ")}, and its bindings are checked here too.`);
     const shown = attrsOf(html, "data-em");
@@ -170,41 +225,80 @@ if (cmd === "check") {
     const acted = attrsOf(html, "data-em-action");
     const known = new Set([...rec.displays, ...rec.inputs]);
 
+    // THE TWO ARTIFACTS ARE NOW COMPARED, NOT POOLED — KIT-FINDINGS V18.
+    //
+    // The pooled sets above answer "does the screen, somewhere, honour the model" and that is the right
+    // question for the two rules that follow them. It is the WRONG question for the leg this check exists
+    // to hold: `designs/<slug>.html` is the artifact a human signed off, and `review.mjs sheet` puts it
+    // beside the built software so somebody can answer "does this match what we agreed". Pooled, a field
+    // present in EITHER counted as present in BOTH — so the two could drift apart and the check got
+    // QUIETER. Measured: adding a field to the model and implementing it in the .tsx only took the run
+    // from 1 warning to 0, while the reviewed design and the shipped screen showed different rows. Going
+    // greener as the artifacts diverge is the tell.
+    const designOnly = existsSync(file) ? readFileSync(file, "utf8") : null;
+    const portOnly = portFiles.length ? portFiles.map((f) => readFileSync(f, "utf8")).join("\n") : null;
+    const fieldsOf = (src) => src === null ? null
+      : new Set([...attrsOf(src, "data-em"), ...attrsOf(src, "data-em-input")]);
+    const inDesign = fieldsOf(designOnly);
+    const inPort = fieldsOf(portOnly);
+
+    if (inDesign && inPort) {
+      // Only fields the MODEL declares. A field in neither is somebody else's finding
+      // (`design-unknown-field`), and reporting it here as a disagreement would double-count it.
+      for (const n of [...known].sort()) {
+        if (inDesign.has(n) === inPort.has(n)) continue;
+        const ahead = inPort.has(n) ? "the port renders it and the design does not draw it"
+                                    : "the design draws it and the port does not render it";
+        push("warn", "design-port-disagree",
+          `${slug}: "${n}" — ${ahead}. Neither is behind the MODEL, so neither of the other two rules fires: the agreed design and the shipped screen simply show different things, and review.mjs is comparing the app to a picture nobody can now trust.`);
+      }
+    }
+    // The model declares it and the PORT does not render it — the leg that had no rule at all, because
+    // `design-field-missing` below was satisfied by the design drawing it.
+    if (inPort) {
+      for (const n of rec.displays) {
+        if (!inPort.has(n) && (!inDesign || inDesign.has(n))) {
+          push("warn", "port-field-missing",
+            `${slug} displays "${n}" and no port renders it (${portFiles.map((p) => rel(p)).join(", ")}). The port is behind the model.`);
+        }
+      }
+    }
+
     for (const n of [...shown, ...typed]) {
       if (!known.has(n)) {
         push("error", "design-unknown-field",
-          `${slug}.html shows "${n}", which the screen neither displays nor takes as input. The design is showing data the system cannot supply — add it to displays= and give it a View, or drop it.`);
+          `${where} shows "${n}", which the screen neither displays nor takes as input. The design is showing data the system cannot supply — add it to displays= and give it a View, or drop it.`);
       }
     }
     for (const a of acted) {
       if (!rec.commands.has(a)) {
         push("error", "design-unknown-action",
-          `${slug}.html offers "${a}", but this screen triggers ${[...rec.commands].join(", ") || "no command"}. The button and the model disagree.`);
+          `${where} offers "${a}", but this screen triggers ${[...rec.commands].join(", ") || "no command"}. The button and the model disagree.`);
       }
     }
     for (const n of rec.displays) {
       if (!shown.has(n) && !typed.has(n)) {
         push("warn", "design-field-missing",
-          `${slug} displays "${n}" but ${slug}.html never shows it. Either draw it, or drop it from displays= — an attribute nothing displays makes its View over-specified.`);
+          `${slug} displays "${n}" but ${where} never shows it. Either draw it, or drop it from displays= — an attribute nothing displays makes its View over-specified.`);
       }
     }
     for (const n of rec.inputs) {
       if (!typed.has(n)) {
         push("warn", "design-input-missing",
-          `${slug} takes "${n}" as input but ${slug}.html has no data-em-input for it. A field the user must type and the page does not offer is a dead command.`);
+          `${slug} takes "${n}" as input but ${where} has no data-em-input for it. A field the user must type and the page does not offer is a dead command.`);
       }
     }
     // The point of the slug: one page carries every affordance of that screen.
     for (const a of rec.commands) {
       if (!acted.has(a)) {
         push("warn", "design-action-missing",
-          `${slug} triggers "${a}" somewhere in the model but ${slug}.html offers no such action. One page serves every slice this screen appears in.`);
+          `${slug} triggers "${a}" somewhere in the model but ${where} offers no such action. One page serves every slice this screen appears in.`);
       }
     }
     const unbound = [...shown, ...typed].filter((n) => known.has(n) && !rec.bound.has(n));
     if (unbound.length) {
       push("info", "design-ahead-of-wireframe",
-        `${slug}.html shows ${unbound.join(", ")}, which the wireframe does not draw. Not wrong — the model declares them — but the wireframe and the design disagree about what the screen is.`);
+        `${where} shows ${unbound.join(", ")}, which the wireframe does not draw. Not wrong — the model declares them — but the wireframe and the design disagree about what the screen is.`);
     }
   }
 
@@ -213,6 +307,39 @@ if (cmd === "check") {
     if (!screens.has(slug)) {
       push("error", "design-orphan-page",
         `${f} matches no screen= slug in this system (${[...screens.keys()].join(", ") || "none"}). A page nothing in the model points at will never be generated from.`);
+    }
+  }
+
+  // A CLASS SELECTOR IN tokens.css IS A GLOBAL NOBODY OWNS — KIT-FINDINGS BT10.
+  //
+  // Two rules, both correct, that combine badly. `styling` says the token file holds the palette, the type
+  // roles, the spacing scale "and one signature element"; `frontend-agent` says the app's tokens.css is a
+  // COPY of it, unedited. "One signature element" invites authoring a COMPONENT there — and everything else
+  // in the file is a custom property, which is INERT until something uses it. A class selector is not: it
+  // applies to anything matching, in every screen, and the fix would live in the file the rule says to copy
+  // unedited.
+  //
+  // Measured across the projects when this was written: `.prep` and `.bar` in one, `.slot` in another,
+  // `.voltbar` / `.page` / `.who` in a third. `.bar` is about as reachable a class name as exists.
+  //
+  // ELEMENT SELECTORS ARE LEFT ALONE, deliberately. `body`, `main`, `h2` in a token file are a base/reset
+  // layer, which is a legitimate thing for it to carry — flagging those would fire on every honest design
+  // system and the kit's bar is that a rule never produces a false positive. The hazard is a shared CLASS
+  // NAME, so that is what this looks for.
+  const tokensFile = join(designs, "tokens.css");
+  if (existsSync(tokensFile)) {
+    const css = readFileSync(tokensFile, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const offenders = new Set();
+    for (const m of css.matchAll(/([^{}]+)\{/g)) {
+      const selector = m[1].trim();
+      if (!selector || selector.startsWith("@")) continue;          // at-rules carry no selector of their own
+      for (const cls of selector.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) {
+        if (!cls[1].startsWith("em-")) offenders.add(`.${cls[1]}`);
+      }
+    }
+    if (offenders.size) {
+      push("warn", "tokens-unscoped-selector",
+        `${rel(tokensFile)} defines ${offenders.size} global class selector(s): ${[...offenders].sort().join(", ")}. This file is copied UNEDITED into every screen, so any screen using one of these names silently inherits it — and the fix would have to be made in a file nobody owns. Custom properties are safe here because they are inert until used; a class selector is not. Namespace them (.em-prep) or move them into the screen's own stylesheet.`);
     }
   }
 

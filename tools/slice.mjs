@@ -461,6 +461,165 @@ const V_HINTS = "exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx
 const U_HINTS = "exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;";  // up
 const H_HINTS = "exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;";  // right
 
+// ---------------------------------------------------------------- edge anchors
+
+// SEVERAL ARROWS INTO ONE STICKY MUST NOT LAND ON THE SAME POINT.
+//
+// `route` gives every long edge its own horizontal run — one y per EDGE, not per target, which the layout
+// section of CLAUDE.md already insists on. What it did not give them is their own **x**: `entryX=0.5` was
+// hard-coded on every Event -> View hint, so N arrows ran at N different heights and then converged into a
+// single point on the target's edge, overlapping for the whole final leg.
+//
+// It is invisible in XML and unmissable in a PNG, and it scales with the model: measured on Voltway,
+// `estate-rm-bay-health` and `charging-rm-available-bays` take EIGHT incoming edges each, with
+// `entryX=0.5,entryY=1` used by three of them. On a model that size the picture stops being readable,
+// which defeats the point of the artifact — a human reading it left to right is what the whole method is
+// for.
+//
+// SPREAD, DON'T STAGGER. Anchors are recomputed for ALL of a node's edges together rather than allocated
+// one at a time as edges arrive: the k-th of n gets (k+1)/(n+1), so they stay evenly distributed however
+// many there end up being, and a re-run is idempotent. Sorted by the OTHER end's x so the fan does not
+// cross itself.
+//
+// AND THE ROUTING POINT MOVES WITH IT. The horizontal run's x used to be the box's centre; leaving it there
+// while moving the anchor would make every edge jog sideways at the last moment, which is uglier than the
+// overlap it fixes. The run now ends above (or below) the anchor it enters.
+const anchorOf = (k, n) => Math.round(((k + 1) / (n + 1)) * 100) / 100;
+
+// WHOLE FILE, NOT ONE REGION — and this cost a debugging round. An edge carries no geometry of its own, so
+// region detection puts EVERY edge in the first region; its endpoints, meanwhile, belong to whichever
+// region they are drawn in. Scoped per region, the first pass saw all the edges and none of the second
+// model's elements, so every one of that model's edges failed the `byId` lookup and was silently skipped —
+// the anchors changed everywhere except the two views with eight incoming edges each, which is precisely
+// where the problem was. `allCells` is the file's own answer to this.
+function respaceEdges(m) {
+  const all = m.allCells ?? m.cells;
+  const byId = new Map(all.filter((c) => !c.isEdge && c.g).map((e) => [e.id, e]));
+  const allEdges = all.filter((c) => c.isEdge);
+  const ends = (attr) => {
+    const g = new Map();
+    for (const e of allEdges) {
+      const id = e.block.match(new RegExp(`${attr}="([^"]*)"`))?.[1];
+      if (!id || !byId.has(id)) continue;
+      if (!g.has(id)) g.set(id, []);
+      g.get(id).push(e);
+    }
+    return g;
+  };
+  const other = (e, attr) => byId.get(e.block.match(new RegExp(`${attr}="([^"]*)"`))?.[1]);
+  const plan = new Map();                                   // edge block -> { entryX?, exitX? }
+  const note = (e, k, v) => { if (!plan.has(e)) plan.set(e, {}); plan.get(e)[k] = v; };
+
+  for (const [id, list] of ends("target")) {
+    // Only spread where a hint already exists: an edge drawn with no anchor is using draw.io's floating
+    // connection, which routes itself and must not be pinned by this.
+    const pinned = list.filter((e) => /entryX=/.test(e.block));
+    pinned.sort((a, b) => (other(a, "source")?.g.x ?? 0) - (other(b, "source")?.g.x ?? 0));
+    pinned.forEach((e, k) => note(e, "entryX", anchorOf(k, pinned.length)));
+  }
+  for (const [id, list] of ends("source")) {
+    const pinned = list.filter((e) => /exitX=/.test(e.block));
+    pinned.sort((a, b) => (other(a, "target")?.g.x ?? 0) - (other(b, "target")?.g.x ?? 0));
+    pinned.forEach((e, k) => note(e, "exitX", anchorOf(k, pinned.length)));
+  }
+
+  let changed = 0;
+  const blocks = m.blocks.map((b) => {
+    const e = allEdges.find((x) => x.block === b);
+    const want = e && plan.get(e);
+    if (!want) return b;
+    let out = b;
+    if (want.entryX !== undefined) out = out.replace(/entryX=[\d.]+/, `entryX=${want.entryX}`);
+    if (want.exitX !== undefined) out = out.replace(/exitX=[\d.]+/, `exitX=${want.exitX}`);
+    // The routing run, where there is one: first point sits under the exit, last under the entry.
+    const pts = [...out.matchAll(/<mxPoint x="([-\d.]+)" y="([-\d.]+)" \/>/g)];
+    if (pts.length === 2) {
+      const src = other(e, "source"), tgt = other(e, "target");
+      if (src && want.exitX !== undefined) {
+        out = out.replace(pts[0][0], `<mxPoint x="${Math.round(src.g.x + EL_W * want.exitX)}" y="${pts[0][2]}" />`);
+      }
+      if (tgt && want.entryX !== undefined) {
+        out = out.replace(pts[1][0], `<mxPoint x="${Math.round(tgt.g.x + EL_W * want.entryX)}" y="${pts[1][2]}" />`);
+      }
+    }
+    if (out !== b) changed++;
+    return out;
+  });
+  return { blocks, changed };
+}
+
+// ---------------------------------------------------------------- gwt labels
+
+// A GWT MUST READ AS A SENTENCE ON THE CANVAS, NOT ONLY IN ITS ATTRIBUTES.
+//
+// `given=`/`when=`/`then=` are where the machine reads a scenario. A human reads the PICTURE — and if the
+// label carries only prose, a slice's GWT cells render as a column of grey boxes whose actual steps are
+// invisible without clicking each one and opening Edit Data. Demo001 wrote the skeleton into the label and
+// is legible at a glance; Voltway did not and is not. Nothing in the kit asked for it, which is exactly why
+// it was lost: it was a habit of one run rather than a rule.
+//
+// DERIVED, SO IT CANNOT DRIFT. The attributes stay the single source of truth and this is a rendering of
+// them — re-runnable, idempotent, and wrong the moment somebody edits it by hand, which is why nothing
+// reads it back.
+//
+// THE HUMAN'S FIRST LINE IS PRESERVED. `rule=` is often a PascalCase identifier (`DriverRegisters`) while
+// the label is the sentence somebody wrote for a reader; overwriting the second with the first would make
+// every model less legible, not more.
+const splitSteps = (s) => {
+  const out = [];
+  let depth = 0, cur = "";
+  for (const ch of s ?? "") {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) { out.push(cur); cur = ""; continue; }
+    cur += ch;
+  }
+  if (cur.trim()) out.push(cur);
+  return out.map((x) => x.trim()).filter(Boolean);
+};
+
+// Strip a trailing example-data group, and ONLY that. A label may legitimately contain parentheses — the
+// book's own model writes `Inventory Changed (external)` — so the test is CLAUDE.md's: an `=` inside them.
+const stepLabel = (s) => s.replace(/\s*\(([^()]*=[^()]*)\)\s*$/, "").trim();
+
+// GIVEN IS ALWAYS SHOWN, WHEN IS NOT, AND THE ASYMMETRY IS THE BOOK'S.
+//
+// An empty GIVEN is a claim — "this rule needs no prior history" — and rendering it as `GIVEN —` is what
+// distinguishes that from somebody not having filled it in yet. An absent WHEN is not a gap either: it is
+// what MAKES a cell a GT rather than a GWT ("Read Models only rely on previously stored events, so there is
+// no 'When' part necessary"), so printing `WHEN —` would invite a reader to think one had gone missing.
+//
+// Taken from Demo001, which is the model that had this right; matching it exactly is also what keeps this
+// pass a no-op there rather than churn on a file that was already correct.
+const gwtSummary = (b) => {
+  const steps = (raw) => splitSteps(raw).map(stepLabel).filter(Boolean);
+  const given = steps(attr(b, "given")), when = steps(attr(b, "when")), then = steps(attr(b, "then"));
+  if (!given.length && !when.length && !then.length) return "";
+  return [
+    `GIVEN ${given.join(", ") || "—"}`,
+    when.length ? `WHEN ${when.join(", ")}` : null,
+    then.length ? `THEN ${then.join(", ")}` : null,
+  ].filter(Boolean).join("\n");
+};
+
+function relabelGwts(m) {
+  let changed = 0;
+  const blocks = m.blocks.map((b) => {
+    if (attr(b, "em") !== "gwt") return b;
+    const summary = gwtSummary(b);
+    if (!summary) return b;                                  // nothing declared yet — leave the cell alone
+    const existing = (attr(b, "label") ?? "").split("\n");
+    // Everything up to the first GIVEN/WHEN/THEN line is the human's; the rest is a previous rendering.
+    const cut = existing.findIndex((l) => /^(GIVEN|WHEN|THEN)\b/.test(l.trim()));
+    const prose = (cut >= 0 ? existing.slice(0, cut) : existing).join("\n").trim();
+    const next = prose ? `${prose}\n\n${summary}` : summary;
+    if (next === (attr(b, "label") ?? "")) return b;
+    changed++;
+    return setAttr(b, "label", next);
+  });
+  return { blocks, changed };
+}
+
 // ---------------------------------------------------------------- shared transforms
 
 // Shift x for every cell at or right of x0, and every routing point that belongs to a shifted
@@ -1364,6 +1523,25 @@ function cmdReflow(target, o) {
     cur = step.out;
     plan.push(...step.plan.map((p) => (n > 1 ? `[${r.context ?? `#${i + 1}`}] ${p}` : p)));
   }
+  // EDGE ANCHORS ARE GEOMETRY TOO, so reflow owns them — and they must be re-derived AFTER the lane and
+  // column arithmetic above, because the routing points this moves are absolute x's that the shift may
+  // just have changed.
+  // ONE PASS OVER THE WHOLE FILE, not one per region — see respaceEdges: an edge has no geometry, so every
+  // edge on a board lands in region 0 while its endpoints do not.
+  const spread = respaceEdges(model(cur, null));
+  if (spread.changed) {
+    cur = splice(cur, spread.blocks);
+    plan.push(`${spread.changed} edge anchor(s) spread so arrows into one cell no longer overlap`);
+  }
+
+  // AND THE GWT LABELS, for the same reason: both are things a HUMAN reads off the picture and neither
+  // changes a domain fact. A scenario whose steps live only in its attributes renders as a blank grey box.
+  const labels = relabelGwts(model(cur, null));
+  if (labels.changed) {
+    cur = splice(cur, labels.blocks);
+    plan.push(`${labels.changed} GWT label(s) re-rendered from given=/when=/then= so the steps are readable on the canvas`);
+  }
+
   if (!plan.length) { console.log(`${target}: geometry already derived — nothing to reflow.`); return; }
   finish(target, file, cur, plan, o, []);
 }

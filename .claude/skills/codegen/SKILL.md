@@ -126,7 +126,7 @@ message, because it is the only place the reasoning will survive.
 | Reads | anything the screen `displays=` can actually be fetched |
 | Choice | the report names the implementation recipe chosen and why. "Same as the reference implementation" is not an answer unless the mirror was checked |
 | Architecture | `architect.mjs check` still clean, and the slice honours `ARCHITECTURE.md` — if an agent needed `Async` where the record says `Inline`, that is a decision to revisit in the record, not to change quietly in a file |
-| Frontend | `tsc` clean, `design.mjs check` clean, and **the render has been looked at** |
+| Frontend | `tsc` clean, `design.mjs check --expect-ports` clean, and **the render has been looked at**. The flag is not optional here: without it a screen with an agreed design and no port at all reports 0/0, so this gate was satisfiable by building nothing (KIT-FINDINGS BT7). `styling` runs the same check *without* the flag, because at that point no port exists yet and none is owed |
 | Review | `node tools/review.mjs sheet` produced `<project>/review/index.html`, with a shot per screen per viewport — **the human reviews the slice against that, not against your description** |
 | Model | `model.mjs validate` still zero errors — implementing must not have needed a model change nobody made |
 

@@ -62,7 +62,7 @@ argued with per slice — it is the stack.
 - **Marten 9.\*** (event store, projections)
 - **Alba 8.\*** (in-process HTTP integration testing)
 - **JasperFx 2.\*** — the shared library the other three now sit on
-- Testcontainers (real Postgres in tests)
+- Testcontainers (real Postgres in tests) — **pinned EXACTLY, and it is the only package that is.** See below
 - Docker
 - Aspire — optional, only after an explicit feasibility check
 
@@ -79,6 +79,23 @@ misdiagnosis: `IAggregateGrouper<TId>`'s batch parameter is `IReadOnlyList<IEven
 so all along, while the Marten 8 package wanted `IEnumerable<IEvent>`. Moving to current makes the mirror
 and the packages agree, which retires the whole class. **So a version bump is maintenance of the docs
 contract, not just of the packages.**
+
+**Testcontainers is pinned to an exact version, and it is the one exception to everything above.** The
+docs-mirror argument is what makes the four majors float within their major — and it does not reach
+Testcontainers, which is **not in the mirror at all** (zero mentions across 392 pages). So the float here was
+never justified by the reason this file gives for the others.
+
+What the float cost: `4.*` resolved to 4.13.0, which pulled **SSH.NET 2025.1.0** — Testcontainers uses it for
+port forwarding — carrying **NU1903**, a high-severity advisory. NuGet audit reports that as a *warning*,
+twice, so **every brand-new project failed `scaffold`'s own 0-errors-0-warnings gate** before a line of code
+existed, for a reason nothing to do with the generated code. KIT-HISTORY **BT4**.
+
+**And what pinning costs is written here rather than discovered later.** That advisory is gone today *only
+because the float carried the fix in by itself* — 4.14.0 brings SSH.NET 2026.0.0 and
+`dotnet list package --vulnerable` is clean. An exact pin gives that up: the next transitive advisory sits
+there until somebody bumps the line. It is now a maintenance action like a stack major — except that
+**nothing in the kit prompts for it**, which is the open half of this decision. The other test-only packages
+(`Shouldly`, `xunit`, `Microsoft.NET.Test.Sdk`) still float and carry exactly the same exposure.
 
 **A project may override a package version, and must say why.** Both `.csproj` files are `emit`, so a
 hand-edited version is reverted by the next regeneration — silently, with the symptom arriving later as
@@ -348,6 +365,49 @@ page says the team *"leans hard into that **A-Frame Architecture** idea"*. `[Wol
 | the decider must **search** for its stream, so no key can be handed to middleware | a reservation walking candidate slots — `reservation/SlotReservation` |
 | the slice implements a concurrency **mechanism** whose whole point is controlling the transaction | the guard-row / advisory-lock arms in `cross-aggregate-invariant/` |
 
+Those two are about leaving the workflow *deliberately*. There is a third case that never enters it, and it
+is not a judgement call at all — a slice that **creates** its stream, immediately below.
+
+#### …but a slice that CREATES its stream is not in the workflow at all, and that is a third exception
+
+**`[WriteAggregate]` resolves an EXISTING stream. A slice that mints its own key has none to resolve**, and
+the generator used to hand it one anyway — assembling the key from a field the model marks
+`terminal="…:generated"`, which the caller by definition never sends. So the key was `default(Guid)` on every
+request and **every record in the system landed in one stream**: clean build, host starts, `204`, and a first
+test that passes because one record in one stream reads back correctly. It only bites on the **second**.
+KIT-HISTORY **BT6**.
+
+```csharp
+[WolverinePost(Route)]
+public static (CreationResponse<Guid>, IStartStream) Handle(AddRecipe command)
+{
+    var recipeId = Guid.CreateVersion7();
+    var added    = new RecipeAdded(recipeId, command.Name, …);
+    var start    = MartenOps.StartStream<AddRecipeState>(recipeId, added);
+    return (new CreationResponse<Guid>($"{Route}/{start.StreamId}", start.StreamId), start);
+}
+```
+
+**This is Wolverine's own shape, not a local invention** — `guide/http/metadata` and
+`tutorials/cqrs-with-marten`. `CreationResponse` implements `IHttpAware`: **201**, a `Location` header, and
+the new id in the body. **So `[EmptyResponse]` is impossible here, and that is the point** — a caller cannot
+know an id it did not supply.
+
+**The id is minted in the HANDLER rather than by Marten, and the MODEL forces that.**
+`MartenOps.StartStream<T>(events)` — the overload with no id — has Marten assign one, but it assigns it
+*after* the events are built. Every model in this kit declares the key as a **field of its event**, because
+that is how a view keyed on it is sourced at all, so the value must exist first. `Guid.CreateVersion7()` and
+never `Guid.NewGuid()`: a stream id is a primary key, Marten's identity page asks for a sequential Guid so it
+does not fragment the index, and `CombGuidIdGeneration` — Marten's own version of that advice — carries
+`[Obsolete]` as of Marten 9.
+
+**Anything that is not a single Guid key gets no code and a named gap.** A string key or a composite with a
+minted part needs an id *format* and a collision rule, and both are domain decisions:
+`ID GENERATION NOT DECIDED` names the slice, and `architect` raises `id-generation/<slice>` for **every**
+creating slice — one confirming line in the Guid case, a real decision otherwise. A kept endpoint still on
+the old shape is reported as `STREAM RESOLVED FROM A terminal=generated MEMBER` and never rewritten, because
+the generator does not reach backwards.
+
 **Reading another stream is a second `[WriteAggregate]`, not a `FetchLatest`.** Mark it
 `AlwaysEnforceConsistency = true` and Marten version-checks that stream *even though nothing is appended to
 it*, so the save is refused if it moved between the fetch and the commit. That converts an
@@ -390,6 +450,43 @@ which puts it back on the path where the retry is real. Do **not** translate the
 instead: a version conflict does not mean the business rule failed, and on a stream shared with another
 context an unrelated concurrent append collides too — the translation then refuses a valid command with a
 rule name that is untrue. A retry re-reads; a translation guesses.
+
+#### …and the retry is a CEILING on concurrent writers, not a margin. Measured, three arms
+
+**`RetryTimes(3)` reads like ordinary resilience and is nothing of the kind.** On a contended stream each
+retry round lets exactly **one** writer commit, so the budget is a hard limit on how many callers may append
+to one stream at the same instant. Re-measured against real Postgres in
+[`probes/retry-budget.cs`](probes/retry-budget.cs) — 16 concurrent appends to one stream:
+
+| | landed of 16 |
+| --- | --- |
+| `RetryTimes(3)` — what the kit emitted | **7**, and 9 destroyed |
+| `RetryWithCooldown(50,100,250)` | **6**. It moves the cliff by ONE writer; it is not a fix, and this file used to say it was |
+| **partitioned local messaging, published** | **16** |
+
+**The damage is worst where the slice has no contended rule at all** — no rule means no race test, while the
+stream is still shared with every other slice that writes it. What is lost there is not a duplicate; it is a
+command the caller believes succeeded. Nothing in the kit could see it: every generated GWT drives one
+command at a time. KIT-HISTORY **V12**.
+
+**Four changes came out of it, and the third is the one to read carefully:**
+
+1. **The retry chain now ends** — `.Then.MoveToErrorQueue()` on all three policies. Without a terminal
+   action an exhausted retry escaped as a bare 500 and the work was gone, with no dead letter.
+2. **`codegen` emits partitioned sequential messaging** for every command carrying its whole stream key:
+   same key → one local queue → in order. **The `ByMessage` rules are not optional.**
+   `UseInferredMessageGrouping()` alone yielded `group=(NONE)`, and a null group id makes Wolverine pick a
+   queue **at random** — worse than not configuring it, because the file reads as though contention were
+   handled.
+3. **IT ONLY PROTECTS PUBLISHED MESSAGES, so it does NOT cover the HTTP arm.** Partitioning is a *routing*
+   rule and `InvokeAsync` runs the handler inline without routing — measured as a fourth arm, identical to
+   no protection at all. An endpoint that invokes its decider to get the outcome back (which the rejection
+   contract requires) is unprotected, and moving it to publish would mean it can no longer return a refusal.
+   **That trade is `write-contention/<ctx>`'s to answer, not a default.**
+4. **A lost race on the HTTP arm is now a 409, not a 500** — measured on the wire with a control in
+   [`probes/conflict-status.cs`](probes/conflict-status.cs): 8 concurrent POSTs gave `204 x1, 500 x7`
+   without the handler and `204 x2, 409 x6` with it. The caller did not break the server; it lost a race and
+   should retry. Deliberately **not** translated into a rule name, for the reason in the paragraph above.
 
 #### `codegen` emits that pair now, and only for a slice `architect` calls contended
 
@@ -1419,6 +1516,7 @@ node tools/wireframe.mjs scaffold <file>     # grow the UI lane, scaffold bound 
 node tools/design.mjs shot  <file.html>      # render one design page to PNG, per viewport
 node tools/design.mjs sheet <designs-dir>    # shoot every screen, build the contact sheet + index
 node tools/design.mjs check <system-dir>     # the styled pages against the model's displays=/inputs=
+node tools/design.mjs check --expect-ports   # ...and FAIL if a designed screen has no React port yet
 
 node tools/review.mjs shot <url> --screen <slug> [--state <n>]   # shoot the RUNNING app
 node tools/review.mjs sheet                  # design beside implementation, per screen, per viewport
@@ -1568,6 +1666,7 @@ same attributes as XML. Verified: adding them does not change the rendered pictu
 | `rule` | `gwt` | the business rule this GWT names |
 | `pattern` | slice cell | which of the four patterns this slice is — checked against what it's made of |
 | `journey` / `slices` | `journey` | the journey's slug, and the **ordered** run of slices it walks end to end through the API |
+| `blocked` | `chapter` | **why this walk cannot honestly be written.** Moves it out of `NO UI JOURNEY SPEC` and into `DELIBERATELY NOT WALKED`, which prints the reason. The reason IS the value — a bare `blocked=` is an error, because an acknowledgement used as a mute records nothing |
 | `status` | slice cell | where the slice sits in the implementation workflow |
 | `screen` | screen | the screen's identity. Cells sharing a slug are one screen |
 | `joins` | screen | the attribute two or more feeding Views are lined up on. `"none"` = never correlated |
@@ -2591,6 +2690,7 @@ node tools/architect.mjs check       # unanswered, still TODO, or orphaned by a 
 | --- | --- |
 | `stream-boundaries/<ctx>` | the boundary map — every stream, its key, its writers. A rule inside one key is a true invariant; the same rule against a wider key is a projection check two writers both pass |
 | `no-stream-key/<lane>` | events we append with no `identity=`: no boundary exists at all |
+| `write-contention/<ctx>` | **how many callers may append to ONE stream at the same instant.** The emitted retry budget answers 4–5 and silently destroyed the rest until this was measured; the sharpest case is a stream with several writers and *no* contended rule, which is where nobody looks |
 | `contended-invariant/<slice>/<gwt>` | **a rejection depending on state in the stream its own command appends to** — two callers at the same instant can both pass it. Gets a **race test**, because every generated GWT is sequential |
 | `cross-stream-rule/<slice>/<gwt>` | **the sharpest.** A GIVEN in a stream the command does not write, so enforcing it means *reading* another stream, and no stream's version covers it. **Four mechanisms close it** — guard row, reservation row, advisory lock, DCB — and a rejection here now gets its own generated race test, with a **control** |
 | `stale-read/<View>` | fed by more than one stream type (**Marten defaults multi-stream to `Async`**), or read by a screen that also feeds it — read-your-own-write |
@@ -2857,6 +2957,14 @@ the documentation was wrong. Harmless here, but it is the same class as the defa
 to retract: **read the geometry off `slice.mjs`, never off this table.** Every number in it is derived
 from cell geometry at run time and none of it is hard-coded in `model.mjs`.
 
+**And its own x ON THE TARGET.** A distinct routing y is only half of it: with `entryX=0.5` on every edge,
+N arrows run at N different heights and then converge into **one point** on the target's edge, overlapping
+for the whole final leg. It is invisible in XML and unmissable in a PNG, and it is the defect that scales
+worst — measured on Voltway, two read models take **eight** incoming edges each, with one entry point shared
+by three of them. `reflow` spreads them: the k-th of n gets `(k+1)/(n+1)`, sorted by the other end's x so
+the fan does not cross itself, and the routing point moves with the anchor so the last leg stays straight.
+Re-running is idempotent. KIT-HISTORY **BU1**.
+
 **Every long edge gets its own y in a routing band.** One y per *target* is not enough: several
 events feeding the same View then share a horizontal run and the picture becomes unreadable.
 Allocate sequentially — forward at `forwardBand + 6 + 8n`, backward at `eventLaneBottom + 15 + 9n`,
@@ -2872,6 +2980,23 @@ first row at **y=1375** and every 140 after. 300 + 20 fits the 320 column pitch 
 slice's GWTs never collide with the next slice's. **Put the rule text in the label**, not only in
 `rule=` — several GWTs in a slice share a `given/when/then` triple and differ only in the case they
 describe, so without it they render as identical grey boxes.
+
+**AND PUT THE STEPS THERE TOO — the label is where a human reads the scenario.** `given=`/`when=`/`then=` are
+where the *machine* reads it; a cell carrying only prose renders as a grey box whose actual steps need a
+click and an Edit Data panel to see, which on a model with 97 of them means nobody reads any of them. The
+shape, which `reflow` renders from the attributes so it cannot drift:
+
+```
+a booked room appears as one row        <- the human's sentence, preserved
+                                          (blank line)
+GIVEN RoomBooked                       <- always shown; "GIVEN —" when there is no prior history
+THEN TodaysBookings                    <- WHEN is OMITTED when absent, because that is what makes it a GT
+```
+
+Example data is stripped from the step labels — it belongs in the attributes, and a label carrying it is
+too long to read. **Nothing reads the label back**, so a hand edit is simply overwritten on the next
+`reflow`. Demo001 had this and Voltway lost it, because it was one run's habit rather than a rule.
+KIT-HISTORY **BU2**.
 
 Add a column by widening the page and every lane, rather than stacking a second row into a routing
 band. Page width = `40 + laneWidth + 60`.

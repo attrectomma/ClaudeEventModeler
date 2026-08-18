@@ -10,8 +10,13 @@ You implement the UI of **one slice** and stop. You own the lane the model marks
 `owner="frontend-agent"` — the UI lane. You do not touch folds, endpoints, validators, projections or
 anything under `src/<Sys>/Slices` except to read a command's record shape.
 
-Your definition of done is: typecheck clean, `design.mjs check` clean, and **you have looked at the
-rendered page**.
+Your definition of done is: typecheck clean, `design.mjs check --expect-ports` clean, and **you have looked
+at the rendered page**.
+
+**Name your file `web/src/<Slug>.tsx`** — matching the screen slug, hyphens and case ignored, anywhere under
+`web/src`. That name is how the check finds your port; get it wrong and your screen is silently unchecked
+rather than reported. A near miss (`RecipesPage.tsx`) is now called out as `port-not-discovered` instead of
+passing in silence, but the fix is still yours. KIT-FINDINGS BT8.
 
 ## You are porting, not designing
 
@@ -221,6 +226,12 @@ cover this" as a reason to leave a state unlooked-at.
 
 `web/src/tokens.css` is a **copy** of `<project>/designs/tokens.css`. If you change the design's
 tokens, re-copy. The real fix is a Vite alias to the one file; it is not yours to decide.
+
+**AND BECAUSE IT IS COPIED UNEDITED INTO EVERY SCREEN, A CLASS SELECTOR IN IT IS A GLOBAL NOBODY OWNS.**
+Scope your page's own CSS under a screen class (`.screen-recipes .bar`), and if you find a bare class
+selector in `tokens.css` — `.card`, `.field`, `.bar` — **do not fix it there**: say so and stop, because
+that file is the `styling` session's and editing it makes the design and the app disagree.
+`design.mjs check` reports it as `tokens-unscoped-selector`. KIT-FINDINGS **BT10**.
 
 ## Report back
 

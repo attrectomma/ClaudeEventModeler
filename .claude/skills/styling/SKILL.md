@@ -92,6 +92,19 @@ and expensive to retrofit:
 Keep it to what `frontend-design` specifies: 4–6 named colours, two type roles, one spacing scale,
 and one signature element where boldness is spent.
 
+**THE SIGNATURE ELEMENT IS THE TRAP, AND IT IS THE ONLY LINE IN THAT LIST THAT IS NOT A CUSTOM PROPERTY.**
+A custom property is inert — `--heat` does nothing until a screen uses it. A **class selector is not**: this
+file is copied *unedited* into the React app and imported by every screen, so `.bar { height: 3px }` restyles
+any screen that ever wants a `.bar`, and the fix would have to be made in a file no screen author owns.
+Measured across three projects: `.prep`/`.bar` in one, `.slot` in another, and **31** in a third including
+`.card`, `.field` and `.empty`. KIT-FINDINGS **BT10**.
+
+> **Custom properties may be global. Any SELECTOR must be namespaced `.em-*`, or live in the screen's own
+> stylesheet.** Element selectors (`body`, `h2`, `main`) are exempt — a base/reset layer is a legitimate
+> thing for this file to carry.
+
+`design.mjs check` reports this as `tokens-unscoped-selector`, so it is a gate rather than advice.
+
 **One variant, not three, unless the user asks.** Options are cheap to render and expensive to
 choose between; the POC's job is to reach working code, not to hold a design review.
 
@@ -146,6 +159,11 @@ node tools/design.mjs check
 This is the third leg of the three-way check —
 `displays=`/`inputs=` ↔ wireframe `binds=` ↔ HTML `data-em`. `model.mjs` already checks the first
 two against each other; this checks the styled page, which is the leg nothing could see before.
+
+**No `--expect-ports` here, deliberately.** That flag makes "an agreed design with no React port" an error,
+and at this point in the workflow there is no port and none is owed — `codegen`'s frontend gate is where it
+belongs. You will still see the state reported as an INFO, which is the point: the finding is never absent,
+only its severity moves with who is asking.
 
 | | Severity | Means |
 | --- | --- | --- |

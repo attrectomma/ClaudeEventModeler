@@ -27,6 +27,7 @@ using Marten.Schema;
 using Marten.Exceptions;
 using Wolverine.Marten;
 using Microsoft.AspNetCore.Mvc;        // ValidationProblemDetails, for the rejection-shape customiser below
+using Microsoft.AspNetCore.Diagnostics; // IExceptionHandlerFeature, for the 409 below. No doc page names it
 using StockFeed;
 using StockFeed.Views;
 using StockFeed.Automation;
@@ -124,8 +125,14 @@ builder.Host.UseWolverine(opts =>
     // Both names, because they are the same verdict and Marten has used both: ConcurrencyException moved
     // to JasperFx in Marten 9, and an append that collides on (stream_id, version) surfaces as
     // EventStreamUnexpectedMaxEventIdException regardless of what the docs say. KIT-FINDINGS BM2.
-    opts.OnException<ConcurrencyException>().RetryTimes(3);
-    opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3);
+    //
+    // AND THE CHAIN NOW ENDS SOMEWHERE — `.Then.MoveToErrorQueue()`. Without a terminal action an
+    // exhausted retry escapes as a bare 500 and the work is GONE, with no dead letter and nothing to
+    // inspect. Measured (probes/retry-budget.cs): at 16 concurrent writers to one stream, 9 of 16 appends
+    // were destroyed exactly that way. Wolverine's own samples always terminate the chain; the kit never
+    // did. KIT-FINDINGS V12.
+    opts.OnException<ConcurrencyException>().RetryTimes(3).Then.MoveToErrorQueue();
+    opts.OnException<EventStreamUnexpectedMaxEventIdException>().RetryTimes(3).Then.MoveToErrorQueue();
     // THE THIRD ONE, AND ITS ABSENCE WAS A MEASURED DEFECT. There are TWO refusal mechanisms, not one, and
     // which you get depends on whether the stream already existed:
     //
@@ -143,7 +150,35 @@ builder.Host.UseWolverine(opts =>
     // THE KIT ALREADY KNEW. `architect.mjs`'s own `ConcurrencyHarness.Classify` switches on all THREE
     // names, and the architect skill tabulates both mechanisms — so one tool documented what the other
     // omitted, which is V9's shape at the level of a single line. KIT-FINDINGS BS1.
-    opts.OnException<ExistingStreamIdCollisionException>().RetryTimes(3);
+    opts.OnException<ExistingStreamIdCollisionException>().RetryTimes(3).Then.MoveToErrorQueue();
+
+    // PARTITIONED SEQUENTIAL MESSAGING — the only thing measured to actually FIX contention, rather than
+    // retry it. Commands carrying the same stream key are routed to ONE local queue and run in order, so
+    // the race never happens; different streams still run in parallel. Measured across three arms
+    // (probes/retry-budget.cs), 16 concurrent writers to one stream:
+    //
+    //   RetryTimes(3)                 7 of 16 landed, 9 destroyed
+    //   RetryWithCooldown             6 of 16 landed  (it moves the cliff by ONE writer, it is not a fix)
+    //   partitioned + published      16 of 16 landed
+    //
+    // THE ByMessage RULES BELOW ARE NOT OPTIONAL AND THIS IS THE TRAP. `UseInferredMessageGrouping()` is
+    // documented as grouping by "the stream id of any command that is part of the aggregate handler
+    // workflow", and on a [WriteAggregate] PARAMETER it yielded `group=(NONE)` — measured. A null group
+    // id is not a no-op: Wolverine then picks a queue AT RANDOM, so one stream's commands scatter and race
+    // exactly as before, while the configuration reads as though contention had been handled.
+    //
+    // IT ONLY PROTECTS PUBLISHED MESSAGES. Partitioning is a ROUTING rule, and `InvokeAsync` runs the
+    // handler inline without routing — measured as a fourth arm, identical to no protection at all. So an
+    // HTTP endpoint that invokes its decider to get the outcome back (which is what the rejection contract
+    // requires) is NOT covered here; that path gets the 409 below instead. Automations, translations and
+    // the ingest seam publish, and those are covered.
+    opts.MessagePartitioning
+        .ByMessage<StockFeed.Slices.StockFeed.ApplyStockNotice>(x => x.StreamKey.ToString())
+        .PublishToPartitionedLocalMessaging("stockFeed-writes", 4, topology =>
+        {
+            topology.MessagesImplementing<StockFeed.Slices.StockFeed.ApplyStockNotice>();
+        });
+
     // Durable local queues are what make the ingest seam in Landing/ durable without any durability
     // code: a message routed to a local queue is written to the Postgres envelope tables before its
     // handler runs, retried if the handler throws, and dead-lettered when it keeps throwing. That inbox
@@ -233,6 +268,39 @@ if (builder.Environment.IsDevelopment())
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment()) app.UseCors();
+
+// A LOST RACE IS A CONFLICT, NOT A SERVER ERROR — KIT-FINDINGS V12.
+//
+// The retry policy above is a MESSAGE-pipeline policy and a Wolverine.HTTP endpoint never enters that
+// pipeline (V7), and partitioned messaging cannot help either: it is a ROUTING rule, and an endpoint that
+// invokes its decider inline to get the outcome back is never routed. Measured as a fourth arm of
+// probes/retry-budget.cs — identical to no protection at all.
+//
+// So on the HTTP write path a concurrent duplicate leaves as an unhandled exception, and the caller is
+// told the server broke. It did not: the caller lost a race and the correct thing to do is try again.
+// 409 says exactly that and nothing more. It is deliberately NOT translated into a business rule name —
+// a version conflict does not mean the rule failed, and on a stream shared with another context an
+// unrelated concurrent append collides too, so a rule name here would refuse a valid command with a
+// reason that is untrue.
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    ExceptionHandler = async context =>
+    {
+        var error = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        if (error is ConcurrencyException or EventStreamUnexpectedMaxEventIdException
+                  or ExistingStreamIdCollisionException)
+        {
+            await Results.Problem(
+                title: "Conflict",
+                detail: "Another change to the same stream committed first. The command was not applied — retry it.",
+                statusCode: StatusCodes.Status409Conflict).ExecuteAsync(context);
+        }
+        else if (error is not null)
+        {
+            await Results.Problem(statusCode: StatusCodes.Status500InternalServerError).ExecuteAsync(context);
+        }
+    }
+});
 
 app.MapWolverineEndpoints(opts =>
 {

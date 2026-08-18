@@ -35,6 +35,7 @@ import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 
 import { spawnSync } from "node:child_process";
 import { join, relative, resolve } from "node:path";
 import { projectRoot, projectName } from "./project.mjs";
+import { isMultiStream } from "./view-recipe.mjs";   // ONE definition, shared with codegen — V9
 import { distinctTypes, renderBindings } from "./type-bindings.mjs";
 
 const args = process.argv.slice(2);
@@ -209,6 +210,75 @@ function derive() {
       });
     }
 
+    // ---- W2: how many callers may write ONE stream at the same instant? — KIT-FINDINGS V12 ---------
+    //
+    // The emitted `RetryTimes(3)` reads like ordinary resilience and is not. On a contended stream each
+    // retry round lets exactly ONE writer commit, so the budget is a hard CEILING on simultaneous writers.
+    // Measured against real Postgres (probes/retry-budget.cs), 16 concurrent appends to one stream:
+    // 7 landed and 9 were DESTROYED. Nothing in the kit could see it — every generated GWT drives one
+    // command at a time, and a race test only exists where a rejection depends on accumulated state.
+    //
+    // THE SHARPEST CASE IS A STREAM WITH SEVERAL WRITERS AND NO CONTENDED RULE AT ALL, which is the last
+    // place anyone looks: no rule means no race test, while the stream is still shared. What is lost there
+    // is not a duplicate — it is a real command the caller believes succeeded.
+    if (owning.length) {
+      const writerCounts = owning.map((l) => ({
+        band: l.streams.join("+"),
+        writers: [...new Set(l.streams.flatMap((a) => writersOf(a).map((s) => s.name)))],
+      }));
+      const busiest = Math.max(...writerCounts.map((w) => w.writers.length));
+      qs.push({
+        id: `write-contention/${ctx}`,
+        family: "write-contention", area: "write", context: ctx,
+        weight: busiest > 1 ? 3 : 2,
+        subject: `${owning.length} stream(s) we append to in ${ctx}`,
+        says: writerCounts.map((w) => `      ${w.band} — ${w.writers.length} writing slice(s)${w.writers.length ? ": " + w.writers.join(", ") : ""}`).join("\n"),
+        asks: "How many callers may append to ONE of these streams at the same instant before a caller is told to try again? The emitted retry budget answers 4-5 and silently destroys the rest; nothing in the generated tests can see that.",
+        options: [
+          "accept the retry budget — right when simultaneous writes to one key are genuinely rare. The loser now gets a 409 (retriable, and true) instead of a 500, and an exhausted retry is dead-lettered rather than dropped. Say what makes collisions rare here, because that IS the decision",
+          "PARTITION the write path: route commands sharing a stream key to one local queue so they run in order. Measured 16/16 where retries managed 7/16. Costs the synchronous outcome — a partitioned command is PUBLISHED, so a rejection cannot come back on the response, and any slice that must return ProblemDetails cannot use it. codegen emits the configuration; choosing to publish is this decision",
+          "narrow the stream key so the writers no longer share one stream — a MODEL change, and the only option that removes the contention rather than managing it",
+          "leave a hot stream hot and accept lost writes, if the work is genuinely idempotent and re-driven from elsewhere. Say who re-drives it",
+        ],
+        mirror: "wolverine/tutorials/concurrency — 'continuous retry on high contention will exhaust resources before succeeding' and 'selective queueing is preferable to relying solely on retry logic'; wolverine/guide/messaging/partitioning for the mechanism. probes/retry-budget.cs is this kit's own measurement of all three arms",
+      });
+    }
+
+    // ---- W3: a slice that MINTS its own stream key — KIT-FINDINGS BT6 ------------------------------
+    //
+    // `terminal="recipeId:generated"` on a command whose aggregate is keyed by recipeId says the HANDLER
+    // supplies the stream key. That makes the slice a CREATE rather than an append, and it raises a
+    // question the model deliberately cannot answer: what does a valid id look like, and what happens when
+    // two callers mint the same one?
+    //
+    // ONE PREDICATE, SHARED WITH codegen: "an identity field this command marks generated". codegen owns
+    // the separate question of whether it can DERIVE the code from that (a single Guid key on a Guid
+    // store, and nothing else) — that is a fact about C#, not about the domain, and duplicating it here
+    // would be V9's shape: two tools with private ideas of the same word. So this asks on EVERY creating
+    // slice, and in the derivable case the answer is one confirming line rather than a design session.
+    for (const s of ir.slices) {
+      const cmd = ir.elements.find((e) => e.kind === "command" && e.slice === s.name);
+      if (!cmd) continue;
+      const minted = new Set((cmd.terminal ?? []).filter((t) => t.type === "generated").map((t) => t.name));
+      const lane = owning.find((l) => l.streams.includes(cmd.aggregate));
+      const mintedKeys = (lane?.identity ?? []).filter((k) => minted.has(k));
+      if (!mintedKeys.length) continue;
+      qs.push({
+        id: `id-generation/${ctx}/${s.name}`,
+        family: "id-generation", area: "write", context: ctx,
+        subject: `${cmd.label} mints ${mintedKeys.join(", ")}`,
+        says: `${cmd.label} declares terminal="${mintedKeys.join(", ")}:generated" and ${lane.streams.join("+")} is keyed by (${lane.identity.join(", ")}), so this slice CREATES its stream rather than appending to one`,
+        asks: "What does a valid id look like, and what happens if two callers mint the same one? The stream key and the value carried on the event must be the SAME, or a view keyed on it can never find the stream it came from.",
+        options: [
+          "Guid.CreateVersion7() — the default, and what codegen scaffolds for a Guid key. Sequential, so it does not fragment the primary-key index; it is the non-obsolete form of Marten's own CombGuid advice, since CombGuidIdGeneration carries [Obsolete] as of Marten 9. Collision is not a real risk, so no rule is needed",
+          "a business identifier the domain already uses (an order number, a reference code) — then say who allocates it, whether it is unique for ever or per period, and what a duplicate means. This is the answer that needs a collision rule, because StartStream throws ExistingStreamIdCollisionException and somebody must decide whether that is a retry or a refusal",
+          "supplied by the CALLER after all — then it is not terminal=generated, and the fix is on the model rather than here",
+        ],
+        mirror: "marten/documents/identity (why sequential), marten/events/appending (StartStream and ExistingStreamIdCollisionException), wolverine/guide/http/metadata (CreationResponse writes 201 + Location + the new id, which is why a creating slice cannot use [EmptyResponse])",
+        weight: 2,
+      });
+    }
+
     // ---- W2: a rule that needs a stream its command does not write --------------------------------
     //
     // THE SHARPEST DERIVATION HERE, and it is exactly the shape of a double-booking rule. If a scenario's
@@ -367,9 +437,21 @@ function derive() {
       const feeds = v.upstream.map(el).filter((e) => e && ["event", "external"].includes(e.kind));
       const streamTypes = [...new Set(feeds.map((e) => e.aggregate).filter(Boolean))];
       // Marten has NO default lifecycle — the argument is required — and its multi-stream page says
-      // "register the lookup projection inline and the multi-stream projection async". codegen now does
-      // exactly that, so >1 stream type means this view IS Async and a reader must wait rather than assert.
-      const multi = streamTypes.length > 1;
+      // "register the lookup projection inline and the multi-stream projection async". codegen registers
+      // accordingly, so "multi" here must mean exactly what it means THERE.
+      //
+      // IT USED TO MEAN SOMETHING WEAKER: `streamTypes.length > 1`, the count of feeding aggregate types.
+      // A view fed by ONE stream but keyed by something other than that stream's key is multi-stream to
+      // the generator and single-stream to that test, so codegen registered it Async and this question was
+      // never raised — four such views on Voltway, every one unquestioned. One definition now, in
+      // tools/view-recipe.mjs, read by both. KIT-FINDINGS V9.
+      const multi = isMultiStream({
+        feedingAggregates: feeds.map((e) => e.aggregate),
+        streamKeyOfSingle: streamTypes.length === 1
+          ? (laneOfAggregate.get(streamTypes[0])?.identity ?? [])
+          : [],
+        declaredIdentity: v.identity,
+      });
 
       // READ-YOUR-OWN-WRITE: a screen that both displays this view AND issues a command whose event feeds
       // it. The user presses the button and expects to see their own change. If the view is Async, a

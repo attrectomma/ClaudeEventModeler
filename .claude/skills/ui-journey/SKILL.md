@@ -144,6 +144,32 @@ Both halves are reported by name:
 node tools/uijourney.mjs check
 ```
 
+### When a walk CANNOT honestly be written, say so on the cell
+
+Some named chapters cannot be walked in a browser without inventing something. The measured case is
+Voltway's `driver-first-charge`: the system has no login — the front end hard-codes one driver id and
+`?driverId=` accepts any guid — so *sign up → hold a bay* would act as a **different person** in step 2 than
+it registered in step 1, and the test would **pass**. Writing that spec means inventing a login, which is
+the one thing this kit refuses.
+
+Put the reason on the chapter cell:
+
+```xml
+<object id="ch-driver-first-charge" em="chapter" chapter="driver-first-charge"
+        slices="register-driver, bay-availability, hold-bay"
+        blocked="the system has no login: driver.ts hard-codes one id and ?driverId= accepts any
+                 guid, so step 2 would act as a different person than step 1 registered — and PASS">
+```
+
+`check` then reports it under **`DELIBERATELY NOT WALKED`** with the reason, instead of listing it under
+`NO UI JOURNEY SPEC` beside walks somebody genuinely has not written yet. That distinction is the point: a
+reader who sees the same unactionable complaint every run stops reading the report, and then misses the day
+a real one appears. KIT-FINDINGS **BN10**.
+
+**The reason is the value.** A bare `blocked=` is a hard error — an acknowledgement used as a mute records
+nothing, which is strictly worse than the noisy report it replaced. And re-read these occasionally: the
+reason is usually a gap in the *system*, and it stops being true the day that gap is closed.
+
 ### Reaching the starting position: the line is the SLICE LIST, not the transport
 
 *"No step may fake the backend"* is about **stubbing** — `page.route`, `fulfill`, `localStorage` seeding,
